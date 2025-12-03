@@ -154,10 +154,11 @@
     - *メソッド:* Save, FindByID, FindByTenantID, Delete
     - *見積もり:* 30分
     - *⚠️ Multi-Tenant前提:* 全メソッドで tenant_id を引数に取る（例: `FindByID(ctx, tenantID, eventID)`）。tenant境界を越えたアクセスを防ぐため必須
-  - [~] 🟡 1.1.4: EventRepository の実装（PostgreSQL）
+  - [x] 🟡 1.1.4: EventRepository の実装（PostgreSQL）
     - *詳細:* `backend/internal/infra/db/event_repository.go`
     - *依存:* サブタスク 1.1.2, 1.1.3
     - *見積もり:* 2〜3時間
+    - *✅ 完了日:* 2025-12-03
 
 - [x] 🔴 **サブタスク 1.2: RecurringPattern ドメインの実装** [MVP]
   - [x] 🔴 1.2.1: RecurringPattern エンティティの定義 [MVP]
@@ -218,8 +219,10 @@
     - *メソッド:* Save, FindByEventID, FindByID, FindByDateRange
     - *見積もり:* 30分
     - *⚠️ Multi-Tenant前提:* 全メソッドで tenant_id を引数に取る
-  - [ ] 🔴 1.3.4: EventBusinessDayRepository の実装（PostgreSQL） [真MVP]
+  - [x] 🔴 1.3.4: EventBusinessDayRepository の実装（PostgreSQL） [真MVP]
+    - *詳細:* `backend/internal/infra/db/business_day_repository.go`
     - *見積もり:* 2時間
+    - *✅ 完了日:* 2025-12-03
   - [ ] 🟡 1.3.5: RecurringPattern から EventBusinessDay を生成するドメインサービス実装 [v1.1]
     - *詳細:* `backend/internal/domain/event/business_day_generator.go`
     - *ロジック:* Event + RecurringPattern → EventBusinessDay のリストを生成
@@ -251,21 +254,61 @@
   - [x] 🔴 1.4.3: ShiftSlotRepository インターフェースの定義
     - *メソッド:* Save, FindByID, FindByBusinessDayID, Delete
     - *見積もり:* 30分
-  - [ ] 🟡 1.4.4: ShiftSlotRepository の実装（PostgreSQL）
+  - [x] 🟡 1.4.4: ShiftSlotRepository の実装（PostgreSQL）
+    - *詳細:* `backend/internal/infra/db/shift_slot_repository.go`
     - *見積もり:* 2時間
+    - *✅ 完了日:* 2025-12-03
 
-- [~] 🟡 **サブタスク 1.5: 静的ドメインの純粋テスト実装**
+- [x] 🟡 **サブタスク 1.5: 静的ドメインの純粋テスト実装**
   - [x] 🟡 1.5.1: Event ドメインの単体テスト
     - *詳細:* `backend/internal/domain/event/event_test.go`
     - *テストケース:* エンティティ生成、不変条件違反、バリデーション
     - *見積もり:* 1〜2時間
-  - [ ] 🟡 1.5.2: RecurringPattern のテスト
+  - [ ] 🟡 1.5.2: RecurringPattern のテスト [v1.1]
     - *テストケース:* 各パターンの営業日生成ロジック（Daily, Weekly, etc.）
     - *見積もり:* 2〜3時間
+    - *⏸️ 真のMVPでは後回し*: 営業日自動生成ロジックは v1.1
   - [x] 🟡 1.5.3: EventBusinessDay + ShiftSlot の統合テスト（ShiftSlot単体テストとして実装済み）
     - *シナリオ:* Event 作成 → RecurringPattern で営業日生成 → ShiftSlot 登録 → リポジトリで永続化・取得
     - *詳細:* `backend/internal/domain/shift/shift_slot_test.go`
     - *見積もり:* 3〜4時間
+  - [x] 🟡 1.5.4: EventRepository の統合テスト
+    - *詳細:* `backend/internal/infra/db/event_repository_integration_test.go`
+    - *テストケース:* DB接続、Event作成・取得・更新、BusinessDay連携
+    - *✅ 完了日:* 2025-12-03
+
+- [x] 🔴 **サブタスク 1.6: Member ドメインの実装（真のMVP版）** [真MVP]
+  - [x] 🔴 1.6.1: Member エンティティの定義（最小限）[真MVP]
+    - *詳細:* `backend/internal/domain/member/member.go`
+    - *属性:* member_id, tenant_id, display_name, discord_user_id, email
+    - *見積もり:* 1時間
+    - *✅ 完了日:* 2025-12-03
+    - *⏸️ 最小限実装*: ロール・外部アカウント管理は v1.1
+  - [x] 🔴 1.6.2: MemberRepository インターフェースの定義 [真MVP]
+    - *詳細:* `backend/internal/domain/member/repository.go`
+    - *メソッド:* Save, FindByID, FindByDiscordUserID, FindByEmail, FindAllByTenantID
+    - *見積もり:* 30分
+    - *✅ 完了日:* 2025-12-03
+  - [x] 🔴 1.6.3: MemberRepository の実装（PostgreSQL）[真MVP]
+    - *詳細:* `backend/internal/infra/db/member_repository.go`
+    - *見積もり:* 2時間
+    - *✅ 完了日:* 2025-12-03
+
+- [x] 🔴 **サブタスク 1.7: Position ドメインの実装** [真MVP]
+  - [x] 🔴 1.7.1: Position エンティティの定義 [真MVP]
+    - *詳細:* `backend/internal/domain/shift/position.go`
+    - *属性:* position_id, tenant_id, position_name, description, display_order, is_active
+    - *見積もり:* 1時間
+    - *✅ 完了日:* 2025-12-03
+  - [x] 🔴 1.7.2: PositionRepository インターフェースの定義 [真MVP]
+    - *詳細:* `backend/internal/domain/shift/position_repository.go`
+    - *メソッド:* Save, FindByID, FindByTenantID, FindActiveByTenantID, Delete
+    - *見積もり:* 30分
+    - *✅ 完了日:* 2025-12-03
+  - [x] 🔴 1.7.3: PositionRepository の実装（PostgreSQL）[真MVP]
+    - *詳細:* `backend/internal/infra/db/position_repository.go`
+    - *見積もり:* 2時間
+    - *✅ 完了日:* 2025-12-03
 
 ---
 
@@ -305,8 +348,10 @@ ShiftAssignment（シフト確定）のドメイン実装と、通知・監査�
   - [x] 🔴 2.1.3: ShiftAssignmentRepository インターフェースの定義
     - *メソッド:* Save, FindByID, FindBySlotID, FindByMemberID, UpdateStatus
     - *見積もり:* 30分
-  - [ ] 🟡 2.1.4: ShiftAssignmentRepository の実装（PostgreSQL）
+  - [x] 🟡 2.1.4: ShiftAssignmentRepository の実装（PostgreSQL）
+    - *詳細:* `backend/internal/infra/db/shift_assignment_repository.go`
     - *見積もり:* 2時間
+    - *✅ 完了日:* 2025-12-03
 
 - [ ] 🟡 **サブタスク 2.2: Notification ドメインの実装（stub）** [v1.1]
   - [ ] 🟡 2.2.1: NotificationEvent エンティティの定義（stub） [v1.1]
@@ -437,46 +482,52 @@ ShiftAssignment（シフト確定）のドメイン実装と、通知・監査�
 - **3B（真のMVP）**: ShiftSlot/Assignment 管理 API（作成・一覧・詳細のみ）
 - **3C（v1.1以降）**: 更新・削除 API、Member/Availability 管理 + 可視化 API
 
-- [ ] 🟢 **サブタスク 3.1: API 基盤の実装** [MVP]
-  - [ ] 🟢 3.1.1: HTTP ルーター / ミドルウェアの実装 [MVP]
-    - *詳細:* `backend/internal/interface/rest/router.go`
-    - *機能:* CORS設定、ロギング、エラーハンドリングミドルウェア、JSON レスポンスヘルパー
+- [x] 🟢 **サブタスク 3.1: API 基盤の実装** [MVP]
+  - [x] 🟢 3.1.1: HTTP ルーター / ミドルウェアの実装 [MVP]
+    - *詳細:* `backend/internal/interface/rest/router.go`, `middleware.go`
+    - *機能:* CORS設定、ロギング、エラーハンドリングミドルウェア、JSON レスポンスヘルパー、簡易認証（X-Tenant-ID/X-Member-IDヘッダー）
     - *見積もり:* 2〜3時間
+    - *✅ 完了日:* 2025-12-03
     - *⚠️ DDD レイヤ保護ルール（重要）:*
       - **状態変更系 API（POST/PUT/PATCH/DELETE）は必ず Application Service 経由**
       - ハンドラから直接 Repository を呼び出して永続化してはいけない（集約の不変条件が破壊される）
       - **参照系 API（GET）のみ**、パフォーマンス目的で Repository 直接アクセスを許可
       - 例外的に Repository を直接触る場合は、必ずコードレビューで合意を得ること
-  - [ ] 🟢 3.1.2: API エラーレスポンスの標準化 [MVP]
+  - [x] 🟢 3.1.2: API エラーレスポンスの標準化 [MVP]
     - *詳細:* `backend/internal/interface/rest/response.go`
     - *形式:* `{ "error": { "code": "ERR_xxx", "message": "...", "details": {...} } }`
     - *見積もり:* 1時間
-    - *エラーコード例:*
+    - *✅ 完了日:* 2025-12-03
+    - *実装済みエラーコード:*
       - `ERR_INVALID_REQUEST` - バリデーションエラー
       - `ERR_NOT_FOUND` - リソースが存在しない
       - `ERR_CONFLICT` - 競合（同時実行、重複など）
       - `ERR_FORBIDDEN` - テナント境界違反
       - `ERR_INTERNAL` - サーバー内部エラー
-  - [ ] 🟢 3.1.3: リクエストバリデーション共通機構
+  - [ ] 🟢 3.1.3: リクエストバリデーション共通機構 [v1.1]
     - *詳細:* `backend/internal/interface/rest/validator.go`
     - *機能:* struct tag ベースのバリデーション、カスタムルール
     - *見積もり:* 2時間
+    - *⏸️ 真のMVPでは後回し*: 現在は各ハンドラ内で手動バリデーション、共通化は v1.1
 
-- [ ] 🔴 **サブタスク 3.2: Event 管理 API の実装** [真MVP + v1.1]
-  - [ ] 🔴 3.2.1: POST /api/v1/events - Event 作成 [真MVP]
+- [x] 🔴 **サブタスク 3.2: Event 管理 API の実装（作成・一覧・詳細）** [真MVP]
+  - [x] 🔴 3.2.1: POST /api/v1/events - Event 作成 [真MVP]
     - *詳細:* `backend/internal/interface/rest/event_handler.go`
-    - *リクエスト:* `{ tenant_id, event_name, event_type, description }`
-    - *レスポンス:* `{ event_id, event_name, created_at }`
-    - *バリデーション:* event_name の必須性、tenant_id の存在確認
+    - *リクエスト:* `{ event_name, event_type, description }`（tenant_idはヘッダーから取得）
+    - *レスポンス:* `{ data: { event_id, tenant_id, event_name, event_type, description, is_active, created_at, updated_at } }`
+    - *バリデーション:* event_name の必須性、event_type の妥当性、重複チェック
     - *見積もり:* 2〜3時間
+    - *✅ 完了日:* 2025-12-03
     - *⏸️ RecurringPattern は後回し*: 真のMVPでは Event 作成のみ、RecurringPattern は v1.1
-  - [ ] 🔴 3.2.2: GET /api/v1/events - Event 一覧取得（ページネーション対応） [真MVP]
-    - *クエリパラメータ:* `tenant_id`, `page`, `limit`, `sort_by`, `order`
-    - *レスポンス:* `{ events: [...], total_count, page, limit }`
+  - [x] 🔴 3.2.2: GET /api/v1/events - Event 一覧取得 [真MVP]
+    - *レスポンス:* `{ data: { events: [...], count: N } }`
     - *見積もり:* 2時間
-  - [ ] 🔴 3.2.3: GET /api/v1/events/:event_id - Event 詳細取得 [真MVP]
-    - *レスポンス:* Event情報 + 関連する営業日数
+    - *✅ 完了日:* 2025-12-03
+    - *⏸️ ページネーションは v1.1*: 現在は全件取得、ページネーション対応は v1.1
+  - [x] 🔴 3.2.3: GET /api/v1/events/:event_id - Event 詳細取得 [真MVP]
+    - *レスポンス:* `{ data: { event_id, tenant_id, event_name, ... } }`
     - *見積もり:* 1時間
+    - *✅ 完了日:* 2025-12-03
   - [ ] 🟡 3.2.4: PUT /api/v1/events/:event_id - Event 更新 [v1.1]
     - *リクエスト:* 更新可能フィールド（event_name, description, recurring_pattern）
     - *制約:* 既にシフトが確定している場合は期間変更不可
@@ -485,20 +536,24 @@ ShiftAssignment（シフト確定）のドメイン実装と、通知・監査�
     - *制約:* 確定済みシフトがある場合は削除不可（エラー返却）
     - *見積もり:* 1〜2時間
 
-- [ ] 🔴 **サブタスク 3.3: EventBusinessDay 管理 API** [真MVP + v1.1]
-  - [ ] 🔴 3.3.1: POST /api/v1/events/:event_id/business-days - 営業日手動作成 [真MVP]
-    - *リクエスト:* `{ target_date, start_time, end_time }`
-    - *レスポンス:* `{ business_day_id, target_date, created_at }`
+- [x] 🔴 **サブタスク 3.3: EventBusinessDay 管理 API（作成・一覧・詳細）** [真MVP]
+  - [x] 🔴 3.3.1: POST /api/v1/events/:event_id/business-days - 営業日手動作成 [真MVP]
+    - *詳細:* `backend/internal/interface/rest/business_day_handler.go`
+    - *リクエスト:* `{ target_date, start_time, end_time, occurrence_type }`
+    - *レスポンス:* `{ data: { business_day_id, tenant_id, event_id, target_date, start_time, end_time, occurrence_type, is_active, created_at } }`
     - *処理:* EventBusinessDay を手動で1件作成
     - *見積もり:* 1〜2時間
+    - *✅ 完了日:* 2025-12-03
     - *⏸️ 自動生成は後回し*: RecurringPattern からの自動生成は v1.1
-  - [ ] 🔴 3.3.2: GET /api/v1/events/:event_id/business-days - 営業日一覧取得 [真MVP]
-    - *クエリパラメータ:* `start_date`, `end_date`, `is_active`
-    - *レスポンス:* `{ business_days: [{ business_day_id, target_date, day_of_week, shift_slot_count }] }`
+  - [x] 🔴 3.3.2: GET /api/v1/events/:event_id/business-days - 営業日一覧取得 [真MVP]
+    - *クエリパラメータ:* `start_date`, `end_date`（日付範囲フィルタ対応）
+    - *レスポンス:* `{ data: { business_days: [...], count: N } }`
     - *見積もり:* 1〜2時間
-  - [ ] 🔴 3.3.3: GET /api/v1/business-days/:business_day_id - 営業日詳細取得 [真MVP]
-    - *レスポンス:* 営業日情報 + 紐づくシフト枠一覧
+    - *✅ 完了日:* 2025-12-03
+  - [x] 🔴 3.3.3: GET /api/v1/business-days/:business_day_id - 営業日詳細取得 [真MVP]
+    - *レスポンス:* `{ data: { business_day_id, tenant_id, event_id, target_date, ... } }`
     - *見積もり:* 1時間
+    - *✅ 完了日:* 2025-12-03
   - [ ] 🟡 3.3.4: POST /api/v1/events/:event_id/generate-business-days - 営業日一括生成 [v1.1]
     - *処理:* RecurringPattern に基づいて EventBusinessDay を生成
     - *レスポンス:* 生成された営業日数
@@ -695,7 +750,7 @@ Backend API を利用した Discord Bot の実装。Bot はビジネスロジッ
 
 ## 完了したタスク
 
-### ✅ Step 1-2: マイグレーションとドメインエンティティ基盤（完了日: 2025-12-03）
+### ✅ Phase 1: マイグレーションとドメインエンティティ基盤（完了日: 2025-12-03）
 
 **マイグレーション（6ファイル完成）:**
 - [x] 001: tenants, events, recurring_patterns テーブル
@@ -704,7 +759,7 @@ Backend API を利用した Discord Bot の実装。Bot はビジネスロジッ
 - [x] 004: shift_plans, shift_assignments テーブル
 - [x] 005: notification_logs, notification_templates テーブル
 - [x] 006: audit_logs テーブル
-- [x] マイグレーション実行ツール: `cmd/migrate/main.go`
+- [x] マイグレーション実行ツール: `cmd/migrate/main.go`（filesystem ベース、Go 1.22+ 対応）
 
 **ドメインエンティティ（全エンティティ完成）:**
 - [x] Event エンティティ + Repository IF（`domain/event/`）
@@ -713,9 +768,10 @@ Backend API を利用した Discord Bot の実装。Bot はビジネスロジッ
 - [x] ShiftSlot エンティティ + Repository IF（深夜営業判定、時刻フォーマット）
 - [x] ShiftAssignment エンティティ + Repository IF（ステータス遷移、キャンセル機能）
 - [x] Member エンティティ + Repository IF（真のMVP版、最小限実装）
+- [x] Position エンティティ + Repository IF（役職管理、表示順対応）
 
 **共通型:**
-- [x] domain/common/id.go: ULID生成、型安全なID（TenantID, EventID, MemberID）
+- [x] domain/common/id.go: ULID生成、型安全なID（TenantID, EventID, MemberID, PositionID）
 - [x] domain/common/errors.go: ドメインエラー型定義
 
 **ドメインテスト:**
@@ -734,7 +790,74 @@ Backend API を利用した Discord Bot の実装。Bot はビジネスロジッ
 - ✅ ShiftSlot ドメイン: 12テスト PASS (0.003s)
 - ✅ 全ドメイン層: PASS
 
-**次のステップ:** PostgreSQL リポジトリ実装 → 統合テスト
+---
+
+### ✅ Phase 2: PostgreSQL リポジトリ実装（完了日: 2025-12-03）
+
+**リポジトリ実装（全エンティティ対応）:**
+- [x] EventRepository（`infra/db/event_repository.go`）
+  - Save, FindByID, FindByTenantID, FindActiveByTenantID, Delete, ExistsByName
+- [x] EventBusinessDayRepository（`infra/db/business_day_repository.go`）
+  - Save, FindByID, FindByEventID, FindByEventIDAndDateRange, FindActiveByEventID, FindByTenantIDAndDate, ExistsByEventIDAndDate
+- [x] ShiftSlotRepository（`infra/db/shift_slot_repository.go`）
+  - Save, FindByID, FindByBusinessDayID, Delete
+- [x] ShiftAssignmentRepository（`infra/db/shift_assignment_repository.go`）
+  - Save, FindByID, FindBySlotID, FindByMemberID, UpdateStatus
+- [x] MemberRepository（`infra/db/member_repository.go`）
+  - Save, FindByID, FindByDiscordUserID, FindByEmail, FindAllByTenantID
+- [x] PositionRepository（`infra/db/position_repository.go`）
+  - Save, FindByID, FindByTenantID, FindActiveByTenantID, Delete
+
+**統合テスト:**
+- [x] EventRepository 統合テスト（`infra/db/event_repository_integration_test.go`）
+  - DB接続確認、Event作成・取得・更新、BusinessDay連携
+
+**技術スタック:**
+- PostgreSQL 16 + pgx/v5（コネクションプーリング）
+- ULID（oklog/ulid/v2）による型安全なID管理
+- sql.NullTime, sql.NullString による nullable カラム対応
+
+---
+
+### ✅ Phase 3: REST API 基盤と真のMVP API（完了日: 2025-12-03）
+
+**API 基盤（`internal/interface/rest/`）:**
+- [x] router.go: go-chi/chi v5 ベースのルーティング
+- [x] middleware.go: Logger, CORS, Auth（X-Tenant-ID/X-Member-ID ヘッダー）, Recover
+- [x] response.go: 統一JSON レスポンス形式、ドメインエラー→HTTPステータス変換
+
+**Event API（`event_handler.go`）:**
+- [x] POST /api/v1/events - Event 作成
+- [x] GET /api/v1/events - Event 一覧取得
+- [x] GET /api/v1/events/:event_id - Event 詳細取得
+
+**EventBusinessDay API（`business_day_handler.go`）:**
+- [x] POST /api/v1/events/:event_id/business-days - 営業日手動作成
+- [x] GET /api/v1/events/:event_id/business-days - 営業日一覧取得（日付範囲フィルタ対応）
+- [x] GET /api/v1/business-days/:business_day_id - 営業日詳細取得
+
+**APIサーバー（`cmd/server/main.go`）:**
+- [x] Graceful shutdown 対応
+- [x] 環境変数による設定（DATABASE_URL, PORT）
+- [x] pgxpool によるコネクションプーリング
+
+**動作確認:**
+- ✅ ヘルスチェック: GET /health → `{"status":"ok"}`
+- ✅ Event 作成・一覧・詳細取得
+- ✅ BusinessDay 作成・一覧・詳細取得・日付範囲フィルタ
+- ✅ Multi-Tenant 認証（X-Tenant-ID ヘッダー）
+- ✅ エラーハンドリング（バリデーション、NotFound、Conflict）
+
+**Go 環境:**
+- Go 1.24.11（1.22 から自動アップグレード）
+- go-chi/chi/v5, pgx/v5, oklog/ulid/v2
+
+---
+
+**次のステップ:** 
+1. 🔴 親タスク 2: ShiftAssignment Application Service 実装（通知・監査 stub）
+2. 🔴 親タスク 3B: ShiftSlot/Assignment 管理 API 実装
+3. 🟢 親タスク 4: Discord Bot 連携
 
 ---
 
