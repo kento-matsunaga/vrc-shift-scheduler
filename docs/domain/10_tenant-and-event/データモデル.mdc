@@ -48,6 +48,11 @@
 - シフト募集や確定を行える営業日は、事前に「有効な営業日」として生成されている必要がある。
 - 営業日の自動生成は3ヶ月単位で行う（PdM確認済み）。
 
+### 営業日の履歴性とメタ情報について
+
+- イベント期間中に営業日を追加・削除した場合でも、その変更履歴を追えるようにするため、`created_at`（作成日時）と `updated_at`（最終更新日時）を保持する。
+- 本バージョンでは論理削除や本格的なTemporal管理は行わないが、最低限の監査性を確保する。
+
 ---
 
 ## データモデル構成
@@ -57,7 +62,7 @@
 1. **テナント** (`tenants`) - テナント（団体・店舗）の基本情報を保持するリソース系テーブル (Non-temporal)
 2. **イベント** (`events`) - テナントが運営する営業・イベントの基本情報を保持するリソース系テーブル (Non-temporal)
 3. **イベント通常営業パターン** (`event_recurring_patterns`) - 通常営業の反復パターン（毎週木曜など）を保持するリソース系テーブル (Non-temporal)
-4. **イベント営業日** (`event_business_days`) - イベントの営業日（通常営業パターンから生成または特別営業日として登録）を保持するリソース系テーブル (Uni-temporal: ValidPeriod)
+4. **イベント営業日** (`event_business_days`) - イベントの営業日（通常営業パターンから生成または特別営業日として登録）を保持するリソース系テーブル (Uni-temporal: ValidPeriod)。マルチテナントSaaSのため、全てのドメインテーブルは `tenant_id` を持ち、テナント境界をDBレベルで表現する。テナントを跨いだ参照は行われない。イベント営業日は基本的に Non-temporal として扱い、履歴テーブルは別途設けないが、作成日時・更新日時を保持することで、いつ営業日が追加されたかを追えるようにしている。
 
 ### 主要な業務フロー
 
@@ -130,6 +135,7 @@ erDiagram
 
     イベント営業日["イベント営業日 (event_business_days)"] {
         uuid id PK "イベント営業日ID"
+        uuid tenant_id FK "テナントID"
         uuid event_id FK "イベントID"
         uuid recurring_pattern_id FK "通常営業パターンID(NULL可)"
         date business_date "営業日"
@@ -138,8 +144,8 @@ erDiagram
         string occurrence_type "営業種別(recurring:通常/special:特別)"
         date valid_from "有効開始日"
         date valid_to "有効終了日"
-        timestamp created_at "作成日時"
-        timestamp updated_at "更新日時"
+        timestamp created_at "営業日レコードの作成日時"
+        timestamp updated_at "営業日レコードの最終更新日時"
     }
 
     テナント ||--o{ イベント : "1対多(テナントごとのイベント)"
@@ -147,6 +153,8 @@ erDiagram
     イベント ||--o{ イベント営業日 : "1対多(イベントごとの営業日)"
     イベント通常営業パターン ||--o{ イベント営業日 : "1対多(パターンから生成された営業日)"
 ```
+
+**注記**: すべての関連は同一 `tenant_id` 間でのみ成立する。
 
 ---
 
@@ -169,47 +177,49 @@ INSERT INTO event_recurring_patterns (id, event_id, day_of_week, start_time, end
 
 -- 4. 営業日自動生成（2025年12月の木曜日4回分）
 -- 12月5日（木）
-INSERT INTO event_business_days (id, event_id, recurring_pattern_id, business_date, start_time, end_time, occurrence_type, valid_from, valid_to, created_at, updated_at) VALUES
-('018f1234-0000-0000-0000-000000000020', '018f1234-0000-0000-0000-000000000010', '018f1234-0000-0000-0000-000000000011', '2025-12-05', '21:30:00', '23:00:00', 'recurring', '2025-12-05', '2025-12-05', NOW(), NOW());
+INSERT INTO event_business_days (id, tenant_id, event_id, recurring_pattern_id, business_date, start_time, end_time, occurrence_type, valid_from, valid_to, created_at, updated_at) VALUES
+('018f1234-0000-0000-0000-000000000020', '018f1234-0000-0000-0000-000000000001', '018f1234-0000-0000-0000-000000000010', '018f1234-0000-0000-0000-000000000011', '2025-12-05', '21:30:00', '23:00:00', 'recurring', '2025-12-05', '2025-12-05', NOW(), NOW());
 
 -- 12月12日（木）
-INSERT INTO event_business_days (id, event_id, recurring_pattern_id, business_date, start_time, end_time, occurrence_type, valid_from, valid_to, created_at, updated_at) VALUES
-('018f1234-0000-0000-0000-000000000021', '018f1234-0000-0000-0000-000000000010', '018f1234-0000-0000-0000-000000000011', '2025-12-12', '21:30:00', '23:00:00', 'recurring', '2025-12-12', '2025-12-12', NOW(), NOW());
+INSERT INTO event_business_days (id, tenant_id, event_id, recurring_pattern_id, business_date, start_time, end_time, occurrence_type, valid_from, valid_to, created_at, updated_at) VALUES
+('018f1234-0000-0000-0000-000000000021', '018f1234-0000-0000-0000-000000000001', '018f1234-0000-0000-0000-000000000010', '018f1234-0000-0000-0000-000000000011', '2025-12-12', '21:30:00', '23:00:00', 'recurring', '2025-12-12', '2025-12-12', NOW(), NOW());
 
 -- 12月19日（木）
-INSERT INTO event_business_days (id, event_id, recurring_pattern_id, business_date, start_time, end_time, occurrence_type, valid_from, valid_to, created_at, updated_at) VALUES
-('018f1234-0000-0000-0000-000000000022', '018f1234-0000-0000-0000-000000000010', '018f1234-0000-0000-0000-000000000011', '2025-12-19', '21:30:00', '23:00:00', 'recurring', '2025-12-19', '2025-12-19', NOW(), NOW());
+INSERT INTO event_business_days (id, tenant_id, event_id, recurring_pattern_id, business_date, start_time, end_time, occurrence_type, valid_from, valid_to, created_at, updated_at) VALUES
+('018f1234-0000-0000-0000-000000000022', '018f1234-0000-0000-0000-000000000001', '018f1234-0000-0000-0000-000000000010', '018f1234-0000-0000-0000-000000000011', '2025-12-19', '21:30:00', '23:00:00', 'recurring', '2025-12-19', '2025-12-19', NOW(), NOW());
 
 -- 12月26日（木）
-INSERT INTO event_business_days (id, event_id, recurring_pattern_id, business_date, start_time, end_time, occurrence_type, valid_from, valid_to, created_at, updated_at) VALUES
-('018f1234-0000-0000-0000-000000000023', '018f1234-0000-0000-0000-000000000010', '018f1234-0000-0000-0000-000000000011', '2025-12-26', '21:30:00', '23:00:00', 'recurring', '2025-12-26', '2025-12-26', NOW(), NOW());
+INSERT INTO event_business_days (id, tenant_id, event_id, recurring_pattern_id, business_date, start_time, end_time, occurrence_type, valid_from, valid_to, created_at, updated_at) VALUES
+('018f1234-0000-0000-0000-000000000023', '018f1234-0000-0000-0000-000000000001', '018f1234-0000-0000-0000-000000000010', '018f1234-0000-0000-0000-000000000011', '2025-12-26', '21:30:00', '23:00:00', 'recurring', '2025-12-26', '2025-12-26', NOW(), NOW());
 ```
 
 ### ケース2: 特別営業日の追加（Vket期間）
 
 ```sql
 -- 1. 特別営業日登録（2025-11-11 Vketラウンジ営業）
-INSERT INTO event_business_days (id, event_id, recurring_pattern_id, business_date, start_time, end_time, occurrence_type, valid_from, valid_to, created_at, updated_at) VALUES
-('018f1234-0000-0000-0000-000000000024', '018f1234-0000-0000-0000-000000000010', NULL, '2025-11-11', '21:30:00', '25:00:00', 'special', '2025-11-11', '2025-11-11', NOW(), NOW());
+INSERT INTO event_business_days (id, tenant_id, event_id, recurring_pattern_id, business_date, start_time, end_time, occurrence_type, valid_from, valid_to, created_at, updated_at) VALUES
+('018f1234-0000-0000-0000-000000000024', '018f1234-0000-0000-0000-000000000001', '018f1234-0000-0000-0000-000000000010', NULL, '2025-11-11', '21:30:00', '25:00:00', 'special', '2025-11-11', '2025-11-11', NOW(), NOW());
 
 -- 2. 特別営業日登録（2025-11-12 Vketラウンジ営業）
-INSERT INTO event_business_days (id, event_id, recurring_pattern_id, business_date, start_time, end_time, occurrence_type, valid_from, valid_to, created_at, updated_at) VALUES
-('018f1234-0000-0000-0000-000000000025', '018f1234-0000-0000-0000-000000000010', NULL, '2025-11-12', '21:30:00', '25:00:00', 'special', '2025-11-12', '2025-11-12', NOW(), NOW());
+INSERT INTO event_business_days (id, tenant_id, event_id, recurring_pattern_id, business_date, start_time, end_time, occurrence_type, valid_from, valid_to, created_at, updated_at) VALUES
+('018f1234-0000-0000-0000-000000000025', '018f1234-0000-0000-0000-000000000001', '018f1234-0000-0000-0000-000000000010', NULL, '2025-11-12', '21:30:00', '25:00:00', 'special', '2025-11-12', '2025-11-12', NOW(), NOW());
 ```
 
 ### ケース3: 通常営業と特別営業の同一日時重複（種別切り替え）
 
 ```sql
 -- 1. 通常営業パターンから営業日生成（2025-12-04 木曜）
-INSERT INTO event_business_days (id, event_id, recurring_pattern_id, business_date, start_time, end_time, occurrence_type, valid_from, valid_to, created_at, updated_at) VALUES
-('018f1234-0000-0000-0000-000000000026', '018f1234-0000-0000-0000-000000000010', '018f1234-0000-0000-0000-000000000011', '2025-12-04', '21:30:00', '23:00:00', 'recurring', '2025-12-04', '2025-12-04', NOW(), NOW());
+INSERT INTO event_business_days (id, tenant_id, event_id, recurring_pattern_id, business_date, start_time, end_time, occurrence_type, valid_from, valid_to, created_at, updated_at) VALUES
+('018f1234-0000-0000-0000-000000000026', '018f1234-0000-0000-0000-000000000001', '018f1234-0000-0000-0000-000000000010', '018f1234-0000-0000-0000-000000000011', '2025-12-04', '21:30:00', '23:00:00', 'recurring', '2025-12-04', '2025-12-04', NOW(), NOW());
 
 -- 2. 同じ日時に特別営業（クリスマス特別営業）を定義する場合、既存の営業日の種別を更新
+-- マルチテナント環境では tenant_id も条件に含めて更新
 UPDATE event_business_days
 SET occurrence_type = 'special',
     recurring_pattern_id = NULL,
     updated_at = NOW()
-WHERE id = '018f1234-0000-0000-0000-000000000026';
+WHERE id = '018f1234-0000-0000-0000-000000000026'
+  AND tenant_id = '018f1234-0000-0000-0000-000000000001';
 
 -- 営業日は重複して2件作成されるのではなく、1件のまま種別が切り替わる
 ```
@@ -217,6 +227,12 @@ WHERE id = '018f1234-0000-0000-0000-000000000026';
 ---
 
 ## 整合性の確認
+
+### マルチテナント境界の整合性
+
+- 全てのドメインテーブルは `tenant_id` を持ち、テナント境界をDBレベルで表現する。
+- すべてのリレーション（外部キー参照）は同一 `tenant_id` 間でのみ成立する。
+- アプリケーションは必ず `tenant_id` を条件に含めてクエリを発行し、他テナント行にJOINされる可能性を設計時点で排除する。
 
 ### テナントとイベントの整合性
 
@@ -230,10 +246,31 @@ WHERE id = '018f1234-0000-0000-0000-000000000026';
 
 ### 営業日の一意性
 
-- 同一イベント内で、同一日時の営業日は1件のみ存在する（ユニーク制約: `event_id`, `business_date`, `start_time`）。
+- 同一テナント・同一イベント内で、同一日時の営業日は1件のみ存在する（ユニーク制約: `tenant_id`, `event_id`, `business_date`, `start_time`）。
 - 通常営業と特別営業が同一日時に重複する場合、種別のみ切り替える（1件のレコードで管理）。
 
 ### 有効期間の整合性
 
 - `event_business_days` の `valid_from` と `valid_to` は `business_date` と同じ日付を設定する（営業日単位の有効期間）。
 - 通常営業パターンの `valid_from` と `valid_to` は、パターンが有効な期間を表す。
+
+---
+
+## マルチテナントポリシー
+
+このシステムはマルチテナントSaaSとして設計されており、以下の原則に従います。
+
+### テナント境界のDB表現
+
+- 全てのドメインテーブルが `tenant_id` を持つことで、テナント境界をDBレベルで表現する。
+- テーブル設計時にテナント境界が明示されていることで、データの混在・誤参照を防止する。
+
+### クエリの原則
+
+- アプリケーションは必ず `tenant_id` を条件に含めてクエリを発行する。
+- WHERE句やJOIN条件に `tenant_id` を含めることで、他テナントの行にアクセスされる可能性を排除する。
+
+### 設計の意図
+
+- 他テナント行にJOINされる可能性を設計時点で排除する。
+- Row Level Security (RLS) やアプリケーション層のフィルタに依存せず、DB設計レベルで安全性を確保する。
