@@ -1,10 +1,19 @@
 package rest
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
+)
+
+// Context keys
+type contextKey string
+
+const (
+	contextKeyTenantID contextKey = "tenant_id"
+	contextKeyMemberID contextKey = "member_id"
 )
 
 // ErrorResponse represents a standardized error response
@@ -81,16 +90,16 @@ func RespondError(w http.ResponseWriter, statusCode int, code, message string, d
 // RespondDomainError sends an error response based on domain error
 func RespondDomainError(w http.ResponseWriter, err error) {
 	if domainErr, ok := err.(*common.DomainError); ok {
-		switch domainErr.Code {
-		case "NOT_FOUND":
+		switch domainErr.Code() {
+		case common.ErrNotFound:
 			RespondError(w, http.StatusNotFound, "ERR_NOT_FOUND", domainErr.Message, nil)
-		case "VALIDATION_ERROR":
+		case common.ErrInvalidInput:
 			RespondError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", domainErr.Message, nil)
-		case "CONFLICT":
+		case common.ErrConflict:
 			RespondError(w, http.StatusConflict, "ERR_CONFLICT", domainErr.Message, nil)
 		case "INVARIANT_VIOLATION":
 			RespondError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", domainErr.Message, nil)
-		case "UNAUTHORIZED":
+		case common.ErrUnauthorized:
 			RespondError(w, http.StatusForbidden, "ERR_FORBIDDEN", domainErr.Message, nil)
 		default:
 			RespondError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Internal server error", nil)
@@ -123,5 +132,45 @@ func RespondForbidden(w http.ResponseWriter, message string) {
 // RespondInternalError sends an internal server error
 func RespondInternalError(w http.ResponseWriter) {
 	RespondError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Internal server error", nil)
+}
+
+// writeError is an alias for RespondError (for consistency with handlers)
+func writeError(w http.ResponseWriter, statusCode int, code, message string, details interface{}) {
+	RespondError(w, statusCode, code, message, details)
+}
+
+// writeSuccess is an alias for RespondJSON with SuccessResponse (for consistency with handlers)
+func writeSuccess(w http.ResponseWriter, statusCode int, data interface{}) {
+	RespondJSON(w, statusCode, SuccessResponse{Data: data})
+}
+
+// getTenantIDFromContext retrieves the tenant ID from the request context
+func getTenantIDFromContext(ctx context.Context) (common.TenantID, bool) {
+	tenantIDStr, ok := ctx.Value(contextKeyTenantID).(string)
+	if !ok || tenantIDStr == "" {
+		return "", false
+	}
+
+	tenantID, err := common.ParseTenantID(tenantIDStr)
+	if err != nil {
+		return "", false
+	}
+
+	return tenantID, true
+}
+
+// getMemberIDFromContext retrieves the member ID from the request context
+func getMemberIDFromContext(ctx context.Context) (common.MemberID, bool) {
+	memberIDStr, ok := ctx.Value(contextKeyMemberID).(string)
+	if !ok || memberIDStr == "" {
+		return "", false
+	}
+
+	memberID, err := common.ParseMemberID(memberIDStr)
+	if err != nil {
+		return "", false
+	}
+
+	return memberID, true
 }
 

@@ -1,0 +1,304 @@
+import { useState, useEffect } from 'react';
+import { Link, useParams } from 'react-router-dom';
+import { getEventDetail, getBusinessDays, createBusinessDay } from '../lib/api';
+import type { Event, BusinessDay } from '../types/api';
+import { ApiClientError } from '../lib/apiClient';
+
+export default function BusinessDayList() {
+  const { eventId } = useParams<{ eventId: string }>();
+  const [event, setEvent] = useState<Event | null>(null);
+  const [businessDays, setBusinessDays] = useState<BusinessDay[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [showCreateModal, setShowCreateModal] = useState(false);
+
+  useEffect(() => {
+    if (eventId) {
+      loadData();
+    }
+  }, [eventId]);
+
+  const loadData = async () => {
+    if (!eventId) return;
+
+    try {
+      setLoading(true);
+      const [eventData, businessDaysData] = await Promise.all([
+        getEventDetail(eventId),
+        getBusinessDays(eventId),
+      ]);
+      setEvent(eventData);
+      setBusinessDays(businessDaysData.business_days);
+    } catch (err) {
+      if (err instanceof ApiClientError) {
+        setError(err.getUserMessage());
+      } else {
+        setError('データの取得に失敗しました');
+      }
+      console.error('Failed to load data:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateSuccess = () => {
+    setShowCreateModal(false);
+    loadData();
+  };
+
+  if (loading) {
+    return (
+      <div className="text-center py-12">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+        <p className="mt-4 text-gray-600">読み込み中...</p>
+      </div>
+    );
+  }
+
+  if (!event) {
+    return (
+      <div className="card text-center py-12">
+        <p className="text-gray-600">イベントが見つかりません</p>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {/* パンくずリスト */}
+      <nav className="mb-6 text-sm text-gray-600">
+        <Link to="/events" className="hover:text-gray-900">
+          イベント一覧
+        </Link>
+        <span className="mx-2">/</span>
+        <span className="text-gray-900">{event.event_name}</span>
+      </nav>
+
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">{event.event_name}</h2>
+          <p className="text-sm text-gray-600 mt-1">{event.description}</p>
+        </div>
+        <button onClick={() => setShowCreateModal(true)} className="btn-primary">
+          ＋ 営業日を追加
+        </button>
+      </div>
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+          <p className="text-sm text-red-800">{error}</p>
+        </div>
+      )}
+
+      {businessDays.length === 0 ? (
+        <div className="card text-center py-12">
+          <p className="text-gray-600 mb-4">まだ営業日がありません</p>
+          <button onClick={() => setShowCreateModal(true)} className="btn-primary">
+            最初の営業日を追加
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {businessDays.map((day) => (
+            <Link
+              key={day.business_day_id}
+              to={`/business-days/${day.business_day_id}/shift-slots`}
+              className="card hover:shadow-lg transition-shadow"
+            >
+              <div className="flex justify-between items-start mb-2">
+                <div>
+                  <div className="text-lg font-bold text-gray-900">
+                    {new Date(day.target_date).toLocaleDateString('ja-JP', {
+                      month: 'long',
+                      day: 'numeric',
+                      weekday: 'short',
+                    })}
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    {day.start_time.slice(0, 5)} 〜 {day.end_time.slice(0, 5)}
+                  </div>
+                </div>
+                <span
+                  className={`inline-block px-2 py-1 text-xs font-semibold rounded ${
+                    day.occurrence_type === 'recurring'
+                      ? 'bg-green-100 text-green-800'
+                      : 'bg-orange-100 text-orange-800'
+                  }`}
+                >
+                  {day.occurrence_type === 'recurring' ? '通常営業' : '特別営業'}
+                </span>
+              </div>
+              {!day.is_active && (
+                <div className="mt-2 text-xs text-red-600">（非アクティブ）</div>
+              )}
+            </Link>
+          ))}
+        </div>
+      )}
+
+      {/* 営業日作成モーダル */}
+      {showCreateModal && eventId && (
+        <CreateBusinessDayModal
+          eventId={eventId}
+          onClose={() => setShowCreateModal(false)}
+          onSuccess={handleCreateSuccess}
+        />
+      )}
+    </div>
+  );
+}
+
+// 営業日作成モーダルコンポーネント
+function CreateBusinessDayModal({
+  eventId,
+  onClose,
+  onSuccess,
+}: {
+  eventId: string;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [targetDate, setTargetDate] = useState('');
+  const [startTime, setStartTime] = useState('21:30');
+  const [endTime, setEndTime] = useState('23:00');
+  const [occurrenceType, setOccurrenceType] = useState<'recurring' | 'special'>('recurring');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+
+    if (!targetDate) {
+      setError('日付を選択してください');
+      return;
+    }
+
+    if (!startTime || !endTime) {
+      setError('時刻を入力してください');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      await createBusinessDay(eventId, {
+        target_date: targetDate,
+        start_time: startTime,
+        end_time: endTime,
+        occurrence_type: occurrenceType,
+      });
+      onSuccess();
+    } catch (err) {
+      if (err instanceof ApiClientError) {
+        setError(err.getUserMessage());
+      } else {
+        setError('営業日の作成に失敗しました');
+      }
+      console.error('Failed to create business day:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-lg max-w-md w-full p-6">
+        <h3 className="text-xl font-bold text-gray-900 mb-4">営業日を追加</h3>
+
+        <form onSubmit={handleSubmit}>
+          <div className="mb-4">
+            <label htmlFor="targetDate" className="label">
+              日付 <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="date"
+              id="targetDate"
+              value={targetDate}
+              onChange={(e) => setTargetDate(e.target.value)}
+              className="input-field"
+              disabled={loading}
+              autoFocus
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <div>
+              <label htmlFor="startTime" className="label">
+                開始時刻 <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="time"
+                id="startTime"
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+                className="input-field"
+                disabled={loading}
+              />
+            </div>
+            <div>
+              <label htmlFor="endTime" className="label">
+                終了時刻 <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="time"
+                id="endTime"
+                value={endTime}
+                onChange={(e) => setEndTime(e.target.value)}
+                className="input-field"
+                disabled={loading}
+              />
+            </div>
+          </div>
+
+          <div className="mb-4">
+            <label htmlFor="occurrenceType" className="label">
+              営業種別
+            </label>
+            <select
+              id="occurrenceType"
+              value={occurrenceType}
+              onChange={(e) => setOccurrenceType(e.target.value as 'recurring' | 'special')}
+              className="input-field"
+              disabled={loading}
+            >
+              <option value="recurring">通常営業</option>
+              <option value="special">特別営業</option>
+            </select>
+          </div>
+
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+            <p className="text-xs text-blue-800">
+              💡 深夜営業の場合、終了時刻が開始時刻より前でもOKです（例: 21:30-02:00）
+            </p>
+          </div>
+
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+              <p className="text-sm text-red-800">{error}</p>
+            </div>
+          )}
+
+          <div className="flex space-x-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 btn-secondary"
+              disabled={loading}
+            >
+              キャンセル
+            </button>
+            <button
+              type="submit"
+              className="flex-1 btn-primary"
+              disabled={loading || !targetDate || !startTime || !endTime}
+            >
+              {loading ? '作成中...' : '作成'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+

@@ -1,0 +1,237 @@
+import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { getEvents, createEvent } from '../lib/api';
+import type { Event } from '../types/api';
+import { ApiClientError } from '../lib/apiClient';
+
+export default function EventList() {
+  const [events, setEvents] = useState<Event[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [showCreateModal, setShowCreateModal] = useState(false);
+
+  useEffect(() => {
+    loadEvents();
+  }, []);
+
+  const loadEvents = async () => {
+    try {
+      setLoading(true);
+      const data = await getEvents({ is_active: true });
+      setEvents(data.events);
+    } catch (err) {
+      if (err instanceof ApiClientError) {
+        setError(err.getUserMessage());
+      } else {
+        setError('イベント一覧の取得に失敗しました');
+      }
+      console.error('Failed to load events:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateSuccess = () => {
+    setShowCreateModal(false);
+    loadEvents();
+  };
+
+  if (loading) {
+    return (
+      <div className="text-center py-12">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+        <p className="mt-4 text-gray-600">読み込み中...</p>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl font-bold text-gray-900">イベント一覧</h2>
+        <button onClick={() => setShowCreateModal(true)} className="btn-primary">
+          ＋ 新しいイベントを作成
+        </button>
+      </div>
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+          <p className="text-sm text-red-800">{error}</p>
+        </div>
+      )}
+
+      {events.length === 0 ? (
+        <div className="card text-center py-12">
+          <p className="text-gray-600 mb-4">まだイベントがありません</p>
+          <button onClick={() => setShowCreateModal(true)} className="btn-primary">
+            最初のイベントを作成
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {events.map((event) => (
+            <Link
+              key={event.event_id}
+              to={`/events/${event.event_id}/business-days`}
+              className="card hover:shadow-lg transition-shadow"
+            >
+              <div className="mb-2">
+                <span
+                  className={`inline-block px-2 py-1 text-xs font-semibold rounded ${
+                    event.event_type === 'normal'
+                      ? 'bg-blue-100 text-blue-800'
+                      : 'bg-purple-100 text-purple-800'
+                  }`}
+                >
+                  {event.event_type === 'normal' ? '通常イベント' : '特別イベント'}
+                </span>
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">
+                {event.event_name}
+              </h3>
+              <p className="text-sm text-gray-600 mb-4">{event.description || '説明なし'}</p>
+              <div className="text-xs text-gray-500">
+                作成日: {new Date(event.created_at).toLocaleDateString('ja-JP')}
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
+
+      {/* イベント作成モーダル */}
+      {showCreateModal && (
+        <CreateEventModal
+          onClose={() => setShowCreateModal(false)}
+          onSuccess={handleCreateSuccess}
+        />
+      )}
+    </div>
+  );
+}
+
+// イベント作成モーダルコンポーネント
+function CreateEventModal({
+  onClose,
+  onSuccess,
+}: {
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [eventName, setEventName] = useState('');
+  const [eventType, setEventType] = useState<'normal' | 'special'>('normal');
+  const [description, setDescription] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+
+    if (!eventName.trim()) {
+      setError('イベント名を入力してください');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      await createEvent({
+        event_name: eventName.trim(),
+        event_type: eventType,
+        description: description.trim(),
+      });
+      onSuccess();
+    } catch (err) {
+      if (err instanceof ApiClientError) {
+        setError(err.getUserMessage());
+      } else {
+        setError('イベントの作成に失敗しました');
+      }
+      console.error('Failed to create event:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-lg max-w-md w-full p-6">
+        <h3 className="text-xl font-bold text-gray-900 mb-4">新しいイベントを作成</h3>
+
+        <form onSubmit={handleSubmit}>
+          <div className="mb-4">
+            <label htmlFor="eventName" className="label">
+              イベント名 <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              id="eventName"
+              value={eventName}
+              onChange={(e) => setEventName(e.target.value)}
+              placeholder="例: VRChat 交流会"
+              className="input-field"
+              disabled={loading}
+              autoFocus
+            />
+          </div>
+
+          <div className="mb-4">
+            <label htmlFor="eventType" className="label">
+              イベント種別
+            </label>
+            <select
+              id="eventType"
+              value={eventType}
+              onChange={(e) => setEventType(e.target.value as 'normal' | 'special')}
+              className="input-field"
+              disabled={loading}
+            >
+              <option value="normal">通常イベント</option>
+              <option value="special">特別イベント</option>
+            </select>
+          </div>
+
+          <div className="mb-4">
+            <label htmlFor="description" className="label">
+              説明
+            </label>
+            <textarea
+              id="description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="イベントの説明を入力"
+              className="input-field"
+              rows={3}
+              disabled={loading}
+            />
+          </div>
+
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+              <p className="text-sm text-red-800">{error}</p>
+            </div>
+          )}
+
+          <div className="flex space-x-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 btn-secondary"
+              disabled={loading}
+            >
+              キャンセル
+            </button>
+            <button
+              type="submit"
+              className="flex-1 btn-primary"
+              disabled={loading || !eventName.trim()}
+            >
+              {loading ? '作成中...' : '作成'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+

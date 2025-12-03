@@ -1,0 +1,42 @@
+# Git
+.git
+.gitignore
+
+# Binaries
+bin/
+*.exe
+*.out
+/server
+/migrate
+/seed
+
+# Test files
+*_test.go
+**/*_test.go
+testdata/
+
+# Documentation
+*.md
+docs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Dependencies (will be downloaded in Docker)
+vendor/
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+

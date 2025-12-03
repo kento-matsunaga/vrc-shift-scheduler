@@ -1,145 +1,158 @@
-# vrc-shift-scheduler
+# VRC Shift Scheduler
 
-VRChat イベント／コンカフェ向け「シフト管理 + Discord 連携」サービス
+VRChat コミュニティ向けシフト管理システム
 
-## 概要
+## 🚀 Quick Start
 
-VRChat のコンカフェ／イベント向けに、Discord 連携でシフト希望の収集・確定・通知を行う小さな Web サービスです。
-
-将来的にはマルチテナント SaaS（1 Discord サーバ = 1 テナント）として運用することを視野に入れています。
-
-## 使用技術
-
-| レイヤー        | 技術                      |
-| --------------- | ------------------------- |
-| Backend API     | Go 1.22+ (chi, pgx)       |
-| Discord Bot     | Node.js / TypeScript (discord.js) |
-| Database        | PostgreSQL 16             |
-| Infrastructure  | Docker / Docker Compose   |
-
-## ディレクトリ構成
-
-```
-vrc-shift-scheduler/
-├── backend/          # Go製 API サーバ（DDD寄せ）
-├── bot/              # Discord Bot (Node/TS)
-├── web/              # API Sandbox（バニラHTML+JS）
-├── docs/
-│   └── domain/       # 業務知識・データモデル・ドメインモデル設計
-├── scripts/          # 開発用スクリプト
-├── docker-compose.yml
-├── .env.example
-└── README.md
-```
-
-## 開発環境のセットアップ
-
-### 前提条件
-
-- Docker & Docker Compose
-- Go 1.22+（ローカル開発時）
-- Node.js 22+ & pnpm（ローカル開発時）
-
-### 1. 環境変数の設定
+### ブートストラップ（初回セットアップ）
 
 ```bash
-cp .env.example .env
-# .env を編集して DISCORD_BOT_TOKEN などを設定
+# プロジェクトをクローン
+git clone <repository-url>
+cd vrc-shift-scheduler
+
+# ブートストラップスクリプトを実行
+./scripts/bootstrap.sh
 ```
 
-### 2. ブートストラップスクリプトの実行
+このスクリプトは以下を自動的に実行します：
+- Go 1.23+ のバージョンチェック・インストール
+- Node.js 18+ のバージョンチェック
+- PostgreSQL のチェック
+- 環境変数ファイル（.env）の作成
+- 依存関係のインストール
 
-```bash
-./scripts/bootstrap-dev.sh
-```
-
-これにより以下が実行されます：
-- `.env` が存在しない場合、`.env.example` からコピー
-- `backend/go.sum` が存在しない場合、Docker で生成
-- Docker イメージのビルド
-- PostgreSQL コンテナの起動
-
-### 3. Backend の起動
-
-**Docker で起動する場合:**
-
-```bash
-docker compose up backend
-```
-
-**ローカルで起動する場合:**
+### データベースのセットアップ
 
 ```bash
 cd backend
-go run ./cmd/api
+go run ./cmd/migrate/main.go
 ```
 
-### 4. Bot の起動
+### 開発サーバーの起動
 
-**Docker で起動する場合:**
+**バックエンド:**
 
 ```bash
-docker compose up bot
+cd backend
+go run ./cmd/server/main.go
+# http://localhost:8080
 ```
 
-**ローカルで起動する場合:**
+**フロントエンド:**
 
 ```bash
-cd bot
-pnpm install
-pnpm dev
+cd web-frontend
+npm run dev
+# http://localhost:5173
 ```
 
-### 全サービスを一括起動
+## 📖 ドキュメント
+
+- **[SETUP.md](SETUP.md)** - 詳細なセットアップ手順
+- **[backend/TASKS_PUBLIC_ALPHA_RELEASE.md](backend/TASKS_PUBLIC_ALPHA_RELEASE.md)** - Public Alpha リリースタスク
+- **[backend/docs/ARCHITECTURE.md](backend/docs/ARCHITECTURE.md)** - システムアーキテクチャ
+- **[backend/docs/API.md](backend/docs/API.md)** - API ドキュメント
+
+## 🛠️ 技術スタック
+
+### バックエンド
+- **Go 1.23+**
+- **go-chi/chi v5** - HTTP ルーター
+- **pgx v5** - PostgreSQL ドライバー
+- **PostgreSQL 14+**
+
+### フロントエンド
+- **React 18**
+- **TypeScript**
+- **Vite**
+- **Tailwind CSS**
+- **React Router**
+- **Axios**
+
+## 📁 プロジェクト構成
+
+```
+vrc-shift-scheduler/
+├── backend/
+│   ├── cmd/
+│   │   ├── server/       # HTTP サーバー
+│   │   ├── migrate/      # DB マイグレーション
+│   │   └── seed/         # データシード
+│   ├── internal/
+│   │   ├── domain/       # ドメインモデル
+│   │   ├── app/          # アプリケーションサービス
+│   │   ├── infra/        # インフラ層（DB リポジトリ）
+│   │   └── interface/    # REST API ハンドラー
+│   └── migrations/       # SQL マイグレーションファイル
+├── web-frontend/
+│   ├── src/
+│   │   ├── components/   # React コンポーネント
+│   │   ├── pages/        # ページコンポーネント
+│   │   ├── lib/          # API クライアント
+│   │   └── types/        # TypeScript 型定義
+│   └── public/           # 静的ファイル
+└── scripts/
+    ├── bootstrap.sh      # 初回セットアップスクリプト
+    ├── install-go.sh     # Go インストール（sudo 版）
+    └── install-go-local.sh # Go インストール（ローカル版）
+```
+
+## 🧪 テスト
 
 ```bash
-docker compose up
+# バックエンドテスト
+cd backend
+go test ./...
+
+# 統合テスト（DB が必要）
+go test -tags=integration ./internal/infra/db/...
+
+# フロントエンドテスト
+cd web-frontend
+npm test
 ```
 
-## ドキュメント
+## 🐳 Docker（開発環境）
 
-`docs/domain/` 配下に業務知識・データモデル・ドメインモデル設計を蓄積していきます。
-
-- `00_project-overview/` - プロジェクト全体の概要
-- `10_tenant-and-event/` - テナント・イベント関連のドメイン知識
-
-各ディレクトリには以下の3ファイルを配置します：
-- `業務知識.md` - ビジネスルールや業務フローの説明
-- `データモデル.mdc` - テーブル設計やデータシナリオ
-- `ドメインモデル設計.mdc` - エンティティ・VO・集約の設計
-
-## API 動作確認
-
-### API Sandbox（推奨）
-
-ブラウザで簡単にAPIをテストできるツールを用意しています：
+PostgreSQL を Docker で起動：
 
 ```bash
-# Backendを起動後、ブラウザで以下を開く
-# file:///path/to/vrc-shift-scheduler/web/index.html
-
-# または VSCode Live Server / npx serve を使用
-cd web
-npx serve .
+docker run --name vrc-shift-postgres \
+  -e POSTGRES_PASSWORD=postgres \
+  -e POSTGRES_DB=vrc_shift_scheduler \
+  -p 5432:5432 \
+  -d postgres:14
 ```
 
-詳細は [`web/README.md`](./web/README.md) を参照してください。
+## 📝 開発ワークフロー
 
-### 実装済み API エンドポイント
+1. **Issue を作成** - 実装する機能やバグ修正の Issue を作成
+2. **ブランチを作成** - `feature/xxx` または `fix/xxx` ブランチを作成
+3. **実装 & テスト** - コードを実装し、テストを追加
+4. **コミット** - 意味のあるコミットメッセージで commit
+5. **PR を作成** - main ブランチへの Pull Request を作成
+6. **レビュー & マージ** - コードレビュー後、マージ
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/health` | ヘルスチェック |
-| POST | `/api/v1/events` | Event 作成 |
-| GET | `/api/v1/events` | Event 一覧取得 |
-| GET | `/api/v1/events/:event_id` | Event 詳細取得 |
-| POST | `/api/v1/events/:event_id/business-days` | 営業日作成 |
-| GET | `/api/v1/events/:event_id/business-days` | 営業日一覧取得 |
-| GET | `/api/v1/business-days/:business_day_id` | 営業日詳細取得 |
+## 🤝 コントリビューション
 
-**認証**: 現在は簡易ヘッダー認証（`X-Tenant-ID`, `X-Member-ID`）を使用
+プロジェクトへの貢献を歓迎します！
 
-## ライセンス
+1. このリポジトリを Fork
+2. Feature ブランチを作成 (`git checkout -b feature/amazing-feature`)
+3. 変更をコミット (`git commit -m 'Add some amazing feature'`)
+4. ブランチを Push (`git push origin feature/amazing-feature`)
+5. Pull Request を作成
 
-Private
+## 📄 ライセンス
 
+[MIT License](LICENSE)
+
+## 📧 お問い合わせ
+
+- **Issue Tracker**: [GitHub Issues](https://github.com/your-org/vrc-shift-scheduler/issues)
+- **Discord**: [招待リンク]
+
+---
+
+**Note**: このプロジェクトは Public Alpha テスト準備中です。詳細は [TASKS_PUBLIC_ALPHA_RELEASE.md](backend/TASKS_PUBLIC_ALPHA_RELEASE.md) を参照してください。

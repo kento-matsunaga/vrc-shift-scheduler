@@ -42,6 +42,13 @@ func (id BusinessDayID) Validate() error {
 	return common.ValidateULID(string(id))
 }
 
+func ParseBusinessDayID(s string) (BusinessDayID, error) {
+	if err := common.ValidateULID(s); err != nil {
+		return "", err
+	}
+	return BusinessDayID(s), nil
+}
+
 // EventBusinessDay represents an event business day entity
 // Event とは独立したエンティティ（Event集約には含まれない）
 // Event は「営業の定義」、EventBusinessDay は「生成されたインスタンス」

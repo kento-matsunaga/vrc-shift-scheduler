@@ -26,6 +26,13 @@ func (id SlotID) Validate() error {
 	return common.ValidateULID(string(id))
 }
 
+func ParseSlotID(s string) (SlotID, error) {
+	if err := common.ValidateULID(s); err != nil {
+		return "", err
+	}
+	return SlotID(s), nil
+}
+
 // PositionID represents a position identifier
 type PositionID string
 
@@ -42,6 +49,13 @@ func (id PositionID) Validate() error {
 		return fmt.Errorf("position_id is required")
 	}
 	return common.ValidateULID(string(id))
+}
+
+func ParsePositionID(s string) (PositionID, error) {
+	if err := common.ValidateULID(s); err != nil {
+		return "", err
+	}
+	return PositionID(s), nil
 }
 
 // ShiftSlot represents a shift slot entity (独立したエンティティ)

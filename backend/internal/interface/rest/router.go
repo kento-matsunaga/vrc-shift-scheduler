@@ -31,6 +31,9 @@ func NewRouter(db *pgxpool.Pool) http.Handler {
 		// ハンドラの初期化
 		eventHandler := NewEventHandler(db)
 		businessDayHandler := NewBusinessDayHandler(db)
+		memberHandler := NewMemberHandler(db)
+		shiftSlotHandler := NewShiftSlotHandler(db)
+		shiftAssignmentHandler := NewShiftAssignmentHandler(db)
 
 		// Event API
 		r.Route("/events", func(r chi.Router) {
@@ -46,12 +49,30 @@ func NewRouter(db *pgxpool.Pool) http.Handler {
 		// BusinessDay API
 		r.Route("/business-days", func(r chi.Router) {
 			r.Get("/{business_day_id}", businessDayHandler.GetBusinessDay)
+
+			// BusinessDay配下のShiftSlot
+			r.Post("/{business_day_id}/shift-slots", shiftSlotHandler.CreateShiftSlot)
+			r.Get("/{business_day_id}/shift-slots", shiftSlotHandler.GetShiftSlots)
 		})
 
-		// TODO: 以下は次のフェーズで実装
-		// - ShiftSlot API
-		// - ShiftAssignment API
-		// - Member API
+		// Member API
+		r.Route("/members", func(r chi.Router) {
+			r.Post("/", memberHandler.CreateMember)
+			r.Get("/", memberHandler.GetMembers)
+			r.Get("/{member_id}", memberHandler.GetMemberDetail)
+		})
+
+		// ShiftSlot API
+		r.Route("/shift-slots", func(r chi.Router) {
+			r.Get("/{slot_id}", shiftSlotHandler.GetShiftSlotDetail)
+		})
+
+		// ShiftAssignment API
+		r.Route("/shift-assignments", func(r chi.Router) {
+			r.Post("/", shiftAssignmentHandler.ConfirmAssignment)
+			r.Get("/", shiftAssignmentHandler.GetAssignments)
+			r.Get("/{assignment_id}", shiftAssignmentHandler.GetAssignmentDetail)
+		})
 	})
 
 	return r

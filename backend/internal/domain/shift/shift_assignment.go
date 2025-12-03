@@ -59,6 +59,13 @@ func (id AssignmentID) Validate() error {
 	return common.ValidateULID(string(id))
 }
 
+func ParseAssignmentID(s string) (AssignmentID, error) {
+	if err := common.ValidateULID(s); err != nil {
+		return "", err
+	}
+	return AssignmentID(s), nil
+}
+
 // PlanID represents a shift plan identifier
 type PlanID string
 
