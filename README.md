@@ -23,6 +23,7 @@ VRChat のコンカフェ／イベント向けに、Discord 連携でシフト�
 vrc-shift-scheduler/
 ├── backend/          # Go製 API サーバ（DDD寄せ）
 ├── bot/              # Discord Bot (Node/TS)
+├── web/              # API Sandbox（バニラHTML+JS）
 ├── docs/
 │   └── domain/       # 業務知識・データモデル・ドメインモデル設計
 ├── scripts/          # 開発用スクリプト
@@ -107,11 +108,36 @@ docker compose up
 - `データモデル.mdc` - テーブル設計やデータシナリオ
 - `ドメインモデル設計.mdc` - エンティティ・VO・集約の設計
 
-## API エンドポイント
+## API 動作確認
 
-| Method | Path      | Description      |
-| ------ | --------- | ---------------- |
-| GET    | `/health` | ヘルスチェック   |
+### API Sandbox（推奨）
+
+ブラウザで簡単にAPIをテストできるツールを用意しています：
+
+```bash
+# Backendを起動後、ブラウザで以下を開く
+# file:///path/to/vrc-shift-scheduler/web/index.html
+
+# または VSCode Live Server / npx serve を使用
+cd web
+npx serve .
+```
+
+詳細は [`web/README.md`](./web/README.md) を参照してください。
+
+### 実装済み API エンドポイント
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/health` | ヘルスチェック |
+| POST | `/api/v1/events` | Event 作成 |
+| GET | `/api/v1/events` | Event 一覧取得 |
+| GET | `/api/v1/events/:event_id` | Event 詳細取得 |
+| POST | `/api/v1/events/:event_id/business-days` | 営業日作成 |
+| GET | `/api/v1/events/:event_id/business-days` | 営業日一覧取得 |
+| GET | `/api/v1/business-days/:business_day_id` | 営業日詳細取得 |
+
+**認証**: 現在は簡易ヘッダー認証（`X-Tenant-ID`, `X-Member-ID`）を使用
 
 ## ライセンス
 
