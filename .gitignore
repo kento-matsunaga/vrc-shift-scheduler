@@ -19,6 +19,9 @@ backend/tmp/
 # Go workspace file
 go.work
 
+# Go distribution tarballs
+*.tar.gz
+
 # Dependency directories
 vendor/
 
