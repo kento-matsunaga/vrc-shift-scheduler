@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"embed"
 	"flag"
 	"fmt"
 	"log"
@@ -13,9 +12,6 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
-
-//go:embed ../../internal/infra/db/migrations/*.sql
-var migrationsFS embed.FS
 
 const migrationsTableSQL = `
 CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -82,8 +78,11 @@ func main() {
 }
 
 func loadMigrations(ctx context.Context, pool *pgxpool.Pool) ([]migration, error) {
+	// マイグレーションディレクトリのパスを取得
+	migrationsDir := filepath.Join("internal", "infra", "db", "migrations")
+	
 	// マイグレーションファイルの一覧取得
-	entries, err := migrationsFS.ReadDir("internal/infra/db/migrations")
+	entries, err := os.ReadDir(migrationsDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read migrations directory: %w", err)
 	}
@@ -121,7 +120,7 @@ func loadMigrations(ctx context.Context, pool *pgxpool.Pool) ([]migration, error
 		}
 
 		// SQLファイルの読み込み
-		content, err := migrationsFS.ReadFile(filepath.Join("internal/infra/db/migrations", name))
+		content, err := os.ReadFile(filepath.Join(migrationsDir, name))
 		if err != nil {
 			return nil, fmt.Errorf("failed to read migration file %s: %w", name, err)
 		}
