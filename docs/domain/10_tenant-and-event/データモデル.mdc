@@ -1,7 +1,239 @@
-# データモデル
-
-tenant, event, recurring_pattern, special_occurrence, occurrence のテーブル設計やデータシナリオを書く場所
+# テナントとイベントデータモデル
 
 ## 概要
 
-TODO: テナントとイベントのデータモデルを記述する
+本データモデルは、VRChatコンカフェ・イベントにおける「テナント（箱）」「イベント」「通常営業」「特別営業」「営業日」の関係を定義し、シフト管理の前提となる営業スケジュールの土台を提供する。
+
+### 機能の目的と背景
+
+- VRChatイベント運営では、週1回の通常営業（毎週木曜日21:30〜23:00など）と、Vketなどの期間に応じた不定期の特別営業を同一イベントの中で扱う必要がある。
+- 「シトロンヴェール」を典型例として、通常営業パターン（反復スケジュール）と特別営業日（単発日程）を統合的に管理する。
+- これにより、シフト募集・シフト確定の対象となる営業日を一元的に把握できる。
+
+### 解決する課題
+
+- **営業スケジュールの分散**: 通常営業と特別営業が別々のツール・スプレッドシートで管理されている問題を解消する。
+- **営業日の自動生成**: 通常営業パターンから自動的に営業日を生成し、運営の手間を削減する。
+- **営業日の重複管理**: 同じ日時に通常営業と特別営業が重複する場合の扱いを明確にする。
+
+### 実現する機能の範囲
+
+- テナント（団体・店舗）の基本情報管理
+- イベント（営業ブランド・企画）の登録と管理
+- 通常営業パターン（曜日・時刻の反復ルール）の定義
+- 特別営業日（単発日程）の登録
+- 通常営業パターンからの営業日自動生成（3ヶ月単位）
+- 通常営業と特別営業の同一日時重複時の種別切り替え
+
+---
+
+## 補足事項
+
+### テナントとイベントの関係について
+
+- **テナント**: ひとつのコンカフェ・イベント運営チームを表す単位。通常は1つのDiscordサーバに対応する。
+- **イベント**: テナントが継続的に行う営業ブランド・企画の単位。同一テナント内で複数イベントを持つことができる（レギュラー営業と別企画など）。
+- イベントは必ず1つのテナントに属し、同一テナント内ではイベント名称は一意である。
+
+### 通常営業パターンと特別営業日の扱いについて
+
+- **通常営業パターン**: 曜日・時間帯が反復する営業の定義（例: 毎週木曜 21:30〜23:00）。
+- **特別営業日**: 特定の日付・時間帯で行う単発または期間限定の営業（例: 2025-11-11 21:30〜23:00のVketラウンジ営業）。
+- 通常営業パターンに基づき、自動的に営業候補日が3ヶ月単位で生成される。
+- 通常営業日と同じ日時に特別営業日を定義する場合、営業日は重複せず、種別のみ「特別営業」に切り替わる（PdM確認済み）。
+
+### 営業日の有効期間について
+
+- 営業日として扱う期間（例：1ヶ月先まで、3ヶ月先まで）はテナントごとに運用ルールを決める。
+- シフト募集や確定を行える営業日は、事前に「有効な営業日」として生成されている必要がある。
+- 営業日の自動生成は3ヶ月単位で行う（PdM確認済み）。
+
+---
+
+## データモデル構成
+
+### テナント・イベント・営業日の基本構造
+
+1. **テナント** (`tenants`) - テナント（団体・店舗）の基本情報を保持するリソース系テーブル (Non-temporal)
+2. **イベント** (`events`) - テナントが運営する営業・イベントの基本情報を保持するリソース系テーブル (Non-temporal)
+3. **イベント通常営業パターン** (`event_recurring_patterns`) - 通常営業の反復パターン（毎週木曜など）を保持するリソース系テーブル (Non-temporal)
+4. **イベント営業日** (`event_business_days`) - イベントの営業日（通常営業パターンから生成または特別営業日として登録）を保持するリソース系テーブル (Uni-temporal: ValidPeriod)
+
+### 主要な業務フロー
+
+#### フロー1: テナント・イベント・通常営業パターンの登録
+
+```
+1. テナント作成 (tenants)
+   ↓
+2. イベント作成 (events)
+   ↓
+3. 通常営業パターン登録 (event_recurring_patterns)
+   ↓
+4. 営業日自動生成 (event_business_days)
+```
+
+#### フロー2: 特別営業日の追加
+
+```
+1. イベント選択
+   ↓
+2. 特別営業日登録 (event_business_days)
+   ↓
+3. 既存の通常営業日と同一日時の場合、種別を「特別営業」に切り替え
+```
+
+### 代替的な業務フロー
+
+#### 通常営業パターンの更新と営業日の再生成
+
+通常営業パターン（曜日・時刻）を変更した場合、未来の営業日を再生成する。過去の営業日は履歴として保持される。
+
+---
+
+## Mermaid ERダイアグラム
+
+```mermaid
+erDiagram
+    テナント["テナント (tenants)"] {
+        uuid id PK "テナントID"
+        string name "テナント名"
+        text description "説明"
+        string world_url "活動ワールドURL"
+        string community_url "コミュニティURL"
+        timestamp created_at "作成日時"
+        timestamp updated_at "更新日時"
+    }
+
+    イベント["イベント (events)"] {
+        uuid id PK "イベントID"
+        uuid tenant_id FK "テナントID"
+        string name "イベント名"
+        string event_type "イベント種別(normal:通常/special:特別)"
+        text description "説明"
+        boolean is_active "有効フラグ"
+        timestamp created_at "作成日時"
+        timestamp updated_at "更新日時"
+    }
+
+    イベント通常営業パターン["イベント通常営業パターン (event_recurring_patterns)"] {
+        uuid id PK "パターンID"
+        uuid event_id FK "イベントID"
+        string day_of_week "曜日(MON/TUE/WED/THU/FRI/SAT/SUN)"
+        time start_time "開始時刻"
+        time end_time "終了時刻"
+        date valid_from "有効開始日"
+        date valid_to "有効終了日"
+        timestamp created_at "作成日時"
+        timestamp updated_at "更新日時"
+    }
+
+    イベント営業日["イベント営業日 (event_business_days)"] {
+        uuid id PK "イベント営業日ID"
+        uuid event_id FK "イベントID"
+        uuid recurring_pattern_id FK "通常営業パターンID(NULL可)"
+        date business_date "営業日"
+        time start_time "開始時刻"
+        time end_time "終了時刻"
+        string occurrence_type "営業種別(recurring:通常/special:特別)"
+        date valid_from "有効開始日"
+        date valid_to "有効終了日"
+        timestamp created_at "作成日時"
+        timestamp updated_at "更新日時"
+    }
+
+    テナント ||--o{ イベント : "1対多(テナントごとのイベント)"
+    イベント ||--o{ イベント通常営業パターン : "1対多(イベントごとの通常営業パターン)"
+    イベント ||--o{ イベント営業日 : "1対多(イベントごとの営業日)"
+    イベント通常営業パターン ||--o{ イベント営業日 : "1対多(パターンから生成された営業日)"
+```
+
+---
+
+## データ例とSQL実装例
+
+### ケース1: 基本的なテナント・イベント・通常営業パターンの登録
+
+```sql
+-- 1. テナント作成
+INSERT INTO tenants (id, name, description, world_url, community_url, created_at, updated_at) VALUES
+('018f1234-0000-0000-0000-000000000001', 'シトロン', 'VRChatコンカフェ シトロン', 'https://vrchat.com/home/world/wrld_xxxxx', 'https://discord.gg/xxxxx', NOW(), NOW());
+
+-- 2. イベント作成（通常営業）
+INSERT INTO events (id, tenant_id, name, event_type, description, is_active, created_at, updated_at) VALUES
+('018f1234-0000-0000-0000-000000000010', '018f1234-0000-0000-0000-000000000001', 'シトロンヴェール', 'normal', '毎週木曜日の通常営業', true, NOW(), NOW());
+
+-- 3. 通常営業パターン登録（毎週木曜 21:30〜23:00）
+INSERT INTO event_recurring_patterns (id, event_id, day_of_week, start_time, end_time, valid_from, valid_to, created_at, updated_at) VALUES
+('018f1234-0000-0000-0000-000000000011', '018f1234-0000-0000-0000-000000000010', 'THU', '21:30:00', '23:00:00', '2025-01-01', '9999-12-31', NOW(), NOW());
+
+-- 4. 営業日自動生成（2025年12月の木曜日4回分）
+-- 12月5日（木）
+INSERT INTO event_business_days (id, event_id, recurring_pattern_id, business_date, start_time, end_time, occurrence_type, valid_from, valid_to, created_at, updated_at) VALUES
+('018f1234-0000-0000-0000-000000000020', '018f1234-0000-0000-0000-000000000010', '018f1234-0000-0000-0000-000000000011', '2025-12-05', '21:30:00', '23:00:00', 'recurring', '2025-12-05', '2025-12-05', NOW(), NOW());
+
+-- 12月12日（木）
+INSERT INTO event_business_days (id, event_id, recurring_pattern_id, business_date, start_time, end_time, occurrence_type, valid_from, valid_to, created_at, updated_at) VALUES
+('018f1234-0000-0000-0000-000000000021', '018f1234-0000-0000-0000-000000000010', '018f1234-0000-0000-0000-000000000011', '2025-12-12', '21:30:00', '23:00:00', 'recurring', '2025-12-12', '2025-12-12', NOW(), NOW());
+
+-- 12月19日（木）
+INSERT INTO event_business_days (id, event_id, recurring_pattern_id, business_date, start_time, end_time, occurrence_type, valid_from, valid_to, created_at, updated_at) VALUES
+('018f1234-0000-0000-0000-000000000022', '018f1234-0000-0000-0000-000000000010', '018f1234-0000-0000-0000-000000000011', '2025-12-19', '21:30:00', '23:00:00', 'recurring', '2025-12-19', '2025-12-19', NOW(), NOW());
+
+-- 12月26日（木）
+INSERT INTO event_business_days (id, event_id, recurring_pattern_id, business_date, start_time, end_time, occurrence_type, valid_from, valid_to, created_at, updated_at) VALUES
+('018f1234-0000-0000-0000-000000000023', '018f1234-0000-0000-0000-000000000010', '018f1234-0000-0000-0000-000000000011', '2025-12-26', '21:30:00', '23:00:00', 'recurring', '2025-12-26', '2025-12-26', NOW(), NOW());
+```
+
+### ケース2: 特別営業日の追加（Vket期間）
+
+```sql
+-- 1. 特別営業日登録（2025-11-11 Vketラウンジ営業）
+INSERT INTO event_business_days (id, event_id, recurring_pattern_id, business_date, start_time, end_time, occurrence_type, valid_from, valid_to, created_at, updated_at) VALUES
+('018f1234-0000-0000-0000-000000000024', '018f1234-0000-0000-0000-000000000010', NULL, '2025-11-11', '21:30:00', '25:00:00', 'special', '2025-11-11', '2025-11-11', NOW(), NOW());
+
+-- 2. 特別営業日登録（2025-11-12 Vketラウンジ営業）
+INSERT INTO event_business_days (id, event_id, recurring_pattern_id, business_date, start_time, end_time, occurrence_type, valid_from, valid_to, created_at, updated_at) VALUES
+('018f1234-0000-0000-0000-000000000025', '018f1234-0000-0000-0000-000000000010', NULL, '2025-11-12', '21:30:00', '25:00:00', 'special', '2025-11-12', '2025-11-12', NOW(), NOW());
+```
+
+### ケース3: 通常営業と特別営業の同一日時重複（種別切り替え）
+
+```sql
+-- 1. 通常営業パターンから営業日生成（2025-12-04 木曜）
+INSERT INTO event_business_days (id, event_id, recurring_pattern_id, business_date, start_time, end_time, occurrence_type, valid_from, valid_to, created_at, updated_at) VALUES
+('018f1234-0000-0000-0000-000000000026', '018f1234-0000-0000-0000-000000000010', '018f1234-0000-0000-0000-000000000011', '2025-12-04', '21:30:00', '23:00:00', 'recurring', '2025-12-04', '2025-12-04', NOW(), NOW());
+
+-- 2. 同じ日時に特別営業（クリスマス特別営業）を定義する場合、既存の営業日の種別を更新
+UPDATE event_business_days
+SET occurrence_type = 'special',
+    recurring_pattern_id = NULL,
+    updated_at = NOW()
+WHERE id = '018f1234-0000-0000-0000-000000000026';
+
+-- 営業日は重複して2件作成されるのではなく、1件のまま種別が切り替わる
+```
+
+---
+
+## 整合性の確認
+
+### テナントとイベントの整合性
+
+- 全てのイベントは必ず1つの `tenant_id` を持つ。
+- 同一テナント内でイベント名称は一意である（ユニーク制約: `tenant_id`, `name`）。
+
+### 通常営業パターンと営業日の整合性
+
+- `event_business_days` の `recurring_pattern_id` がNULLでない場合、その営業日は通常営業パターンから生成されたものである。
+- 同一イベント内で、曜日と時間帯が完全に重複する通常営業パターンを二重に定義してはならない（ユニーク制約: `event_id`, `day_of_week`, `start_time`, `end_time`）。
+
+### 営業日の一意性
+
+- 同一イベント内で、同一日時の営業日は1件のみ存在する（ユニーク制約: `event_id`, `business_date`, `start_time`）。
+- 通常営業と特別営業が同一日時に重複する場合、種別のみ切り替える（1件のレコードで管理）。
+
+### 有効期間の整合性
+
+- `event_business_days` の `valid_from` と `valid_to` は `business_date` と同じ日付を設定する（営業日単位の有効期間）。
+- 通常営業パターンの `valid_from` と `valid_to` は、パターンが有効な期間を表す。
