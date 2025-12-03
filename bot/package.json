@@ -1,0 +1,33 @@
+{
+  "name": "vrc-shift-scheduler-bot",
+  "version": "0.1.0",
+  "description": "Discord Bot for VRC Shift Scheduler",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "keywords": [
+    "discord",
+    "bot",
+    "vrchat",
+    "shift"
+  ],
+  "author": "",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "discord.js": "^14.16.3",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.9.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "packageManager": "pnpm@9.14.2"
+}
+

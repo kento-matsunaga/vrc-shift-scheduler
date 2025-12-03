@@ -1,0 +1,71 @@
+# ===========================
+# Go
+# ===========================
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+backend/bin/
+backend/tmp/
+
+# Test binary
+*.test
+
+# Output of the go coverage tool
+*.out
+
+# Go workspace file
+go.work
+
+# Dependency directories
+vendor/
+
+# ===========================
+# Node.js / TypeScript
+# ===========================
+node_modules/
+dist/
+*.tsbuildinfo
+
+# npm / pnpm
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-store/
+
+# ===========================
+# Environment & Secrets
+# ===========================
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# ===========================
+# IDE / Editor
+# ===========================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ===========================
+# Docker
+# ===========================
+docker-compose.override.yml
+
+# ===========================
+# Misc
+# ===========================
+*.log
+tmp/
+.cache/
+coverage/
+

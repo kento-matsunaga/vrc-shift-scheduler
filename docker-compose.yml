@@ -1,0 +1,51 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: vrcshift
+      POSTGRES_PASSWORD: vrcshift
+      POSTGRES_DB: vrcshift
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vrcshift -d vrcshift"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./backend
+    command: ["go", "run", "./cmd/api"]
+    working_dir: /app
+    volumes:
+      - ./backend:/app
+    environment:
+      DATABASE_URL: postgres://vrcshift:vrcshift@db:5432/vrcshift?sslmode=disable
+      APP_ENV: development
+      API_PORT: "8080"
+    ports:
+      - "8090:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  bot:
+    build: ./bot
+    command: ["pnpm", "dev"]
+    working_dir: /app
+    volumes:
+      - ./bot:/app
+      - bot_node_modules:/app/node_modules
+    environment:
+      DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN:-CHANGE_ME}
+      DISCORD_APP_ID: ${DISCORD_APP_ID:-CHANGE_ME}
+      BACKEND_BASE_URL: http://backend:8080
+    depends_on:
+      - backend
+
+volumes:
+  db_data:
+  bot_node_modules:
+
