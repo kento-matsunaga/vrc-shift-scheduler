@@ -1,6 +1,6 @@
 # ドメインモデル設計
 
-テナント・イベント集約のエンティティ・VO・集約設計を書く場所
+TenantAggregate, EventAggregate, EventSchedule などのエンティティ・VO・集約設計を書く場所
 
 ## 概要
 

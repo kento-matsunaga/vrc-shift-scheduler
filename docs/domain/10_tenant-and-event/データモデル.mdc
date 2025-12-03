@@ -1,6 +1,6 @@
 # データモデル
 
-テナント・イベントまわりのテーブル設計やデータシナリオを書く場所
+tenant, event, recurring_pattern, special_occurrence, occurrence のテーブル設計やデータシナリオを書く場所
 
 ## 概要
 
