@@ -3,6 +3,7 @@ package rest
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"net/http"
 	"time"
 
@@ -39,23 +40,23 @@ type ConfirmAssignmentRequest struct {
 
 // ShiftAssignmentResponse represents a shift assignment in API responses
 type ShiftAssignmentResponse struct {
-	AssignmentID       string  `json:"assignment_id"`
-	TenantID           string  `json:"tenant_id"`
-	SlotID             string  `json:"slot_id"`
-	MemberID           string  `json:"member_id"`
-	MemberDisplayName  string  `json:"member_display_name,omitempty"`
-	SlotName           string  `json:"slot_name,omitempty"`
-	TargetDate         string  `json:"target_date,omitempty"`
-	StartTime          string  `json:"start_time,omitempty"`
-	EndTime            string  `json:"end_time,omitempty"`
-	AssignmentStatus   string  `json:"assignment_status"`
-	AssignmentMethod   string  `json:"assignment_method"`
-	IsOutsidePreference bool   `json:"is_outside_preference"`
-	AssignedAt         string  `json:"assigned_at"`
-	CancelledAt        *string `json:"cancelled_at,omitempty"`
-	CreatedAt          string  `json:"created_at"`
-	UpdatedAt          string  `json:"updated_at"`
-	NotificationSent   bool   `json:"notification_sent"`
+	AssignmentID        string  `json:"assignment_id"`
+	TenantID            string  `json:"tenant_id"`
+	SlotID              string  `json:"slot_id"`
+	MemberID            string  `json:"member_id"`
+	MemberDisplayName   string  `json:"member_display_name,omitempty"`
+	SlotName            string  `json:"slot_name,omitempty"`
+	TargetDate          string  `json:"target_date,omitempty"`
+	StartTime           string  `json:"start_time,omitempty"`
+	EndTime             string  `json:"end_time,omitempty"`
+	AssignmentStatus    string  `json:"assignment_status"`
+	AssignmentMethod    string  `json:"assignment_method"`
+	IsOutsidePreference bool    `json:"is_outside_preference"`
+	AssignedAt          string  `json:"assigned_at"`
+	CancelledAt         *string `json:"cancelled_at,omitempty"`
+	CreatedAt           string  `json:"created_at"`
+	UpdatedAt           string  `json:"updated_at"`
+	NotificationSent    bool    `json:"notification_sent"`
 }
 
 // ConfirmAssignment handles POST /api/v1/shift-assignments
@@ -117,6 +118,7 @@ func (h *ShiftAssignmentHandler) ConfirmAssignment(w http.ResponseWriter, r *htt
 		req.Note,
 	)
 	if err != nil {
+		log.Printf("ConfirmAssignment error: %+v", err)
 		// ドメインエラーを適切な HTTP ステータスに変換
 		if domainErr, ok := err.(*common.DomainError); ok {
 			switch domainErr.Code() {
@@ -140,17 +142,17 @@ func (h *ShiftAssignmentHandler) ConfirmAssignment(w http.ResponseWriter, r *htt
 	if err != nil {
 		// JOIN エラーは無視して最小限のレスポンスを返す
 		resp = &ShiftAssignmentResponse{
-			AssignmentID:     assignment.AssignmentID().String(),
-			TenantID:         assignment.TenantID().String(),
-			SlotID:           assignment.SlotID().String(),
-			MemberID:         assignment.MemberID().String(),
-			AssignmentStatus: "confirmed",
-			AssignmentMethod: "manual",
+			AssignmentID:        assignment.AssignmentID().String(),
+			TenantID:            assignment.TenantID().String(),
+			SlotID:              assignment.SlotID().String(),
+			MemberID:            assignment.MemberID().String(),
+			AssignmentStatus:    "confirmed",
+			AssignmentMethod:    "manual",
 			IsOutsidePreference: assignment.IsOutsidePreference(),
-			AssignedAt:       assignment.AssignedAt().Format(time.RFC3339),
-			CreatedAt:        assignment.CreatedAt().Format(time.RFC3339),
-			UpdatedAt:        assignment.UpdatedAt().Format(time.RFC3339),
-			NotificationSent: false, // stub
+			AssignedAt:          assignment.AssignedAt().Format(time.RFC3339),
+			CreatedAt:           assignment.CreatedAt().Format(time.RFC3339),
+			UpdatedAt:           assignment.UpdatedAt().Format(time.RFC3339),
+			NotificationSent:    false, // stub
 		}
 	}
 
@@ -360,23 +362,22 @@ func (h *ShiftAssignmentHandler) buildAssignmentResponse(ctx context.Context, as
 	}
 
 	return &ShiftAssignmentResponse{
-		AssignmentID:       assignment.AssignmentID().String(),
-		TenantID:           assignment.TenantID().String(),
-		SlotID:             assignment.SlotID().String(),
-		MemberID:           assignment.MemberID().String(),
-		MemberDisplayName:  memberDisplayName,
-		SlotName:           slotName,
-		TargetDate:         targetDate.Format("2006-01-02"),
-		StartTime:          startTime.Format("15:04:05"),
-		EndTime:            endTime.Format("15:04:05"),
-		AssignmentStatus:   map[bool]string{true: "cancelled", false: "confirmed"}[assignment.IsCancelled()],
-		AssignmentMethod:   string(assignment.AssignmentMethod()),
+		AssignmentID:        assignment.AssignmentID().String(),
+		TenantID:            assignment.TenantID().String(),
+		SlotID:              assignment.SlotID().String(),
+		MemberID:            assignment.MemberID().String(),
+		MemberDisplayName:   memberDisplayName,
+		SlotName:            slotName,
+		TargetDate:          targetDate.Format("2006-01-02"),
+		StartTime:           startTime.Format("15:04:05"),
+		EndTime:             endTime.Format("15:04:05"),
+		AssignmentStatus:    map[bool]string{true: "cancelled", false: "confirmed"}[assignment.IsCancelled()],
+		AssignmentMethod:    string(assignment.AssignmentMethod()),
 		IsOutsidePreference: assignment.IsOutsidePreference(),
-		AssignedAt:         assignment.AssignedAt().Format(time.RFC3339),
-		CancelledAt:        cancelledAtStr,
-		CreatedAt:          assignment.CreatedAt().Format(time.RFC3339),
-		UpdatedAt:          assignment.UpdatedAt().Format(time.RFC3339),
-		NotificationSent:   false, // stub
+		AssignedAt:          assignment.AssignedAt().Format(time.RFC3339),
+		CancelledAt:         cancelledAtStr,
+		CreatedAt:           assignment.CreatedAt().Format(time.RFC3339),
+		UpdatedAt:           assignment.UpdatedAt().Format(time.RFC3339),
+		NotificationSent:    false, // stub
 	}, nil
 }
-

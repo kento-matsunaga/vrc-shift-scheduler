@@ -177,9 +177,11 @@ func (a *ShiftAssignment) validate() error {
 		return common.NewValidationError("tenant_id is required", err)
 	}
 
-	// PlanID の必須性チェック
-	if err := a.planID.Validate(); err != nil {
-		return common.NewValidationError("plan_id is required", err)
+	// PlanID のバリデーション（空文字列の場合はスキップ - 簡易実装でNULLを許可）
+	if a.planID.String() != "" {
+		if err := a.planID.Validate(); err != nil {
+			return common.NewValidationError("invalid plan_id format", err)
+		}
 	}
 
 	// SlotID の必須性チェック

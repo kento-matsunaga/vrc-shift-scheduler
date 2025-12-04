@@ -39,10 +39,18 @@ func (r *ShiftAssignmentRepository) Save(ctx context.Context, assignment *shift.
 			deleted_at = EXCLUDED.deleted_at
 	`
 
+	// plan_id が空文字列の場合は NULL を渡す
+	var planIDValue interface{}
+	if assignment.PlanID().String() == "" {
+		planIDValue = nil
+	} else {
+		planIDValue = assignment.PlanID().String()
+	}
+
 	_, err := r.db.Exec(ctx, query,
 		assignment.AssignmentID().String(),
 		assignment.TenantID().String(),
-		assignment.PlanID().String(),
+		planIDValue,
 		assignment.SlotID().String(),
 		assignment.MemberID().String(),
 		string(assignment.AssignmentStatus()),
@@ -76,7 +84,7 @@ func (r *ShiftAssignmentRepository) FindByID(ctx context.Context, tenantID commo
 	var (
 		assignmentIDStr      string
 		tenantIDStr          string
-		planIDStr            string
+		planIDStr            sql.NullString
 		slotIDStr            string
 		memberIDStr          string
 		assignmentStatusStr  string
@@ -113,7 +121,7 @@ func (r *ShiftAssignmentRepository) FindByID(ctx context.Context, tenantID commo
 	}
 
 	return r.scanToShiftAssignment(
-		assignmentIDStr, tenantIDStr, planIDStr, slotIDStr, memberIDStr,
+		assignmentIDStr, tenantIDStr, stringValue(planIDStr), slotIDStr, memberIDStr,
 		assignmentStatusStr, assignmentMethodStr, isOutsidePreference,
 		assignedAt, cancelledAt, createdAt, updatedAt, deletedAt,
 	)
@@ -261,7 +269,7 @@ func (r *ShiftAssignmentRepository) queryShiftAssignments(ctx context.Context, q
 		var (
 			assignmentIDStr      string
 			tenantIDStr          string
-			planIDStr            string
+			planIDStr            sql.NullString
 			slotIDStr            string
 			memberIDStr          string
 			assignmentStatusStr  string
@@ -294,7 +302,7 @@ func (r *ShiftAssignmentRepository) queryShiftAssignments(ctx context.Context, q
 		}
 
 		assignment, err := r.scanToShiftAssignment(
-			assignmentIDStr, tenantIDStr, planIDStr, slotIDStr, memberIDStr,
+			assignmentIDStr, tenantIDStr, stringValue(planIDStr), slotIDStr, memberIDStr,
 			assignmentStatusStr, assignmentMethodStr, isOutsidePreference,
 			assignedAt, cancelledAt, createdAt, updatedAt, deletedAt,
 		)

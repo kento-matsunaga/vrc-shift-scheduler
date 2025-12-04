@@ -17,14 +17,14 @@ services:
 
   backend:
     build: ./backend
-    command: ["go", "run", "./cmd/api"]
+    command: ["go", "run", "./cmd/server"]
     working_dir: /app
     volumes:
       - ./backend:/app
     environment:
       DATABASE_URL: postgres://vrcshift:vrcshift@db:5432/vrcshift?sslmode=disable
       APP_ENV: development
-      API_PORT: "8080"
+      PORT: "8080"
     ports:
       - "8080:8080"
     depends_on:

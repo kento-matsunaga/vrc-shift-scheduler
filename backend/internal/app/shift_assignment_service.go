@@ -70,10 +70,11 @@ func (s *ShiftAssignmentService) ConfirmManualAssignment(
 	}
 	defer tx.Rollback(ctx)
 
-	// 4 & 5. SELECT ... FOR UPDATE + 件数カウント
+	// 4 & 5. 件数カウント（トランザクション内で実行）
 	//
 	// NOTE: ShiftPlan を使わない簡易実装のため、plan_id は NULL にする
 	// 将来的に ShiftPlan 実装時に plan_id を設定する
+	// NOTE: FOR UPDATE は集約関数と一緒に使用できないため、トランザクション内で COUNT(*) を実行
 	query := `
 		SELECT COUNT(*)
 		FROM shift_assignments
@@ -81,7 +82,6 @@ func (s *ShiftAssignmentService) ConfirmManualAssignment(
 		  AND slot_id = $2
 		  AND assignment_status = 'confirmed'
 		  AND deleted_at IS NULL
-		FOR UPDATE
 	`
 	var currentCount int
 	err = tx.QueryRow(ctx, query, tenantID.String(), slotID.String()).Scan(&currentCount)

@@ -2,6 +2,7 @@ package rest
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
@@ -71,12 +72,6 @@ func (h *MemberHandler) CreateMember(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// discord_user_id または email のどちらか必須
-	if req.DiscordUserID == "" && req.Email == "" {
-		writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "Either discord_user_id or email is required", nil)
-		return
-	}
-
 	// 重複チェック（discord_user_id）
 	if req.DiscordUserID != "" {
 		existing, err := h.memberRepo.FindByDiscordUserID(ctx, tenantID, req.DiscordUserID)
@@ -121,6 +116,7 @@ func (h *MemberHandler) CreateMember(w http.ResponseWriter, r *http.Request) {
 
 	// 保存
 	if err := h.memberRepo.Save(ctx, newMember); err != nil {
+		log.Printf("CreateMember error: %+v", err)
 		writeError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to create member", nil)
 		return
 	}

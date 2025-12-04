@@ -41,20 +41,20 @@ type CreateShiftSlotRequest struct {
 
 // ShiftSlotResponse represents a shift slot in API responses
 type ShiftSlotResponse struct {
-	SlotID         string `json:"slot_id"`
-	TenantID       string `json:"tenant_id"`
-	BusinessDayID  string `json:"business_day_id"`
-	PositionID     string `json:"position_id"`
-	SlotName       string `json:"slot_name"`
-	InstanceName   string `json:"instance_name"`
-	StartTime      string `json:"start_time"`
-	EndTime        string `json:"end_time"`
-	RequiredCount  int    `json:"required_count"`
-	AssignedCount  int    `json:"assigned_count,omitempty"` // JOIN で取得する場合
-	Priority       int    `json:"priority"`
-	IsOvernight    bool   `json:"is_overnight"`
-	CreatedAt      string `json:"created_at"`
-	UpdatedAt      string `json:"updated_at"`
+	SlotID        string `json:"slot_id"`
+	TenantID      string `json:"tenant_id"`
+	BusinessDayID string `json:"business_day_id"`
+	PositionID    string `json:"position_id"`
+	SlotName      string `json:"slot_name"`
+	InstanceName  string `json:"instance_name"`
+	StartTime     string `json:"start_time"`
+	EndTime       string `json:"end_time"`
+	RequiredCount int    `json:"required_count"`
+	AssignedCount int    `json:"assigned_count"` // 実際の割り当て数
+	Priority      int    `json:"priority"`
+	IsOvernight   bool   `json:"is_overnight"`
+	CreatedAt     string `json:"created_at"`
+	UpdatedAt     string `json:"updated_at"`
 }
 
 // CreateShiftSlot handles POST /api/v1/business-days/:business_day_id/shift-slots
@@ -310,4 +310,3 @@ func (h *ShiftSlotHandler) GetShiftSlotDetail(w http.ResponseWriter, r *http.Req
 
 	writeSuccess(w, http.StatusOK, resp)
 }
-

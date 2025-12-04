@@ -8,13 +8,7 @@ import (
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
 )
 
-// Context keys
-type contextKey string
-
-const (
-	contextKeyTenantID contextKey = "tenant_id"
-	contextKeyMemberID contextKey = "member_id"
-)
+// Context keys are defined in middleware.go
 
 // ErrorResponse represents a standardized error response
 type ErrorResponse struct {
@@ -146,31 +140,13 @@ func writeSuccess(w http.ResponseWriter, statusCode int, data interface{}) {
 
 // getTenantIDFromContext retrieves the tenant ID from the request context
 func getTenantIDFromContext(ctx context.Context) (common.TenantID, bool) {
-	tenantIDStr, ok := ctx.Value(contextKeyTenantID).(string)
-	if !ok || tenantIDStr == "" {
-		return "", false
-	}
-
-	tenantID, err := common.ParseTenantID(tenantIDStr)
-	if err != nil {
-		return "", false
-	}
-
-	return tenantID, true
+	tenantID, ok := ctx.Value(ContextKeyTenantID).(common.TenantID)
+	return tenantID, ok
 }
 
 // getMemberIDFromContext retrieves the member ID from the request context
 func getMemberIDFromContext(ctx context.Context) (common.MemberID, bool) {
-	memberIDStr, ok := ctx.Value(contextKeyMemberID).(string)
-	if !ok || memberIDStr == "" {
-		return "", false
-	}
-
-	memberID, err := common.ParseMemberID(memberIDStr)
-	if err != nil {
-		return "", false
-	}
-
-	return memberID, true
+	memberID, ok := ctx.Value(ContextKeyMemberID).(common.MemberID)
+	return memberID, ok
 }
 
