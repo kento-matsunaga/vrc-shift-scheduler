@@ -16,6 +16,7 @@ import (
 type ShiftSlotHandler struct {
 	slotRepo        *db.ShiftSlotRepository
 	businessDayRepo *db.EventBusinessDayRepository
+	assignmentRepo  *db.ShiftAssignmentRepository
 }
 
 // NewShiftSlotHandler creates a new ShiftSlotHandler
@@ -23,6 +24,7 @@ func NewShiftSlotHandler(dbPool *pgxpool.Pool) *ShiftSlotHandler {
 	return &ShiftSlotHandler{
 		slotRepo:        db.NewShiftSlotRepository(dbPool),
 		businessDayRepo: db.NewEventBusinessDayRepository(dbPool),
+		assignmentRepo:  db.NewShiftAssignmentRepository(dbPool),
 	}
 }
 
@@ -212,12 +214,16 @@ func (h *ShiftSlotHandler) GetShiftSlots(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// TODO: assigned_count を JOIN で取得（v1.1）
-	// 現在は 0 で固定
-
 	// レスポンス構築
 	slotResponses := make([]ShiftSlotResponse, 0, len(slots))
 	for _, s := range slots {
+		// assigned_count を取得
+		assignedCount, err := h.assignmentRepo.CountConfirmedBySlotID(ctx, tenantID, s.SlotID())
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to count assignments", nil)
+			return
+		}
+
 		slotResponses = append(slotResponses, ShiftSlotResponse{
 			SlotID:        s.SlotID().String(),
 			TenantID:      s.TenantID().String(),
@@ -228,7 +234,7 @@ func (h *ShiftSlotHandler) GetShiftSlots(w http.ResponseWriter, r *http.Request)
 			StartTime:     s.StartTime().Format("15:04:05"),
 			EndTime:       s.EndTime().Format("15:04:05"),
 			RequiredCount: s.RequiredCount(),
-			AssignedCount: 0, // TODO: 実際の値を JOIN で取得
+			AssignedCount: assignedCount,
 			Priority:      s.Priority(),
 			IsOvernight:   s.IsOvernight(),
 			CreatedAt:     s.CreatedAt().Format("2006-01-02T15:04:05Z07:00"),
@@ -277,7 +283,12 @@ func (h *ShiftSlotHandler) GetShiftSlotDetail(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// TODO: assigned_count と確定済みメンバー一覧を JOIN で取得（v1.1）
+	// assigned_count を取得
+	assignedCount, err := h.assignmentRepo.CountConfirmedBySlotID(ctx, tenantID, slot.SlotID())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to count assignments", nil)
+		return
+	}
 
 	// レスポンス
 	resp := ShiftSlotResponse{
@@ -290,7 +301,7 @@ func (h *ShiftSlotHandler) GetShiftSlotDetail(w http.ResponseWriter, r *http.Req
 		StartTime:     slot.StartTime().Format("15:04:05"),
 		EndTime:       slot.EndTime().Format("15:04:05"),
 		RequiredCount: slot.RequiredCount(),
-		AssignedCount: 0, // TODO: 実際の値を JOIN で取得
+		AssignedCount: assignedCount,
 		Priority:      slot.Priority(),
 		IsOvernight:   slot.IsOvernight(),
 		CreatedAt:     slot.CreatedAt().Format("2006-01-02T15:04:05Z07:00"),

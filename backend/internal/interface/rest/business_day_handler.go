@@ -40,11 +40,12 @@ type BusinessDayResponse struct {
 	TenantID       string `json:"tenant_id"`
 	EventID        string `json:"event_id"`
 	TargetDate     string `json:"target_date"`      // YYYY-MM-DD
-	StartTime      string `json:"start_time"`       // HH:MM
-	EndTime        string `json:"end_time"`         // HH:MM
+	StartTime      string `json:"start_time"`       // HH:MM:SS
+	EndTime        string `json:"end_time"`         // HH:MM:SS
 	OccurrenceType string `json:"occurrence_type"`
 	IsActive       bool   `json:"is_active"`
 	CreatedAt      string `json:"created_at"`
+	UpdatedAt      string `json:"updated_at"`
 }
 
 // CreateBusinessDay handles POST /api/v1/events/:event_id/business-days
@@ -262,11 +263,12 @@ func toBusinessDayResponse(bd *event.EventBusinessDay) BusinessDayResponse {
 		TenantID:       bd.TenantID().String(),
 		EventID:        bd.EventID().String(),
 		TargetDate:     bd.TargetDate().Format("2006-01-02"),
-		StartTime:      bd.StartTime().Format("15:04"),
-		EndTime:        bd.EndTime().Format("15:04"),
+		StartTime:      bd.StartTime().Format("15:04:05"),
+		EndTime:        bd.EndTime().Format("15:04:05"),
 		OccurrenceType: string(bd.OccurrenceType()),
 		IsActive:       bd.IsActive(),
 		CreatedAt:      bd.CreatedAt().Format(time.RFC3339),
+		UpdatedAt:      bd.UpdatedAt().Format(time.RFC3339),
 	}
 }
 

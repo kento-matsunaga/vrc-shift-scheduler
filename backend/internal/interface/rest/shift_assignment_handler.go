@@ -1,8 +1,10 @@
 package rest
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/app"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
@@ -16,6 +18,7 @@ import (
 type ShiftAssignmentHandler struct {
 	assignmentService *app.ShiftAssignmentService
 	assignmentRepo    *db.ShiftAssignmentRepository
+	dbPool            *pgxpool.Pool
 }
 
 // NewShiftAssignmentHandler creates a new ShiftAssignmentHandler
@@ -23,6 +26,7 @@ func NewShiftAssignmentHandler(dbPool *pgxpool.Pool) *ShiftAssignmentHandler {
 	return &ShiftAssignmentHandler{
 		assignmentService: app.NewShiftAssignmentService(dbPool),
 		assignmentRepo:    db.NewShiftAssignmentRepository(dbPool),
+		dbPool:            dbPool,
 	}
 }
 
@@ -35,18 +39,23 @@ type ConfirmAssignmentRequest struct {
 
 // ShiftAssignmentResponse represents a shift assignment in API responses
 type ShiftAssignmentResponse struct {
-	AssignmentID      string `json:"assignment_id"`
-	SlotID            string `json:"slot_id"`
-	MemberID          string `json:"member_id"`
-	MemberDisplayName string `json:"member_display_name,omitempty"`
-	SlotName          string `json:"slot_name,omitempty"`
-	TargetDate        string `json:"target_date,omitempty"`
-	StartTime         string `json:"start_time,omitempty"`
-	EndTime           string `json:"end_time,omitempty"`
-	AssignmentStatus  string `json:"assignment_status"`
-	AssignmentMethod  string `json:"assignment_method"`
-	AssignedAt        string `json:"assigned_at"`
-	NotificationSent  bool   `json:"notification_sent"`
+	AssignmentID       string  `json:"assignment_id"`
+	TenantID           string  `json:"tenant_id"`
+	SlotID             string  `json:"slot_id"`
+	MemberID           string  `json:"member_id"`
+	MemberDisplayName  string  `json:"member_display_name,omitempty"`
+	SlotName           string  `json:"slot_name,omitempty"`
+	TargetDate         string  `json:"target_date,omitempty"`
+	StartTime          string  `json:"start_time,omitempty"`
+	EndTime            string  `json:"end_time,omitempty"`
+	AssignmentStatus   string  `json:"assignment_status"`
+	AssignmentMethod   string  `json:"assignment_method"`
+	IsOutsidePreference bool   `json:"is_outside_preference"`
+	AssignedAt         string  `json:"assigned_at"`
+	CancelledAt        *string `json:"cancelled_at,omitempty"`
+	CreatedAt          string  `json:"created_at"`
+	UpdatedAt          string  `json:"updated_at"`
+	NotificationSent   bool   `json:"notification_sent"`
 }
 
 // ConfirmAssignment handles POST /api/v1/shift-assignments
@@ -126,15 +135,23 @@ func (h *ShiftAssignmentHandler) ConfirmAssignment(w http.ResponseWriter, r *htt
 		return
 	}
 
-	// レスポンス
-	resp := ShiftAssignmentResponse{
-		AssignmentID:     assignment.AssignmentID().String(),
-		SlotID:           assignment.SlotID().String(),
-		MemberID:         assignment.MemberID().String(),
-		AssignmentStatus: "confirmed",
-		AssignmentMethod: "manual",
-		AssignedAt:       assignment.AssignedAt().Format("2006-01-02T15:04:05Z07:00"),
-		NotificationSent: false, // stub
+	// レスポンス（JOIN データを含む）
+	resp, err := h.buildAssignmentResponse(ctx, assignment, nil, nil)
+	if err != nil {
+		// JOIN エラーは無視して最小限のレスポンスを返す
+		resp = &ShiftAssignmentResponse{
+			AssignmentID:     assignment.AssignmentID().String(),
+			TenantID:         assignment.TenantID().String(),
+			SlotID:           assignment.SlotID().String(),
+			MemberID:         assignment.MemberID().String(),
+			AssignmentStatus: "confirmed",
+			AssignmentMethod: "manual",
+			IsOutsidePreference: assignment.IsOutsidePreference(),
+			AssignedAt:       assignment.AssignedAt().Format(time.RFC3339),
+			CreatedAt:        assignment.CreatedAt().Format(time.RFC3339),
+			UpdatedAt:        assignment.UpdatedAt().Format(time.RFC3339),
+			NotificationSent: false, // stub
+		}
 	}
 
 	writeSuccess(w, http.StatusCreated, resp)
@@ -155,9 +172,27 @@ func (h *ShiftAssignmentHandler) GetAssignments(w http.ResponseWriter, r *http.R
 	memberIDStr := r.URL.Query().Get("member_id")
 	slotIDStr := r.URL.Query().Get("slot_id")
 	statusStr := r.URL.Query().Get("assignment_status")
+	startDateStr := r.URL.Query().Get("start_date")
+	endDateStr := r.URL.Query().Get("end_date")
 
-	// フィルタ処理（簡易実装）
-	// TODO: 日付範囲フィルタ（start_date, end_date）は v1.1 で実装
+	// 日付範囲のパース
+	var startDate, endDate *time.Time
+	if startDateStr != "" {
+		parsed, err := time.Parse("2006-01-02", startDateStr)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "Invalid start_date format (expected YYYY-MM-DD)", nil)
+			return
+		}
+		startDate = &parsed
+	}
+	if endDateStr != "" {
+		parsed, err := time.Parse("2006-01-02", endDateStr)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "Invalid end_date format (expected YYYY-MM-DD)", nil)
+			return
+		}
+		endDate = &parsed
+	}
 
 	var assignments []ShiftAssignmentResponse
 
@@ -177,14 +212,14 @@ func (h *ShiftAssignmentHandler) GetAssignments(w http.ResponseWriter, r *http.R
 
 		for _, a := range assignmentList {
 			if statusStr == "" || (statusStr == "confirmed" && !a.IsCancelled()) || (statusStr == "cancelled" && a.IsCancelled()) {
-				assignments = append(assignments, ShiftAssignmentResponse{
-					AssignmentID:     a.AssignmentID().String(),
-					SlotID:           a.SlotID().String(),
-					MemberID:         a.MemberID().String(),
-					AssignmentStatus: map[bool]string{true: "cancelled", false: "confirmed"}[a.IsCancelled()],
-					AssignmentMethod: "manual",
-					AssignedAt:       a.AssignedAt().Format("2006-01-02T15:04:05Z07:00"),
-				})
+				resp, err := h.buildAssignmentResponse(ctx, a, startDate, endDate)
+				if err != nil {
+					writeError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to build assignment response", nil)
+					return
+				}
+				if resp != nil {
+					assignments = append(assignments, *resp)
+				}
 			}
 		}
 	} else if slotIDStr != "" {
@@ -203,14 +238,14 @@ func (h *ShiftAssignmentHandler) GetAssignments(w http.ResponseWriter, r *http.R
 
 		for _, a := range assignmentList {
 			if statusStr == "" || (statusStr == "confirmed" && !a.IsCancelled()) || (statusStr == "cancelled" && a.IsCancelled()) {
-				assignments = append(assignments, ShiftAssignmentResponse{
-					AssignmentID:     a.AssignmentID().String(),
-					SlotID:           a.SlotID().String(),
-					MemberID:         a.MemberID().String(),
-					AssignmentStatus: map[bool]string{true: "cancelled", false: "confirmed"}[a.IsCancelled()],
-					AssignmentMethod: "manual",
-					AssignedAt:       a.AssignedAt().Format("2006-01-02T15:04:05Z07:00"),
-				})
+				resp, err := h.buildAssignmentResponse(ctx, a, startDate, endDate)
+				if err != nil {
+					writeError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to build assignment response", nil)
+					return
+				}
+				if resp != nil {
+					assignments = append(assignments, *resp)
+				}
 			}
 		}
 	} else {
@@ -261,15 +296,87 @@ func (h *ShiftAssignmentHandler) GetAssignmentDetail(w http.ResponseWriter, r *h
 	}
 
 	// レスポンス
-	resp := ShiftAssignmentResponse{
-		AssignmentID:     assignment.AssignmentID().String(),
-		SlotID:           assignment.SlotID().String(),
-		MemberID:         assignment.MemberID().String(),
-		AssignmentStatus: map[bool]string{true: "cancelled", false: "confirmed"}[assignment.IsCancelled()],
-		AssignmentMethod: "manual",
-		AssignedAt:       assignment.AssignedAt().Format("2006-01-02T15:04:05Z07:00"),
+	resp, err := h.buildAssignmentResponse(ctx, assignment, nil, nil)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to build assignment response", nil)
+		return
+	}
+	if resp == nil {
+		writeError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to build assignment response", nil)
+		return
 	}
 
 	writeSuccess(w, http.StatusOK, resp)
+}
+
+// buildAssignmentResponse builds a ShiftAssignmentResponse with JOIN data
+func (h *ShiftAssignmentHandler) buildAssignmentResponse(ctx context.Context, assignment *shift.ShiftAssignment, startDate, endDate *time.Time) (*ShiftAssignmentResponse, error) {
+	// JOIN クエリで member_display_name, slot_name, target_date, start_time, end_time を取得
+	query := `
+		SELECT
+			m.display_name,
+			ss.slot_name,
+			ebd.target_date,
+			ss.start_time,
+			ss.end_time
+		FROM shift_assignments sa
+		INNER JOIN members m ON sa.member_id = m.member_id AND m.deleted_at IS NULL
+		INNER JOIN shift_slots ss ON sa.slot_id = ss.slot_id AND ss.deleted_at IS NULL
+		INNER JOIN event_business_days ebd ON ss.business_day_id = ebd.business_day_id AND ebd.deleted_at IS NULL
+		WHERE sa.assignment_id = $1 AND sa.tenant_id = $2 AND sa.deleted_at IS NULL
+	`
+
+	var (
+		memberDisplayName string
+		slotName          string
+		targetDate        time.Time
+		startTime         time.Time
+		endTime           time.Time
+	)
+
+	err := h.dbPool.QueryRow(ctx, query, assignment.AssignmentID().String(), assignment.TenantID().String()).Scan(
+		&memberDisplayName,
+		&slotName,
+		&targetDate,
+		&startTime,
+		&endTime,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// 日付範囲フィルタ
+	if startDate != nil && targetDate.Before(*startDate) {
+		return nil, nil // フィルタで除外
+	}
+	if endDate != nil && targetDate.After(*endDate) {
+		return nil, nil // フィルタで除外
+	}
+
+	var cancelledAtStr *string
+	if assignment.CancelledAt() != nil {
+		s := assignment.CancelledAt().Format(time.RFC3339)
+		cancelledAtStr = &s
+	}
+
+	return &ShiftAssignmentResponse{
+		AssignmentID:       assignment.AssignmentID().String(),
+		TenantID:           assignment.TenantID().String(),
+		SlotID:             assignment.SlotID().String(),
+		MemberID:           assignment.MemberID().String(),
+		MemberDisplayName:  memberDisplayName,
+		SlotName:           slotName,
+		TargetDate:         targetDate.Format("2006-01-02"),
+		StartTime:          startTime.Format("15:04:05"),
+		EndTime:            endTime.Format("15:04:05"),
+		AssignmentStatus:   map[bool]string{true: "cancelled", false: "confirmed"}[assignment.IsCancelled()],
+		AssignmentMethod:   string(assignment.AssignmentMethod()),
+		IsOutsidePreference: assignment.IsOutsidePreference(),
+		AssignedAt:         assignment.AssignedAt().Format(time.RFC3339),
+		CancelledAt:        cancelledAtStr,
+		CreatedAt:          assignment.CreatedAt().Format(time.RFC3339),
+		UpdatedAt:          assignment.UpdatedAt().Format(time.RFC3339),
+		NotificationSent:   false, // stub
+	}, nil
 }
 
