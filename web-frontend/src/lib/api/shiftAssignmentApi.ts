@@ -62,7 +62,7 @@ export async function updateAssignmentStatus(
 /**
  * シフト割り当てキャンセル（v1.1）
  */
-export async function cancelAssignment(assignmentId: string, reason?: string): Promise<void> {
+export async function cancelAssignment(assignmentId: string, _reason?: string): Promise<void> {
   await apiClient.delete(`/api/v1/shift-assignments/${assignmentId}`);
 }
 

@@ -142,14 +142,21 @@ export class ApiClient {
  * API エラークラス
  */
 export class ApiClientError extends Error {
+  public statusCode: number;
+  public errorCode: string;
+  public details?: Record<string, unknown>;
+
   constructor(
     message: string,
-    public statusCode: number,
-    public errorCode: string,
-    public details?: Record<string, unknown>
+    statusCode: number,
+    errorCode: string,
+    details?: Record<string, unknown>
   ) {
     super(message);
     this.name = 'ApiClientError';
+    this.statusCode = statusCode;
+    this.errorCode = errorCode;
+    this.details = details;
   }
 
   /**
