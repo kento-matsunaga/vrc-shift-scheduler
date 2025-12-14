@@ -279,3 +279,4 @@ VITE_TENANT_ID=your_tenant_id_here
 **作成日**: 2025-01-XX  
 **作成者**: 検証専用アシスタント（Auto）
 
+
