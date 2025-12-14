@@ -7,6 +7,7 @@ VRC Shift Scheduler を Windows で開発するための完全ガイドです。
 
 ## 📋 目次
 
+0. [コマンドを打つ場所](#0-コマンドを打つ場所powershellでもvscodeでもok)
 1. [事前準備チェック](#1-事前準備チェック)
 2. [WSL2 のインストール](#2-wsl2-のインストール)
 3. [Docker Desktop のインストール](#3-docker-desktop-のインストール)
@@ -20,6 +21,31 @@ VRC Shift Scheduler を Windows で開発するための完全ガイドです。
 
 ---
 
+## 0. コマンドを打つ場所（PowerShellでもVSCodeでもOK）
+
+このガイドの `powershell` コマンドは、次のどれで実行してもOKです。
+
+### ✅ おすすめ：VSCode の統合ターミナル
+
+1. VSCode でリポジトリを開く（File → Open Folder → `vrc-shift-scheduler`）
+2. ターミナルを開く：`` Ctrl + ` ``（バッククォート）
+3. 右上の `+`（新しいターミナル）→ **PowerShell** を選ぶ
+4. 以後、このターミナルにコマンドをコピペでOK
+
+### ✅ もちろんOK：Windows Terminal / PowerShell
+
+- Windows Terminal（PowerShell）
+- スタートメニューから PowerShell
+
+### ⚠️「管理者として実行」が必要な作業だけは注意
+
+WSL2 のインストールなど **管理者権限が必要な手順** は、VSCode ではなく  
+スタートメニューから **「PowerShell（管理者として実行）」** を使ってください。
+
+> 💡 このガイドで「⚠️ 管理者権限が必要」と書いてある箇所だけ注意すればOKです。
+
+---
+
 ## 1. 事前準備チェック
 
 ### 必要なもの
@@ -27,7 +53,14 @@ VRC Shift Scheduler を Windows で開発するための完全ガイドです。
 - [x] Windows 11 PC（個人PC、管理者権限あり）
 - [x] インターネット接続
 - [x] GitHub アカウント（持っていない場合は [github.com](https://github.com) で作成）
-- [x] リポジトリへの招待（オーナーから招待されていること）
+
+### GitHub の権限について
+
+| やりたいこと | 必要な権限 |
+|-------------|-----------|
+| clone（ダウンロード）だけ | **不要**（Public リポジトリなので誰でもOK） |
+| push（コード反映）したい | **招待が必要**（オーナーから Write 権限をもらう） |
+| 招待されていない場合 | Fork → 自分のリポジトリで作業 → PR を送る |
 
 ### PC の空き容量確認
 
@@ -46,9 +79,9 @@ Docker Desktop が内部で使用します。
 
 ### 手順
 
-1. **PowerShell を管理者として開く**
+1. **⚠️ PowerShell を管理者として開く**（この手順だけ管理者権限が必要）
    - スタートメニューで「PowerShell」を検索
-   - 「管理者として実行」をクリック
+   - **「管理者として実行」** をクリック
 
 2. **以下のコマンドをコピー＆ペーストして Enter**
 
@@ -66,7 +99,7 @@ wsl --install
 
 5. **インストール確認**
 
-PowerShell で以下を実行：
+ターミナルで以下を実行（VSCode でもOK）：
 
 ```powershell
 wsl --version
@@ -105,7 +138,7 @@ wsl --version
 
 6. **インストール確認**
 
-PowerShell で以下を実行：
+ターミナルで以下を実行（VSCode でもOK）：
 
 ```powershell
 docker --version
@@ -131,7 +164,7 @@ docker compose version
 
 3. **インストール確認**
 
-PowerShell で以下を実行：
+ターミナルで以下を実行（VSCode でもOK）：
 
 ```powershell
 git --version
@@ -141,7 +174,7 @@ git --version
 
 ### 4-2. Git の初期設定
 
-PowerShell で以下を実行（`あなたの名前` と `メールアドレス` は自分のものに変更）：
+ターミナルで以下を実行（`あなたの名前` と `メールアドレス` は自分のものに変更）：
 
 ```powershell
 git config --global user.name "あなたの名前"
@@ -156,7 +189,7 @@ git config --global user.email "your-email@example.com"
 
 1. **SSH キーを生成**
 
-PowerShell で以下を実行：
+ターミナルで以下を実行：
 
 ```powershell
 ssh-keygen -t ed25519 -C "your-email@example.com"
@@ -218,7 +251,7 @@ VSCode を開いて、左側の拡張機能アイコン（四角が4つ）から
 
 ### 6-1. 作業フォルダの作成
 
-PowerShell で以下を実行：
+ターミナルで以下を実行：
 
 ```powershell
 mkdir ~/dev
@@ -242,6 +275,15 @@ git clone git@github.com:kento-matsunaga/vrc-shift-scheduler.git
 cd vrc-shift-scheduler
 ```
 
+### 6-4. VSCode で開く（推奨）
+
+```powershell
+code .
+```
+
+以後は **VSCode の統合ターミナル** でコマンドを実行できます。  
+（`` Ctrl + ` `` でターミナルを開く）
+
 ---
 
 ## 7. 開発環境の起動
@@ -253,14 +295,16 @@ cd vrc-shift-scheduler
 
 ### 7-2. 開発環境を起動
 
-PowerShell で以下を実行：
+ターミナルで以下を実行：
 
 ```powershell
 cd ~/dev/vrc-shift-scheduler
-docker compose up -d
+docker compose up -d --build
 ```
 
-初回は Docker イメージのダウンロードで **5〜10分** かかります。  
+> 💡 `--build` を付けると、Dockerfile の変更も反映されます（初回は必ず付けましょう）
+
+初回は Docker イメージのダウンロードとビルドで **5〜10分** かかります。  
 ☕ コーヒーでも飲んで待ちましょう。
 
 ### 7-3. 起動状態の確認
