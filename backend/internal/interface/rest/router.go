@@ -3,13 +3,16 @@ package rest
 import (
 	"net/http"
 
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/app/auth"
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/db"
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/security"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // NewRouter creates a new HTTP router with all routes configured
-func NewRouter(db *pgxpool.Pool) http.Handler {
+func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 	r := chi.NewRouter()
 
 	// グローバルミドルウェア
@@ -23,17 +26,29 @@ func NewRouter(db *pgxpool.Pool) http.Handler {
 		RespondJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
 
-	// API v1 ルート
+	// 認証基盤の初期化
+	jwtManager := security.NewJWTManager()
+	adminRepo := db.NewAdminRepository(dbPool)
+	passwordHasher := security.NewBcryptHasher()
+	loginUsecase := auth.NewLoginUsecase(adminRepo, passwordHasher, jwtManager)
+	authHandler := NewAuthHandler(loginUsecase)
+
+	// 認証不要ルート
+	r.Route("/api/v1/auth", func(r chi.Router) {
+		r.Post("/login", authHandler.Login)
+	})
+
+	// API v1 ルート（認証必要）
 	r.Route("/api/v1", func(r chi.Router) {
-		// 認証ミドルウェアを適用
-		r.Use(Auth)
+		// 認証ミドルウェアを適用（JWT優先、X-Tenant-IDフォールバック）
+		r.Use(Auth(jwtManager))
 
 		// ハンドラの初期化
-		eventHandler := NewEventHandler(db)
-		businessDayHandler := NewBusinessDayHandler(db)
-		memberHandler := NewMemberHandler(db)
-		shiftSlotHandler := NewShiftSlotHandler(db)
-		shiftAssignmentHandler := NewShiftAssignmentHandler(db)
+		eventHandler := NewEventHandler(dbPool)
+		businessDayHandler := NewBusinessDayHandler(dbPool)
+		memberHandler := NewMemberHandler(dbPool)
+		shiftSlotHandler := NewShiftSlotHandler(dbPool)
+		shiftAssignmentHandler := NewShiftAssignmentHandler(dbPool)
 
 		// Event API
 		r.Route("/events", func(r chi.Router) {

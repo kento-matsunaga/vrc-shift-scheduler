@@ -144,9 +144,26 @@ func getTenantIDFromContext(ctx context.Context) (common.TenantID, bool) {
 	return tenantID, ok
 }
 
+// GetTenantIDFromContext retrieves the tenant ID from the request context (public version)
+func GetTenantIDFromContext(ctx context.Context) (common.TenantID, bool) {
+	return getTenantIDFromContext(ctx)
+}
+
 // getMemberIDFromContext retrieves the member ID from the request context
 func getMemberIDFromContext(ctx context.Context) (common.MemberID, bool) {
 	memberID, ok := ctx.Value(ContextKeyMemberID).(common.MemberID)
 	return memberID, ok
+}
+
+// GetAdminIDFromContext retrieves the admin ID from the request context
+func GetAdminIDFromContext(ctx context.Context) (common.AdminID, bool) {
+	adminID, ok := ctx.Value(ContextKeyAdminID).(common.AdminID)
+	return adminID, ok
+}
+
+// GetRoleFromContext retrieves the role from the request context
+func GetRoleFromContext(ctx context.Context) (string, bool) {
+	role, ok := ctx.Value(ContextKeyRole).(string)
+	return role, ok
 }
 

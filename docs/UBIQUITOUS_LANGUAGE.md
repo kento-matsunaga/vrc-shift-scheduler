@@ -12,10 +12,11 @@ VRC Shift Scheduler プロジェクトにおけるユビキタス言語の定義
 3. [シフト枠・ポジション領域](#3-シフト枠ポジション領域)
 4. [シフト希望領域](#4-シフト希望領域)
 5. [シフト確定・割り当て領域](#5-シフト確定割り当て領域)
-6. [通知・リマインド領域](#6-通知リマインド領域)
-7. [監査・履歴領域](#7-監査履歴領域)
-8. [共通概念](#8-共通概念)
-9. [状態・区分値](#9-状態区分値)
+6. [出欠確認・日程調整領域](#6-出欠確認日程調整領域)
+7. [通知・リマインド領域](#7-通知リマインド領域)
+8. [監査・履歴領域](#8-監査履歴領域)
+9. [共通概念](#9-共通概念)
+10. [状態・区分値](#10-状態区分値)
 
 ---
 
@@ -441,7 +442,193 @@ type ShiftAssignment struct {
 
 ---
 
-## 6. 通知・リマインド領域
+## 6. 出欠確認・日程調整領域
+
+### 出欠確認（Attendance Collection）
+
+確定した営業日に対するメンバーの出欠を収集する機能単位。「調整さん」のような公開URLを発行し、認証不要で回答できる。
+
+- **英語コード**: `attendance_collection`
+- **識別子**: `CollectionID`（ULID形式）
+- **役割**: 営業日またはイベントに対する出欠の収集・集計を管理
+- **例**: 「1月7日営業 出欠確認」
+
+```go
+type AttendanceCollection struct {
+    collectionID CollectionID
+    tenantID     TenantID
+    title        string              // タイトル
+    description  string              // 説明文
+    targetType   AttendanceTargetType // 対象種別（event/business_day）
+    targetID     string              // 対象イベントIDまたは営業日ID
+    publicToken  string              // 公開URL用トークン
+    status       AttendanceCollectionStatus
+    deadline     *time.Time          // 回答締切
+    createdAt    time.Time
+}
+```
+
+### 出欠確認対象種別（Attendance Target Type）
+
+出欠確認の対象を区別する区分オブジェクト。
+
+| 値 | 日本語名 | 説明 |
+|---|---|---|
+| `event` | イベント | イベント全体への出欠（複数営業日をまとめて） |
+| `business_day` | 営業日 | 特定の営業日への出欠 |
+
+### 出欠確認状態（Attendance Collection Status）
+
+出欠確認のライフサイクルを表す区分オブジェクト。
+
+| 値 | 日本語名 | 説明 |
+|---|---|---|
+| `open` | 回答受付中 | 回答を受け付けている状態 |
+| `closed` | 締切済み | 回答を締め切った状態 |
+
+### 出欠回答（Attendance Response）
+
+メンバーが提出する出欠の回答。
+
+- **英語コード**: `attendance_response`
+- **識別子**: `ResponseID`（ULID形式）
+- **役割**: 個別メンバーの出欠回答を管理
+
+```go
+type AttendanceResponse struct {
+    responseID    ResponseID
+    collectionID  CollectionID
+    memberID      MemberID
+    response      AttendanceResponseType
+    note          string
+    respondedAt   time.Time
+}
+```
+
+### 出欠回答種別（Attendance Response Type）
+
+出欠の回答内容を表す区分オブジェクト。
+
+| 値 | 日本語名 | 説明 |
+|---|---|---|
+| `attending` | 出席 | 参加できる |
+| `absent` | 欠席 | 参加できない |
+
+### 日程調整（Date Schedule）
+
+複数の候補日を提示し、メンバーの参加可否を収集してイベント開催日を決定する機能単位。
+
+- **英語コード**: `date_schedule`
+- **識別子**: `ScheduleID`（ULID形式）
+- **役割**: 候補日の管理・回答収集・集計・開催日決定を管理
+- **例**: 「2月特別イベント 日程調整」
+
+```go
+type DateSchedule struct {
+    scheduleID   ScheduleID
+    tenantID     TenantID
+    title        string              // タイトル
+    description  string              // 説明文
+    eventID      *EventID            // 関連イベントID（任意）
+    publicToken  string              // 公開URL用トークン
+    status       DateScheduleStatus
+    deadline     *time.Time          // 回答締切
+    decidedDate  *CandidateDateID    // 決定した候補日ID
+    createdAt    time.Time
+}
+```
+
+### 日程調整状態（Date Schedule Status）
+
+日程調整のライフサイクルを表す区分オブジェクト。
+
+| 値 | 日本語名 | 説明 |
+|---|---|---|
+| `open` | 回答受付中 | 回答を受け付けている状態 |
+| `closed` | 締切済み | 回答を締め切ったが、開催日未決定 |
+| `decided` | 決定済み | 開催日が決定した状態 |
+
+### 候補日（Candidate Date）
+
+日程調整における選択肢となる日付・時間帯。
+
+- **英語コード**: `candidate_date`
+- **識別子**: `CandidateDateID`（ULID形式）
+- **役割**: 日程調整の選択肢を管理
+
+```go
+type CandidateDate struct {
+    candidateID  CandidateDateID
+    scheduleID   ScheduleID
+    date         time.Time           // 候補日（DATE）
+    startTime    *time.Time          // 開始時刻（任意）
+    endTime      *time.Time          // 終了時刻（任意）
+    note         string              // 備考
+    displayOrder int                 // 表示順
+}
+```
+
+### 日程調整回答（Date Schedule Response）
+
+メンバーが提出する各候補日への参加可否の回答。
+
+- **英語コード**: `date_schedule_response`
+- **識別子**: `DateResponseID`（ULID形式）
+- **役割**: 個別メンバーの候補日ごとの回答を管理
+
+```go
+type DateScheduleResponse struct {
+    dateResponseID DateResponseID
+    scheduleID     ScheduleID
+    memberID       MemberID
+    candidateID    CandidateDateID
+    availability   DateAvailabilityType
+    respondedAt    time.Time
+}
+```
+
+### 日程可否種別（Date Availability Type）
+
+候補日への参加可否を表す区分オブジェクト。
+
+| 値 | 日本語名 | 説明 | 表示記号 |
+|---|---|---|---|
+| `available` | 参加可能 | その日は参加できる | ○ |
+| `unavailable` | 参加不可 | その日は参加できない | × |
+| `maybe` | 未定・調整中 | 参加できるかもしれない | △ |
+
+### 公開回答ページ（Public Response Page）
+
+出欠確認・日程調整で共通して使用する、認証不要の公開ページ。
+
+- **英語コード**: `public_response_page`
+- **役割**: Discord等で共有されるURL先のページとして機能
+- **アクセス**: トークン付きURLでアクセス（認証不要）
+- **特徴**: 
+  - 回答者はプルダウンから自分（登録済みメンバー）を選択
+  - モバイルフレンドリー
+  - 締切管理
+
+### 公開トークン（Public Token）
+
+公開回答ページへのアクセスに使用する一意の文字列。
+
+- **英語コード**: `public_token`
+- **役割**: URLの一部として使用され、認証なしでページを特定
+- **形式**: UUID v4（RFC 4122準拠、36文字、ハイフン含む）
+- **例**: `550e8400-e29b-41d4-a716-446655440000`
+- **DB型**: PostgreSQL UUID型 + UNIQUE制約
+- **バリデーション**: UUID形式でないトークンは400 Bad Requestを返す
+
+### 回答締切（Response Deadline）
+
+出欠確認・日程調整の回答を受け付ける期限。
+
+- **英語コード**: `deadline`, `response_deadline`
+- **役割**: 締切を過ぎた回答を拒否
+- **処理**: 締切後は回答フォームを非表示にし、メッセージのみ表示
+
+---
 
 ### 通知（Notification）
 
@@ -483,7 +670,7 @@ type ShiftAssignment struct {
 
 ---
 
-## 7. 監査・履歴領域
+## 8. 監査・履歴領域
 
 ### 監査ログ（Audit Log）
 
@@ -530,7 +717,7 @@ type AuditLog struct {
 
 ---
 
-## 8. 共通概念
+## 9. 共通概念
 
 ### ULID
 
@@ -567,7 +754,7 @@ Universally Unique Lexicographically Sortable Identifier。
 
 ---
 
-## 9. 状態・区分値 一覧
+## 10. 状態・区分値 一覧
 
 ### イベント種別（EventType）
 - `normal`: 通常営業
@@ -603,6 +790,29 @@ Universally Unique Lexicographically Sortable Identifier。
 ### 曜日（DayOfWeek）
 - `MON`, `TUE`, `WED`, `THU`, `FRI`, `SAT`, `SUN`
 
+### 出欠確認対象種別（AttendanceTargetType）
+- `event`: イベント
+- `business_day`: 営業日
+
+### 出欠確認状態（AttendanceCollectionStatus）
+- `open`: 回答受付中
+- `closed`: 締切済み
+
+### 出欠回答種別（AttendanceResponseType）
+- `attending`: 出席
+- `absent`: 欠席
+- `maybe`: 未定・調整中（△）
+
+### 日程調整状態（DateScheduleStatus）
+- `open`: 回答受付中
+- `closed`: 締切済み
+- `decided`: 決定済み
+
+### 日程可否種別（DateAvailabilityType）
+- `available`: 参加可能（○）
+- `unavailable`: 参加不可（×）
+- `maybe`: 未定・調整中（△）
+
 ---
 
 ## 用語対応表
@@ -631,6 +841,18 @@ Universally Unique Lexicographically Sortable Identifier。
 | 仮確定 | Tentative | 通知前の確定状態 |
 | 確定 | Confirmed | 通知済みの確定状態 |
 | 希望外配置 | Outside Preference | 希望範囲外の配置 |
+| 出欠確認 | Attendance Collection | 営業日への出欠収集 |
+| 出欠回答 | Attendance Response | 出欠への回答 |
+| 出席 | Attending | 参加する |
+| 欠席 | Absent | 参加しない |
+| 日程調整 | Date Schedule | 候補日から開催日を決める |
+| 候補日 | Candidate Date | 日程調整の選択肢 |
+| 参加可能 | Available | 候補日に参加できる（○） |
+| 参加不可 | Unavailable | 候補日に参加できない（×） |
+| 未定 | Maybe | 参加できるかもしれない（△） |
+| 公開回答ページ | Public Response Page | 認証不要の回答ページ |
+| 公開トークン | Public Token | URLアクセス用の一意文字列 |
+| 回答締切 | Response Deadline | 回答の受付期限 |
 | 通知 | Notification | メンバーへの情報伝達 |
 | リマインド | Reminder | 事前の確認通知 |
 | 監査ログ | Audit Log | 操作履歴 |
@@ -644,4 +866,5 @@ Universally Unique Lexicographically Sortable Identifier。
 | 日付 | 更新内容 |
 |---|---|
 | 2025-12-14 | 初版作成 |
+| 2025-12-14 | 出欠確認・日程調整領域を追加 |
 

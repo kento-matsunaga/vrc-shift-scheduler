@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/oklog/ulid/v2"
 )
 
@@ -174,5 +175,121 @@ func ParseAssignmentID(s string) (AssignmentID, error) {
 		return "", err
 	}
 	return AssignmentID(s), nil
+}
+
+// PublicToken represents a public access token for attendance collections and date schedules.
+// It uses UUID v4 format (RFC 4122) for security and standardization.
+type PublicToken string
+
+// NewPublicToken generates a new UUID v4 public token
+func NewPublicToken() PublicToken {
+	return PublicToken(uuid.New().String())
+}
+
+func (t PublicToken) String() string {
+	return string(t)
+}
+
+// Validate checks if the token is a valid UUID v4 format
+func (t PublicToken) Validate() error {
+	if t == "" {
+		return fmt.Errorf("public_token is required")
+	}
+	return ValidatePublicToken(string(t))
+}
+
+// ValidatePublicToken validates if a string is a valid UUID v4 format
+func ValidatePublicToken(token string) error {
+	if token == "" {
+		return fmt.Errorf("public_token is required")
+	}
+	_, err := uuid.Parse(token)
+	if err != nil {
+		return fmt.Errorf("invalid public_token format: must be UUID v4, got: %s", token)
+	}
+	return nil
+}
+
+// ParsePublicToken parses a string into a PublicToken after validation
+func ParsePublicToken(s string) (PublicToken, error) {
+	if err := ValidatePublicToken(s); err != nil {
+		return "", err
+	}
+	return PublicToken(s), nil
+}
+
+// AdminID represents an admin identifier
+type AdminID string
+
+func NewAdminID() AdminID {
+	return AdminID(NewULID())
+}
+
+func (id AdminID) String() string {
+	return string(id)
+}
+
+func (id AdminID) Validate() error {
+	if id == "" {
+		return fmt.Errorf("admin_id is required")
+	}
+	return ValidateULID(string(id))
+}
+
+func ParseAdminID(s string) (AdminID, error) {
+	if err := ValidateULID(s); err != nil {
+		return "", err
+	}
+	return AdminID(s), nil
+}
+
+// CollectionID represents an attendance collection identifier
+type CollectionID string
+
+func NewCollectionID() CollectionID {
+	return CollectionID(NewULID())
+}
+
+func (id CollectionID) String() string {
+	return string(id)
+}
+
+func (id CollectionID) Validate() error {
+	if id == "" {
+		return fmt.Errorf("collection_id is required")
+	}
+	return ValidateULID(string(id))
+}
+
+func ParseCollectionID(s string) (CollectionID, error) {
+	if err := ValidateULID(s); err != nil {
+		return "", err
+	}
+	return CollectionID(s), nil
+}
+
+// ResponseID represents an attendance response identifier
+type ResponseID string
+
+func NewResponseID() ResponseID {
+	return ResponseID(NewULID())
+}
+
+func (id ResponseID) String() string {
+	return string(id)
+}
+
+func (id ResponseID) Validate() error {
+	if id == "" {
+		return fmt.Errorf("response_id is required")
+	}
+	return ValidateULID(string(id))
+}
+
+func ParseResponseID(s string) (ResponseID, error) {
+	if err := ValidateULID(s); err != nil {
+		return "", err
+	}
+	return ResponseID(s), nil
 }
 

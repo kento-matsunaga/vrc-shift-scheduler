@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/security"
 )
 
 // ContextKey is a custom type for context keys
@@ -17,6 +18,10 @@ const (
 	ContextKeyTenantID ContextKey = "tenant_id"
 	// ContextKeyMemberID is the context key for member ID
 	ContextKeyMemberID ContextKey = "member_id"
+	// ContextKeyAdminID is the context key for admin ID (JWT認証時)
+	ContextKeyAdminID ContextKey = "admin_id"
+	// ContextKeyRole is the context key for admin role (JWT認証時)
+	ContextKeyRole ContextKey = "role"
 )
 
 // Logger is a middleware that logs HTTP requests
@@ -55,7 +60,7 @@ func CORS(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-Tenant-ID, X-Member-ID")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-Tenant-ID, X-Member-ID, Authorization")
 		w.Header().Set("Access-Control-Max-Age", "86400")
 
 		if r.Method == http.MethodOptions {
@@ -68,42 +73,65 @@ func CORS(next http.Handler) http.Handler {
 }
 
 // Auth is a middleware that extracts tenant and member IDs from headers
-// v1 簡易認証: X-Tenant-ID, X-Member-ID ヘッダーを使用
-func Auth(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Extract tenant ID from header
-		tenantIDStr := r.Header.Get("X-Tenant-ID")
-		if tenantIDStr == "" {
-			RespondError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "X-Tenant-ID header is required", nil)
-			return
-		}
+// JWT認証優先、フォールバックで v1 簡易認証（X-Tenant-ID, X-Member-ID）
+func Auth(tokenVerifier security.TokenVerifier) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Authorization: Bearer があればJWT検証
+			authHeader := r.Header.Get("Authorization")
+			if authHeader != "" && len(authHeader) > 7 && authHeader[:7] == "Bearer " {
+				token := authHeader[7:]
+				claims, err := tokenVerifier.Verify(token)
+				if err != nil {
+					// JWT検証失敗 → 401
+					RespondError(w, http.StatusUnauthorized, "ERR_UNAUTHORIZED", "Invalid or expired token", nil)
+					return
+				}
 
-		tenantID := common.TenantID(tenantIDStr)
-		if err := tenantID.Validate(); err != nil {
-			RespondError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "Invalid X-Tenant-ID format", nil)
-			return
-		}
+				// JWT検証成功 → context に tenant_id, admin_id, role をセット
+				ctx := r.Context()
+				ctx = context.WithValue(ctx, ContextKeyTenantID, common.TenantID(claims.TenantID))
+				ctx = context.WithValue(ctx, ContextKeyAdminID, common.AdminID(claims.AdminID))
+				ctx = context.WithValue(ctx, ContextKeyRole, claims.Role)
 
-		// Extract member ID from header (optional for some endpoints)
-		memberIDStr := r.Header.Get("X-Member-ID")
-		var memberID common.MemberID
-		if memberIDStr != "" {
-			memberID = common.MemberID(memberIDStr)
-			if err := memberID.Validate(); err != nil {
-				RespondError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "Invalid X-Member-ID format", nil)
+				next.ServeHTTP(w, r.WithContext(ctx))
 				return
 			}
-		}
 
-		// Add IDs to context
-		ctx := r.Context()
-		ctx = context.WithValue(ctx, ContextKeyTenantID, tenantID)
-		if memberIDStr != "" {
-			ctx = context.WithValue(ctx, ContextKeyMemberID, memberID)
-		}
+			// JWT がない → 従来の X-Tenant-ID 認証にフォールバック（段階移行）
+			tenantIDStr := r.Header.Get("X-Tenant-ID")
+			if tenantIDStr == "" {
+				RespondError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "X-Tenant-ID header or Authorization header is required", nil)
+				return
+			}
 
-		next.ServeHTTP(w, r.WithContext(ctx))
-	})
+			tenantID := common.TenantID(tenantIDStr)
+			if err := tenantID.Validate(); err != nil {
+				RespondError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "Invalid X-Tenant-ID format", nil)
+				return
+			}
+
+			// Extract member ID from header (optional for some endpoints)
+			memberIDStr := r.Header.Get("X-Member-ID")
+			var memberID common.MemberID
+			if memberIDStr != "" {
+				memberID = common.MemberID(memberIDStr)
+				if err := memberID.Validate(); err != nil {
+					RespondError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "Invalid X-Member-ID format", nil)
+					return
+				}
+			}
+
+			// Add IDs to context
+			ctx := r.Context()
+			ctx = context.WithValue(ctx, ContextKeyTenantID, tenantID)
+			if memberIDStr != "" {
+				ctx = context.WithValue(ctx, ContextKeyMemberID, memberID)
+			}
+
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
 }
 
 // Recover is a middleware that recovers from panics
