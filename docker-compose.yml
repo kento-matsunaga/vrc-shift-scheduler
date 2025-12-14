@@ -31,6 +31,21 @@ services:
       db:
         condition: service_healthy
 
+  web-frontend:
+    image: node:20-alpine
+    command: ["sh", "-c", "npm install && npm run dev -- --host 0.0.0.0"]
+    working_dir: /app
+    volumes:
+      - ./web-frontend:/app
+      - frontend_node_modules:/app/node_modules
+    environment:
+      VITE_API_BASE_URL: http://localhost:8080
+      VITE_TENANT_ID: ${VITE_TENANT_ID:-dev-tenant}
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+
   bot:
     build: ./bot
     command: ["pnpm", "dev"]
@@ -44,8 +59,14 @@ services:
       BACKEND_BASE_URL: http://backend:8080
     depends_on:
       - backend
+    # Bot はオプション。起動したくない場合は以下のプロファイルを使用:
+    # docker compose up（bot以外を起動）
+    # docker compose --profile bot up（bot含めて起動）
+    profiles:
+      - bot
 
 volumes:
   db_data:
   bot_node_modules:
+  frontend_node_modules:
 

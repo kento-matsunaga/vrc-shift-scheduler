@@ -66,6 +66,12 @@ func seedData(ctx context.Context, pool *pgxpool.Pool, tenantCount int) error {
 		tenantID := common.NewTenantID()
 		log.Printf("\n📦 Creating tenant %d/%d: %s", i+1, tenantCount, tenantID)
 
+		// 0. テナントを作成
+		if err := createTenant(ctx, pool, tenantID, fmt.Sprintf("テストテナント #%d", i+1)); err != nil {
+			return fmt.Errorf("failed to create tenant: %w", err)
+		}
+		log.Printf("   ✅ Tenant created: %s", tenantID)
+
 		// 1. イベントを作成
 		eventID, err := createEvent(ctx, eventRepo, tenantID, fmt.Sprintf("テストイベント #%d", i+1))
 		if err != nil {
@@ -87,10 +93,17 @@ func seedData(ctx context.Context, pool *pgxpool.Pool, tenantCount int) error {
 		}
 		log.Printf("   ✅ Members created: %d", len(memberIDs))
 
-		// 4. シフト枠を作成（各営業日に2〜3枠）
+		// 4. ポジションを作成
+		positionIDs, err := createPositions(ctx, pool, tenantID)
+		if err != nil {
+			return fmt.Errorf("failed to create positions: %w", err)
+		}
+		log.Printf("   ✅ Positions created: %d", len(positionIDs))
+
+		// 5. シフト枠を作成（各営業日に2〜3枠）
 		totalSlots := 0
 		for _, bdID := range businessDayIDs {
-			slots, err := createShiftSlots(ctx, slotRepo, tenantID, bdID, 3)
+			slots, err := createShiftSlots(ctx, slotRepo, tenantID, bdID, positionIDs)
 			if err != nil {
 				return fmt.Errorf("failed to create shift slots: %w", err)
 			}
@@ -100,6 +113,47 @@ func seedData(ctx context.Context, pool *pgxpool.Pool, tenantCount int) error {
 	}
 
 	return nil
+}
+
+func createTenant(ctx context.Context, pool *pgxpool.Pool, tenantID common.TenantID, name string) error {
+	query := `
+		INSERT INTO tenants (tenant_id, tenant_name, timezone, is_active, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $5)
+		ON CONFLICT (tenant_id) DO NOTHING
+	`
+	now := time.Now()
+	_, err := pool.Exec(ctx, query, string(tenantID), name, "Asia/Tokyo", true, now)
+	return err
+}
+
+func createPositions(ctx context.Context, pool *pgxpool.Pool, tenantID common.TenantID) ([]shift.PositionID, error) {
+	positions := []struct {
+		name        string
+		description string
+	}{
+		{"受付", "来場者の受付業務"},
+		{"案内", "イベント会場の案内業務"},
+		{"配信", "イベントの配信サポート業務"},
+	}
+
+	ids := make([]shift.PositionID, 0, len(positions))
+	now := time.Now()
+
+	for i, pos := range positions {
+		positionID := shift.NewPositionID()
+		query := `
+			INSERT INTO positions (position_id, tenant_id, position_name, description, display_order, is_active, created_at, updated_at)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $7)
+			ON CONFLICT (position_id) DO NOTHING
+		`
+		_, err := pool.Exec(ctx, query, string(positionID), string(tenantID), pos.name, pos.description, i+1, true, now)
+		if err != nil {
+			return nil, err
+		}
+		ids = append(ids, positionID)
+	}
+
+	return ids, nil
 }
 
 func createEvent(ctx context.Context, repo *db.EventRepository, tenantID common.TenantID, name string) (common.EventID, error) {
@@ -126,7 +180,7 @@ func createBusinessDays(ctx context.Context, repo *db.EventBusinessDayRepository
 
 	for i := 0; i < count; i++ {
 		targetDate := now.AddDate(0, 0, i)
-		
+
 		// 21:00 - 23:30 の営業時間
 		startTime := time.Date(2000, 1, 1, 21, 0, 0, 0, time.UTC)
 		endTime := time.Date(2000, 1, 1, 23, 30, 0, 0, time.UTC)
@@ -180,16 +234,16 @@ func createMembers(ctx context.Context, repo *db.MemberRepository, tenantID comm
 	return ids, nil
 }
 
-func createShiftSlots(ctx context.Context, repo *db.ShiftSlotRepository, tenantID common.TenantID, businessDayID event.BusinessDayID, count int) ([]shift.SlotID, error) {
-	ids := make([]shift.SlotID, 0, count)
+func createShiftSlots(ctx context.Context, repo *db.ShiftSlotRepository, tenantID common.TenantID, businessDayID event.BusinessDayID, positionIDs []shift.PositionID) ([]shift.SlotID, error) {
+	ids := make([]shift.SlotID, 0, len(positionIDs))
 
-	positions := []struct {
-		name         string
-		instanceName string
-		startHour    int
-		startMinute  int
-		endHour      int
-		endMinute    int
+	slotConfigs := []struct {
+		name          string
+		instanceName  string
+		startHour     int
+		startMinute   int
+		endHour       int
+		endMinute     int
 		requiredCount int
 	}{
 		{"受付", "受付1", 21, 0, 22, 0, 2},
@@ -197,24 +251,24 @@ func createShiftSlots(ctx context.Context, repo *db.ShiftSlotRepository, tenantI
 		{"配信", "配信1", 21, 0, 23, 30, 1},
 	}
 
-	for i := 0; i < count && i < len(positions); i++ {
-		pos := positions[i]
-		
-		startTime := time.Date(2000, 1, 1, pos.startHour, pos.startMinute, 0, 0, time.UTC)
-		endTime := time.Date(2000, 1, 1, pos.endHour, pos.endMinute, 0, 0, time.UTC)
-		
-		// Position ID はダミー（実際には Position テーブルが必要だが、今回は省略）
-		positionID := shift.NewPositionID()
+	for i, positionID := range positionIDs {
+		if i >= len(slotConfigs) {
+			break
+		}
+		cfg := slotConfigs[i]
+
+		startTime := time.Date(2000, 1, 1, cfg.startHour, cfg.startMinute, 0, 0, time.UTC)
+		endTime := time.Date(2000, 1, 1, cfg.endHour, cfg.endMinute, 0, 0, time.UTC)
 
 		slot, err := shift.NewShiftSlot(
 			tenantID,
 			businessDayID,
 			positionID,
-			pos.name,
-			pos.instanceName,
+			cfg.name,
+			cfg.instanceName,
 			startTime,
 			endTime,
-			pos.requiredCount,
+			cfg.requiredCount,
 			i+1, // priority
 		)
 		if err != nil {
@@ -230,4 +284,3 @@ func createShiftSlots(ctx context.Context, repo *db.ShiftSlotRepository, tenantI
 
 	return ids, nil
 }
-

@@ -43,6 +43,21 @@ func setupTestDB(t *testing.T) (*pgxpool.Pool, func()) {
 	return pool, cleanup
 }
 
+// createTestTenant はテスト用のテナントを作成します
+func createTestTenant(t *testing.T, pool *pgxpool.Pool, tenantID common.TenantID) {
+	t.Helper()
+	ctx := context.Background()
+	query := `
+		INSERT INTO tenants (tenant_id, tenant_name, timezone, is_active, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, NOW(), NOW())
+		ON CONFLICT (tenant_id) DO NOTHING
+	`
+	_, err := pool.Exec(ctx, query, string(tenantID), "Test Tenant", "Asia/Tokyo", true)
+	if err != nil {
+		t.Fatalf("Failed to create test tenant: %v", err)
+	}
+}
+
 func TestEventRepository_SaveAndFind(t *testing.T) {
 	pool, cleanup := setupTestDB(t)
 	defer cleanup()
@@ -52,6 +67,7 @@ func TestEventRepository_SaveAndFind(t *testing.T) {
 
 	// テスト用のテナントとイベントを作成
 	tenantID := common.NewTenantID()
+	createTestTenant(t, pool, tenantID)
 	testEvent, err := event.NewEvent(
 		tenantID,
 		"週末VRChat集会",
@@ -105,6 +121,7 @@ func TestEventRepository_FindByTenantID(t *testing.T) {
 
 	// テスト用のテナントを作成
 	tenantID := common.NewTenantID()
+	createTestTenant(t, pool, tenantID)
 
 	// 複数のイベントを作成
 	events := make([]*event.Event, 3)
@@ -146,6 +163,7 @@ func TestEventRepository_Update(t *testing.T) {
 	ctx := context.Background()
 
 	tenantID := common.NewTenantID()
+	createTestTenant(t, pool, tenantID)
 	testEvent, err := event.NewEvent(
 		tenantID,
 		"元の名前",
@@ -193,6 +211,7 @@ func TestEventRepository_ExistsByName(t *testing.T) {
 	ctx := context.Background()
 
 	tenantID := common.NewTenantID()
+	createTestTenant(t, pool, tenantID)
 	eventName := "ユニークなイベント名"
 
 	// 最初は存在しない
@@ -224,4 +243,3 @@ func TestEventRepository_ExistsByName(t *testing.T) {
 		t.Error("Event should exist now")
 	}
 }
-

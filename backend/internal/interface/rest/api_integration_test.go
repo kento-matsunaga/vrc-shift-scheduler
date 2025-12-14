@@ -49,6 +49,21 @@ func setupTestRouter(t *testing.T) (http.Handler, *pgxpool.Pool, func()) {
 	return router, pool, cleanup
 }
 
+// createTestTenant はテスト用のテナントを作成します
+func createTestTenant(t *testing.T, pool *pgxpool.Pool, tenantID common.TenantID) {
+	t.Helper()
+	ctx := context.Background()
+	query := `
+		INSERT INTO tenants (tenant_id, tenant_name, timezone, is_active, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, NOW(), NOW())
+		ON CONFLICT (tenant_id) DO NOTHING
+	`
+	_, err := pool.Exec(ctx, query, string(tenantID), "Test Tenant", "Asia/Tokyo", true)
+	if err != nil {
+		t.Fatalf("Failed to create test tenant: %v", err)
+	}
+}
+
 // TestHealthCheck tests the health check endpoint
 func TestHealthCheck(t *testing.T) {
 	router, _, cleanup := setupTestRouter(t)
@@ -79,11 +94,12 @@ func TestHealthCheck(t *testing.T) {
 
 // TestCreateEvent tests POST /api/v1/events
 func TestCreateEvent(t *testing.T) {
-	router, _, cleanup := setupTestRouter(t)
+	router, pool, cleanup := setupTestRouter(t)
 	defer cleanup()
 
 	// テスト用のテナントIDを生成
 	tenantID := common.NewTenantID()
+	createTestTenant(t, pool, tenantID)
 
 	// リクエストボディの作成
 	requestBody := map[string]string{
@@ -149,11 +165,12 @@ func TestCreateEvent(t *testing.T) {
 
 // TestListEvents tests GET /api/v1/events
 func TestListEvents(t *testing.T) {
-	router, _, cleanup := setupTestRouter(t)
+	router, pool, cleanup := setupTestRouter(t)
 	defer cleanup()
 
 	// テスト用のテナントIDを生成
 	tenantID := common.NewTenantID()
+	createTestTenant(t, pool, tenantID)
 
 	// リクエストの作成
 	req := httptest.NewRequest("GET", "/api/v1/events", nil)
