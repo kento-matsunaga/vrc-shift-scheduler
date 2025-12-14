@@ -6,71 +6,68 @@ VRChat コミュニティ向けシフト管理システム
 
 > 🪟 **Windows 11 の方へ**：まずは **[docs/setup-windows.md](docs/setup-windows.md)** を実施してください（Windows Terminal / WSL2 Ubuntu / Docker Desktop の準備と起動方法）。
 
-### ブートストラップ（初回セットアップ）
+### Docker Compose で起動（推奨）
 
 ```bash
 # プロジェクトをクローン
-git clone <repository-url>
+git clone git@github.com:kento-matsunaga/vrc-shift-scheduler.git
 cd vrc-shift-scheduler
 
+# 開発環境を起動（PostgreSQL + Backend + Frontend）
+docker compose up -d --build
+
+# マイグレーション
+docker compose exec backend go run ./cmd/migrate/main.go
+
+# シード（任意：テスト用データ投入）
+docker compose exec backend go run ./cmd/seed/main.go
+```
+
+- バックエンド： http://localhost:8080/health
+- フロントエンド： http://localhost:5173
+
+### ローカル起動（Docker なし）
+
+```bash
 # ブートストラップスクリプトを実行
 ./scripts/bootstrap.sh
+
+# バックエンド起動
+cd backend && go run ./cmd/server/main.go
+
+# フロントエンド起動（別ターミナル）
+cd web-frontend && npm run dev
 ```
 
-このスクリプトは以下を自動的に実行します：
-- Go 1.23+ のバージョンチェック・インストール
-- Node.js 18+ のバージョンチェック
-- PostgreSQL のチェック
-- 環境変数ファイル（.env）の作成
-- 依存関係のインストール
-
-### データベースのセットアップ
-
-```bash
-cd backend
-go run ./cmd/migrate/main.go
-```
-
-### 開発サーバーの起動
-
-**バックエンド:**
-
-```bash
-cd backend
-go run ./cmd/server/main.go
-# http://localhost:8080
-```
-
-**フロントエンド:**
-
-```bash
-cd web-frontend
-npm run dev
-# http://localhost:5173
-```
+---
 
 ## 📖 ドキュメント
 
-- **[docs/setup-windows.md](docs/setup-windows.md)** - Windows 11（WSL2 Ubuntu + Docker Desktop）セットアップ手順
-- **[SETUP.md](SETUP.md)** - 詳細なセットアップ手順（macOS / Linux）
-- **[backend/docs/ARCHITECTURE.md](backend/docs/ARCHITECTURE.md)** - システムアーキテクチャ
-- **[backend/docs/API.md](backend/docs/API.md)** - API ドキュメント
+| ドキュメント | 説明 |
+|-------------|------|
+| [docs/setup-windows.md](docs/setup-windows.md) | Windows 11 セットアップ（WSL2 + Docker Desktop） |
+| [SETUP.md](SETUP.md) | 詳細なセットアップ手順（macOS / Linux） |
+| [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md) | 環境変数の説明 |
+
+---
 
 ## 🛠️ 技術スタック
 
 ### バックエンド
+
 - **Go 1.23+**
 - **go-chi/chi v5** - HTTP ルーター
 - **pgx v5** - PostgreSQL ドライバー
-- **PostgreSQL 14+**
+- **PostgreSQL 16**
 
 ### フロントエンド
-- **React 18**
-- **TypeScript**
-- **Vite**
-- **Tailwind CSS**
+
+- **React 19** + **TypeScript**
+- **Vite 7**
+- **Tailwind CSS 4**
 - **React Router**
-- **Axios**
+
+---
 
 ## 📁 プロジェクト構成
 
@@ -86,75 +83,63 @@ vrc-shift-scheduler/
 │   │   ├── app/          # アプリケーションサービス
 │   │   ├── infra/        # インフラ層（DB リポジトリ）
 │   │   └── interface/    # REST API ハンドラー
-│   └── migrations/       # SQL マイグレーションファイル
+│   └── Makefile          # 開発用コマンド
 ├── web-frontend/
-│   ├── src/
-│   │   ├── components/   # React コンポーネント
-│   │   ├── pages/        # ページコンポーネント
-│   │   ├── lib/          # API クライアント
-│   │   └── types/        # TypeScript 型定義
-│   └── public/           # 静的ファイル
-└── scripts/
-    ├── bootstrap.sh      # 初回セットアップスクリプト
-    ├── install-go.sh     # Go インストール（sudo 版）
-    └── install-go-local.sh # Go インストール（ローカル版）
+│   └── src/
+│       ├── components/   # React コンポーネント
+│       ├── pages/        # ページコンポーネント
+│       └── lib/          # API クライアント
+├── bot/                  # Discord Bot（オプション）
+├── docs/                 # ドキュメント
+└── docker-compose.yml    # 開発環境定義
 ```
+
+---
 
 ## 🧪 テスト
 
 ```bash
-# バックエンドテスト
-cd backend
-go test ./...
+# バックエンドテスト（Docker内）
+docker compose exec backend go test ./...
 
-# 統合テスト（DB が必要）
-go test -tags=integration ./internal/infra/db/...
-
-# フロントエンドテスト
-cd web-frontend
-npm test
+# または Makefile を使用
+docker compose exec backend make test
 ```
 
-## 🐳 Docker（開発環境）
-
-**推奨：Docker Compose で一括起動**
-
-```bash
-docker compose up -d --build
-```
-
-これで PostgreSQL、バックエンド、フロントエンドがすべて起動します。
-
-> 詳細は [docs/setup-windows.md](docs/setup-windows.md)（Windows）または [SETUP.md](SETUP.md)（macOS/Linux）を参照してください。
+---
 
 ## 📝 開発ワークフロー
 
-1. **Issue を作成** - 実装する機能やバグ修正の Issue を作成
-2. **ブランチを作成** - `feature/xxx` または `fix/xxx` ブランチを作成
-3. **実装 & テスト** - コードを実装し、テストを追加
-4. **コミット** - 意味のあるコミットメッセージで commit
-5. **PR を作成** - main ブランチへの Pull Request を作成
-6. **レビュー & マージ** - コードレビュー後、マージ
+### ブランチ運用
+
+| ブランチ | 用途 |
+|----------|------|
+| `main` | 本番用。直接 push 禁止。PR 経由でマージ |
+| `feature/xxx` | 新機能開発用 |
+| `fix/xxx` | バグ修正用 |
+
+### 開発フロー
+
+1. `main` から作業ブランチを作成
+2. コードを実装・テスト
+3. コミット & プッシュ
+4. Pull Request を作成
+5. レビュー後、マージ
+
+---
 
 ## 🤝 コントリビューション
 
 プロジェクトへの貢献を歓迎します！
 
-1. このリポジトリを Fork
+1. このリポジトリを Fork（または招待を受ける）
 2. Feature ブランチを作成 (`git checkout -b feature/amazing-feature`)
-3. 変更をコミット (`git commit -m 'Add some amazing feature'`)
+3. 変更をコミット (`git commit -m 'feat: 変更内容'`)
 4. ブランチを Push (`git push origin feature/amazing-feature`)
 5. Pull Request を作成
 
-## 📄 ライセンス
-
-[MIT License](LICENSE)
+---
 
 ## 📧 お問い合わせ
 
-- **Issue Tracker**: [GitHub Issues](https://github.com/your-org/vrc-shift-scheduler/issues)
-- **Discord**: [招待リンク]
-
----
-
-**Note**: このプロジェクトは Public Alpha テスト準備中です。詳細は [TASKS_PUBLIC_ALPHA_RELEASE.md](backend/TASKS_PUBLIC_ALPHA_RELEASE.md) を参照してください。
+- **Issue Tracker**: [GitHub Issues](https://github.com/kento-matsunaga/vrc-shift-scheduler/issues)
