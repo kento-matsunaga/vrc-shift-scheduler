@@ -1,48 +1,36 @@
-# 🪟 Windows 開発環境セットアップガイド
+# 🪟 Windows 開発環境セットアップガイド（完成版）
 
-VRC Shift Scheduler を Windows で開発するための完全ガイドです。  
-**対象**: Windows 11 / プログラミング初心者 / Git未経験者OK
+VRC Shift Scheduler を Windows 11 で開発するための完全ガイドです。  
+**対象**: Windows 11 / 初心者OK / Git未経験OK  
+**方針**: コマンドは **Windows Terminal の Ubuntu（WSL2）** で実行します（確実・高速・迷いにくい）
 
 ---
 
 ## 📋 目次
 
-0. [コマンドを打つ場所](#0-コマンドを打つ場所powershellでもvscodeでもok)
+0. [このガイドのやり方（結論）](#0-このガイドのやり方結論)
 1. [事前準備チェック](#1-事前準備チェック)
-2. [WSL2 のインストール](#2-wsl2-のインストール)
-3. [Docker Desktop のインストール](#3-docker-desktop-のインストール)
-4. [Git のセットアップ](#4-git-のセットアップ)
-5. [エディタのインストール（任意）](#5-エディタのインストール任意)
-6. [プロジェクトのクローン](#6-プロジェクトのクローン)
-7. [開発環境の起動](#7-開発環境の起動)
-8. [動作確認](#8-動作確認)
-9. [開発の始め方（Git ワークフロー）](#9-開発の始め方git-ワークフロー)
-10. [よくあるトラブルと対処法](#10-よくあるトラブルと対処法)
+2. [Windows Terminal のインストール](#2-windows-terminal-のインストール)
+3. [WSL2 + Ubuntu のインストール](#3-wsl2--ubuntu-のインストール)
+4. [Docker Desktop のインストールと設定](#4-docker-desktop-のインストールと設定)
+5. [Git（Ubuntu側）のセットアップ](#5-gitubuntu側のセットアップ)
+6. [エディタ（任意：VSCode / Cursor）](#6-エディタ任意vscode--cursor)
+7. [プロジェクトのクローン（Ubuntuで）](#7-プロジェクトのクローンubuntuで)
+8. [環境変数（.env）の作り方](#8-環境変数envの作り方)
+9. [開発環境の起動（Docker Compose）](#9-開発環境の起動docker-compose)
+10. [DBマイグレーション・シード投入](#10-dbマイグレーションシード投入)
+11. [動作確認（ブラウザ）](#11-動作確認ブラウザ)
+12. [テスト実行](#12-テスト実行)
+13. [開発の始め方（Git ワークフロー）](#13-開発の始め方git-ワークフロー)
+14. [停止・初期化（困った時に戻す）](#14-停止初期化困った時に戻す)
+15. [よくあるトラブルと対処法](#15-よくあるトラブルと対処法)
 
 ---
 
-## 0. コマンドを打つ場所（PowerShellでもVSCodeでもOK）
+## 0. このガイドのやり方（結論）
 
-このガイドの `powershell` コマンドは、次のどれで実行してもOKです。
-
-### ✅ おすすめ：VSCode の統合ターミナル
-
-1. VSCode でリポジトリを開く（File → Open Folder → `vrc-shift-scheduler`）
-2. ターミナルを開く：`` Ctrl + ` ``（バッククォート）
-3. 右上の `+`（新しいターミナル）→ **PowerShell** を選ぶ
-4. 以後、このターミナルにコマンドをコピペでOK
-
-### ✅ もちろんOK：Windows Terminal / PowerShell
-
-- Windows Terminal（PowerShell）
-- スタートメニューから PowerShell
-
-### ⚠️「管理者として実行」が必要な作業だけは注意
-
-WSL2 のインストールなど **管理者権限が必要な手順** は、VSCode ではなく  
-スタートメニューから **「PowerShell（管理者として実行）」** を使ってください。
-
-> 💡 このガイドで「⚠️ 管理者権限が必要」と書いてある箇所だけ注意すればOKです。
+- 以後のコマンドは基本 **Windows Terminal → Ubuntu** で実行します
+- 例外：**WSL2 を有効化する最初の1回だけ**「PowerShell（管理者）」を使います
 
 ---
 
@@ -50,577 +38,400 @@ WSL2 のインストールなど **管理者権限が必要な手順** は、VSC
 
 ### 必要なもの
 
-- [x] Windows 11 PC（個人PC、管理者権限あり）
-- [x] インターネット接続
-- [x] GitHub アカウント（持っていない場合は [github.com](https://github.com) で作成）
+- Windows 11（個人PC / 管理者権限あり）
+- インターネット接続
+- ディスク空き 20GB 以上推奨（Dockerが使うため）
 
-### GitHub の権限について
+### GitHubの権限について
 
 | やりたいこと | 必要な権限 |
-|-------------|-----------|
-| clone（ダウンロード）だけ | **不要**（Public リポジトリなので誰でもOK） |
-| push（コード反映）したい | **招待が必要**（オーナーから Write 権限をもらう） |
-| 招待されていない場合 | Fork → 自分のリポジトリで作業 → PR を送る |
-
-### PC の空き容量確認
-
-Docker は約 **10GB 以上** の空き容量が必要です。
-
-1. エクスプローラーを開く
-2. 「PC」を選択
-3. C ドライブの空き容量を確認（20GB 以上推奨）
+|---|---|
+| clone（ダウンロード） | 不要（PublicリポジトリなのでOK） |
+| 同じリポジトリへ push | オーナーから招待（Write権限） |
+| 招待されていない | Forkして作業 → PRを送る |
 
 ---
 
-## 2. WSL2 のインストール
+## 2. Windows Terminal のインストール
 
-WSL2（Windows Subsystem for Linux 2）は、Windows 上で Linux を動かすための機能です。  
-Docker Desktop が内部で使用します。
+Windows Terminal を入れて、そこから Ubuntu を開いて作業します。
 
-### 手順
+### インストール方法（どちらか）
 
-1. **⚠️ PowerShell を管理者として開く**（この手順だけ管理者権限が必要）
-   - スタートメニューで「PowerShell」を検索
-   - **「管理者として実行」** をクリック
+**A. Microsoft Store から入れる（おすすめ）**
 
-2. **以下のコマンドをコピー＆ペーストして Enter**
+- Microsoft Store で「Windows Terminal」を検索してインストール
+
+**B. winget で入れる（使える人向け）**
+
+- PowerShell で：
+
+```powershell
+winget install --id Microsoft.WindowsTerminal -e
+```
+
+インストール後、スタートメニューから **Windows Terminal** を起動してください。
+
+---
+
+## 3. WSL2 + Ubuntu のインストール
+
+### 3-1. WSL2 を有効化（⚠️管理者権限が必要）
+
+スタートメニューで「PowerShell」を検索 → **管理者として実行** → 下を実行：
 
 ```powershell
 wsl --install
 ```
 
-3. **PC を再起動**
-
-4. **再起動後、Ubuntu のセットアップ**
-   - 自動的に Ubuntu のウィンドウが開きます
-   - ユーザー名を入力（半角英数字、小文字推奨。例: `tanaka`）
-   - パスワードを入力（入力しても画面に表示されませんが、入力されています）
-   - パスワード確認のため、もう一度入力
-
-5. **インストール確認**
-
-ターミナルで以下を実行（VSCode でもOK）：
-
-```powershell
-wsl --version
-```
-
-バージョン情報が表示されればOK！
+終わったら **再起動** します。
 
 ---
 
-## 3. Docker Desktop のインストール
+### 3-2. Ubuntu をインストール（必要なら）
 
-### 手順
+`wsl --install` で Ubuntu が入ることが多いですが、入っていない場合は次で入れます。
 
-1. **Docker Desktop をダウンロード**
-   - [https://www.docker.com/products/docker-desktop/](https://www.docker.com/products/docker-desktop/) にアクセス
-   - 「Download for Windows」をクリック
+**Microsoft Store から「Ubuntu」を入れる**
 
-2. **インストーラーを実行**
-   - ダウンロードした `Docker Desktop Installer.exe` をダブルクリック
-   - 「Use WSL 2 instead of Hyper-V」にチェックが入っていることを確認
-   - 「OK」をクリックしてインストール
+- Microsoft Store で「Ubuntu」を検索 → インストール
+  - どれを選べばいいか迷う場合：`Ubuntu`（公式）でOK
 
-3. **PC を再起動**（インストーラーに促されたら）
+---
 
-4. **Docker Desktop を起動**
-   - スタートメニューから「Docker Desktop」を検索して起動
-   - 利用規約に同意（Accept）
-   - チュートリアルはスキップしてOK
+### 3-3. Windows Terminal から Ubuntu を開く
 
-5. **WSL2 統合を有効化**
-   - Docker Desktop の右上の歯車アイコン（Settings）をクリック
-   - 左メニューの「Resources」→「WSL integration」を選択
-   - 「Enable integration with my default WSL distro」がオンになっていることを確認
-   - 「Ubuntu」のトグルもオンにする
-   - 「Apply & Restart」をクリック
+Windows Terminal を開いて、タブから **Ubuntu** を選びます。
 
-6. **インストール確認**
+初回はユーザー名/パスワード作成が走ります。
 
-ターミナルで以下を実行（VSCode でもOK）：
+---
 
-```powershell
+### 3-4. WSL 動作確認（Ubuntuで実行）
+
+Ubuntuターミナルで：
+
+```bash
+wsl.exe -l -v
+```
+
+`Ubuntu` が `Running` / `Stopped` で表示され、`VERSION 2` ならOKです。
+
+---
+
+## 4. Docker Desktop のインストールと設定
+
+### 4-1. Docker Desktop をインストール
+
+- [https://www.docker.com/products/docker-desktop/](https://www.docker.com/products/docker-desktop/) からダウンロード
+- インストール中に **「Use WSL 2 instead of Hyper-V」** にチェックがあることを確認
+
+---
+
+### 4-2. Docker Desktop の初期設定（重要）
+
+Docker Desktop を起動してから：
+
+1. 右上の歯車（Settings）
+2. **General**
+   - ✅ Use the WSL 2 based engine（有効）
+3. **Resources → WSL Integration**
+   - ✅ Enable integration with my default WSL distro（有効）
+   - ✅ Ubuntu を ON
+4. Apply & Restart（再起動）
+
+---
+
+### 4-3. Docker 動作確認（Ubuntuで実行）
+
+Ubuntuターミナルで：
+
+```bash
 docker --version
 docker compose version
 ```
 
-バージョン情報が表示されればOK！
+バージョンが出たらOK。
+
+> もし `Cannot connect to the Docker daemon` が出たら
+> → Docker Desktop が起動していない可能性が高いです（後述のトラブル参照）
 
 ---
 
-## 4. Git のセットアップ
+## 5. Git（Ubuntu側）のセットアップ
 
-### 4-1. Git for Windows のインストール
+Windows側のGitではなく、**Ubuntu側のGit**で統一すると事故が減ります。
 
-1. **Git をダウンロード**
-   - [https://git-scm.com/download/win](https://git-scm.com/download/win) にアクセス
-   - 自動でダウンロードが始まります
+### 5-1. Git をインストール（Ubuntu）
 
-2. **インストーラーを実行**
-   - ダウンロードした `Git-x.xx.x-64-bit.exe` をダブルクリック
-   - 基本的にすべて「Next」でOK（デフォルト設定のまま）
-   - 最後に「Install」→「Finish」
-
-3. **インストール確認**
-
-ターミナルで以下を実行（VSCode でもOK）：
-
-```powershell
+```bash
+sudo apt update
+sudo apt install -y git
 git --version
 ```
 
-バージョンが表示されればOK！
+### 5-2. Git 初期設定
 
-### 4-2. Git の初期設定
-
-ターミナルで以下を実行（`あなたの名前` と `メールアドレス` は自分のものに変更）：
-
-```powershell
+```bash
 git config --global user.name "あなたの名前"
 git config --global user.email "your-email@example.com"
 ```
 
-> 💡 GitHub に登録したメールアドレスと同じものを使ってください
+---
 
-### 4-3. GitHub への SSH 接続設定（推奨）
+### 5-3. SSH 接続（推奨）
 
-毎回パスワードを入力しなくて済むようになります。
+#### SSHキー生成（Ubuntu）
 
-1. **SSH キーを生成**
-
-ターミナルで以下を実行：
-
-```powershell
+```bash
 ssh-keygen -t ed25519 -C "your-email@example.com"
 ```
 
-- 「Enter file in which to save the key」→ そのまま Enter
-- 「Enter passphrase」→ パスフレーズを入力（省略可、セキュリティ上は設定推奨）
-- 「Enter same passphrase again」→ 同じパスフレーズを入力
+基本 Enter 連打でOK（passphraseは任意）
 
-2. **公開鍵をコピー**
+#### 公開鍵を表示してコピー
 
-```powershell
+```bash
 cat ~/.ssh/id_ed25519.pub
 ```
 
-表示された文字列（`ssh-ed25519 AAAA...` から始まる1行）をすべてコピー
+#### GitHub に登録
 
-3. **GitHub に登録**
-   - [https://github.com/settings/keys](https://github.com/settings/keys) にアクセス
-   - 「New SSH key」をクリック
-   - Title: 任意（例: `My Windows PC`）
-   - Key: コピーした公開鍵を貼り付け
-   - 「Add SSH key」をクリック
+- GitHub → Settings → SSH and GPG keys → New SSH key
+- Key に貼り付けて追加
 
-4. **接続テスト**
+#### 接続テスト
 
-```powershell
+```bash
 ssh -T git@github.com
 ```
 
-「Hi ユーザー名! You've successfully authenticated...」と表示されればOK！
+`Hi ...` が出ればOK。
 
 ---
 
-## 5. エディタのインストール（任意）
+## 6. エディタ（任意：VSCode / Cursor）
 
-お好みのエディタを使ってください。どれでもOKです。
+### おすすめ（WSL連携で確実）
 
-### おすすめ: Visual Studio Code
+- **VSCode**（Remote - WSL拡張を入れるとUbuntu内のコード編集が快適）
+- **Cursor** でも同様に WSL 内フォルダを開けます
 
-1. [https://code.visualstudio.com/](https://code.visualstudio.com/) からダウンロード
-2. インストーラーを実行
-
-### おすすめ拡張機能
-
-VSCode を開いて、左側の拡張機能アイコン（四角が4つ）から以下をインストール：
-
-| 拡張機能名 | 説明 |
-|------------|------|
-| Docker | Docker ファイルのサポート |
-| ESLint | JavaScript/TypeScript の Lint |
-| Prettier | コードフォーマッター |
-| Go | Go 言語サポート |
-| Tailwind CSS IntelliSense | Tailwind の補完 |
+> 重要：このガイドは「コマンド実行は Ubuntu」で統一します。
+> エディタは好きなものを使ってOKです。
 
 ---
 
-## 6. プロジェクトのクローン
+## 7. プロジェクトのクローン（Ubuntuで）
 
-### 6-1. 作業フォルダの作成
+Ubuntuターミナルで：
 
-ターミナルで以下を実行：
-
-```powershell
-mkdir ~/dev
+```bash
+mkdir -p ~/dev
 cd ~/dev
-```
-
-### 6-2. リポジトリをクローン
-
-```powershell
 git clone git@github.com:kento-matsunaga/vrc-shift-scheduler.git
-```
-
-> 💡 SSH 接続設定をしていない場合は以下を使用：
-> ```powershell
-> git clone https://github.com/kento-matsunaga/vrc-shift-scheduler.git
-> ```
-
-### 6-3. ディレクトリに移動
-
-```powershell
 cd vrc-shift-scheduler
 ```
 
-### 6-4. VSCode で開く（推奨）
+SSHが未設定ならHTTPSでもOK：
 
-```powershell
-code .
+```bash
+git clone https://github.com/kento-matsunaga/vrc-shift-scheduler.git
 ```
-
-以後は **VSCode の統合ターミナル** でコマンドを実行できます。  
-（`` Ctrl + ` `` でターミナルを開く）
 
 ---
 
-## 7. 開発環境の起動
+## 8. 環境変数（.env）の作り方
 
-### 7-1. Docker Desktop が起動していることを確認
+**基本：起動だけなら不要な場合もあります。**
 
-タスクバー右下のシステムトレイに Docker のクジラアイコンがあればOK。  
-なければスタートメニューから「Docker Desktop」を起動。
+ただし、チーム開発は `.env` を作る運用にしておくと説明が簡単で事故が減ります。
 
-### 7-2. 開発環境を起動
+```bash
+# 例：プロジェクト直下
+cp .env.example .env 2>/dev/null || true
+```
 
-ターミナルで以下を実行：
+Bot を動かす場合は、`.env` に以下を入れる（例）：
 
-```powershell
-cd ~/dev/vrc-shift-scheduler
+```env
+DISCORD_BOT_TOKEN=xxxxx
+DISCORD_APP_ID=yyyyy
+VITE_TENANT_ID=dev-tenant
+```
+
+---
+
+## 9. 開発環境の起動（Docker Compose）
+
+### 9-1. 起動（Botなし：基本これ）
+
+Ubuntuターミナルでリポジトリ直下にいることを確認して：
+
+```bash
 docker compose up -d --build
 ```
 
-> 💡 `--build` を付けると、Dockerfile の変更も反映されます（初回は必ず付けましょう）
+### 9-2. Botも起動したい場合（オプション）
 
-初回は Docker イメージのダウンロードとビルドで **5〜10分** かかります。  
-☕ コーヒーでも飲んで待ちましょう。
+```bash
+docker compose --profile bot up -d --build
+```
 
-### 7-3. 起動状態の確認
+### 9-3. 起動状態の確認
 
-```powershell
+```bash
 docker compose ps
 ```
 
-以下のように `running` と表示されればOK：
+---
 
-```
-NAME                           STATUS
-vrc-shift-scheduler-db-1       running
-vrc-shift-scheduler-backend-1  running
-vrc-shift-scheduler-web-frontend-1  running
-```
+## 10. DBマイグレーション・シード投入
 
-### 7-4. マイグレーションの実行
+### 10-1. マイグレーション
 
-データベースのテーブルを作成します。
-
-```powershell
+```bash
 docker compose exec backend go run ./cmd/migrate/main.go
 ```
 
-> 💡 または Makefile を使用:
-> ```powershell
-> docker compose exec backend make migrate
-> ```
+### 10-2. シード（任意）
 
-### 7-5. シードデータの投入（任意）
-
-テスト用の初期データを投入します（開発を始める前に実行推奨）。
-
-```powershell
+```bash
 docker compose exec backend go run ./cmd/seed/main.go
 ```
 
-> 💡 または Makefile を使用:
-> ```powershell
-> docker compose exec backend make seed
-> ```
+---
+
+## 11. 動作確認（ブラウザ）
+
+- バックエンド： [http://localhost:8080/health](http://localhost:8080/health)
+- フロントエンド： [http://localhost:5173](http://localhost:5173)
 
 ---
 
-## 8. 動作確認
+## 12. テスト実行
 
-### 8-1. バックエンドの確認
-
-ブラウザで以下にアクセス：
-
-👉 **http://localhost:8080/health**
-
-`{"status":"ok"}` のような応答があればOK！
-
-### 8-2. フロントエンドの確認
-
-ブラウザで以下にアクセス：
-
-👉 **http://localhost:5173**
-
-画面が表示されればOK！
-
-### 8-3. テストの実行
-
-```powershell
-# バックエンドのテスト
-docker compose exec backend go test ./...
-
-# または Makefile を使用
-docker compose exec backend make test
-```
-
-テストが通れば（`PASS` と表示されれば）OK！
-
----
-
-## 9. 開発の始め方（Git ワークフロー）
-
-### ブランチ運用ルール
-
-| ブランチ | 用途 |
-|----------|------|
-| `main` | 本番用。直接 push 禁止。PR 経由でマージ |
-| `feature/xxx` | 新機能開発用 |
-| `fix/xxx` | バグ修正用 |
-
-### 開発フロー
-
-#### 1. 最新の main を取得
-
-```powershell
-git checkout main
-git pull origin main
-```
-
-#### 2. 作業ブランチを作成
-
-```powershell
-# 新機能の場合
-git checkout -b feature/add-login-page
-
-# バグ修正の場合
-git checkout -b fix/header-layout
-```
-
-#### 3. コードを編集
-
-エディタでコードを編集します。
-
-#### 4. 変更を確認
-
-```powershell
-git status
-git diff
-```
-
-#### 5. 変更をコミット
-
-```powershell
-git add .
-git commit -m "feat: ログインページを追加"
-```
-
-> 💡 コミットメッセージは日本語でもOKです
-
-#### 6. リモートにプッシュ
-
-```powershell
-git push origin feature/add-login-page
-```
-
-#### 7. Pull Request を作成
-
-1. GitHub のリポジトリページにアクセス
-   - https://github.com/kento-matsunaga/vrc-shift-scheduler
-2. 「Compare & pull request」ボタンをクリック
-3. PR のタイトルと説明を記入
-4. 「Create pull request」をクリック
-
-#### 8. レビュー後にマージ
-
-オーナーのレビューが通ったら、マージされます。
-
----
-
-## 10. よくあるトラブルと対処法
-
-### ❌ ポートが既に使われている（5432, 8080, 5173）
-
-**エラー例:**
-```
-Error: port 5432 is already in use
-```
-
-**対処法:**
-
-1. 使用中のポートを確認
-
-```powershell
-netstat -ano | findstr :5432
-```
-
-2. プロセスを終了
-
-```powershell
-# PID が 12345 の場合
-taskkill /F /PID 12345
-```
-
-3. または Docker を再起動
-
-```powershell
-docker compose down
-docker compose up -d
-```
-
----
-
-### ❌ Docker のメモリ不足
-
-**症状:**
-- コンテナが頻繁に停止する
-- `OOMKilled` エラーが出る
-
-**対処法:**
-
-1. Docker Desktop の Settings を開く
-2. 「Resources」→「Advanced」を選択
-3. 「Memory」を 4GB 以上に設定（推奨: 6GB）
-4. 「Apply & Restart」をクリック
-
----
-
-### ❌ Go のバージョン違いでビルドエラー
-
-**エラー例:**
-```
-go: go.mod requires go >= 1.23
-```
-
-**対処法:**
-
-Docker 内で実行すれば問題ありません（Docker イメージに正しいバージョンが入っています）。
-
-```powershell
-# ローカルではなく Docker 内で実行
-docker compose exec backend go version
-```
-
----
-
-### ❌ npm install で node-gyp エラー
-
-**エラー例:**
-```
-gyp ERR! build error
-```
-
-**対処法:**
-
-Docker 内で実行すれば問題ありません。
-
-```powershell
-# node_modules を削除して再起動
-docker compose down
-docker volume rm vrc-shift-scheduler_frontend_node_modules
-docker compose up -d
-```
-
----
-
-### ❌ WSL2 とファイル共有が遅い
-
-**症状:**
-- ファイルの変更が反映されるのが遅い
-- Docker が全体的に遅い
-
-**対処法:**
-
-Windows 側のファイルを WSL 内にコピーして開発する方法があります。
+### バックエンド
 
 ```bash
-# WSL のターミナルで
-cd ~
-git clone git@github.com:kento-matsunaga/vrc-shift-scheduler.git
-cd vrc-shift-scheduler
-docker compose up -d
+docker compose exec backend go test ./...
+```
+
+### フロントエンド（用意されている場合）
+
+```bash
+docker compose exec web-frontend npm test
 ```
 
 ---
 
-### ❌ docker compose up でコンテナがすぐ終了する
+## 13. 開発の始め方（Git ワークフロー）
 
-**対処法:**
+### ブランチ運用
 
-ログを確認：
+- `main`：直接push禁止（PRでマージ）
+- `feature/xxx`：新機能
+- `fix/xxx`：修正
 
-```powershell
-docker compose logs backend
-docker compose logs web-frontend
+### 作業手順（Ubuntuで）
+
+```bash
+git checkout main
+git pull origin main
+git checkout -b feature/my-task
+
+# 編集…
+
+git status
+git add .
+git commit -m "feat: 変更内容"
+git push -u origin feature/my-task
 ```
 
-よくある原因：
-- 環境変数の設定ミス
-- ポートの競合
-- Dockerfile のエラー
+あとは GitHub で Pull Request を作成します。
+
+> 招待されていない（pushできない）場合は Fork → PR の流れでOK
 
 ---
 
-### ❌ Permission denied エラー（SSH 接続時）
+## 14. 停止・初期化（困った時に戻す）
 
-**エラー例:**
-```
-Permission denied (publickey)
-```
+### 停止（DBデータは残る）
 
-**対処法:**
-
-1. SSH キーが正しく生成されているか確認
-
-```powershell
-ls ~/.ssh/
+```bash
+docker compose down
 ```
 
-`id_ed25519` と `id_ed25519.pub` があればOK。
+### 完全初期化（DBも消える：注意）
 
-2. SSH agent を起動
+```bash
+docker compose down -v
+```
 
-```powershell
-Start-Service ssh-agent
+---
+
+## 15. よくあるトラブルと対処法
+
+### ❌ Docker が動かない / daemon に接続できない
+
+- Docker Desktop が起動しているか確認（タスクバーのクジラ）
+- Docker Desktop → Settings → WSL Integration で Ubuntu が ON か確認
+
+---
+
+### ❌ ポート競合（5432 / 8080 / 5173）
+
+Ubuntuで確認（8080例）：
+
+```bash
+sudo ss -ltnp | grep ':8080' || true
+```
+
+手早く戻す：
+
+```bash
+docker compose down
+docker compose up -d --build
+```
+
+---
+
+### ❌ 反映が遅い / ホットリロードしない
+
+- Windows側のフォルダではなく **Ubuntu側（~/dev/..）で作業しているか**確認
+  → このガイド通りなら基本大丈夫です
+
+---
+
+### ❌ SSH Permission denied (publickey)
+
+Ubuntuで：
+
+```bash
+eval "$(ssh-agent -s)"
 ssh-add ~/.ssh/id_ed25519
+ssh -T git@github.com
 ```
 
-3. GitHub に公開鍵が登録されているか確認
-   - https://github.com/settings/keys
+---
+
+### ❌ Botが落ちる
+
+- `.env` の `DISCORD_BOT_TOKEN / DISCORD_APP_ID` が入っているか確認
+- bot起動は必要になってからでOK（まずは本体だけ動けばOK）
 
 ---
 
 ## 🎉 セットアップ完了！
 
-以上でセットアップは完了です。
+次のチェック：
 
-### 困ったときは
-
-1. このドキュメントの「よくあるトラブルと対処法」を確認
-2. エラーメッセージをコピーして Google 検索
-3. チームメンバーに Discord で相談
-
-### 次のステップ
-
-- [ ] http://localhost:5173 で画面が表示されることを確認
-- [ ] `docker compose exec backend make test` でテストが通ることを確認
-- [ ] テスト用のブランチを作成して PR を作成してみる
+- [ ] `docker compose up -d --build` が成功
+- [ ] [http://localhost:5173](http://localhost:5173) が表示される
+- [ ] [http://localhost:8080/health](http://localhost:8080/health) が応答する
+- [ ] `docker compose exec backend go test ./...` が通る
+- [ ] ブランチ作ってPR作成までできる
 
 ---
 
 **Happy Coding! 🚀**
-
