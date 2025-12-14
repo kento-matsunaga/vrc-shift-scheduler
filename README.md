@@ -4,6 +4,8 @@ VRChat コミュニティ向けシフト管理システム
 
 ## 🚀 Quick Start
 
+> 🪟 **Windows 11 の方へ**：まずは **[docs/setup-windows.md](docs/setup-windows.md)** を実施してください（Windows Terminal / WSL2 Ubuntu / Docker Desktop の準備と起動方法）。
+
 ### ブートストラップ（初回セットアップ）
 
 ```bash
@@ -49,8 +51,8 @@ npm run dev
 
 ## 📖 ドキュメント
 
-- **[SETUP.md](SETUP.md)** - 詳細なセットアップ手順
-- **[backend/TASKS_PUBLIC_ALPHA_RELEASE.md](backend/TASKS_PUBLIC_ALPHA_RELEASE.md)** - Public Alpha リリースタスク
+- **[docs/setup-windows.md](docs/setup-windows.md)** - Windows 11（WSL2 Ubuntu + Docker Desktop）セットアップ手順
+- **[SETUP.md](SETUP.md)** - 詳細なセットアップ手順（macOS / Linux）
 - **[backend/docs/ARCHITECTURE.md](backend/docs/ARCHITECTURE.md)** - システムアーキテクチャ
 - **[backend/docs/API.md](backend/docs/API.md)** - API ドキュメント
 
@@ -115,15 +117,15 @@ npm test
 
 ## 🐳 Docker（開発環境）
 
-PostgreSQL を Docker で起動：
+**推奨：Docker Compose で一括起動**
 
 ```bash
-docker run --name vrc-shift-postgres \
-  -e POSTGRES_PASSWORD=postgres \
-  -e POSTGRES_DB=vrc_shift_scheduler \
-  -p 5432:5432 \
-  -d postgres:14
+docker compose up -d --build
 ```
+
+これで PostgreSQL、バックエンド、フロントエンドがすべて起動します。
+
+> 詳細は [docs/setup-windows.md](docs/setup-windows.md)（Windows）または [SETUP.md](SETUP.md)（macOS/Linux）を参照してください。
 
 ## 📝 開発ワークフロー
 
