@@ -25,6 +25,7 @@ services:
       DATABASE_URL: postgres://vrcshift:vrcshift@db:5432/vrcshift?sslmode=disable
       APP_ENV: development
       PORT: "8080"
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-change-in-production-32chars}
     ports:
       - "8080:8080"
     depends_on:
