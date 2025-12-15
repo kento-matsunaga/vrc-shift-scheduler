@@ -97,12 +97,27 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			r.Post("/{collection_id}/close", attendanceHandler.CloseCollection)
 			r.Get("/{collection_id}/responses", attendanceHandler.GetResponses)
 		})
+
+		// Schedule API（管理用）
+		scheduleHandler := NewScheduleHandler(dbPool)
+		r.Route("/schedules", func(r chi.Router) {
+			r.Post("/", scheduleHandler.CreateSchedule)
+			r.Get("/{schedule_id}", scheduleHandler.GetSchedule)
+			r.Post("/{schedule_id}/decide", scheduleHandler.DecideSchedule)
+			r.Post("/{schedule_id}/close", scheduleHandler.CloseSchedule)
+			r.Get("/{schedule_id}/responses", scheduleHandler.GetResponses)
+		})
 	})
 
 	// Public API（認証不要）
 	r.Route("/api/v1/public/attendance", func(r chi.Router) {
 		attendanceHandler := NewAttendanceHandler(dbPool)
 		r.Post("/{token}/responses", attendanceHandler.SubmitResponse)
+	})
+
+	r.Route("/api/v1/public/schedules", func(r chi.Router) {
+		scheduleHandler := NewScheduleHandler(dbPool)
+		r.Post("/{token}/responses", scheduleHandler.SubmitResponse)
 	})
 
 	return r
