@@ -110,4 +110,3 @@ func TestPublicTokenUniqueness(t *testing.T) {
 		tokens[token.String()] = true
 	}
 }
-

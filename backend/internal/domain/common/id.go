@@ -342,4 +342,3 @@ func ParseCandidateID(s string) (CandidateID, error) {
 	}
 	return CandidateID(s), nil
 }
-
