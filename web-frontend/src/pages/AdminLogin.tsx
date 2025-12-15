@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { login } from '../lib/api/authApi';
 
 export default function AdminLogin() {
-  const [tenantId, setTenantId] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -13,11 +12,6 @@ export default function AdminLogin() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-
-    if (!tenantId.trim()) {
-      setError('テナントIDを入力してください');
-      return;
-    }
 
     if (!email.trim()) {
       setError('メールアドレスを入力してください');
@@ -34,7 +28,6 @@ export default function AdminLogin() {
     try {
       // ログインAPI呼び出し
       const result = await login({
-        tenant_id: tenantId.trim(),
         email: email.trim(),
         password: password,
       });
@@ -80,21 +73,6 @@ export default function AdminLogin() {
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <label htmlFor="tenantId" className="block text-sm font-medium text-gray-200 mb-1.5">
-              テナントID
-            </label>
-            <input
-              type="text"
-              id="tenantId"
-              value={tenantId}
-              onChange={(e) => setTenantId(e.target.value)}
-              placeholder="01KBHMYWYKRV8PK8EVYGF1SHV0"
-              className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
-              disabled={loading}
-            />
-          </div>
-
-          <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-200 mb-1.5">
               メールアドレス
             </label>
@@ -134,7 +112,7 @@ export default function AdminLogin() {
           <button
             type="submit"
             className="w-full py-3 px-4 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-600/50 text-white font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-slate-900"
-            disabled={loading || !tenantId.trim() || !email.trim() || !password}
+            disabled={loading || !email.trim() || !password}
           >
             {loading ? (
               <span className="flex items-center justify-center gap-2">

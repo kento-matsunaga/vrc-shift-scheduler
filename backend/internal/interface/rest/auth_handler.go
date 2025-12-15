@@ -22,7 +22,7 @@ func NewAuthHandler(loginUsecase *appAuth.LoginUsecase) *AuthHandler {
 
 // LoginRequest represents the request body for login
 type LoginRequest struct {
-	TenantID string `json:"tenant_id"` // ログイン時のみ Body で受け取る
+	// TenantID削除: email + password のみ
 	Email    string `json:"email"`
 	Password string `json:"password"`
 }
@@ -46,10 +46,6 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// バリデーション
-	if req.TenantID == "" {
-		RespondError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "tenant_id is required", nil)
-		return
-	}
 	if req.Email == "" {
 		RespondError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "email is required", nil)
 		return
@@ -61,7 +57,6 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	// 2. Usecase呼び出し（ビジネスロジックはここにない）
 	output, err := h.loginUsecase.Execute(r.Context(), appAuth.LoginInput{
-		TenantID: req.TenantID,
 		Email:    req.Email,
 		Password: req.Password,
 	})

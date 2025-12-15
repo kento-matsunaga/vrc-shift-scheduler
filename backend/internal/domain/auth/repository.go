@@ -12,12 +12,21 @@ type AdminRepository interface {
 	// Save saves an admin (insert or update)
 	Save(ctx context.Context, admin *Admin) error
 
-	// FindByID finds an admin by ID within a tenant
-	FindByID(ctx context.Context, tenantID common.TenantID, adminID common.AdminID) (*Admin, error)
+	// FindByID finds an admin by ID (global search, no tenant filtering)
+	// 招待機能で使用: テナントをまたいでAdminを検索する必要がある
+	FindByID(ctx context.Context, adminID common.AdminID) (*Admin, error)
+
+	// FindByIDWithTenant finds an admin by ID within a tenant (backward compatible)
+	// 既存コードとの互換性のため、テナントIDとAdminIDで検索するメソッドをリネーム
+	FindByIDWithTenant(ctx context.Context, tenantID common.TenantID, adminID common.AdminID) (*Admin, error)
 
 	// FindByEmail finds an admin by email within a tenant
-	// ログイン時に使用
+	// テナント内検索（後方互換）
 	FindByEmail(ctx context.Context, tenantID common.TenantID, email string) (*Admin, error)
+
+	// FindByEmailGlobal finds an admin by email (global search)
+	// ログイン時に使用: email + password のみでログインするため
+	FindByEmailGlobal(ctx context.Context, email string) (*Admin, error)
 
 	// FindByTenantID finds all admins within a tenant
 	// deleted_at IS NULL のレコードのみ返す

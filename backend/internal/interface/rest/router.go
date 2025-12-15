@@ -35,6 +35,10 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 	loginUsecase := auth.NewLoginUsecase(adminRepo, passwordHasher, jwtManager)
 	authHandler := NewAuthHandler(loginUsecase)
 
+	// 招待受理（認証不要）
+	invitationHandler := NewInvitationHandler(dbPool)
+	r.Post("/api/v1/invitations/accept/{token}", invitationHandler.AcceptInvitation)
+
 	// 認証不要ルート
 	r.Route("/api/v1/auth", func(r chi.Router) {
 		r.Post("/login", authHandler.Login)
@@ -108,6 +112,11 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			r.Post("/{schedule_id}/decide", scheduleHandler.DecideSchedule)
 			r.Post("/{schedule_id}/close", scheduleHandler.CloseSchedule)
 			r.Get("/{schedule_id}/responses", scheduleHandler.GetResponses)
+		})
+
+		// Invitation API（管理者のみ）
+		r.Route("/invitations", func(r chi.Router) {
+			r.Post("/", invitationHandler.InviteAdmin)
 		})
 	})
 

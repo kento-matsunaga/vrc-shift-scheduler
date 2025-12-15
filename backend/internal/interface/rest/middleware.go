@@ -160,3 +160,9 @@ func GetMemberID(ctx context.Context) (common.MemberID, bool) {
 	return memberID, ok
 }
 
+// GetAdminID extracts admin ID from context
+func GetAdminID(ctx context.Context) (common.AdminID, bool) {
+	adminID, ok := ctx.Value(ContextKeyAdminID).(common.AdminID)
+	return adminID, ok
+}
+

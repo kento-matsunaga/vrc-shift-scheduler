@@ -9,4 +9,10 @@ var (
 
 	// ErrAccountDisabled is returned when the account is disabled
 	ErrAccountDisabled = errors.New("account is disabled")
+
+	// ErrInvalidInvitation is returned when the invitation is invalid or expired
+	ErrInvalidInvitation = errors.New("invitation is invalid or expired")
+
+	// ErrEmailAlreadyExists is returned when the email already exists
+	ErrEmailAlreadyExists = errors.New("email already exists")
 )

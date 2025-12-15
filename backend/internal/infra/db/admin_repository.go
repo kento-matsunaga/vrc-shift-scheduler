@@ -59,8 +59,8 @@ func (r *AdminRepository) Save(ctx context.Context, a *auth.Admin) error {
 	return nil
 }
 
-// FindByID finds an admin by ID within a tenant
-func (r *AdminRepository) FindByID(ctx context.Context, tenantID common.TenantID, adminID common.AdminID) (*auth.Admin, error) {
+// FindByIDWithTenant finds an admin by ID within a tenant (backward compatible)
+func (r *AdminRepository) FindByIDWithTenant(ctx context.Context, tenantID common.TenantID, adminID common.AdminID) (*auth.Admin, error) {
 	query := `
 		SELECT
 			admin_id, tenant_id, email, password_hash, display_name, role,
@@ -83,6 +83,84 @@ func (r *AdminRepository) FindByID(ctx context.Context, tenantID common.TenantID
 	)
 
 	err := r.db.QueryRow(ctx, query, tenantID.String(), adminID.String()).Scan(
+		&adminIDStr,
+		&tenantIDStr,
+		&email,
+		&passwordHash,
+		&displayName,
+		&roleStr,
+		&isActive,
+		&createdAt,
+		&updatedAt,
+		&deletedAt,
+	)
+
+	if err == pgx.ErrNoRows {
+		return nil, common.NewNotFoundError("Admin", adminID.String())
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to find admin: %w", err)
+	}
+
+	parsedAdminID, err := common.ParseAdminID(adminIDStr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse admin_id: %w", err)
+	}
+
+	parsedTenantID, err := common.ParseTenantID(tenantIDStr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse tenant_id: %w", err)
+	}
+
+	role, err := auth.NewRole(roleStr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse role: %w", err)
+	}
+
+	var deletedAtPtr *time.Time
+	if deletedAt.Valid {
+		deletedAtPtr = &deletedAt.Time
+	}
+
+	return auth.ReconstructAdmin(
+		parsedAdminID,
+		parsedTenantID,
+		email,
+		passwordHash,
+		displayName,
+		role,
+		isActive,
+		createdAt,
+		updatedAt,
+		deletedAtPtr,
+	)
+}
+
+// FindByID finds an admin by ID (global search, no tenant filtering)
+func (r *AdminRepository) FindByID(ctx context.Context, adminID common.AdminID) (*auth.Admin, error) {
+	query := `
+		SELECT
+			admin_id, tenant_id, email, password_hash, display_name, role,
+			is_active, created_at, updated_at, deleted_at
+		FROM admins
+		WHERE admin_id = $1 AND deleted_at IS NULL
+		LIMIT 1
+	`
+
+	var (
+		adminIDStr    string
+		tenantIDStr   string
+		email         string
+		passwordHash  string
+		displayName   string
+		roleStr       string
+		isActive      bool
+		createdAt     time.Time
+		updatedAt     time.Time
+		deletedAt     sql.NullTime
+	)
+
+	err := r.db.QueryRow(ctx, query, adminID.String()).Scan(
 		&adminIDStr,
 		&tenantIDStr,
 		&email,
@@ -160,6 +238,84 @@ func (r *AdminRepository) FindByEmail(ctx context.Context, tenantID common.Tenan
 	)
 
 	err := r.db.QueryRow(ctx, query, tenantID.String(), email).Scan(
+		&adminIDStr,
+		&tenantIDStr,
+		&emailStr,
+		&passwordHash,
+		&displayName,
+		&roleStr,
+		&isActive,
+		&createdAt,
+		&updatedAt,
+		&deletedAt,
+	)
+
+	if err == pgx.ErrNoRows {
+		return nil, common.NewNotFoundError("Admin", email)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to find admin by email: %w", err)
+	}
+
+	parsedAdminID, err := common.ParseAdminID(adminIDStr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse admin_id: %w", err)
+	}
+
+	parsedTenantID, err := common.ParseTenantID(tenantIDStr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse tenant_id: %w", err)
+	}
+
+	role, err := auth.NewRole(roleStr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse role: %w", err)
+	}
+
+	var deletedAtPtr *time.Time
+	if deletedAt.Valid {
+		deletedAtPtr = &deletedAt.Time
+	}
+
+	return auth.ReconstructAdmin(
+		parsedAdminID,
+		parsedTenantID,
+		emailStr,
+		passwordHash,
+		displayName,
+		role,
+		isActive,
+		createdAt,
+		updatedAt,
+		deletedAtPtr,
+	)
+}
+
+// FindByEmailGlobal finds an admin by email (global search)
+func (r *AdminRepository) FindByEmailGlobal(ctx context.Context, email string) (*auth.Admin, error) {
+	query := `
+		SELECT
+			admin_id, tenant_id, email, password_hash, display_name, role,
+			is_active, created_at, updated_at, deleted_at
+		FROM admins
+		WHERE email = $1 AND deleted_at IS NULL
+		LIMIT 1
+	`
+
+	var (
+		adminIDStr    string
+		tenantIDStr   string
+		emailStr      string
+		passwordHash  string
+		displayName   string
+		roleStr       string
+		isActive      bool
+		createdAt     time.Time
+		updatedAt     time.Time
+		deletedAt     sql.NullTime
+	)
+
+	err := r.db.QueryRow(ctx, query, email).Scan(
 		&adminIDStr,
 		&tenantIDStr,
 		&emailStr,

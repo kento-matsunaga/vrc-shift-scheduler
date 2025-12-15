@@ -4,7 +4,7 @@ import type { ApiResponse } from '../../types/api';
  * ログインリクエスト（管理者認証）
  */
 export interface LoginRequest {
-  tenant_id: string;
+  // tenant_id削除: email + password のみ
   email: string;
   password: string;
 }
