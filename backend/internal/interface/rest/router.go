@@ -49,6 +49,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		memberHandler := NewMemberHandler(dbPool)
 		shiftSlotHandler := NewShiftSlotHandler(dbPool)
 		shiftAssignmentHandler := NewShiftAssignmentHandler(dbPool)
+		attendanceHandler := NewAttendanceHandler(dbPool)
 
 		// Event API
 		r.Route("/events", func(r chi.Router) {
@@ -88,6 +89,20 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			r.Get("/", shiftAssignmentHandler.GetAssignments)
 			r.Get("/{assignment_id}", shiftAssignmentHandler.GetAssignmentDetail)
 		})
+
+		// Attendance API（管理用）
+		r.Route("/attendance/collections", func(r chi.Router) {
+			r.Post("/", attendanceHandler.CreateCollection)
+			r.Get("/{collection_id}", attendanceHandler.GetCollection)
+			r.Post("/{collection_id}/close", attendanceHandler.CloseCollection)
+			r.Get("/{collection_id}/responses", attendanceHandler.GetResponses)
+		})
+	})
+
+	// Public API（認証不要）
+	r.Route("/api/v1/public/attendance", func(r chi.Router) {
+		attendanceHandler := NewAttendanceHandler(dbPool)
+		r.Post("/{token}/responses", attendanceHandler.SubmitResponse)
 	})
 
 	return r
