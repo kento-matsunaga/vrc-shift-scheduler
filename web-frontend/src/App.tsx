@@ -6,6 +6,8 @@ import ShiftSlotList from './pages/ShiftSlotList';
 import AssignShift from './pages/AssignShift';
 import MyShifts from './pages/MyShifts';
 import Layout from './components/Layout';
+import AttendanceResponse from './pages/public/AttendanceResponse';
+import ScheduleResponse from './pages/public/ScheduleResponse';
 
 function App() {
   // ログインチェック：member_id が localStorage にあるかどうか
@@ -15,6 +17,10 @@ function App() {
     <Routes>
       {/* ログイン画面 */}
       <Route path="/login" element={<Login />} />
+
+      {/* 公開ページ（認証不要） */}
+      <Route path="/p/attendance/:token" element={<AttendanceResponse />} />
+      <Route path="/p/schedule/:token" element={<ScheduleResponse />} />
 
       {/* ログイン必須の画面 */}
       <Route path="/" element={isLoggedIn ? <Layout /> : <Navigate to="/login" replace />}>

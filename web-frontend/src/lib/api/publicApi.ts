@@ -1,0 +1,204 @@
+/**
+ * 公開API（認証不要）
+ * 出欠確認・日程調整の公開回答ページ用
+ */
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+
+/**
+ * 公開APIエラー
+ */
+export class PublicApiError extends Error {
+  public statusCode: number;
+
+  constructor(message: string, statusCode: number) {
+    super(message);
+    this.name = 'PublicApiError';
+    this.statusCode = statusCode;
+  }
+
+  isNotFound(): boolean {
+    return this.statusCode === 404;
+  }
+
+  isBadRequest(): boolean {
+    return this.statusCode === 400;
+  }
+
+  isForbidden(): boolean {
+    return this.statusCode === 403;
+  }
+}
+
+/**
+ * 公開API用の汎用リクエストヘルパー
+ */
+async function publicRequest<T>(
+  method: string,
+  path: string,
+  body?: unknown
+): Promise<T> {
+  try {
+    const res = await fetch(`${API_BASE_URL}${path}`, {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+
+    if (!res.ok) {
+      const errorText = await res.text().catch(() => 'Unknown error');
+      throw new PublicApiError(errorText, res.status);
+    }
+
+    if (res.status === 204) {
+      return null as T;
+    }
+
+    return await res.json();
+  } catch (error) {
+    if (error instanceof PublicApiError) {
+      throw error;
+    }
+    throw new PublicApiError(
+      error instanceof Error ? error.message : 'Network error',
+      0
+    );
+  }
+}
+
+// ==========================================
+// 出欠確認 公開API
+// ==========================================
+
+export interface AttendanceCollection {
+  collection_id: string;
+  tenant_id: string;
+  title: string;
+  description: string;
+  target_type: string;
+  target_id: string;
+  public_token: string;
+  status: 'open' | 'closed';
+  deadline?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Member {
+  member_id: string;
+  tenant_id: string;
+  name: string;
+  vrchat_name?: string;
+  role?: string;
+  is_active: boolean;
+}
+
+export interface AttendanceSubmitRequest {
+  member_id: string;
+  response: 'attending' | 'absent';
+  note?: string;
+}
+
+export interface AttendanceSubmitResponse {
+  response_id: string;
+  collection_id: string;
+  member_id: string;
+  response: string;
+  note: string;
+  responded_at: string;
+}
+
+/**
+ * 出欠確認情報を取得（公開）
+ */
+export async function getAttendanceByToken(token: string): Promise<AttendanceCollection> {
+  return publicRequest<AttendanceCollection>('GET', `/api/v1/public/attendance/${token}`);
+}
+
+/**
+ * メンバー一覧を取得（出欠確認用）
+ * FIXME: 本来は公開APIにメンバー一覧を晒すべきではないが、MVPでは簡易実装
+ */
+export async function getMembers(tenantId: string): Promise<{ data: Member[] }> {
+  return publicRequest<{ data: Member[] }>('GET', `/api/v1/members?tenant_id=${tenantId}`);
+}
+
+/**
+ * 出欠回答を送信（公開）
+ */
+export async function submitAttendanceResponse(
+  token: string,
+  data: AttendanceSubmitRequest
+): Promise<AttendanceSubmitResponse> {
+  return publicRequest<AttendanceSubmitResponse>(
+    'POST',
+    `/api/v1/public/attendance/${token}/responses`,
+    data
+  );
+}
+
+// ==========================================
+// 日程調整 公開API
+// ==========================================
+
+export interface DateSchedule {
+  schedule_id: string;
+  tenant_id: string;
+  title: string;
+  description: string;
+  event_id?: string;
+  public_token: string;
+  status: 'open' | 'closed' | 'decided';
+  deadline?: string;
+  decided_candidate_id?: string;
+  candidates: ScheduleCandidate[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ScheduleCandidate {
+  candidate_id: string;
+  date: string;
+  start_time?: string;
+  end_time?: string;
+}
+
+export interface ScheduleResponseInput {
+  candidate_id: string;
+  availability: 'available' | 'unavailable' | 'maybe';
+  note?: string;
+}
+
+export interface ScheduleSubmitRequest {
+  member_id: string;
+  responses: ScheduleResponseInput[];
+}
+
+export interface ScheduleSubmitResponse {
+  schedule_id: string;
+  member_id: string;
+  responded_at: string;
+}
+
+/**
+ * 日程調整情報を取得（公開）
+ */
+export async function getScheduleByToken(token: string): Promise<DateSchedule> {
+  return publicRequest<DateSchedule>('GET', `/api/v1/public/schedules/${token}`);
+}
+
+/**
+ * 日程調整回答を送信（公開）
+ */
+export async function submitScheduleResponse(
+  token: string,
+  data: ScheduleSubmitRequest
+): Promise<ScheduleSubmitResponse> {
+  return publicRequest<ScheduleSubmitResponse>(
+    'POST',
+    `/api/v1/public/schedules/${token}/responses`,
+    data
+  );
+}
