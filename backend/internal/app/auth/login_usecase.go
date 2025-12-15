@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/auth"
-	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/security"
 )
 
@@ -30,31 +29,26 @@ func NewLoginUsecase(
 
 // Execute executes the login use case
 func (u *LoginUsecase) Execute(ctx context.Context, input LoginInput) (*LoginOutput, error) {
-	// 1. TenantID のパース
-	tenantID, err := common.ParseTenantID(input.TenantID)
-	if err != nil {
-		return nil, ErrInvalidCredentials
-	}
-
-	// 2. Admin取得
-	admin, err := u.adminRepo.FindByEmail(ctx, tenantID, input.Email)
+	// 1. Admin取得（グローバル検索）
+	admin, err := u.adminRepo.FindByEmailGlobal(ctx, input.Email)
 	if err != nil {
 		// メールアドレスが存在しない場合も ErrInvalidCredentials を返す（攻撃者にヒントを与えない）
 		return nil, ErrInvalidCredentials
 	}
 
-	// 3. ログイン可能かチェック（ドメインルール）
+	// 2. ログイン可能かチェック（ドメインルール）
 	if !admin.CanLogin() {
 		return nil, ErrAccountDisabled
 	}
 
-	// 4. パスワード検証（Infra層に委譲）
+	// 3. パスワード検証（Infra層に委譲）
 	if err := u.passwordHasher.Compare(admin.PasswordHash(), input.Password); err != nil {
 		// パスワードが違う場合も ErrInvalidCredentials を返す（攻撃者にヒントを与えない）
 		return nil, ErrInvalidCredentials
 	}
 
-	// 5. JWT発行（Infra層に委譲）
+	// 4. JWT発行（Infra層に委譲）
+	// TenantIDはAdminから自動取得
 	token, expiresAt, err := u.tokenIssuer.Issue(
 		admin.AdminID().String(),
 		admin.TenantID().String(),
@@ -67,7 +61,7 @@ func (u *LoginUsecase) Execute(ctx context.Context, input LoginInput) (*LoginOut
 	return &LoginOutput{
 		Token:     token,
 		AdminID:   admin.AdminID().String(),
-		TenantID:  admin.TenantID().String(),
+		TenantID:  admin.TenantID().String(), // TenantIDは返す（フロント用）
 		Role:      admin.Role().String(),
 		ExpiresAt: expiresAt,
 	}, nil

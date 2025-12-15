@@ -4,7 +4,7 @@ import "time"
 
 // LoginInput represents the input for the login use case
 type LoginInput struct {
-	TenantID string // ログイン時のみ Body で受け取る（認証前なのでJWTがない）
+	// TenantID削除: email + password のみでログイン
 	Email    string
 	Password string
 }
