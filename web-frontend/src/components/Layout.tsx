@@ -14,7 +14,7 @@ export default function Layout() {
     // 旧形式のデータもクリア（念のため）
     localStorage.removeItem('member_id');
     localStorage.removeItem('member_name');
-    navigate('/login');
+    navigate('/admin/login');
   };
 
   // ナビゲーションリンクのスタイル
@@ -43,6 +43,11 @@ export default function Layout() {
                 <Link to="/my-shifts" className={linkClass('/my-shifts')}>
                   自分のシフト
                 </Link>
+                {(adminRole === 'admin' || adminRole === 'owner') && (
+                  <Link to="/admin/invite" className={linkClass('/admin/invite')}>
+                    管理者招待
+                  </Link>
+                )}
               </nav>
             </div>
             <div className="flex items-center space-x-4">

@@ -1,5 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import AdminLogin from './pages/AdminLogin';
+import AdminInvitation from './pages/AdminInvitation';
+import AcceptInvitation from './pages/AcceptInvitation';
 import EventList from './pages/EventList';
 import BusinessDayList from './pages/BusinessDayList';
 import ShiftSlotList from './pages/ShiftSlotList';
@@ -45,15 +47,19 @@ function App() {
 
   return (
     <Routes>
-      {/* ログイン画面 */}
-      <Route path="/login" element={<AdminLogin />} />
+      {/* 管理者ログイン */}
+      <Route path="/admin/login" element={<AdminLogin />} />
+      <Route path="/login" element={<Navigate to="/admin/login" replace />} />
+
+      {/* 招待受理（認証不要） */}
+      <Route path="/invite/:token" element={<AcceptInvitation />} />
 
       {/* 公開ページ（認証不要） */}
       <Route path="/p/attendance/:token" element={<AttendanceResponse />} />
       <Route path="/p/schedule/:token" element={<ScheduleResponse />} />
 
       {/* ログイン必須の画面 */}
-      <Route path="/" element={isLoggedIn ? <Layout /> : <Navigate to="/login" replace />}>
+      <Route path="/" element={isLoggedIn ? <Layout /> : <Navigate to="/admin/login" replace />}>
         <Route index element={<Navigate to="/events" replace />} />
         <Route path="events" element={<EventList />} />
         <Route path="events/:eventId/business-days" element={<BusinessDayList />} />
@@ -61,6 +67,7 @@ function App() {
         <Route path="shift-slots/:slotId/assign" element={<AssignShift />} />
         <Route path="my-shifts" element={<MyShifts />} />
         <Route path="members" element={<Members />} />
+        <Route path="admin/invite" element={<AdminInvitation />} />
       </Route>
 
       {/* 404 */}

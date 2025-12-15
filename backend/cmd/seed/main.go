@@ -7,11 +7,13 @@ import (
 	"log"
 	"time"
 
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/auth"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/event"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/member"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/shift"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/db"
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/security"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/kelseyhightower/envconfig"
 )
@@ -61,6 +63,7 @@ func seedData(ctx context.Context, pool *pgxpool.Pool, tenantCount int) error {
 	businessDayRepo := db.NewEventBusinessDayRepository(pool)
 	memberRepo := db.NewMemberRepository(pool)
 	slotRepo := db.NewShiftSlotRepository(pool)
+	adminRepo := db.NewAdminRepository(pool)
 
 	for i := 0; i < tenantCount; i++ {
 		tenantID := common.NewTenantID()
@@ -71,6 +74,13 @@ func seedData(ctx context.Context, pool *pgxpool.Pool, tenantCount int) error {
 			return fmt.Errorf("failed to create tenant: %w", err)
 		}
 		log.Printf("   ✅ Tenant created: %s", tenantID)
+
+		// 0.5. 管理者を作成
+		adminEmail, err := createAdmin(ctx, adminRepo, tenantID, i+1)
+		if err != nil {
+			return fmt.Errorf("failed to create admin: %w", err)
+		}
+		log.Printf("   ✅ Admin created: %s (password: password123)", adminEmail)
 
 		// 1. イベントを作成
 		eventID, err := createEvent(ctx, eventRepo, tenantID, fmt.Sprintf("テストイベント #%d", i+1))
@@ -283,4 +293,39 @@ func createShiftSlots(ctx context.Context, repo *db.ShiftSlotRepository, tenantI
 	}
 
 	return ids, nil
+}
+
+func createAdmin(ctx context.Context, repo *db.AdminRepository, tenantID common.TenantID, index int) (string, error) {
+	now := time.Now()
+	email := fmt.Sprintf("admin%d@example.com", index)
+	
+	// パスワードをハッシュ化 (password123)
+	hasher := security.NewBcryptHasher()
+	passwordHash, err := hasher.Hash("password123")
+	if err != nil {
+		return "", err
+	}
+
+	role, err := auth.NewRole("owner")
+	if err != nil {
+		return "", err
+	}
+
+	admin, err := auth.NewAdmin(
+		now,
+		tenantID,
+		email,
+		passwordHash,
+		fmt.Sprintf("管理者 #%d", index),
+		role,
+	)
+	if err != nil {
+		return "", err
+	}
+
+	if err := repo.Save(ctx, admin); err != nil {
+		return "", err
+	}
+
+	return email, nil
 }
