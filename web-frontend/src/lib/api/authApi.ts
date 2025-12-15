@@ -1,11 +1,11 @@
 import type { ApiResponse } from '../../types/api';
 
 /**
- * ログインリクエスト
+ * ログインリクエスト（管理者認証）
  */
 export interface LoginRequest {
   tenant_id: string;
-  display_name: string;
+  email: string;
   password: string;
 }
 
@@ -14,6 +14,10 @@ export interface LoginRequest {
  */
 export interface LoginResponse {
   token: string;
+  admin_id: string;
+  tenant_id: string;
+  role: string;
+  expires_at: string;
 }
 
 /**

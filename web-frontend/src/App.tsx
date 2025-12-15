@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
-import Login from './pages/Login';
+import AdminLogin from './pages/AdminLogin';
 import EventList from './pages/EventList';
 import BusinessDayList from './pages/BusinessDayList';
 import ShiftSlotList from './pages/ShiftSlotList';
@@ -9,14 +9,43 @@ import Layout from './components/Layout';
 import AttendanceResponse from './pages/public/AttendanceResponse';
 import ScheduleResponse from './pages/public/ScheduleResponse';
 
+/**
+ * ログイン状態をチェック
+ * JWT トークンが存在するかどうかで判定
+ */
+function isAuthenticated(): boolean {
+  const authToken = localStorage.getItem('auth_token');
+  if (!authToken) {
+    return false;
+  }
+
+  // JWT の有効期限をチェック（簡易版: ペイロードのexpを確認）
+  try {
+    const payload = JSON.parse(atob(authToken.split('.')[1]));
+    const exp = payload.exp * 1000; // UNIX timestamp to milliseconds
+    if (Date.now() >= exp) {
+      // トークン期限切れ → ログアウト処理
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('admin_id');
+      localStorage.removeItem('tenant_id');
+      localStorage.removeItem('admin_role');
+      return false;
+    }
+    return true;
+  } catch {
+    // パースエラー → 無効なトークン
+    localStorage.removeItem('auth_token');
+    return false;
+  }
+}
+
 function App() {
-  // ログインチェック：member_id が localStorage にあるかどうか
-  const isLoggedIn = !!localStorage.getItem('member_id');
+  const isLoggedIn = isAuthenticated();
 
   return (
     <Routes>
       {/* ログイン画面 */}
-      <Route path="/login" element={<Login />} />
+      <Route path="/login" element={<AdminLogin />} />
 
       {/* 公開ページ（認証不要） */}
       <Route path="/p/attendance/:token" element={<AttendanceResponse />} />

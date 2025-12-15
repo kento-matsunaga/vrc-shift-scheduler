@@ -13,14 +13,23 @@ export class ApiClient {
 
   /**
    * localStorage から認証情報を取得してヘッダーに追加
+   * JWT優先、フォールバックでX-Tenant-IDヘッダー
    */
   private getHeaders(): HeadersInit {
-    const tenantId = localStorage.getItem('tenant_id') || import.meta.env.VITE_TENANT_ID;
-    const memberId = localStorage.getItem('member_id');
-
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
     };
+
+    // JWT トークンがあれば Authorization ヘッダーを付与（優先）
+    const authToken = localStorage.getItem('auth_token');
+    if (authToken) {
+      headers['Authorization'] = `Bearer ${authToken}`;
+      return headers;
+    }
+
+    // JWT がなければ従来の X-Tenant-ID ヘッダー（フォールバック）
+    const tenantId = localStorage.getItem('tenant_id') || import.meta.env.VITE_TENANT_ID;
+    const memberId = localStorage.getItem('member_id');
 
     if (tenantId) {
       headers['X-Tenant-ID'] = tenantId;
