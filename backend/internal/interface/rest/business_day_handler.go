@@ -111,11 +111,9 @@ func (h *BusinessDayHandler) CreateBusinessDay(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	// OccurrenceType のデフォルト値
-	occurrenceType := event.OccurrenceTypeSpecial // 手動作成の場合は special
-	if req.OccurrenceType != "" {
-		occurrenceType = event.OccurrenceType(req.OccurrenceType)
-	}
+	// 手動作成の場合は必ず special（recurring は recurring_pattern_id が必須のため）
+	// リクエストの OccurrenceType 値は無視する
+	occurrenceType := event.OccurrenceTypeSpecial
 
 	// 重複チェック
 	exists, err := h.businessDayRepo.ExistsByEventIDAndDate(ctx, tenantID, eventID, targetDate, startTime)

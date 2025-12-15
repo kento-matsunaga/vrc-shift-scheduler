@@ -161,7 +161,6 @@ function CreateBusinessDayModal({
   const [targetDate, setTargetDate] = useState('');
   const [startTime, setStartTime] = useState('21:30');
   const [endTime, setEndTime] = useState('23:00');
-  const [occurrenceType, setOccurrenceType] = useState<'recurring' | 'special'>('recurring');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -186,7 +185,7 @@ function CreateBusinessDayModal({
         target_date: targetDate,
         start_time: startTime,
         end_time: endTime,
-        occurrence_type: occurrenceType,
+        occurrence_type: 'special', // 手動作成は常に特別営業
       });
       onSuccess();
     } catch (err) {
@@ -251,25 +250,12 @@ function CreateBusinessDayModal({
             </div>
           </div>
 
-          <div className="mb-4">
-            <label htmlFor="occurrenceType" className="label">
-              営業種別
-            </label>
-            <select
-              id="occurrenceType"
-              value={occurrenceType}
-              onChange={(e) => setOccurrenceType(e.target.value as 'recurring' | 'special')}
-              className="input-field"
-              disabled={loading}
-            >
-              <option value="recurring">通常営業</option>
-              <option value="special">特別営業</option>
-            </select>
-          </div>
-
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
             <p className="text-xs text-blue-800">
               💡 深夜営業の場合、終了時刻が開始時刻より前でもOKです（例: 21:30-02:00）
+            </p>
+            <p className="text-xs text-blue-800 mt-1">
+              📋 手動で追加した営業日は「特別営業」として登録されます
             </p>
           </div>
 
