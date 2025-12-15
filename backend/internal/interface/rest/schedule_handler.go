@@ -17,12 +17,13 @@ import (
 )
 
 type ScheduleHandler struct {
-	createScheduleUsecase  *schedule.CreateScheduleUsecase
-	submitResponseUsecase  *schedule.SubmitResponseUsecase
-	decideScheduleUsecase  *schedule.DecideScheduleUsecase
-	closeScheduleUsecase   *schedule.CloseScheduleUsecase
-	getScheduleUsecase     *schedule.GetScheduleUsecase
-	getResponsesUsecase    *schedule.GetResponsesUsecase
+	createScheduleUsecase       *schedule.CreateScheduleUsecase
+	submitResponseUsecase       *schedule.SubmitResponseUsecase
+	decideScheduleUsecase       *schedule.DecideScheduleUsecase
+	closeScheduleUsecase        *schedule.CloseScheduleUsecase
+	getScheduleUsecase          *schedule.GetScheduleUsecase
+	getScheduleByTokenUsecase   *schedule.GetScheduleByTokenUsecase
+	getResponsesUsecase         *schedule.GetResponsesUsecase
 }
 
 func NewScheduleHandler(pool *pgxpool.Pool) *ScheduleHandler {
@@ -31,12 +32,13 @@ func NewScheduleHandler(pool *pgxpool.Pool) *ScheduleHandler {
 	systemClock := &clock.RealClock{}
 
 	return &ScheduleHandler{
-		createScheduleUsecase:  schedule.NewCreateScheduleUsecase(scheduleRepo, systemClock),
-		submitResponseUsecase:  schedule.NewSubmitResponseUsecase(scheduleRepo, txManager, systemClock),
-		decideScheduleUsecase:  schedule.NewDecideScheduleUsecase(scheduleRepo, systemClock),
-		closeScheduleUsecase:   schedule.NewCloseScheduleUsecase(scheduleRepo, systemClock),
-		getScheduleUsecase:     schedule.NewGetScheduleUsecase(scheduleRepo),
-		getResponsesUsecase:    schedule.NewGetResponsesUsecase(scheduleRepo),
+		createScheduleUsecase:       schedule.NewCreateScheduleUsecase(scheduleRepo, systemClock),
+		submitResponseUsecase:       schedule.NewSubmitResponseUsecase(scheduleRepo, txManager, systemClock),
+		decideScheduleUsecase:       schedule.NewDecideScheduleUsecase(scheduleRepo, systemClock),
+		closeScheduleUsecase:        schedule.NewCloseScheduleUsecase(scheduleRepo, systemClock),
+		getScheduleUsecase:          schedule.NewGetScheduleUsecase(scheduleRepo),
+		getScheduleByTokenUsecase:   schedule.NewGetScheduleByTokenUsecase(scheduleRepo),
+		getResponsesUsecase:         schedule.NewGetResponsesUsecase(scheduleRepo),
 	}
 }
 
@@ -430,6 +432,52 @@ func (h *ScheduleHandler) GetResponses(w http.ResponseWriter, r *http.Request) {
 }
 
 // Public API (No authentication)
+
+// GetScheduleByToken handles GET /api/v1/public/schedules/:token
+func (h *ScheduleHandler) GetScheduleByToken(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	token := chi.URLParam(r, "token")
+	if token == "" {
+		RespondNotFound(w, "Schedule not found")
+		return
+	}
+
+	output, err := h.getScheduleByTokenUsecase.Execute(ctx, schedule.GetScheduleByTokenInput{
+		PublicToken: token,
+	})
+	if err != nil {
+		RespondNotFound(w, "Schedule not found")
+		return
+	}
+
+	candidates := make([]CandidateResponse, len(output.Candidates))
+	for i, c := range output.Candidates {
+		candidates[i] = CandidateResponse{
+			CandidateID: c.CandidateID,
+			Date:        c.Date,
+			StartTime:   c.StartTime,
+			EndTime:     c.EndTime,
+		}
+	}
+
+	resp := GetScheduleResponse{
+		ScheduleID:         output.ScheduleID,
+		TenantID:           output.TenantID,
+		Title:              output.Title,
+		Description:        output.Description,
+		EventID:            output.EventID,
+		PublicToken:        output.PublicToken,
+		Status:             output.Status,
+		Deadline:           output.Deadline,
+		DecidedCandidateID: output.DecidedCandidateID,
+		Candidates:         candidates,
+		CreatedAt:          output.CreatedAt,
+		UpdatedAt:          output.UpdatedAt,
+	}
+
+	RespondJSON(w, http.StatusOK, resp)
+}
 
 type ScheduleSubmitResponseRequest struct {
 	MemberID  string                   `json:"member_id"`

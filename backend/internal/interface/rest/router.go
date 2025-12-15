@@ -1,9 +1,11 @@
 package rest
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/app/auth"
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/db"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/security"
 	"github.com/go-chi/chi/v5"
@@ -112,12 +114,30 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 	// Public API（認証不要）
 	r.Route("/api/v1/public/attendance", func(r chi.Router) {
 		attendanceHandler := NewAttendanceHandler(dbPool)
+		r.Get("/{token}", attendanceHandler.GetCollectionByToken)
 		r.Post("/{token}/responses", attendanceHandler.SubmitResponse)
 	})
 
 	r.Route("/api/v1/public/schedules", func(r chi.Router) {
 		scheduleHandler := NewScheduleHandler(dbPool)
+		r.Get("/{token}", scheduleHandler.GetScheduleByToken)
 		r.Post("/{token}/responses", scheduleHandler.SubmitResponse)
+	})
+
+	// 公開ページ用メンバー一覧API（認証不要）
+	// NOTE: MVPでは簡易実装としてテナントIDを指定してメンバー一覧を取得可能
+	r.Get("/api/v1/public/members", func(w http.ResponseWriter, r *http.Request) {
+		tenantID := r.URL.Query().Get("tenant_id")
+		if tenantID == "" {
+			RespondBadRequest(w, "tenant_id is required")
+			return
+		}
+		// memberHandler を使用
+		memberHandler := NewMemberHandler(dbPool)
+		// Contextにテナント情報を設定
+		ctx := context.WithValue(r.Context(), ContextKeyTenantID, common.TenantID(tenantID))
+		r = r.WithContext(ctx)
+		memberHandler.GetMembers(w, r)
 	})
 
 	return r

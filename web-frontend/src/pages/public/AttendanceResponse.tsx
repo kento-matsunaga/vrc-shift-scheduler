@@ -41,7 +41,7 @@ export default function AttendanceResponse() {
 
         // メンバー一覧を取得
         const membersData = await getMembers(collectionData.tenant_id);
-        setMembers(membersData.data || []);
+        setMembers(membersData.data?.members || []);
       } catch (err) {
         if (err instanceof PublicApiError) {
           if (err.isNotFound()) {
@@ -206,8 +206,7 @@ export default function AttendanceResponse() {
                 <option value="">選択してください</option>
                 {members.map((member) => (
                   <option key={member.member_id} value={member.member_id}>
-                    {member.name}
-                    {member.vrchat_name && ` (${member.vrchat_name})`}
+                    {member.display_name}
                   </option>
                 ))}
               </select>

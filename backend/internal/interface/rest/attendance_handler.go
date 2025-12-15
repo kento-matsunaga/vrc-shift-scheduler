@@ -16,11 +16,12 @@ import (
 
 // AttendanceHandler handles attendance-related HTTP requests
 type AttendanceHandler struct {
-	createCollectionUsecase *attendance.CreateCollectionUsecase
-	submitResponseUsecase   *attendance.SubmitResponseUsecase
-	closeCollectionUsecase  *attendance.CloseCollectionUsecase
-	getCollectionUsecase    *attendance.GetCollectionUsecase
-	getResponsesUsecase     *attendance.GetResponsesUsecase
+	createCollectionUsecase       *attendance.CreateCollectionUsecase
+	submitResponseUsecase         *attendance.SubmitResponseUsecase
+	closeCollectionUsecase        *attendance.CloseCollectionUsecase
+	getCollectionUsecase          *attendance.GetCollectionUsecase
+	getCollectionByTokenUsecase   *attendance.GetCollectionByTokenUsecase
+	getResponsesUsecase           *attendance.GetResponsesUsecase
 }
 
 // NewAttendanceHandler creates a new AttendanceHandler
@@ -31,11 +32,12 @@ func NewAttendanceHandler(dbPool *pgxpool.Pool) *AttendanceHandler {
 	txManager := db.NewPgxTxManager(dbPool)
 
 	return &AttendanceHandler{
-		createCollectionUsecase: attendance.NewCreateCollectionUsecase(repo, clk),
-		submitResponseUsecase:   attendance.NewSubmitResponseUsecase(repo, txManager, clk),
-		closeCollectionUsecase:  attendance.NewCloseCollectionUsecase(repo, clk),
-		getCollectionUsecase:    attendance.NewGetCollectionUsecase(repo),
-		getResponsesUsecase:     attendance.NewGetResponsesUsecase(repo),
+		createCollectionUsecase:       attendance.NewCreateCollectionUsecase(repo, clk),
+		submitResponseUsecase:         attendance.NewSubmitResponseUsecase(repo, txManager, clk),
+		closeCollectionUsecase:        attendance.NewCloseCollectionUsecase(repo, clk),
+		getCollectionUsecase:          attendance.NewGetCollectionUsecase(repo),
+		getCollectionByTokenUsecase:   attendance.NewGetCollectionByTokenUsecase(repo),
+		getResponsesUsecase:           attendance.NewGetResponsesUsecase(repo),
 	}
 }
 
@@ -290,6 +292,45 @@ func (h *AttendanceHandler) GetResponses(w http.ResponseWriter, r *http.Request)
 		Data: ResponsesListResponse{
 			CollectionID: output.CollectionID,
 			Responses:    responses,
+		},
+	})
+}
+
+// GetCollectionByToken handles GET /api/v1/public/attendance/:token
+// Public API（認証不要）
+func (h *AttendanceHandler) GetCollectionByToken(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// URLパラメータからtokenを取得
+	token := chi.URLParam(r, "token")
+	if token == "" {
+		RespondNotFound(w, "Collection not found")
+		return
+	}
+
+	// Usecase呼び出し
+	output, err := h.getCollectionByTokenUsecase.Execute(ctx, attendance.GetCollectionByTokenInput{
+		PublicToken: token,
+	})
+	if err != nil {
+		RespondNotFound(w, "Collection not found") // トークンエラー → 404（詳細は返さない）
+		return
+	}
+
+	// レスポンス
+	RespondJSON(w, http.StatusOK, SuccessResponse{
+		Data: CollectionResponse{
+			CollectionID: output.CollectionID,
+			TenantID:     output.TenantID,
+			Title:        output.Title,
+			Description:  output.Description,
+			TargetType:   output.TargetType,
+			TargetID:     output.TargetID,
+			PublicToken:  output.PublicToken,
+			Status:       output.Status,
+			Deadline:     output.Deadline,
+			CreatedAt:    output.CreatedAt,
+			UpdatedAt:    output.UpdatedAt,
 		},
 	})
 }

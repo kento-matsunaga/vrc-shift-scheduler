@@ -89,9 +89,9 @@ export interface AttendanceCollection {
 export interface Member {
   member_id: string;
   tenant_id: string;
-  name: string;
-  vrchat_name?: string;
-  role?: string;
+  display_name: string;
+  discord_user_id?: string;
+  email?: string;
   is_active: boolean;
 }
 
@@ -119,10 +119,10 @@ export async function getAttendanceByToken(token: string): Promise<AttendanceCol
 
 /**
  * メンバー一覧を取得（出欠確認用）
- * FIXME: 本来は公開APIにメンバー一覧を晒すべきではないが、MVPでは簡易実装
+ * NOTE: MVPでは簡易実装として公開APIでメンバー一覧を取得可能
  */
-export async function getMembers(tenantId: string): Promise<{ data: Member[] }> {
-  return publicRequest<{ data: Member[] }>('GET', `/api/v1/members?tenant_id=${tenantId}`);
+export async function getMembers(tenantId: string): Promise<{ data: { members: Member[] } }> {
+  return publicRequest<{ data: { members: Member[] } }>('GET', `/api/v1/public/members?tenant_id=${tenantId}`);
 }
 
 /**

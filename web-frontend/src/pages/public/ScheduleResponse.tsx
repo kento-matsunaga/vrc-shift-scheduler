@@ -41,7 +41,7 @@ export default function ScheduleResponse() {
 
         // メンバー一覧を取得
         const membersData = await getMembers(scheduleData.tenant_id);
-        setMembers(membersData.data || []);
+        setMembers(membersData.data?.members || []);
 
         // 初期値設定（全候補に対してmaybeを設定）
         const initialResponses: Record<string, { availability: 'available' | 'unavailable' | 'maybe'; note: string }> = {};
@@ -263,8 +263,7 @@ export default function ScheduleResponse() {
                 <option value="">選択してください</option>
                 {members.map((member) => (
                   <option key={member.member_id} value={member.member_id}>
-                    {member.name}
-                    {member.vrchat_name && ` (${member.vrchat_name})`}
+                    {member.display_name}
                   </option>
                 ))}
               </select>
