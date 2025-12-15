@@ -5,6 +5,7 @@ import BusinessDayList from './pages/BusinessDayList';
 import ShiftSlotList from './pages/ShiftSlotList';
 import AssignShift from './pages/AssignShift';
 import MyShifts from './pages/MyShifts';
+import Members from './pages/Members';
 import Layout from './components/Layout';
 import AttendanceResponse from './pages/public/AttendanceResponse';
 import ScheduleResponse from './pages/public/ScheduleResponse';
@@ -59,6 +60,7 @@ function App() {
         <Route path="business-days/:businessDayId/shift-slots" element={<ShiftSlotList />} />
         <Route path="shift-slots/:slotId/assign" element={<AssignShift />} />
         <Route path="my-shifts" element={<MyShifts />} />
+        <Route path="members" element={<Members />} />
       </Route>
 
       {/* 404 */}
