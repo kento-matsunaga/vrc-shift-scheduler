@@ -293,3 +293,53 @@ func ParseResponseID(s string) (ResponseID, error) {
 	return ResponseID(s), nil
 }
 
+// ScheduleID represents a date schedule identifier
+type ScheduleID string
+
+func NewScheduleID() ScheduleID {
+	return ScheduleID(NewULID())
+}
+
+func (id ScheduleID) String() string {
+	return string(id)
+}
+
+func (id ScheduleID) Validate() error {
+	if id == "" {
+		return fmt.Errorf("schedule_id is required")
+	}
+	return ValidateULID(string(id))
+}
+
+func ParseScheduleID(s string) (ScheduleID, error) {
+	if err := ValidateULID(s); err != nil {
+		return "", err
+	}
+	return ScheduleID(s), nil
+}
+
+// CandidateID represents a schedule candidate identifier
+type CandidateID string
+
+func NewCandidateID() CandidateID {
+	return CandidateID(NewULID())
+}
+
+func (id CandidateID) String() string {
+	return string(id)
+}
+
+func (id CandidateID) Validate() error {
+	if id == "" {
+		return fmt.Errorf("candidate_id is required")
+	}
+	return ValidateULID(string(id))
+}
+
+func ParseCandidateID(s string) (CandidateID, error) {
+	if err := ValidateULID(s); err != nil {
+		return "", err
+	}
+	return CandidateID(s), nil
+}
+
