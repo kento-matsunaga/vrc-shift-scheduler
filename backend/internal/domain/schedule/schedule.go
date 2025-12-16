@@ -29,6 +29,7 @@ type DateSchedule struct {
 // NOTE: now は App層で clock.Now() を呼んで渡す（Domain層で time.Now() を呼ばない）
 func NewDateSchedule(
 	now time.Time,
+	scheduleID common.ScheduleID,
 	tenantID common.TenantID,
 	title string,
 	description string,
@@ -37,7 +38,7 @@ func NewDateSchedule(
 	deadline *time.Time,
 ) (*DateSchedule, error) {
 	schedule := &DateSchedule{
-		scheduleID:  common.NewScheduleID(),
+		scheduleID:  scheduleID,
 		tenantID:    tenantID,
 		title:       title,
 		description: description,

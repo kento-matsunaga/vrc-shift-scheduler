@@ -40,7 +40,23 @@ func (u *GetCollectionByTokenUsecase) Execute(ctx context.Context, input GetColl
 		return nil, ErrCollectionNotFound
 	}
 
-	// 3. Return output DTO
+	// 3. Find target dates
+	targetDates, err := u.repo.FindTargetDatesByCollectionID(ctx, collection.CollectionID())
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert target dates to TargetDateDTO array
+	var targetDateDTOs []TargetDateDTO
+	for _, td := range targetDates {
+		targetDateDTOs = append(targetDateDTOs, TargetDateDTO{
+			TargetDateID: td.TargetDateID().String(),
+			TargetDate:   td.TargetDateValue(),
+			DisplayOrder: td.DisplayOrder(),
+		})
+	}
+
+	// 4. Return output DTO
 	return &GetCollectionOutput{
 		CollectionID: collection.CollectionID().String(),
 		TenantID:     collection.TenantID().String(),
@@ -48,6 +64,7 @@ func (u *GetCollectionByTokenUsecase) Execute(ctx context.Context, input GetColl
 		Description:  collection.Description(),
 		TargetType:   collection.TargetType().String(),
 		TargetID:     collection.TargetID(),
+		TargetDates:  targetDateDTOs,
 		PublicToken:  collection.PublicToken().String(),
 		Status:       collection.Status().String(),
 		Deadline:     collection.Deadline(),

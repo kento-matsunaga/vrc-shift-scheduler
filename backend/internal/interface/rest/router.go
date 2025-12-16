@@ -151,4 +151,3 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 
 	return r
 }
-

@@ -37,10 +37,16 @@ export default function ScheduleResponse() {
 
         // 日程調整情報を取得
         const scheduleData = await getScheduleByToken(token);
+        console.log('Schedule data:', scheduleData);
+        console.log('Tenant ID from schedule:', scheduleData.tenant_id);
         setSchedule(scheduleData);
 
         // メンバー一覧を取得
+        console.log('Fetching members for tenant:', scheduleData.tenant_id);
         const membersData = await getMembers(scheduleData.tenant_id);
+        console.log('Members API response:', membersData);
+        console.log('Members data:', membersData.data);
+        console.log('Members array:', membersData.data?.members);
         setMembers(membersData.data?.members || []);
 
         // 初期値設定（全候補に対してmaybeを設定）
@@ -101,14 +107,18 @@ export default function ScheduleResponse() {
         ([candidateId, data]) => ({
           candidate_id: candidateId,
           availability: data.availability,
-          note: data.note || undefined,
+          note: data.note || '',
         })
       );
 
-      await submitScheduleResponse(token, {
+      const requestData = {
         member_id: selectedMemberId,
         responses: responseArray,
-      });
+      };
+
+      console.log('Submitting schedule response:', requestData);
+
+      await submitScheduleResponse(token, requestData);
 
       setSubmitted(true);
     } catch (err) {

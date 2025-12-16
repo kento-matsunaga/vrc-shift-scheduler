@@ -221,7 +221,7 @@ func createBusinessDays(ctx context.Context, repo *db.EventBusinessDayRepository
 func createMembers(ctx context.Context, repo *db.MemberRepository, tenantID common.TenantID, count int) ([]common.MemberID, error) {
 	ids := make([]common.MemberID, 0, count)
 
-	names := []string{"田中太郎", "佐藤花子", "鈴木一郎", "高橋美咲", "伊藤翔太", "渡辺さくら", "山本健太", "中村愛", "小林大輔", "加藤結衣"}
+	names := []string{"ERENOA", "【LAAT】", "moyashiuri", "Yuichi_Snadra", "コーヒーキメた冷蔵庫お嬢様", "makkun_0627", "2943ten", "みらくるみらい", "ELtaso", "Ninomae Kazuaki"}
 
 	for i := 0; i < count && i < len(names); i++ {
 		m, err := member.NewMember(
@@ -298,7 +298,7 @@ func createShiftSlots(ctx context.Context, repo *db.ShiftSlotRepository, tenantI
 func createAdmin(ctx context.Context, repo *db.AdminRepository, tenantID common.TenantID, index int) (string, error) {
 	now := time.Now()
 	email := fmt.Sprintf("admin%d@example.com", index)
-	
+
 	// パスワードをハッシュ化 (password123)
 	hasher := security.NewBcryptHasher()
 	passwordHash, err := hasher.Hash("password123")

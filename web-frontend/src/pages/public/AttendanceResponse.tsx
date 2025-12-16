@@ -6,6 +6,7 @@ import {
   submitAttendanceResponse,
   type AttendanceCollection,
   type Member,
+  type TargetDate,
   PublicApiError,
 } from '../../lib/api/publicApi';
 
@@ -15,10 +16,12 @@ export default function AttendanceResponse() {
   const [error, setError] = useState<string | null>(null);
   const [collection, setCollection] = useState<AttendanceCollection | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
+  const [targetDates, setTargetDates] = useState<TargetDate[]>([]);
 
   // フォーム状態
   const [selectedMemberId, setSelectedMemberId] = useState('');
-  const [response, setResponse] = useState<'attending' | 'absent'>('attending');
+  // 各対象日ごとの出欠状態: { target_date_id: 'attending' | 'absent' }
+  const [responses, setResponses] = useState<Record<string, 'attending' | 'absent'>>({});
   const [note, setNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -37,11 +40,23 @@ export default function AttendanceResponse() {
 
         // 出欠確認情報を取得
         const collectionData = await getAttendanceByToken(token);
+        console.log('Attendance collection data:', collectionData);
         setCollection(collectionData);
 
         // メンバー一覧を取得
         const membersData = await getMembers(collectionData.tenant_id);
         setMembers(membersData.data?.members || []);
+
+        // Target dates を設定
+        const targetDatesList = collectionData.target_dates || [];
+        setTargetDates(targetDatesList);
+
+        // 初期状態として全て「参加」を設定
+        const initialResponses: Record<string, 'attending' | 'absent'> = {};
+        targetDatesList.forEach((td) => {
+          initialResponses[td.target_date_id] = 'attending';
+        });
+        setResponses(initialResponses);
       } catch (err) {
         if (err instanceof PublicApiError) {
           if (err.isNotFound()) {
@@ -62,11 +77,23 @@ export default function AttendanceResponse() {
     fetchData();
   }, [token]);
 
+  const handleResponseChange = (targetDateId: string, response: 'attending' | 'absent') => {
+    setResponses((prev) => ({
+      ...prev,
+      [targetDateId]: response,
+    }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!selectedMemberId) {
       alert('お名前を選択してください');
+      return;
+    }
+
+    if (targetDates.length === 0) {
+      alert('対象日が設定されていません');
       return;
     }
 
@@ -76,11 +103,17 @@ export default function AttendanceResponse() {
       setSubmitting(true);
       setError(null);
 
-      await submitAttendanceResponse(token, {
-        member_id: selectedMemberId,
-        response,
-        note,
-      });
+      // 各対象日ごとに回答を送信
+      const submitPromises = targetDates.map((td) =>
+        submitAttendanceResponse(token, {
+          member_id: selectedMemberId,
+          target_date_id: td.target_date_id,
+          response: responses[td.target_date_id] || 'attending',
+          note,
+        })
+      );
+
+      await Promise.all(submitPromises);
 
       setSubmitted(true);
     } catch (err) {
@@ -141,7 +174,11 @@ export default function AttendanceResponse() {
               onClick={() => {
                 setSubmitted(false);
                 setSelectedMemberId('');
-                setResponse('attending');
+                const initialResponses: Record<string, 'attending' | 'absent'> = {};
+                targetDates.forEach((td) => {
+                  initialResponses[td.target_date_id] = 'attending';
+                });
+                setResponses(initialResponses);
                 setNote('');
               }}
               className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
@@ -159,7 +196,7 @@ export default function AttendanceResponse() {
       <div className="max-w-2xl mx-auto">
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
           <h1 className="text-2xl font-bold text-gray-900 mb-2">
-            {collection?.title}
+            {collection?.title || '(タイトルなし)'}
           </h1>
           {collection?.description && (
             <p className="text-gray-600 mb-4 whitespace-pre-wrap">
@@ -191,7 +228,7 @@ export default function AttendanceResponse() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 お名前 <span className="text-red-500">*</span>
@@ -215,35 +252,55 @@ export default function AttendanceResponse() {
               </p>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                出欠 <span className="text-red-500">*</span>
-              </label>
-              <div className="space-y-2">
-                <label className="flex items-center">
-                  <input
-                    type="radio"
-                    value="attending"
-                    checked={response === 'attending'}
-                    onChange={(e) => setResponse(e.target.value as 'attending')}
-                    className="mr-2"
-                    disabled={collection?.status === 'closed'}
-                  />
-                  <span className="text-gray-700">参加</span>
+            {/* 各対象日ごとの出欠選択 */}
+            {targetDates.length > 0 && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  各日程の出欠 <span className="text-red-500">*</span>
                 </label>
-                <label className="flex items-center">
-                  <input
-                    type="radio"
-                    value="absent"
-                    checked={response === 'absent'}
-                    onChange={(e) => setResponse(e.target.value as 'absent')}
-                    className="mr-2"
-                    disabled={collection?.status === 'closed'}
-                  />
-                  <span className="text-gray-700">不参加</span>
-                </label>
+                <div className="space-y-4">
+                  {targetDates.map((td) => (
+                    <div
+                      key={td.target_date_id}
+                      className="border border-gray-200 rounded-md p-4 bg-gray-50"
+                    >
+                      <div className="font-medium text-gray-900 mb-2">
+                        {new Date(td.target_date).toLocaleDateString('ja-JP', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                          weekday: 'short',
+                        })}
+                      </div>
+                      <div className="flex gap-4">
+                        <label className="flex items-center cursor-pointer">
+                          <input
+                            type="radio"
+                            value="attending"
+                            checked={responses[td.target_date_id] === 'attending'}
+                            onChange={() => handleResponseChange(td.target_date_id, 'attending')}
+                            className="mr-2"
+                            disabled={collection?.status === 'closed'}
+                          />
+                          <span className="text-gray-700">参加</span>
+                        </label>
+                        <label className="flex items-center cursor-pointer">
+                          <input
+                            type="radio"
+                            value="absent"
+                            checked={responses[td.target_date_id] === 'absent'}
+                            onChange={() => handleResponseChange(td.target_date_id, 'absent')}
+                            className="mr-2"
+                            disabled={collection?.status === 'closed'}
+                          />
+                          <span className="text-gray-700">不参加</span>
+                        </label>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -261,7 +318,7 @@ export default function AttendanceResponse() {
 
             <button
               type="submit"
-              disabled={submitting || collection?.status === 'closed'}
+              disabled={submitting || collection?.status === 'closed' || targetDates.length === 0}
               className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
               {submitting ? '送信中...' : '回答を送信'}

@@ -246,10 +246,10 @@ func (r *AttendanceRepository) FindByTenantID(ctx context.Context, tenantID comm
 func (r *AttendanceRepository) UpsertResponse(ctx context.Context, response *attendance.AttendanceResponse) error {
 	query := `
 		INSERT INTO attendance_responses (
-			response_id, tenant_id, collection_id, member_id, response, note,
+			response_id, tenant_id, collection_id, member_id, target_date_id, response, note,
 			responded_at, created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-		ON CONFLICT (collection_id, member_id) DO UPDATE SET
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		ON CONFLICT (collection_id, member_id, target_date_id) DO UPDATE SET
 			response = EXCLUDED.response,
 			note = EXCLUDED.note,
 			responded_at = EXCLUDED.responded_at,
@@ -263,6 +263,7 @@ func (r *AttendanceRepository) UpsertResponse(ctx context.Context, response *att
 		response.TenantID().String(),
 		response.CollectionID().String(),
 		response.MemberID().String(),
+		response.TargetDateID().String(),
 		response.Response().String(),
 		response.Note(),
 		response.RespondedAt(),
@@ -281,7 +282,7 @@ func (r *AttendanceRepository) UpsertResponse(ctx context.Context, response *att
 func (r *AttendanceRepository) FindResponsesByCollectionID(ctx context.Context, collectionID common.CollectionID) ([]*attendance.AttendanceResponse, error) {
 	query := `
 		SELECT
-			response_id, tenant_id, collection_id, member_id, response, note,
+			response_id, tenant_id, collection_id, member_id, target_date_id, response, note,
 			responded_at, created_at, updated_at
 		FROM attendance_responses
 		WHERE collection_id = $1
@@ -303,6 +304,7 @@ func (r *AttendanceRepository) FindResponsesByCollectionID(ctx context.Context, 
 			tenantIDStr     string
 			collectionIDStr string
 			memberIDStr     string
+			targetDateIDStr string
 			responseStr     string
 			note            string
 			respondedAt     time.Time
@@ -315,6 +317,7 @@ func (r *AttendanceRepository) FindResponsesByCollectionID(ctx context.Context, 
 			&tenantIDStr,
 			&collectionIDStr,
 			&memberIDStr,
+			&targetDateIDStr,
 			&responseStr,
 			&note,
 			&respondedAt,
@@ -345,6 +348,11 @@ func (r *AttendanceRepository) FindResponsesByCollectionID(ctx context.Context, 
 			return nil, fmt.Errorf("failed to parse member_id: %w", err)
 		}
 
+		targetDateID, err := common.ParseTargetDateID(targetDateIDStr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse target_date_id: %w", err)
+		}
+
 		responseType, err := attendance.NewResponseType(responseStr)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse response type: %w", err)
@@ -355,6 +363,109 @@ func (r *AttendanceRepository) FindResponsesByCollectionID(ctx context.Context, 
 			tenantID,
 			colID,
 			memberID,
+			targetDateID,
+			responseType,
+			note,
+			respondedAt,
+			createdAt,
+			updatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to reconstruct response: %w", err)
+		}
+
+		responses = append(responses, resp)
+	}
+
+	return responses, nil
+}
+
+// FindResponsesByMemberID は member の回答一覧を取得する
+func (r *AttendanceRepository) FindResponsesByMemberID(ctx context.Context, tenantID common.TenantID, memberID common.MemberID) ([]*attendance.AttendanceResponse, error) {
+	query := `
+		SELECT
+			response_id, tenant_id, collection_id, member_id, target_date_id, response, note,
+			responded_at, created_at, updated_at
+		FROM attendance_responses
+		WHERE tenant_id = $1 AND member_id = $2
+		ORDER BY responded_at DESC
+	`
+
+	executor := GetTx(ctx, r.pool)
+
+	rows, err := executor.Query(ctx, query, tenantID.String(), memberID.String())
+	if err != nil {
+		return nil, fmt.Errorf("failed to find responses by member: %w", err)
+	}
+	defer rows.Close()
+
+	var responses []*attendance.AttendanceResponse
+	for rows.Next() {
+		var (
+			responseIDStr   string
+			tenantIDStr     string
+			collectionIDStr string
+			memberIDStr     string
+			targetDateIDStr string
+			responseStr     string
+			note            string
+			respondedAt     time.Time
+			createdAt       time.Time
+			updatedAt       time.Time
+		)
+
+		err := rows.Scan(
+			&responseIDStr,
+			&tenantIDStr,
+			&collectionIDStr,
+			&memberIDStr,
+			&targetDateIDStr,
+			&responseStr,
+			&note,
+			&respondedAt,
+			&createdAt,
+			&updatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan response: %w", err)
+		}
+
+		responseID, err := common.ParseResponseID(responseIDStr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse response_id: %w", err)
+		}
+
+		tid, err := common.ParseTenantID(tenantIDStr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse tenant_id: %w", err)
+		}
+
+		colID, err := common.ParseCollectionID(collectionIDStr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse collection_id: %w", err)
+		}
+
+		mid, err := common.ParseMemberID(memberIDStr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse member_id: %w", err)
+		}
+
+		targetDateID, err := common.ParseTargetDateID(targetDateIDStr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse target_date_id: %w", err)
+		}
+
+		responseType, err := attendance.NewResponseType(responseStr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse response type: %w", err)
+		}
+
+		resp, err := attendance.ReconstructAttendanceResponse(
+			responseID,
+			tid,
+			colID,
+			mid,
+			targetDateID,
 			responseType,
 			note,
 			respondedAt,
@@ -428,4 +539,95 @@ func (r *AttendanceRepository) scanCollection(
 		updatedAt,
 		deletedAtPtr,
 	)
+}
+
+// SaveTargetDates saves target dates for a collection
+func (r *AttendanceRepository) SaveTargetDates(ctx context.Context, collectionID common.CollectionID, targetDates []*attendance.TargetDate) error {
+	executor := GetTx(ctx, r.pool)
+
+	// 既存の対象日を削除
+	deleteQuery := `DELETE FROM attendance_target_dates WHERE collection_id = $1`
+	_, err := executor.Exec(ctx, deleteQuery, collectionID.String())
+	if err != nil {
+		return fmt.Errorf("failed to delete old target dates: %w", err)
+	}
+
+	// 新しい対象日を挿入
+	if len(targetDates) == 0 {
+		return nil
+	}
+
+	insertQuery := `
+		INSERT INTO attendance_target_dates (
+			target_date_id, collection_id, target_date, display_order, created_at
+		) VALUES ($1, $2, $3, $4, $5)
+	`
+
+	for _, td := range targetDates {
+		_, err := executor.Exec(ctx, insertQuery,
+			td.TargetDateID().String(),
+			td.CollectionID().String(),
+			td.TargetDateValue(),
+			td.DisplayOrder(),
+			td.CreatedAt(),
+		)
+		if err != nil {
+			return fmt.Errorf("failed to save target date: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// FindTargetDatesByCollectionID finds all target dates for a collection
+func (r *AttendanceRepository) FindTargetDatesByCollectionID(ctx context.Context, collectionID common.CollectionID) ([]*attendance.TargetDate, error) {
+	query := `
+		SELECT target_date_id, collection_id, target_date, display_order, created_at
+		FROM attendance_target_dates
+		WHERE collection_id = $1
+		ORDER BY display_order, target_date
+	`
+
+	executor := GetTx(ctx, r.pool)
+	rows, err := executor.Query(ctx, query, collectionID.String())
+	if err != nil {
+		return nil, fmt.Errorf("failed to query target dates: %w", err)
+	}
+	defer rows.Close()
+
+	var targetDates []*attendance.TargetDate
+	for rows.Next() {
+		var targetDateIDStr, collectionIDStr string
+		var targetDate time.Time
+		var displayOrder int
+		var createdAt time.Time
+
+		err := rows.Scan(&targetDateIDStr, &collectionIDStr, &targetDate, &displayOrder, &createdAt)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan target date: %w", err)
+		}
+
+		targetDateID, err := common.ParseTargetDateID(targetDateIDStr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse target_date_id: %w", err)
+		}
+
+		parsedCollectionID, err := common.ParseCollectionID(collectionIDStr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse collection_id: %w", err)
+		}
+
+		td, err := attendance.ReconstructTargetDate(targetDateID, parsedCollectionID, targetDate, displayOrder, createdAt)
+		if err != nil {
+			return nil, fmt.Errorf("failed to reconstruct target date: %w", err)
+		}
+
+		targetDates = append(targetDates, td)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration error: %w", err)
+	}
+
+	return targetDates, nil
 }

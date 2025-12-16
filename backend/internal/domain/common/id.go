@@ -342,3 +342,25 @@ func ParseCandidateID(s string) (CandidateID, error) {
 	}
 	return CandidateID(s), nil
 }
+
+// TargetDateID represents an attendance target date identifier
+type TargetDateID string
+
+func NewTargetDateID() TargetDateID {
+	return TargetDateID(NewULID())
+}
+
+func (id TargetDateID) String() string {
+	return string(id)
+}
+
+func (id TargetDateID) Validate() error {
+	return ValidateULID(string(id))
+}
+
+func ParseTargetDateID(s string) (TargetDateID, error) {
+	if err := ValidateULID(s); err != nil {
+		return "", err
+	}
+	return TargetDateID(s), nil
+}

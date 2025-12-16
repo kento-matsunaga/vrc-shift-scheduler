@@ -138,7 +138,7 @@ func (h *ScheduleHandler) CreateSchedule(w http.ResponseWriter, r *http.Request)
 		CreatedAt:   output.CreatedAt,
 	}
 
-	RespondJSON(w, http.StatusCreated, resp)
+	RespondJSON(w, http.StatusCreated, SuccessResponse{Data: resp})
 }
 
 type GetScheduleResponse struct {
@@ -507,16 +507,21 @@ func (h *ScheduleHandler) SubmitResponse(w http.ResponseWriter, r *http.Request)
 
 	var req ScheduleSubmitResponseRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		println("ERROR: Failed to decode request body:", err.Error())
 		RespondBadRequest(w, "invalid request body")
 		return
 	}
 
+	println("DEBUG: SubmitResponse request - MemberID:", req.MemberID, "ResponseCount:", len(req.Responses))
+
 	if req.MemberID == "" {
+		println("ERROR: member_id is empty")
 		RespondBadRequest(w, "member_id is required")
 		return
 	}
 
 	if len(req.Responses) == 0 {
+		println("ERROR: responses array is empty")
 		RespondBadRequest(w, "at least one response is required")
 		return
 	}

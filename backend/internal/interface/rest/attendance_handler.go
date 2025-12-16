@@ -28,6 +28,7 @@ type AttendanceHandler struct {
 func NewAttendanceHandler(dbPool *pgxpool.Pool) *AttendanceHandler {
 	// Repository, Clock, TxManagerの初期化
 	repo := db.NewAttendanceRepository(dbPool)
+	memberRepo := db.NewMemberRepository(dbPool)
 	clk := &clock.RealClock{}
 	txManager := db.NewPgxTxManager(dbPool)
 
@@ -37,7 +38,7 @@ func NewAttendanceHandler(dbPool *pgxpool.Pool) *AttendanceHandler {
 		closeCollectionUsecase:        attendance.NewCloseCollectionUsecase(repo, clk),
 		getCollectionUsecase:          attendance.NewGetCollectionUsecase(repo),
 		getCollectionByTokenUsecase:   attendance.NewGetCollectionByTokenUsecase(repo),
-		getResponsesUsecase:           attendance.NewGetResponsesUsecase(repo),
+		getResponsesUsecase:           attendance.NewGetResponsesUsecase(repo, memberRepo),
 	}
 }
 
@@ -45,40 +46,53 @@ func NewAttendanceHandler(dbPool *pgxpool.Pool) *AttendanceHandler {
 type CreateCollectionRequest struct {
 	Title       string     `json:"title"`
 	Description string     `json:"description"`
-	TargetType  string     `json:"target_type"` // "event" or "business_day"
-	TargetID    string     `json:"target_id"`   // optional
-	Deadline    *time.Time `json:"deadline"`    // optional
+	TargetType  string     `json:"target_type"`  // "event" or "business_day"
+	TargetID    string     `json:"target_id"`    // optional
+	TargetDates []string   `json:"target_dates"` // ISO 8601 format array
+	Deadline    *time.Time `json:"deadline"`     // optional
+}
+
+// TargetDateResponse represents a target date in API responses
+type TargetDateResponse struct {
+	TargetDateID string `json:"target_date_id"`
+	TargetDate   string `json:"target_date"`   // ISO 8601 format
+	DisplayOrder int    `json:"display_order"`
 }
 
 // CollectionResponse represents an attendance collection in API responses
 type CollectionResponse struct {
-	CollectionID string     `json:"collection_id"`
-	TenantID     string     `json:"tenant_id"`
-	Title        string     `json:"title"`
-	Description  string     `json:"description"`
-	TargetType   string     `json:"target_type"`
-	TargetID     string     `json:"target_id"`
-	PublicToken  string     `json:"public_token"`
-	Status       string     `json:"status"`
-	Deadline     *time.Time `json:"deadline,omitempty"`
-	CreatedAt    time.Time  `json:"created_at"`
-	UpdatedAt    time.Time  `json:"updated_at"`
+	CollectionID string                `json:"collection_id"`
+	TenantID     string                `json:"tenant_id"`
+	Title        string                `json:"title"`
+	Description  string                `json:"description"`
+	TargetType   string                `json:"target_type"`
+	TargetID     string                `json:"target_id"`
+	TargetDates  []TargetDateResponse  `json:"target_dates,omitempty"` // Target dates with IDs
+	PublicToken  string                `json:"public_token"`
+	Status       string                `json:"status"`
+	Deadline     *time.Time            `json:"deadline,omitempty"`
+	CreatedAt    time.Time             `json:"created_at"`
+	UpdatedAt    time.Time             `json:"updated_at"`
 }
 
 // SubmitResponseRequest represents the request body for submitting an attendance response
 type SubmitResponseRequest struct {
-	MemberID string `json:"member_id"`
-	Response string `json:"response"` // "attending" or "absent"
-	Note     string `json:"note"`
+	MemberID     string `json:"member_id"`
+	TargetDateID string `json:"target_date_id"` // 対象日ID
+	Response     string `json:"response"`       // "attending" or "absent"
+	Note         string `json:"note"`
 }
 
 // ResponseDTO represents a single attendance response
 type ResponseDTO struct {
-	ResponseID  string    `json:"response_id"`
-	MemberID    string    `json:"member_id"`
-	Response    string    `json:"response"`
-	Note        string    `json:"note"`
-	RespondedAt time.Time `json:"responded_at"`
+	ResponseID   string    `json:"response_id"`
+	MemberID     string    `json:"member_id"`
+	MemberName   string    `json:"member_name"`    // メンバー表示名
+	TargetDateID string    `json:"target_date_id"` // 対象日ID
+	TargetDate   string    `json:"target_date"`    // 対象日（ISO 8601）
+	Response     string    `json:"response"`
+	Note         string    `json:"note"`
+	RespondedAt  time.Time `json:"responded_at"`
 }
 
 // SubmitResponseResponse represents the response for submitting an attendance response
@@ -125,6 +139,17 @@ func (h *AttendanceHandler) CreateCollection(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	// Parse target dates from strings to time.Time
+	var targetDates []time.Time
+	for _, dateStr := range req.TargetDates {
+		parsedDate, err := time.Parse(time.RFC3339, dateStr)
+		if err != nil {
+			RespondBadRequest(w, "invalid target_date format: "+dateStr)
+			return
+		}
+		targetDates = append(targetDates, parsedDate)
+	}
+
 	// Usecase呼び出し
 	output, err := h.createCollectionUsecase.Execute(ctx, attendance.CreateCollectionInput{
 		TenantID:    tenantID.String(),
@@ -132,6 +157,7 @@ func (h *AttendanceHandler) CreateCollection(w http.ResponseWriter, r *http.Requ
 		Description: req.Description,
 		TargetType:  req.TargetType,
 		TargetID:    req.TargetID,
+		TargetDates: targetDates,
 		Deadline:    req.Deadline,
 	})
 	if err != nil {
@@ -185,6 +211,16 @@ func (h *AttendanceHandler) GetCollection(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	// Convert target dates to TargetDateResponse
+	var targetDateResponses []TargetDateResponse
+	for _, td := range output.TargetDates {
+		targetDateResponses = append(targetDateResponses, TargetDateResponse{
+			TargetDateID: td.TargetDateID,
+			TargetDate:   td.TargetDate.Format(time.RFC3339),
+			DisplayOrder: td.DisplayOrder,
+		})
+	}
+
 	// レスポンス
 	RespondJSON(w, http.StatusOK, SuccessResponse{
 		Data: CollectionResponse{
@@ -194,6 +230,7 @@ func (h *AttendanceHandler) GetCollection(w http.ResponseWriter, r *http.Request
 			Description:  output.Description,
 			TargetType:   output.TargetType,
 			TargetID:     output.TargetID,
+			TargetDates:  targetDateResponses,
 			PublicToken:  output.PublicToken,
 			Status:       output.Status,
 			Deadline:     output.Deadline,
@@ -279,11 +316,14 @@ func (h *AttendanceHandler) GetResponses(w http.ResponseWriter, r *http.Request)
 	responses := make([]ResponseDTO, 0, len(output.Responses))
 	for _, resp := range output.Responses {
 		responses = append(responses, ResponseDTO{
-			ResponseID:  resp.ResponseID,
-			MemberID:    resp.MemberID,
-			Response:    resp.Response,
-			Note:        resp.Note,
-			RespondedAt: resp.RespondedAt,
+			ResponseID:   resp.ResponseID,
+			MemberID:     resp.MemberID,
+			MemberName:   resp.MemberName,
+			TargetDateID: resp.TargetDateID,
+			TargetDate:   resp.TargetDate.Format(time.RFC3339),
+			Response:     resp.Response,
+			Note:         resp.Note,
+			RespondedAt:  resp.RespondedAt,
 		})
 	}
 
@@ -317,6 +357,16 @@ func (h *AttendanceHandler) GetCollectionByToken(w http.ResponseWriter, r *http.
 		return
 	}
 
+	// Convert target dates to TargetDateResponse
+	var targetDateResponses []TargetDateResponse
+	for _, td := range output.TargetDates {
+		targetDateResponses = append(targetDateResponses, TargetDateResponse{
+			TargetDateID: td.TargetDateID,
+			TargetDate:   td.TargetDate.Format(time.RFC3339),
+			DisplayOrder: td.DisplayOrder,
+		})
+	}
+
 	// レスポンス
 	RespondJSON(w, http.StatusOK, SuccessResponse{
 		Data: CollectionResponse{
@@ -326,6 +376,7 @@ func (h *AttendanceHandler) GetCollectionByToken(w http.ResponseWriter, r *http.
 			Description:  output.Description,
 			TargetType:   output.TargetType,
 			TargetID:     output.TargetID,
+			TargetDates:  targetDateResponses,
 			PublicToken:  output.PublicToken,
 			Status:       output.Status,
 			Deadline:     output.Deadline,
@@ -359,6 +410,10 @@ func (h *AttendanceHandler) SubmitResponse(w http.ResponseWriter, r *http.Reques
 		RespondBadRequest(w, "member_id is required")
 		return
 	}
+	if req.TargetDateID == "" {
+		RespondBadRequest(w, "target_date_id is required")
+		return
+	}
 	if req.Response == "" {
 		RespondBadRequest(w, "response is required")
 		return
@@ -366,10 +421,11 @@ func (h *AttendanceHandler) SubmitResponse(w http.ResponseWriter, r *http.Reques
 
 	// Usecase呼び出し
 	output, err := h.submitResponseUsecase.Execute(ctx, attendance.SubmitResponseInput{
-		PublicToken: token,
-		MemberID:    req.MemberID,
-		Response:    req.Response,
-		Note:        req.Note,
+		PublicToken:  token,
+		MemberID:     req.MemberID,
+		TargetDateID: req.TargetDateID,
+		Response:     req.Response,
+		Note:         req.Note,
 	})
 	if err != nil {
 		// エラーハンドリング（トークンエラー → 404, メンバーエラー → 400）

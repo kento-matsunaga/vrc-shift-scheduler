@@ -46,7 +46,7 @@ func (u *CreateScheduleUsecase) Execute(ctx context.Context, input CreateSchedul
 	}
 
 	// Create schedule
-	sch, err := schedule.NewDateSchedule(now, tenantID, input.Title, input.Description, eventID, candidates, input.Deadline)
+	sch, err := schedule.NewDateSchedule(now, scheduleID, tenantID, input.Title, input.Description, eventID, candidates, input.Deadline)
 	if err != nil {
 		return nil, err
 	}

@@ -72,6 +72,12 @@ async function publicRequest<T>(
 // 出欠確認 公開API
 // ==========================================
 
+export interface TargetDate {
+  target_date_id: string;
+  target_date: string; // ISO 8601 format
+  display_order: number;
+}
+
 export interface AttendanceCollection {
   collection_id: string;
   tenant_id: string;
@@ -79,6 +85,7 @@ export interface AttendanceCollection {
   description: string;
   target_type: string;
   target_id: string;
+  target_dates?: TargetDate[]; // Target dates with IDs
   public_token: string;
   status: 'open' | 'closed';
   deadline?: string;
@@ -97,6 +104,7 @@ export interface Member {
 
 export interface AttendanceSubmitRequest {
   member_id: string;
+  target_date_id: string;
   response: 'attending' | 'absent';
   note?: string;
 }
@@ -114,7 +122,8 @@ export interface AttendanceSubmitResponse {
  * 出欠確認情報を取得（公開）
  */
 export async function getAttendanceByToken(token: string): Promise<AttendanceCollection> {
-  return publicRequest<AttendanceCollection>('GET', `/api/v1/public/attendance/${token}`);
+  const response = await publicRequest<{ data: AttendanceCollection }>('GET', `/api/v1/public/attendance/${token}`);
+  return response.data;
 }
 
 /**
@@ -132,11 +141,12 @@ export async function submitAttendanceResponse(
   token: string,
   data: AttendanceSubmitRequest
 ): Promise<AttendanceSubmitResponse> {
-  return publicRequest<AttendanceSubmitResponse>(
+  const response = await publicRequest<{ data: AttendanceSubmitResponse }>(
     'POST',
     `/api/v1/public/attendance/${token}/responses`,
     data
   );
+  return response.data;
 }
 
 // ==========================================
@@ -186,7 +196,8 @@ export interface ScheduleSubmitResponse {
  * 日程調整情報を取得（公開）
  */
 export async function getScheduleByToken(token: string): Promise<DateSchedule> {
-  return publicRequest<DateSchedule>('GET', `/api/v1/public/schedules/${token}`);
+  const response = await publicRequest<{ data: DateSchedule }>('GET', `/api/v1/public/schedules/${token}`);
+  return response.data;
 }
 
 /**
@@ -196,9 +207,10 @@ export async function submitScheduleResponse(
   token: string,
   data: ScheduleSubmitRequest
 ): Promise<ScheduleSubmitResponse> {
-  return publicRequest<ScheduleSubmitResponse>(
+  const response = await publicRequest<{ data: ScheduleSubmitResponse }>(
     'POST',
     `/api/v1/public/schedules/${token}/responses`,
     data
   );
+  return response.data;
 }

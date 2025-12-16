@@ -12,6 +12,7 @@ type AttendanceResponse struct {
 	tenantID     common.TenantID
 	collectionID common.CollectionID
 	memberID     common.MemberID
+	targetDateID common.TargetDateID // 対象日ID
 	response     ResponseType
 	note         string
 	respondedAt  time.Time
@@ -26,6 +27,7 @@ func NewAttendanceResponse(
 	collectionID common.CollectionID,
 	tenantID common.TenantID,
 	memberID common.MemberID,
+	targetDateID common.TargetDateID,
 	responseType ResponseType,
 	note string,
 ) (*AttendanceResponse, error) {
@@ -34,6 +36,7 @@ func NewAttendanceResponse(
 		tenantID:     tenantID,
 		collectionID: collectionID,
 		memberID:     memberID,
+		targetDateID: targetDateID,
 		response:     responseType,
 		note:         note,
 		respondedAt:  now,
@@ -54,6 +57,7 @@ func ReconstructAttendanceResponse(
 	tenantID common.TenantID,
 	collectionID common.CollectionID,
 	memberID common.MemberID,
+	targetDateID common.TargetDateID,
 	responseType ResponseType,
 	note string,
 	respondedAt time.Time,
@@ -65,6 +69,7 @@ func ReconstructAttendanceResponse(
 		tenantID:     tenantID,
 		collectionID: collectionID,
 		memberID:     memberID,
+		targetDateID: targetDateID,
 		response:     responseType,
 		note:         note,
 		respondedAt:  respondedAt,
@@ -95,6 +100,11 @@ func (r *AttendanceResponse) validate() error {
 		return common.NewValidationError("member_id is required", err)
 	}
 
+	// TargetDateID の必須性チェック
+	if err := r.targetDateID.Validate(); err != nil {
+		return common.NewValidationError("target_date_id is required", err)
+	}
+
 	// ResponseType の検証
 	if err := r.response.Validate(); err != nil {
 		return err
@@ -119,6 +129,10 @@ func (r *AttendanceResponse) CollectionID() common.CollectionID {
 
 func (r *AttendanceResponse) MemberID() common.MemberID {
 	return r.memberID
+}
+
+func (r *AttendanceResponse) TargetDateID() common.TargetDateID {
+	return r.targetDateID
 }
 
 func (r *AttendanceResponse) Response() ResponseType {

@@ -45,6 +45,7 @@ cd web-frontend && npm run dev
 
 | ドキュメント | 説明 |
 |-------------|------|
+| [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | **開発ガイド（テストアカウント・API情報）** |
 | [docs/setup-windows.md](docs/setup-windows.md) | Windows 11 セットアップ（WSL2 + Docker Desktop） |
 | [SETUP.md](SETUP.md) | 詳細なセットアップ手順（macOS / Linux） |
 | [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md) | 環境変数の説明 |

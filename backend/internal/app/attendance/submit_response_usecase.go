@@ -46,7 +46,13 @@ func (u *SubmitResponseUsecase) Execute(ctx context.Context, input SubmitRespons
 		return nil, ErrMemberNotAllowed
 	}
 
-	// 3. Parse ResponseType
+	// 3. Parse TargetDateID
+	targetDateID, err := common.ParseTargetDateID(input.TargetDateID)
+	if err != nil {
+		return nil, common.NewValidationError("invalid target_date_id", err)
+	}
+
+	// 4. Parse ResponseType
 	responseType, err := attendance.NewResponseType(input.Response)
 	if err != nil {
 		return nil, err
@@ -79,6 +85,7 @@ func (u *SubmitResponseUsecase) Execute(ctx context.Context, input SubmitRespons
 			collection.CollectionID(),
 			collection.TenantID(),
 			memberID,
+			targetDateID,
 			responseType,
 			input.Note,
 		)

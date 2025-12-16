@@ -60,7 +60,23 @@ func (u *CreateCollectionUsecase) Execute(ctx context.Context, input CreateColle
 		return nil, err
 	}
 
-	// 5. Return output DTO
+	// 5. Save target dates if provided
+	if len(input.TargetDates) > 0 {
+		var targetDates []*attendance.TargetDate
+		for i, date := range input.TargetDates {
+			td, err := attendance.NewTargetDate(now, collection.CollectionID(), date, i)
+			if err != nil {
+				return nil, err
+			}
+			targetDates = append(targetDates, td)
+		}
+
+		if err := u.repo.SaveTargetDates(ctx, collection.CollectionID(), targetDates); err != nil {
+			return nil, err
+		}
+	}
+
+	// 6. Return output DTO
 	return &CreateCollectionOutput{
 		CollectionID: collection.CollectionID().String(),
 		TenantID:     collection.TenantID().String(),

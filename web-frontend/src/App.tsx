@@ -8,6 +8,9 @@ import ShiftSlotList from './pages/ShiftSlotList';
 import AssignShift from './pages/AssignShift';
 import MyShifts from './pages/MyShifts';
 import Members from './pages/Members';
+import AttendanceList from './pages/AttendanceList';
+import AttendanceDetail from './pages/AttendanceDetail';
+import ScheduleList from './pages/ScheduleList';
 import Layout from './components/Layout';
 import AttendanceResponse from './pages/public/AttendanceResponse';
 import ScheduleResponse from './pages/public/ScheduleResponse';
@@ -67,6 +70,9 @@ function App() {
         <Route path="shift-slots/:slotId/assign" element={<AssignShift />} />
         <Route path="my-shifts" element={<MyShifts />} />
         <Route path="members" element={<Members />} />
+        <Route path="attendance" element={<AttendanceList />} />
+        <Route path="attendance/:collectionId" element={<AttendanceDetail />} />
+        <Route path="schedules" element={<ScheduleList />} />
         <Route path="admin/invite" element={<AdminInvitation />} />
       </Route>
 

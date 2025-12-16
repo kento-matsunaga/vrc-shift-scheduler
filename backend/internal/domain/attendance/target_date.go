@@ -1,0 +1,92 @@
+package attendance
+
+import (
+	"time"
+
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
+)
+
+// TargetDate は出欠確認の対象日エンティティ
+type TargetDate struct {
+	targetDateID  common.TargetDateID
+	collectionID  common.CollectionID
+	targetDate    time.Time // 日付部分のみ使用
+	displayOrder  int
+	createdAt     time.Time
+}
+
+// NewTargetDate creates a new TargetDate entity
+func NewTargetDate(
+	now time.Time,
+	collectionID common.CollectionID,
+	targetDate time.Time,
+	displayOrder int,
+) (*TargetDate, error) {
+	td := &TargetDate{
+		targetDateID: common.NewTargetDateID(),
+		collectionID: collectionID,
+		targetDate:   targetDate,
+		displayOrder: displayOrder,
+		createdAt:    now,
+	}
+
+	if err := td.validate(); err != nil {
+		return nil, err
+	}
+
+	return td, nil
+}
+
+// ReconstructTargetDate reconstructs a TargetDate entity from persistence
+func ReconstructTargetDate(
+	targetDateID common.TargetDateID,
+	collectionID common.CollectionID,
+	targetDate time.Time,
+	displayOrder int,
+	createdAt time.Time,
+) (*TargetDate, error) {
+	td := &TargetDate{
+		targetDateID: targetDateID,
+		collectionID: collectionID,
+		targetDate:   targetDate,
+		displayOrder: displayOrder,
+		createdAt:    createdAt,
+	}
+
+	if err := td.validate(); err != nil {
+		return nil, err
+	}
+
+	return td, nil
+}
+
+func (td *TargetDate) validate() error {
+	// CollectionID の必須性チェック
+	if err := td.collectionID.Validate(); err != nil {
+		return common.NewValidationError("collection_id is required", err)
+	}
+
+	return nil
+}
+
+// Getters
+
+func (td *TargetDate) TargetDateID() common.TargetDateID {
+	return td.targetDateID
+}
+
+func (td *TargetDate) CollectionID() common.CollectionID {
+	return td.collectionID
+}
+
+func (td *TargetDate) TargetDateValue() time.Time {
+	return td.targetDate
+}
+
+func (td *TargetDate) DisplayOrder() int {
+	return td.displayOrder
+}
+
+func (td *TargetDate) CreatedAt() time.Time {
+	return td.createdAt
+}
