@@ -181,12 +181,14 @@ function CreateBusinessDayModal({
       const selectedMonth = new Date(targetDate).getMonth();
       const selectedYear = new Date(targetDate).getFullYear();
 
-      // 同じ月の日程調整を探す
+      // 選択月に候補日がある日程調整を探す
       const matchingSchedule = schedules.find((schedule) => {
         if (!schedule.candidates || schedule.candidates.length === 0) return false;
-        const firstCandidate = schedule.candidates[0];
-        const candidateDate = new Date(firstCandidate.date);
-        return candidateDate.getMonth() === selectedMonth && candidateDate.getFullYear() === selectedYear;
+        // 候補日のいずれかが選択月にあるかチェック
+        return schedule.candidates.some((candidate: any) => {
+          const candidateDate = new Date(candidate.date);
+          return candidateDate.getMonth() === selectedMonth && candidateDate.getFullYear() === selectedYear;
+        });
       });
 
       if (matchingSchedule) {
@@ -355,7 +357,15 @@ function CreateBusinessDayModal({
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-200">
-                        {selectedSchedule.candidates?.map((candidate: any) => {
+                        {selectedSchedule.candidates
+                          ?.filter((candidate: any) => {
+                            // 選択月の候補日のみ表示
+                            const candidateDate = new Date(candidate.date);
+                            const selectedMonth = new Date(targetDate).getMonth();
+                            const selectedYear = new Date(targetDate).getFullYear();
+                            return candidateDate.getMonth() === selectedMonth && candidateDate.getFullYear() === selectedYear;
+                          })
+                          .map((candidate: any) => {
                           const candidateResponses = scheduleResponses.filter(
                             (r) => r.candidate_id === candidate.candidate_id
                           );
@@ -403,7 +413,7 @@ function CreateBusinessDayModal({
                     </table>
                   </div>
                   <p className="text-xs text-gray-500 mt-2">
-                    ○: 参加可能、△: 不確定、×: 参加不可
+                    💡 選択した月の候補日のみ表示しています。○: 参加可能、△: 不確定、×: 参加不可
                   </p>
                 </div>
               )}

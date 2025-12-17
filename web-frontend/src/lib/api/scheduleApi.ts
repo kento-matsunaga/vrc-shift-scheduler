@@ -130,7 +130,8 @@ export async function getSchedule(scheduleId: string): Promise<Schedule> {
     throw new Error(`日程調整の取得に失敗しました: ${text || response.statusText}`);
   }
 
-  return await response.json();
+  const result = await response.json();
+  return result;
 }
 
 /**
@@ -206,7 +207,6 @@ export async function getScheduleResponses(scheduleId: string): Promise<Schedule
     throw new Error(`回答一覧の取得に失敗しました: ${text || response.statusText}`);
   }
 
-  const result: ApiResponse<{ schedule_id: string; responses: ScheduleResponse[] }> =
-    await response.json();
-  return result.data.responses;
+  const result = await response.json();
+  return result.responses || [];
 }
