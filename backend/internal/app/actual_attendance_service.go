@@ -58,7 +58,7 @@ func (s *ActualAttendanceService) GetRecentActualAttendance(
 		limit = 30 // デフォルト
 	}
 
-	// 1. 直近N日分の営業日を取得（過去のみ、最新順）
+	// 1. 直近N日分の営業日を取得（過去のみ、古い順）
 	targetDatesQuery := `
 		SELECT
 			business_day_id,
@@ -67,7 +67,7 @@ func (s *ActualAttendanceService) GetRecentActualAttendance(
 		WHERE tenant_id = $1
 		  AND deleted_at IS NULL
 		  AND target_date <= CURRENT_DATE
-		ORDER BY target_date DESC
+		ORDER BY target_date ASC
 		LIMIT $2
 	`
 
@@ -87,8 +87,8 @@ func (s *ActualAttendanceService) GetRecentActualAttendance(
 	}
 
 	// displayOrderを設定（古い順に1, 2, 3...）
-	for i := len(targetDates) - 1; i >= 0; i-- {
-		targetDates[i].DisplayOrder = len(targetDates) - i
+	for i := range targetDates {
+		targetDates[i].DisplayOrder = i + 1
 	}
 
 	// 2. 全アクティブメンバーを取得

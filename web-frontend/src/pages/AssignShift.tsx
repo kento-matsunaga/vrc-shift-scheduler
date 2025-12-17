@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
-import { getShiftSlotDetail, getMembers, confirmAssignment, getRecentAttendance, getActualAttendance, getBusinessDayDetail } from '../lib/api';
+import { getShiftSlotDetail, getMembers, confirmAssignment, getRecentAttendance, getActualAttendance, getBusinessDayDetail, getAssignments, cancelAssignment } from '../lib/api';
 import type { ShiftSlot, Member, RecentAttendanceResponse } from '../types/api';
 import { ApiClientError } from '../lib/apiClient';
 
@@ -12,6 +12,7 @@ export default function AssignShift() {
   const [members, setMembers] = useState<Member[]>([]);
   const [actualAttendance, setActualAttendance] = useState<RecentAttendanceResponse | null>(null);
   const [todayAttendance, setTodayAttendance] = useState<string[]>([]);
+  const [existingAssignmentIds, setExistingAssignmentIds] = useState<string[]>([]);
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
   const [note, setNote] = useState('');
   const [loading, setLoading] = useState(true);
@@ -33,16 +34,24 @@ export default function AssignShift() {
       const shiftSlotData = await getShiftSlotDetail(slotId);
       setShiftSlot(shiftSlotData);
 
-      const [businessDayData, membersData, recentAttendanceData, actualAttendanceData] = await Promise.all([
+      const [businessDayData, membersData, recentAttendanceData, actualAttendanceData, existingAssignments] = await Promise.all([
         getBusinessDayDetail(shiftSlotData.business_day_id),
         getMembers({ is_active: true }),
         getRecentAttendance({ limit: 30 }),
         getActualAttendance({ limit: 30 }),
+        getAssignments({ slot_id: slotId, assignment_status: 'confirmed' }),
       ]);
 
       setBusinessDay(businessDayData);
       setMembers(membersData.members);
       setActualAttendance(actualAttendanceData);
+
+      // 既存の割り当てを初期選択状態にする
+      const assignments = existingAssignments.assignments || [];
+      const assignedMemberIds = assignments.map(a => a.member_id);
+      const assignmentIds = assignments.map(a => a.assignment_id);
+      setSelectedMemberIds(assignedMemberIds);
+      setExistingAssignmentIds(assignmentIds);
 
       // この営業日と同じ日付の出欠確認データを集計（参加予定者のみ）
       const targetDateStr = businessDayData.target_date.split('T')[0]; // YYYY-MM-DD
@@ -88,11 +97,6 @@ export default function AssignShift() {
 
     if (!slotId) return;
 
-    if (selectedMemberIds.length === 0) {
-      setError('メンバーを選択してください');
-      return;
-    }
-
     if (shiftSlot && selectedMemberIds.length > shiftSlot.required_count) {
       setError(`必要人数は${shiftSlot.required_count}人です。${selectedMemberIds.length}人選択されています。`);
       return;
@@ -101,15 +105,28 @@ export default function AssignShift() {
     setSubmitting(true);
 
     try {
-      // 選択された全メンバーを順次割り当て
-      for (const memberId of selectedMemberIds) {
-        await confirmAssignment({
-          slot_id: slotId,
-          member_id: memberId,
-          note: note.trim() || undefined,
-        });
+      // 1. 既存の割り当てを全て削除
+      for (const assignmentId of existingAssignmentIds) {
+        try {
+          await cancelAssignment(assignmentId);
+        } catch (err) {
+          console.error('Failed to cancel assignment:', err);
+        }
       }
-      setSuccess(`${selectedMemberIds.length}人のシフトを確定しました！`);
+
+      // 2. 選択された全メンバーを新規に割り当て
+      if (selectedMemberIds.length > 0) {
+        for (const memberId of selectedMemberIds) {
+          await confirmAssignment({
+            slot_id: slotId,
+            member_id: memberId,
+            note: note.trim() || undefined,
+          });
+        }
+        setSuccess(`${selectedMemberIds.length}人のシフトを確定しました！`);
+      } else {
+        setSuccess('シフト割り当てを解除しました！');
+      }
 
       // 2秒後に営業日のシフト一覧に戻る
       setTimeout(() => {
@@ -329,9 +346,9 @@ export default function AssignShift() {
               <button
                 type="submit"
                 className="flex-1 btn-primary"
-                disabled={submitting || selectedMemberIds.length === 0 || members.length === 0}
+                disabled={submitting || members.length === 0}
               >
-                {submitting ? '確定中...' : 'シフトを確定'}
+                {submitting ? '更新中...' : existingAssignmentIds.length > 0 ? 'シフトを更新' : 'シフトを確定'}
               </button>
             </div>
           </form>

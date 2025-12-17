@@ -388,3 +388,40 @@ func (h *ShiftAssignmentHandler) buildAssignmentResponse(ctx context.Context, as
 		NotificationSent:    false, // stub
 	}, nil
 }
+
+// CancelAssignment handles DELETE /api/v1/shift-assignments/:assignment_id
+func (h *ShiftAssignmentHandler) CancelAssignment(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// テナントIDの取得
+	tenantID, ok := getTenantIDFromContext(ctx)
+	if !ok {
+		writeError(w, http.StatusForbidden, "ERR_FORBIDDEN", "Tenant ID is required", nil)
+		return
+	}
+
+	// assignment_id の取得
+	assignmentIDStr := chi.URLParam(r, "assignment_id")
+	if assignmentIDStr == "" {
+		writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "assignment_id is required", nil)
+		return
+	}
+
+	assignmentID, err := shift.ParseAssignmentID(assignmentIDStr)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "Invalid assignment_id format", nil)
+		return
+	}
+
+	// 割り当ての削除（論理削除）
+	if err := h.assignmentRepo.Delete(ctx, tenantID, assignmentID); err != nil {
+		if err.Error() == "shift assignment not found" {
+			writeError(w, http.StatusNotFound, "ERR_NOT_FOUND", "Shift assignment not found", nil)
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to delete shift assignment", nil)
+		return
+	}
+
+	writeSuccess(w, http.StatusNoContent, nil)
+}

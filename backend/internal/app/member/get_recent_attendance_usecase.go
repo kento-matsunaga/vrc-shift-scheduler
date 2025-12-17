@@ -95,11 +95,11 @@ func (u *GetRecentAttendanceUsecase) Execute(ctx context.Context, input GetRecen
 		}
 	}
 
-	// 4. Sort by date (newest first) and take the most recent N dates
+	// 4. Sort by date (oldest first) and take the most recent N dates
 	// Simple bubble sort for now
 	for i := 0; i < len(allDates)-1; i++ {
 		for j := i + 1; j < len(allDates); j++ {
-			if allDates[i].TargetDate.Before(allDates[j].TargetDate) {
+			if allDates[i].TargetDate.After(allDates[j].TargetDate) {
 				allDates[i], allDates[j] = allDates[j], allDates[i]
 			}
 		}

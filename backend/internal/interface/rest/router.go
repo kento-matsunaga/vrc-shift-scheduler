@@ -101,6 +101,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			r.Post("/", shiftAssignmentHandler.ConfirmAssignment)
 			r.Get("/", shiftAssignmentHandler.GetAssignments)
 			r.Get("/{assignment_id}", shiftAssignmentHandler.GetAssignmentDetail)
+			r.Delete("/{assignment_id}", shiftAssignmentHandler.CancelAssignment)
 		})
 
 		// Attendance API（管理用）

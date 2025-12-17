@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getMembers, createMember } from '../lib/api/memberApi';
+import { getMembers, createMember, getRecentAttendance } from '../lib/api/memberApi';
 import { getActualAttendance } from '../lib/api/actualAttendanceApi';
 import type { Member, RecentAttendanceResponse } from '../types/api';
 
@@ -19,6 +19,11 @@ export default function Members() {
   const [showActualAttendanceModal, setShowActualAttendanceModal] = useState(false);
   const [actualAttendanceData, setActualAttendanceData] = useState<RecentAttendanceResponse | null>(null);
   const [loadingActualAttendance, setLoadingActualAttendance] = useState(false);
+
+  // 出欠確認モーダル
+  const [showAttendanceConfirmationModal, setShowAttendanceConfirmationModal] = useState(false);
+  const [attendanceConfirmationData, setAttendanceConfirmationData] = useState<RecentAttendanceResponse | null>(null);
+  const [loadingAttendanceConfirmation, setLoadingAttendanceConfirmation] = useState(false);
 
   // メンバー一覧を取得
   const fetchMembers = async () => {
@@ -58,6 +63,28 @@ export default function Members() {
     setShowActualAttendanceModal(true);
     if (!actualAttendanceData) {
       await fetchActualAttendance();
+    }
+  };
+
+  // 出欠確認データを取得
+  const fetchAttendanceConfirmation = async () => {
+    try {
+      setLoadingAttendanceConfirmation(true);
+      const data = await getRecentAttendance({ limit: 30 });
+      setAttendanceConfirmationData(data);
+    } catch (err) {
+      console.error('Failed to fetch attendance confirmation:', err);
+      alert('出欠確認データの取得に失敗しました');
+    } finally {
+      setLoadingAttendanceConfirmation(false);
+    }
+  };
+
+  // 出欠確認モーダルを開く
+  const handleOpenAttendanceConfirmation = async () => {
+    setShowAttendanceConfirmationModal(true);
+    if (!attendanceConfirmationData) {
+      await fetchAttendanceConfirmation();
     }
   };
 
@@ -130,6 +157,12 @@ export default function Members() {
           </p>
         </div>
         <div className="flex space-x-3">
+          <button
+            onClick={handleOpenAttendanceConfirmation}
+            className="px-4 py-2 text-green-600 bg-green-50 rounded-lg hover:bg-green-100 transition-colors font-medium"
+          >
+            📋 出欠確認
+          </button>
           <button
             onClick={handleOpenActualAttendance}
             className="px-4 py-2 text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors font-medium"
@@ -273,6 +306,88 @@ export default function Members() {
           </div>
         )}
       </div>
+
+      {/* 出欠確認モーダル */}
+      {showAttendanceConfirmationModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-6xl w-full p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <div>
+                <h3 className="text-xl font-bold text-gray-900">出欠確認（予定）</h3>
+                <p className="text-sm text-gray-600 mt-1">
+                  メンバーが回答した出欠予定データです。○: 参加予定、×: 不参加、-: 未回答
+                </p>
+              </div>
+              <button
+                onClick={() => setShowAttendanceConfirmationModal(false)}
+                className="text-gray-400 hover:text-gray-600 text-2xl"
+              >
+                ×
+              </button>
+            </div>
+
+            {loadingAttendanceConfirmation ? (
+              <div className="text-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+                <p className="mt-4 text-gray-600">読み込み中...</p>
+              </div>
+            ) : attendanceConfirmationData && attendanceConfirmationData.target_dates.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-xs border-collapse border border-gray-300">
+                  <thead>
+                    <tr className="bg-gray-100">
+                      <th className="border border-gray-300 px-2 py-1 text-left font-semibold sticky left-0 bg-gray-100 z-10">
+                        メンバー
+                      </th>
+                      {attendanceConfirmationData.target_dates.map((td) => (
+                        <th key={td.target_date_id} className="border border-gray-300 px-2 py-1 text-center font-semibold whitespace-nowrap">
+                          {new Date(td.target_date).toLocaleDateString('ja-JP', {
+                            month: 'numeric',
+                            day: 'numeric',
+                          })}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {attendanceConfirmationData.member_attendances.map((memberAtt) => (
+                      <tr key={memberAtt.member_id} className="hover:bg-gray-50">
+                        <td className="border border-gray-300 px-2 py-1 font-medium sticky left-0 bg-white z-10">
+                          {memberAtt.member_name}
+                        </td>
+                        {attendanceConfirmationData.target_dates.map((td) => {
+                          const status = memberAtt.attendance_map[td.target_date_id] || '';
+                          let symbol = '-';
+                          let color = 'text-gray-400';
+                          if (status === 'attending') {
+                            symbol = '○';
+                            color = 'text-green-600';
+                          } else if (status === 'absent') {
+                            symbol = '×';
+                            color = 'text-red-600';
+                          }
+                          return (
+                            <td key={td.target_date_id} className={`border border-gray-300 px-2 py-1 text-center ${color} font-bold`}>
+                              {symbol}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <p className="text-xs text-gray-500 mt-2">
+                  ○: 参加予定、×: 不参加、-: 未回答
+                </p>
+              </div>
+            ) : (
+              <div className="text-center py-12 text-gray-500">
+                出欠確認データがありません
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* 本出席モーダル */}
       {showActualAttendanceModal && (

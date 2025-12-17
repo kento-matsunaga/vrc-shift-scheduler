@@ -173,9 +173,8 @@ export default function ShiftSlotList() {
                   <button
                     onClick={() => navigate(`/shift-slots/${slot.slot_id}/assign`)}
                     className="btn-primary ml-4"
-                    disabled={(slot.assigned_count || 0) >= slot.required_count}
                   >
-                    {(slot.assigned_count || 0) >= slot.required_count ? '満員' : '割り当て'}
+                    {(slot.assigned_count || 0) >= slot.required_count ? '編集' : '割り当て'}
                   </button>
                 </div>
               </div>
