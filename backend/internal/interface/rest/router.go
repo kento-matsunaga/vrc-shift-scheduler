@@ -115,6 +115,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		// Schedule API（管理用）
 		scheduleHandler := NewScheduleHandler(dbPool)
 		r.Route("/schedules", func(r chi.Router) {
+			r.Get("/", scheduleHandler.ListSchedules)
 			r.Post("/", scheduleHandler.CreateSchedule)
 			r.Get("/{schedule_id}", scheduleHandler.GetSchedule)
 			r.Post("/{schedule_id}/decide", scheduleHandler.DecideSchedule)

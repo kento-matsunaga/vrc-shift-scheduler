@@ -11,6 +11,7 @@ import Members from './pages/Members';
 import AttendanceList from './pages/AttendanceList';
 import AttendanceDetail from './pages/AttendanceDetail';
 import ScheduleList from './pages/ScheduleList';
+import ScheduleDetail from './pages/ScheduleDetail';
 import Layout from './components/Layout';
 import AttendanceResponse from './pages/public/AttendanceResponse';
 import ScheduleResponse from './pages/public/ScheduleResponse';
@@ -73,6 +74,7 @@ function App() {
         <Route path="attendance" element={<AttendanceList />} />
         <Route path="attendance/:collectionId" element={<AttendanceDetail />} />
         <Route path="schedules" element={<ScheduleList />} />
+        <Route path="schedules/:scheduleId" element={<ScheduleDetail />} />
         <Route path="admin/invite" element={<AdminInvitation />} />
       </Route>
 

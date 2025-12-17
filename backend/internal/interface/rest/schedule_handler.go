@@ -24,6 +24,7 @@ type ScheduleHandler struct {
 	getScheduleUsecase          *schedule.GetScheduleUsecase
 	getScheduleByTokenUsecase   *schedule.GetScheduleByTokenUsecase
 	getResponsesUsecase         *schedule.GetResponsesUsecase
+	listSchedulesUsecase        *schedule.ListSchedulesUsecase
 }
 
 func NewScheduleHandler(pool *pgxpool.Pool) *ScheduleHandler {
@@ -39,10 +40,76 @@ func NewScheduleHandler(pool *pgxpool.Pool) *ScheduleHandler {
 		getScheduleUsecase:          schedule.NewGetScheduleUsecase(scheduleRepo),
 		getScheduleByTokenUsecase:   schedule.NewGetScheduleByTokenUsecase(scheduleRepo),
 		getResponsesUsecase:         schedule.NewGetResponsesUsecase(scheduleRepo),
+		listSchedulesUsecase:        schedule.NewListSchedulesUsecase(scheduleRepo),
 	}
 }
 
 // Management APIs (JWT required)
+
+type ListSchedulesResponse struct {
+	Schedules []ScheduleSummaryResponse `json:"schedules"`
+}
+
+type ScheduleSummaryResponse struct {
+	ScheduleID         string     `json:"schedule_id"`
+	TenantID           string     `json:"tenant_id"`
+	Title              string     `json:"title"`
+	Description        string     `json:"description"`
+	EventID            *string    `json:"event_id"`
+	PublicToken        string     `json:"public_token"`
+	Status             string     `json:"status"`
+	Deadline           *time.Time `json:"deadline"`
+	DecidedCandidateID *string    `json:"decided_candidate_id"`
+	CandidateCount     int        `json:"candidate_count"`
+	ResponseCount      int        `json:"response_count"`
+	CreatedAt          time.Time  `json:"created_at"`
+	UpdatedAt          time.Time  `json:"updated_at"`
+}
+
+func (h *ScheduleHandler) ListSchedules(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	tenantID, ok := GetTenantID(ctx)
+	if !ok {
+		RespondBadRequest(w, "tenant_id is required")
+		return
+	}
+
+	input := schedule.ListSchedulesInput{
+		TenantID: tenantID.String(),
+	}
+
+	output, err := h.listSchedulesUsecase.Execute(ctx, input)
+	if err != nil {
+		RespondInternalError(w)
+		return
+	}
+
+	summaries := make([]ScheduleSummaryResponse, len(output.Schedules))
+	for i, s := range output.Schedules {
+		summaries[i] = ScheduleSummaryResponse{
+			ScheduleID:         s.ScheduleID,
+			TenantID:           s.TenantID,
+			Title:              s.Title,
+			Description:        s.Description,
+			EventID:            s.EventID,
+			PublicToken:        s.PublicToken,
+			Status:             s.Status,
+			Deadline:           s.Deadline,
+			DecidedCandidateID: s.DecidedCandidateID,
+			CandidateCount:     s.CandidateCount,
+			ResponseCount:      s.ResponseCount,
+			CreatedAt:          s.CreatedAt,
+			UpdatedAt:          s.UpdatedAt,
+		}
+	}
+
+	resp := ListSchedulesResponse{
+		Schedules: summaries,
+	}
+
+	RespondJSON(w, http.StatusOK, resp)
+}
 
 type CreateScheduleRequest struct {
 	Title       string               `json:"title"`

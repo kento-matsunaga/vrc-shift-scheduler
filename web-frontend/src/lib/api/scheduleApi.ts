@@ -27,9 +27,14 @@ export interface Schedule {
   tenant_id: string;
   title: string;
   description?: string;
+  event_id?: string;
   public_token: string;
   status: 'open' | 'decided' | 'closed';
   deadline?: string;
+  decided_candidate_id?: string;
+  candidate_count?: number;
+  response_count?: number;
+  candidates?: CandidateDate[];
   created_at: string;
   updated_at?: string;
 }
@@ -40,7 +45,8 @@ export interface Schedule {
 export interface ScheduleResponse {
   response_id: string;
   member_id: string;
-  available_dates: string[];
+  candidate_id: string;
+  availability: 'available' | 'maybe' | 'unavailable';
   note: string;
   responded_at: string;
 }
@@ -75,6 +81,33 @@ export async function createSchedule(data: CreateScheduleRequest): Promise<Sched
 }
 
 /**
+ * 日程調整一覧を取得
+ */
+export async function listSchedules(): Promise<Schedule[]> {
+  const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+  const token = localStorage.getItem('auth_token');
+
+  if (!token) {
+    throw new Error('認証が必要です。ログインしてください。');
+  }
+
+  const response = await fetch(`${baseURL}/api/v1/schedules`, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`日程調整一覧の取得に失敗しました: ${text || response.statusText}`);
+  }
+
+  const result = await response.json();
+  return result.schedules || [];
+}
+
+/**
  * 日程調整を取得
  */
 export async function getSchedule(scheduleId: string): Promise<Schedule> {
@@ -97,8 +130,7 @@ export async function getSchedule(scheduleId: string): Promise<Schedule> {
     throw new Error(`日程調整の取得に失敗しました: ${text || response.statusText}`);
   }
 
-  const result: ApiResponse<Schedule> = await response.json();
-  return result.data;
+  return await response.json();
 }
 
 /**

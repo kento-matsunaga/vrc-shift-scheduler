@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { getEventDetail, getBusinessDays, createBusinessDay } from '../lib/api';
-import type { Event, BusinessDay } from '../types/api';
+import { getEventDetail, getBusinessDays, createBusinessDay, getMembers } from '../lib/api';
+import { listSchedules, getSchedule, getScheduleResponses, type Schedule, type ScheduleResponse } from '../lib/api/scheduleApi';
+import type { Event, BusinessDay, Member } from '../types/api';
 import { ApiClientError } from '../lib/apiClient';
 
 export default function BusinessDayList() {
@@ -163,6 +164,68 @@ function CreateBusinessDayModal({
   const [endTime, setEndTime] = useState('23:00');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [schedules, setSchedules] = useState<Schedule[]>([]);
+  const [selectedSchedule, setSelectedSchedule] = useState<Schedule | null>(null);
+  const [scheduleResponses, setScheduleResponses] = useState<ScheduleResponse[]>([]);
+  const [members, setMembers] = useState<Member[]>([]);
+  const [loadingSchedule, setLoadingSchedule] = useState(false);
+
+  // 日程調整一覧を取得
+  useEffect(() => {
+    loadSchedules();
+  }, []);
+
+  // 選択月が変わったら日程調整をフィルター
+  useEffect(() => {
+    if (targetDate && schedules.length > 0) {
+      const selectedMonth = new Date(targetDate).getMonth();
+      const selectedYear = new Date(targetDate).getFullYear();
+
+      // 同じ月の日程調整を探す
+      const matchingSchedule = schedules.find((schedule) => {
+        if (!schedule.candidates || schedule.candidates.length === 0) return false;
+        const firstCandidate = schedule.candidates[0];
+        const candidateDate = new Date(firstCandidate.date);
+        return candidateDate.getMonth() === selectedMonth && candidateDate.getFullYear() === selectedYear;
+      });
+
+      if (matchingSchedule) {
+        loadScheduleDetail(matchingSchedule.schedule_id);
+      } else {
+        setSelectedSchedule(null);
+        setScheduleResponses([]);
+      }
+    }
+  }, [targetDate, schedules]);
+
+  const loadSchedules = async () => {
+    try {
+      const [schedulesData, membersData] = await Promise.all([
+        listSchedules(),
+        getMembers({ is_active: true }),
+      ]);
+      setSchedules(schedulesData);
+      setMembers(membersData.members);
+    } catch (err) {
+      console.error('Failed to load schedules:', err);
+    }
+  };
+
+  const loadScheduleDetail = async (scheduleId: string) => {
+    try {
+      setLoadingSchedule(true);
+      const [scheduleData, responsesData] = await Promise.all([
+        getSchedule(scheduleId),
+        getScheduleResponses(scheduleId),
+      ]);
+      setSelectedSchedule(scheduleData);
+      setScheduleResponses(responsesData);
+    } catch (err) {
+      console.error('Failed to load schedule detail:', err);
+    } finally {
+      setLoadingSchedule(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -200,9 +263,12 @@ function CreateBusinessDayModal({
     }
   };
 
+  // 回答済みメンバーのユニークIDを取得
+  const respondedMemberIds = selectedSchedule ? new Set(scheduleResponses.map((r) => r.member_id)) : new Set();
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg max-w-md w-full p-6">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
+      <div className="bg-white rounded-lg max-w-4xl w-full p-6 my-8">
         <h3 className="text-xl font-bold text-gray-900 mb-4">営業日を追加</h3>
 
         <form onSubmit={handleSubmit}>
@@ -265,7 +331,86 @@ function CreateBusinessDayModal({
             </div>
           )}
 
-          <div className="flex space-x-3">
+          {/* 日程調整結果 */}
+          {targetDate && selectedSchedule && (
+            <div className="mt-6 pt-6 border-t border-gray-200">
+              <h4 className="font-semibold text-gray-900 mb-3">
+                📅 この月の日程調整結果: {selectedSchedule.title}
+              </h4>
+              {loadingSchedule ? (
+                <div className="text-center py-4 text-gray-600">読み込み中...</div>
+              ) : (
+                <div>
+                  <p className="text-sm text-gray-600 mb-3">
+                    回答数: {respondedMemberIds.size}/{members.length}人
+                  </p>
+                  <div className="max-h-64 overflow-y-auto border border-gray-200 rounded-lg">
+                    <table className="min-w-full text-sm">
+                      <thead className="bg-gray-50 sticky top-0">
+                        <tr>
+                          <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">候補日</th>
+                          <th className="px-3 py-2 text-center text-xs font-medium text-gray-500">○</th>
+                          <th className="px-3 py-2 text-center text-xs font-medium text-gray-500">△</th>
+                          <th className="px-3 py-2 text-center text-xs font-medium text-gray-500">×</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {selectedSchedule.candidates?.map((candidate: any) => {
+                          const candidateResponses = scheduleResponses.filter(
+                            (r) => r.candidate_id === candidate.candidate_id
+                          );
+                          const availableCount = candidateResponses.filter((r) => r.availability === 'available').length;
+                          const maybeCount = candidateResponses.filter((r) => r.availability === 'maybe').length;
+                          const unavailableCount = candidateResponses.filter((r) => r.availability === 'unavailable').length;
+
+                          // 選択した日付と候補日が同じかチェック
+                          const candidateDateStr = new Date(candidate.date).toISOString().split('T')[0];
+                          const isSelected = targetDate === candidateDateStr;
+
+                          return (
+                            <tr key={candidate.candidate_id} className={isSelected ? 'bg-blue-50' : 'hover:bg-gray-50'}>
+                              <td className="px-3 py-2">
+                                <div className="flex items-center gap-2">
+                                  {isSelected && <span className="text-blue-600">→</span>}
+                                  <span className={isSelected ? 'font-semibold text-blue-900' : ''}>
+                                    {new Date(candidate.date).toLocaleDateString('ja-JP', {
+                                      month: '2-digit',
+                                      day: '2-digit',
+                                      weekday: 'short',
+                                    })}
+                                  </span>
+                                </div>
+                              </td>
+                              <td className="px-3 py-2 text-center">
+                                <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-800">
+                                  {availableCount}
+                                </span>
+                              </td>
+                              <td className="px-3 py-2 text-center">
+                                <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
+                                  {maybeCount}
+                                </span>
+                              </td>
+                              <td className="px-3 py-2 text-center">
+                                <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-red-100 text-red-800">
+                                  {unavailableCount}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    ○: 参加可能、△: 不確定、×: 参加不可
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="flex space-x-3 mt-6">
             <button
               type="button"
               onClick={onClose}
