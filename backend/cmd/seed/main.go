@@ -94,9 +94,9 @@ func seedData(ctx context.Context, pool *pgxpool.Pool, tenantCount int) error {
 		}
 		log.Printf("   ✅ Event created: %s", eventID)
 
-		// 2. 営業日を作成（過去15日 + 未来7日 = 計22日間）
+		// 2. 営業日を作成（毎週土曜日、11月を含む）
 		// これにより本出席データのテストが可能
-		businessDayIDs, pastBusinessDayIDs, err := createBusinessDaysWithHistory(ctx, businessDayRepo, tenantID, eventID, -15, 7)
+		businessDayIDs, pastBusinessDayIDs, err := createWeeklyBusinessDays(ctx, businessDayRepo, tenantID, eventID)
 		if err != nil {
 			return fmt.Errorf("failed to create business days: %w", err)
 		}
@@ -381,9 +381,26 @@ func createAttendanceCollections(ctx context.Context, repo *db.AttendanceReposit
 	count := 0
 	now := time.Now()
 
-	// 過去15日分の出欠収集を作成（直近10日の機能をテストするため）
-	for i := -15; i <= 5; i++ {
-		targetDate := now.AddDate(0, 0, i)
+	// 11月の全ての土曜日を取得
+	novemberDates := getSaturdaysInMonth(2025, 11)
+
+	// 10月の最後の2つの土曜日
+	octoberDates := getSaturdaysInMonth(2025, 10)
+	if len(octoberDates) >= 2 {
+		octoberDates = octoberDates[len(octoberDates)-2:]
+	}
+
+	// 12月の最初の2つの土曜日
+	decemberDates := getSaturdaysInMonth(2025, 12)
+	if len(decemberDates) >= 2 {
+		decemberDates = decemberDates[:2]
+	}
+
+	// 全ての日付をマージ
+	allDates := append(octoberDates, novemberDates...)
+	allDates = append(allDates, decemberDates...)
+
+	for _, targetDate := range allDates {
 
 		collection, err := attendance.NewAttendanceCollection(
 			now,
@@ -424,7 +441,7 @@ func createAttendanceCollections(ctx context.Context, repo *db.AttendanceReposit
 
 			// ランダムに参加/不参加を決定
 			responseType := attendance.ResponseTypeAttending
-			if (i+j)%3 == 0 { // 約1/3の確率で不参加
+			if (count+j)%3 == 0 { // 約1/3の確率で不参加
 				responseType = attendance.ResponseTypeAbsent
 			}
 
@@ -456,85 +473,242 @@ func createSchedules(ctx context.Context, repo *db.ScheduleRepository, tenantID 
 	count := 0
 	now := time.Now()
 
-	// 未来の日程調整を2つ作成
-	for i := 1; i <= 2; i++ {
-		baseDate := now.AddDate(0, 0, 7*i)
+	// 11月の日程調整を作成
+	novemberDates := getSaturdaysInMonth(2025, 11)
 
-		scheduleID := common.NewScheduleID()
+	// 11月の全土曜日を候補日とした日程調整
+	scheduleID := common.NewScheduleID()
 
-		// 候補日を3つ作成
-		candidateDates := make([]*schedule.CandidateDate, 0, 3)
-		for j := 0; j < 3; j++ {
-			candidateDate := baseDate.AddDate(0, 0, j)
-			candidate, err := schedule.NewCandidateDate(
-				now,
-				scheduleID,
-				candidateDate,
-				nil, // startTime
-				nil, // endTime
-				j+1,
-			)
-			if err != nil {
-				return count, err
-			}
-			candidateDates = append(candidateDates, candidate)
-		}
-
-		eventIDPtr := eventID
-		scheduleEntity, err := schedule.NewDateSchedule(
+	// 11月の土曜日を候補日として作成
+	candidateDates := make([]*schedule.CandidateDate, 0, len(novemberDates))
+	for j, candidateDate := range novemberDates {
+		candidate, err := schedule.NewCandidateDate(
 			now,
 			scheduleID,
-			tenantID,
-			fmt.Sprintf("次回イベント日程調整 #%d", i),
-			fmt.Sprintf("次回のイベント開催日を決定するための日程調整です。候補日から都合の良い日を選んでください。"),
-			&eventIDPtr,
-			candidateDates,
-			nil, // deadline
+			candidateDate,
+			nil, // startTime
+			nil, // endTime
+			j+1,
 		)
 		if err != nil {
 			return count, err
 		}
+		candidateDates = append(candidateDates, candidate)
+	}
 
-		if err := repo.Save(ctx, scheduleEntity); err != nil {
-			return count, err
-		}
+	eventIDPtr := eventID
+	scheduleEntity, err := schedule.NewDateSchedule(
+		now,
+		scheduleID,
+		tenantID,
+		"2025年11月のイベント日程調整",
+		"11月のイベント開催日を決定するための日程調整です。候補日から都合の良い日を選んでください。",
+		&eventIDPtr,
+		candidateDates,
+		nil, // deadline
+	)
+	if err != nil {
+		return count, err
+	}
 
-		// メンバーの50%が回答
-		responseCount := len(memberIDs) / 2
-		for j := 0; j < responseCount; j++ {
-			memberID := memberIDs[j]
+	if err := repo.Save(ctx, scheduleEntity); err != nil {
+		return count, err
+	}
 
-			// 各候補日への回答（最初の2つを○、最後を×）
-			for k, candidate := range candidateDates {
-				availability := schedule.AvailabilityAvailable
-				if k == 2 { // 最後の候補日
-					availability = schedule.AvailabilityUnavailable
-				}
+	// メンバーの50%が回答
+	responseCount := len(memberIDs) / 2
+	for j := 0; j < responseCount; j++ {
+		memberID := memberIDs[j]
 
-				response, err := schedule.NewDateScheduleResponse(
-					now,
-					scheduleEntity.ScheduleID(),
-					tenantID,
-					memberID,
-					candidate.CandidateID(),
-					availability,
-					"",
-				)
-				if err != nil {
-					continue
-				}
+		// 各候補日への回答（最初の半分を○、残りを×）
+		for k, candidate := range candidateDates {
+			availability := schedule.AvailabilityAvailable
+			if k >= len(candidateDates)/2 { // 後半の候補日
+				availability = schedule.AvailabilityUnavailable
+			}
 
-				if err := repo.UpsertResponse(ctx, response); err != nil {
-					continue
-				}
+			response, err := schedule.NewDateScheduleResponse(
+				now,
+				scheduleEntity.ScheduleID(),
+				tenantID,
+				memberID,
+				candidate.CandidateID(),
+				availability,
+				"",
+			)
+			if err != nil {
+				continue
+			}
+
+			if err := repo.UpsertResponse(ctx, response); err != nil {
+				continue
 			}
 		}
-
-		count++
 	}
+
+	count++
+
+	// 12月の日程調整も作成
+	decemberDates := getSaturdaysInMonth(2025, 12)
+	if len(decemberDates) >= 3 {
+		decemberDates = decemberDates[:3]
+	}
+
+	scheduleID = common.NewScheduleID()
+
+	// 12月の候補日を作成
+	candidateDates = make([]*schedule.CandidateDate, 0, len(decemberDates))
+	for j, candidateDate := range decemberDates {
+		candidate, err := schedule.NewCandidateDate(
+			now,
+			scheduleID,
+			candidateDate,
+			nil, // startTime
+			nil, // endTime
+			j+1,
+		)
+		if err != nil {
+			return count, err
+		}
+		candidateDates = append(candidateDates, candidate)
+	}
+
+	eventIDPtr = eventID
+	scheduleEntity, err = schedule.NewDateSchedule(
+		now,
+		scheduleID,
+		tenantID,
+		"2025年12月のイベント日程調整",
+		"12月のイベント開催日を決定するための日程調整です。候補日から都合の良い日を選んでください。",
+		&eventIDPtr,
+		candidateDates,
+		nil, // deadline
+	)
+	if err != nil {
+		return count, err
+	}
+
+	if err := repo.Save(ctx, scheduleEntity); err != nil {
+		return count, err
+	}
+
+	// メンバーの30%が回答
+	responseCount = len(memberIDs) / 3
+	for j := 0; j < responseCount; j++ {
+		memberID := memberIDs[j]
+
+		// 各候補日への回答（最初の2つを○、最後を×）
+		for k, candidate := range candidateDates {
+			availability := schedule.AvailabilityAvailable
+			if k == len(candidateDates)-1 { // 最後の候補日
+				availability = schedule.AvailabilityUnavailable
+			}
+
+			response, err := schedule.NewDateScheduleResponse(
+				now,
+				scheduleEntity.ScheduleID(),
+				tenantID,
+				memberID,
+				candidate.CandidateID(),
+				availability,
+				"",
+			)
+			if err != nil {
+				continue
+			}
+
+			if err := repo.UpsertResponse(ctx, response); err != nil {
+				continue
+			}
+		}
+	}
+
+	count++
 
 	return count, nil
 }
+// createWeeklyBusinessDays creates business days for every Saturday
+// Includes November 2025 and surrounding months
+func createWeeklyBusinessDays(ctx context.Context, repo *db.EventBusinessDayRepository, tenantID common.TenantID, eventID common.EventID) ([]event.BusinessDayID, []event.BusinessDayID, error) {
+	allIDs := make([]event.BusinessDayID, 0)
+	pastIDs := make([]event.BusinessDayID, 0)
+	now := time.Now()
+
+	// 11月の全ての土曜日を取得
+	novemberDates := getSaturdaysInMonth(2025, 11)
+
+	// 10月の最後の2つの土曜日
+	octoberDates := getSaturdaysInMonth(2025, 10)
+	if len(octoberDates) >= 2 {
+		octoberDates = octoberDates[len(octoberDates)-2:]
+	}
+
+	// 12月の最初の2つの土曜日
+	decemberDates := getSaturdaysInMonth(2025, 12)
+	if len(decemberDates) >= 2 {
+		decemberDates = decemberDates[:2]
+	}
+
+	// 全ての日付をマージ
+	allDates := append(octoberDates, novemberDates...)
+	allDates = append(allDates, decemberDates...)
+
+	for _, targetDate := range allDates {
+		// 21:30 - 23:00 の営業時間
+		startTime := time.Date(2000, 1, 1, 21, 30, 0, 0, time.UTC)
+		endTime := time.Date(2000, 1, 1, 23, 0, 0, 0, time.UTC)
+
+		bd, err := event.NewEventBusinessDay(
+			tenantID,
+			eventID,
+			targetDate,
+			startTime,
+			endTime,
+			event.OccurrenceTypeSpecial,
+			nil, // recurring_pattern_id
+		)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		if err := repo.Save(ctx, bd); err != nil {
+			return nil, nil, err
+		}
+
+		allIDs = append(allIDs, bd.BusinessDayID())
+		// 現在より前の日付は過去として記録
+		if targetDate.Before(now) {
+			pastIDs = append(pastIDs, bd.BusinessDayID())
+		}
+	}
+
+	return allIDs, pastIDs, nil
+}
+
+// getSaturdaysInMonth returns all Saturdays in the given month
+func getSaturdaysInMonth(year, month int) []time.Time {
+	saturdays := make([]time.Time, 0)
+
+	// 月の最初の日
+	firstDay := time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.UTC)
+
+	// 最初の土曜日を見つける
+	daysUntilSaturday := (6 - int(firstDay.Weekday()) + 7) % 7
+	if firstDay.Weekday() == time.Saturday {
+		daysUntilSaturday = 0
+	}
+	firstSaturday := firstDay.AddDate(0, 0, daysUntilSaturday)
+
+	// 月の全ての土曜日を取得
+	current := firstSaturday
+	for current.Month() == time.Month(month) {
+		saturdays = append(saturdays, current)
+		current = current.AddDate(0, 0, 7) // 次の週
+	}
+
+	return saturdays
+}
+
 // createBusinessDaysWithHistory creates business days for both past and future
 // startOffset: negative for past days (e.g., -15 for 15 days ago)
 // endOffset: positive for future days (e.g., 7 for 7 days ahead)
