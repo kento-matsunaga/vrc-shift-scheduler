@@ -1,18 +1,24 @@
 import { useState, useEffect } from 'react';
 import { getMembers, createMember } from '../lib/api/memberApi';
-import type { Member } from '../types/api';
+import { getActualAttendance } from '../lib/api/actualAttendanceApi';
+import type { Member, RecentAttendanceResponse } from '../types/api';
 
 export default function Members() {
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   // 新規登録フォーム
   const [showForm, setShowForm] = useState(false);
   const [displayName, setDisplayName] = useState('');
   const [discordUserId, setDiscordUserId] = useState('');
   const [email, setEmail] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  // 本出席モーダル
+  const [showActualAttendanceModal, setShowActualAttendanceModal] = useState(false);
+  const [actualAttendanceData, setActualAttendanceData] = useState<RecentAttendanceResponse | null>(null);
+  const [loadingActualAttendance, setLoadingActualAttendance] = useState(false);
 
   // メンバー一覧を取得
   const fetchMembers = async () => {
@@ -32,6 +38,28 @@ export default function Members() {
   useEffect(() => {
     fetchMembers();
   }, []);
+
+  // 本出席データを取得
+  const fetchActualAttendance = async () => {
+    try {
+      setLoadingActualAttendance(true);
+      const data = await getActualAttendance({ limit: 30 });
+      setActualAttendanceData(data);
+    } catch (err) {
+      console.error('Failed to fetch actual attendance:', err);
+      alert('本出席データの取得に失敗しました');
+    } finally {
+      setLoadingActualAttendance(false);
+    }
+  };
+
+  // 本出席モーダルを開く
+  const handleOpenActualAttendance = async () => {
+    setShowActualAttendanceModal(true);
+    if (!actualAttendanceData) {
+      await fetchActualAttendance();
+    }
+  };
 
   // メンバー登録
   const handleSubmit = async (e: React.FormEvent) => {
@@ -101,12 +129,20 @@ export default function Members() {
             シフトや出欠確認に参加するキャストを管理します
           </p>
         </div>
-        <button
-          onClick={() => setShowForm(!showForm)}
-          className="btn-primary"
-        >
-          {showForm ? 'キャンセル' : '+ 新規登録'}
-        </button>
+        <div className="flex space-x-3">
+          <button
+            onClick={handleOpenActualAttendance}
+            className="px-4 py-2 text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors font-medium"
+          >
+            📊 本出席
+          </button>
+          <button
+            onClick={() => setShowForm(!showForm)}
+            className="btn-primary"
+          >
+            {showForm ? 'キャンセル' : '+ 新規登録'}
+          </button>
+        </div>
       </div>
 
       {/* 新規登録フォーム */}
@@ -237,7 +273,87 @@ export default function Members() {
           </div>
         )}
       </div>
+
+      {/* 本出席モーダル */}
+      {showActualAttendanceModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-6xl w-full p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <div>
+                <h3 className="text-xl font-bold text-gray-900">本出席（実績）</h3>
+                <p className="text-sm text-gray-600 mt-1">
+                  実際にシフトに割り当てられた実績データです。○: シフト割り当てあり、×: シフト割り当てなし
+                </p>
+              </div>
+              <button
+                onClick={() => setShowActualAttendanceModal(false)}
+                className="text-gray-400 hover:text-gray-600 text-2xl"
+              >
+                ×
+              </button>
+            </div>
+
+            {loadingActualAttendance ? (
+              <div className="text-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+                <p className="mt-4 text-gray-600">読み込み中...</p>
+              </div>
+            ) : actualAttendanceData && actualAttendanceData.target_dates.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-xs border-collapse border border-gray-300">
+                  <thead>
+                    <tr className="bg-gray-100">
+                      <th className="border border-gray-300 px-2 py-1 text-left font-semibold sticky left-0 bg-gray-100 z-10">
+                        メンバー
+                      </th>
+                      {actualAttendanceData.target_dates.map((td) => (
+                        <th key={td.target_date_id} className="border border-gray-300 px-2 py-1 text-center font-semibold whitespace-nowrap">
+                          {new Date(td.target_date).toLocaleDateString('ja-JP', {
+                            month: 'numeric',
+                            day: 'numeric',
+                          })}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {actualAttendanceData.member_attendances.map((memberAtt) => (
+                      <tr key={memberAtt.member_id} className="hover:bg-gray-50">
+                        <td className="border border-gray-300 px-2 py-1 font-medium sticky left-0 bg-white z-10">
+                          {memberAtt.member_name}
+                        </td>
+                        {actualAttendanceData.target_dates.map((td) => {
+                          const status = memberAtt.attendance_map[td.target_date_id] || '';
+                          let symbol = '×';
+                          let color = 'text-red-600';
+                          if (status === 'attended') {
+                            symbol = '○';
+                            color = 'text-green-600';
+                          }
+                          return (
+                            <td key={td.target_date_id} className={`border border-gray-300 px-2 py-1 text-center ${color} font-bold`}>
+                              {symbol}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <p className="text-xs text-gray-500 mt-2">
+                  ○: シフト割り当てあり、×: シフト割り当てなし
+                </p>
+              </div>
+            ) : (
+              <div className="text-center py-12 text-gray-500">
+                本出席データがありません
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
 

@@ -1,5 +1,5 @@
 import { apiClient } from '../apiClient';
-import type { ApiResponse, Member, MemberListResponse } from '../../types/api';
+import type { ApiResponse, Member, MemberListResponse, RecentAttendanceResponse } from '../../types/api';
 
 /**
  * メンバー作成
@@ -28,6 +28,16 @@ export async function getMembers(params?: {
  */
 export async function getMemberDetail(memberId: string): Promise<Member> {
   const res = await apiClient.get<ApiResponse<Member>>(`/api/v1/members/${memberId}`);
+  return res.data;
+}
+
+/**
+ * 直近の出欠状況を取得
+ */
+export async function getRecentAttendance(params?: {
+  limit?: number;
+}): Promise<RecentAttendanceResponse> {
+  const res = await apiClient.get<ApiResponse<RecentAttendanceResponse>>('/api/v1/members/recent-attendance', params);
   return res.data;
 }
 

@@ -1,15 +1,18 @@
 import { useState, useEffect } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
-import { getShiftSlotDetail, getMembers, confirmAssignment } from '../lib/api';
-import type { ShiftSlot, Member } from '../types/api';
+import { getShiftSlotDetail, getMembers, confirmAssignment, getRecentAttendance, getActualAttendance, getBusinessDayDetail } from '../lib/api';
+import type { ShiftSlot, Member, RecentAttendanceResponse } from '../types/api';
 import { ApiClientError } from '../lib/apiClient';
 
 export default function AssignShift() {
   const { slotId } = useParams<{ slotId: string }>();
   const navigate = useNavigate();
   const [shiftSlot, setShiftSlot] = useState<ShiftSlot | null>(null);
+  const [businessDay, setBusinessDay] = useState<any | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
-  const [selectedMemberId, setSelectedMemberId] = useState('');
+  const [actualAttendance, setActualAttendance] = useState<RecentAttendanceResponse | null>(null);
+  const [todayAttendance, setTodayAttendance] = useState<string[]>([]);
+  const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
   const [note, setNote] = useState('');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -27,12 +30,37 @@ export default function AssignShift() {
 
     try {
       setLoading(true);
-      const [shiftSlotData, membersData] = await Promise.all([
-        getShiftSlotDetail(slotId),
-        getMembers({ is_active: true }),
-      ]);
+      const shiftSlotData = await getShiftSlotDetail(slotId);
       setShiftSlot(shiftSlotData);
+
+      const [businessDayData, membersData, recentAttendanceData, actualAttendanceData] = await Promise.all([
+        getBusinessDayDetail(shiftSlotData.business_day_id),
+        getMembers({ is_active: true }),
+        getRecentAttendance({ limit: 30 }),
+        getActualAttendance({ limit: 30 }),
+      ]);
+
+      setBusinessDay(businessDayData);
       setMembers(membersData.members);
+      setActualAttendance(actualAttendanceData);
+
+      // この営業日と同じ日付の出欠確認データを集計（参加予定者のみ）
+      const targetDateStr = businessDayData.target_date.split('T')[0]; // YYYY-MM-DD
+      const matchingTargetDate = recentAttendanceData.target_dates.find((td) => {
+        const tdStr = td.target_date.split('T')[0];
+        return tdStr === targetDateStr;
+      });
+
+      if (matchingTargetDate) {
+        const attendingMembers: string[] = [];
+        recentAttendanceData.member_attendances.forEach((memberAtt) => {
+          const response = memberAtt.attendance_map[matchingTargetDate.target_date_id];
+          if (response === 'attending') {
+            attendingMembers.push(memberAtt.member_name);
+          }
+        });
+        setTodayAttendance(attendingMembers);
+      }
     } catch (err) {
       if (err instanceof ApiClientError) {
         setError(err.getUserMessage());
@@ -45,6 +73,14 @@ export default function AssignShift() {
     }
   };
 
+  const handleToggleMember = (memberId: string) => {
+    setSelectedMemberIds((prev) =>
+      prev.includes(memberId)
+        ? prev.filter((id) => id !== memberId)
+        : [...prev, memberId]
+    );
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -52,21 +88,29 @@ export default function AssignShift() {
 
     if (!slotId) return;
 
-    if (!selectedMemberId) {
+    if (selectedMemberIds.length === 0) {
       setError('メンバーを選択してください');
+      return;
+    }
+
+    if (shiftSlot && selectedMemberIds.length > shiftSlot.required_count) {
+      setError(`必要人数は${shiftSlot.required_count}人です。${selectedMemberIds.length}人選択されています。`);
       return;
     }
 
     setSubmitting(true);
 
     try {
-      await confirmAssignment({
-        slot_id: slotId,
-        member_id: selectedMemberId,
-        note: note.trim() || undefined,
-      });
-      setSuccess('シフトを確定しました！');
-      
+      // 選択された全メンバーを順次割り当て
+      for (const memberId of selectedMemberIds) {
+        await confirmAssignment({
+          slot_id: slotId,
+          member_id: memberId,
+          note: note.trim() || undefined,
+        });
+      }
+      setSuccess(`${selectedMemberIds.length}人のシフトを確定しました！`);
+
       // 2秒後に営業日のシフト一覧に戻る
       setTimeout(() => {
         if (shiftSlot) {
@@ -140,6 +184,75 @@ export default function AssignShift() {
           </div>
         </div>
 
+        {/* この日の参加予定メンバー */}
+        {businessDay && todayAttendance.length > 0 && (
+          <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+            <h3 className="font-bold text-gray-900 mb-2">
+              {new Date(businessDay.target_date).toLocaleDateString('ja-JP')} の参加予定メンバー
+            </h3>
+            <p className="text-sm text-green-700 mb-2">出欠確認で「参加」と回答したメンバー ({todayAttendance.length}人)</p>
+            <div className="flex flex-wrap gap-2">
+              {todayAttendance.map((name, idx) => (
+                <span key={idx} className="inline-block px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm">
+                  {name}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* 直近の本出席状況（全体） */}
+        {actualAttendance && actualAttendance.target_dates.length > 0 && (
+          <div className="mb-6">
+            <h3 className="font-bold text-gray-900 mb-3">直近の本出席状況（参考）</h3>
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-xs border-collapse border border-gray-300">
+                <thead>
+                  <tr className="bg-gray-100">
+                    <th className="border border-gray-300 px-2 py-1 text-left font-semibold sticky left-0 bg-gray-100 z-10">
+                      メンバー
+                    </th>
+                    {actualAttendance.target_dates.map((td) => (
+                      <th key={td.target_date_id} className="border border-gray-300 px-2 py-1 text-center font-semibold whitespace-nowrap">
+                        {new Date(td.target_date).toLocaleDateString('ja-JP', {
+                          month: 'numeric',
+                          day: 'numeric',
+                        })}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {actualAttendance.member_attendances.map((memberAtt) => (
+                    <tr key={memberAtt.member_id} className="hover:bg-gray-50">
+                      <td className="border border-gray-300 px-2 py-1 font-medium sticky left-0 bg-white z-10">
+                        {memberAtt.member_name}
+                      </td>
+                      {actualAttendance.target_dates.map((td) => {
+                        const status = memberAtt.attendance_map[td.target_date_id] || '';
+                        let symbol = '×';
+                        let color = 'text-red-600';
+                        if (status === 'attended') {
+                          symbol = '○';
+                          color = 'text-green-600';
+                        }
+                        return (
+                          <td key={td.target_date_id} className={`border border-gray-300 px-2 py-1 text-center ${color} font-bold`}>
+                            {symbol}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="text-xs text-gray-500 mt-2">
+              ○: シフト割り当てあり、×: シフト割り当てなし
+            </p>
+          </div>
+        )}
+
         {success ? (
           <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
             <p className="text-green-800 font-bold mb-2">✅ {success}</p>
@@ -148,28 +261,39 @@ export default function AssignShift() {
         ) : (
           <form onSubmit={handleSubmit}>
             <div className="mb-6">
-              <label htmlFor="member" className="label">
+              <label className="label">
                 メンバーを選択 <span className="text-red-500">*</span>
+                {shiftSlot && (
+                  <span className="ml-2 text-sm font-normal text-gray-600">
+                    （必要人数: {shiftSlot.required_count}人、選択中: {selectedMemberIds.length}人）
+                  </span>
+                )}
               </label>
-              <select
-                id="member"
-                value={selectedMemberId}
-                onChange={(e) => setSelectedMemberId(e.target.value)}
-                className="input-field"
-                disabled={submitting}
-              >
-                <option value="">-- メンバーを選択してください --</option>
-                {members.map((member) => (
-                  <option key={member.member_id} value={member.member_id}>
-                    {member.display_name}
-                  </option>
-                ))}
-              </select>
-              {members.length === 0 && (
-                <p className="text-xs text-red-600 mt-1">
-                  メンバーが登録されていません。先にメンバーを登録してください。
-                </p>
-              )}
+              <div className="border border-gray-300 rounded-lg p-4 max-h-64 overflow-y-auto bg-white">
+                {members.length === 0 ? (
+                  <p className="text-sm text-red-600">
+                    メンバーが登録されていません。先にメンバーを登録してください。
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {members.map((member) => (
+                      <label
+                        key={member.member_id}
+                        className="flex items-center p-2 hover:bg-gray-50 rounded cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedMemberIds.includes(member.member_id)}
+                          onChange={() => handleToggleMember(member.member_id)}
+                          disabled={submitting}
+                          className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        />
+                        <span className="ml-3 text-sm text-gray-900">{member.display_name}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="mb-6">
@@ -205,7 +329,7 @@ export default function AssignShift() {
               <button
                 type="submit"
                 className="flex-1 btn-primary"
-                disabled={submitting || !selectedMemberId || members.length === 0}
+                disabled={submitting || selectedMemberIds.length === 0 || members.length === 0}
               >
                 {submitting ? '確定中...' : 'シフトを確定'}
               </button>

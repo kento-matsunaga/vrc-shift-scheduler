@@ -71,9 +71,16 @@ func (h *ShiftAssignmentHandler) ConfirmAssignment(w http.ResponseWriter, r *htt
 	}
 
 	// アクター（操作者）IDの取得
-	actorID, ok := getMemberIDFromContext(ctx)
-	if !ok {
-		writeError(w, http.StatusForbidden, "ERR_FORBIDDEN", "Member ID is required", nil)
+	// Admin (JWT認証) または Member (X-Member-ID認証) のいずれかを取得
+	var actorID common.MemberID
+	if adminID, ok := GetAdminIDFromContext(ctx); ok {
+		// Admin の場合は admin_id を MemberID として使用
+		actorID = common.MemberID(adminID)
+	} else if memberID, ok := getMemberIDFromContext(ctx); ok {
+		// Member の場合は member_id を使用
+		actorID = memberID
+	} else {
+		writeError(w, http.StatusForbidden, "ERR_FORBIDDEN", "Member ID or Admin ID is required", nil)
 		return
 	}
 

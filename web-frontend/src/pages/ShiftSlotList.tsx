@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
-import { getBusinessDayDetail, getShiftSlots, createShiftSlot } from '../lib/api';
-import type { BusinessDay, ShiftSlot } from '../types/api';
+import { getBusinessDayDetail, getShiftSlots, createShiftSlot, getAssignments } from '../lib/api';
+import type { BusinessDay, ShiftSlot, ShiftAssignment } from '../types/api';
 import { ApiClientError } from '../lib/apiClient';
 
 export default function ShiftSlotList() {
@@ -9,6 +9,7 @@ export default function ShiftSlotList() {
   const navigate = useNavigate();
   const [businessDay, setBusinessDay] = useState<BusinessDay | null>(null);
   const [shiftSlots, setShiftSlots] = useState<ShiftSlot[]>([]);
+  const [slotAssignments, setSlotAssignments] = useState<Record<string, ShiftAssignment[]>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -30,6 +31,20 @@ export default function ShiftSlotList() {
       ]);
       setBusinessDay(businessDayData);
       setShiftSlots(shiftSlotsData.shift_slots);
+
+      // 各シフト枠の割り当てを取得
+      const assignmentsMap: Record<string, ShiftAssignment[]> = {};
+      await Promise.all(
+        shiftSlotsData.shift_slots.map(async (slot) => {
+          try {
+            const assignmentsData = await getAssignments({ slot_id: slot.slot_id, assignment_status: 'confirmed' });
+            assignmentsMap[slot.slot_id] = assignmentsData.assignments || [];
+          } catch (err) {
+            assignmentsMap[slot.slot_id] = [];
+          }
+        })
+      );
+      setSlotAssignments(assignmentsMap);
     } catch (err) {
       if (err instanceof ApiClientError) {
         setError(err.getUserMessage());
@@ -115,39 +130,57 @@ export default function ShiftSlotList() {
         </div>
       ) : (
         <div className="space-y-4">
-          {shiftSlots.map((slot) => (
-            <div key={slot.slot_id} className="card">
-              <div className="flex justify-between items-start">
-                <div className="flex-1">
-                  <h3 className="text-lg font-bold text-gray-900">
-                    {slot.slot_name} - {slot.instance_name}
-                  </h3>
-                  <p className="text-sm text-gray-600 mt-1">
-                    {slot.start_time.slice(0, 5)} 〜 {slot.end_time.slice(0, 5)}
-                    {slot.is_overnight && ' （深夜営業）'}
-                  </p>
-                  <div className="mt-2">
-                    <span
-                      className={`inline-block px-2 py-1 text-xs font-semibold rounded ${
-                        (slot.assigned_count || 0) >= slot.required_count
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-yellow-100 text-yellow-800'
-                      }`}
-                    >
-                      {slot.assigned_count || 0} / {slot.required_count} 人
-                    </span>
+          {shiftSlots.map((slot) => {
+            const assignments = slotAssignments[slot.slot_id] || [];
+            return (
+              <div key={slot.slot_id} className="card">
+                <div className="flex justify-between items-start">
+                  <div className="flex-1">
+                    <h3 className="text-lg font-bold text-gray-900">
+                      {slot.slot_name} - {slot.instance_name}
+                    </h3>
+                    <p className="text-sm text-gray-600 mt-1">
+                      {slot.start_time.slice(0, 5)} 〜 {slot.end_time.slice(0, 5)}
+                      {slot.is_overnight && ' （深夜営業）'}
+                    </p>
+                    <div className="mt-2">
+                      <span
+                        className={`inline-block px-2 py-1 text-xs font-semibold rounded ${
+                          (slot.assigned_count || 0) >= slot.required_count
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-yellow-100 text-yellow-800'
+                        }`}
+                      >
+                        {slot.assigned_count || 0} / {slot.required_count} 人
+                      </span>
+                    </div>
+                    {assignments.length > 0 && (
+                      <div className="mt-3">
+                        <p className="text-xs text-gray-500 mb-1">割り当て済み:</p>
+                        <div className="flex flex-wrap gap-1">
+                          {assignments.map((assignment) => (
+                            <span
+                              key={assignment.assignment_id}
+                              className="inline-block px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs"
+                            >
+                              {assignment.member_display_name || assignment.member_id}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
+                  <button
+                    onClick={() => navigate(`/shift-slots/${slot.slot_id}/assign`)}
+                    className="btn-primary ml-4"
+                    disabled={(slot.assigned_count || 0) >= slot.required_count}
+                  >
+                    {(slot.assigned_count || 0) >= slot.required_count ? '満員' : '割り当て'}
+                  </button>
                 </div>
-                <button
-                  onClick={() => navigate(`/shift-slots/${slot.slot_id}/assign`)}
-                  className="btn-primary ml-4"
-                  disabled={(slot.assigned_count || 0) >= slot.required_count}
-                >
-                  {(slot.assigned_count || 0) >= slot.required_count ? '満員' : '割り当て'}
-                </button>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -181,8 +214,8 @@ function CreateShiftSlotModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Position は固定値として扱う（テスト用）
-  const dummyPositionId = '01HXX00000000000000000000'; // TODO: Position 一覧から選択できるようにする
+  // デフォルトのポジションID（バックエンドで自動作成されるため、固定値を使用）
+  const defaultPositionId = '01KCMHNFRVKWY3SY44BXSBNVTT';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -207,7 +240,7 @@ function CreateShiftSlotModal({
 
     try {
       await createShiftSlot(businessDayId, {
-        position_id: dummyPositionId,
+        position_id: defaultPositionId,
         slot_name: slotName.trim(),
         instance_name: instanceName.trim(),
         start_time: startTime,
@@ -229,7 +262,7 @@ function CreateShiftSlotModal({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg max-w-md w-full p-6">
+      <div className="bg-white rounded-lg max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
         <h3 className="text-xl font-bold text-gray-900 mb-4">シフト枠を追加</h3>
 
         <form onSubmit={handleSubmit}>
@@ -242,7 +275,7 @@ function CreateShiftSlotModal({
               id="slotName"
               value={slotName}
               onChange={(e) => setSlotName(e.target.value)}
-              placeholder="例: 受付"
+              placeholder="例: 受付、案内、配信、MC など"
               className="input-field"
               disabled={loading}
               autoFocus

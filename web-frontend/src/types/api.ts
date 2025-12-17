@@ -112,6 +112,24 @@ export interface MemberListResponse {
   count: number;
 }
 
+// Recent Attendance 関連
+export interface TargetDateInfo {
+  target_date_id: string;
+  target_date: string; // ISO 8601
+  display_order: number;
+}
+
+export interface MemberAttendanceStatus {
+  member_id: string;
+  member_name: string;
+  attendance_map: Record<string, string>; // target_date_id -> "attending" | "absent" | ""
+}
+
+export interface RecentAttendanceResponse {
+  target_dates: TargetDateInfo[];
+  member_attendances: MemberAttendanceStatus[];
+}
+
 // Position 関連
 export interface Position {
   position_id: string;

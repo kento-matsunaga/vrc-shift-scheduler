@@ -4,9 +4,11 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strconv"
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
-	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/member"
+	domainMember "github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/member"
+	appMember "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/member"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/db"
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -14,13 +16,18 @@ import (
 
 // MemberHandler handles member-related HTTP requests
 type MemberHandler struct {
-	memberRepo *db.MemberRepository
+	memberRepo                 *db.MemberRepository
+	getRecentAttendanceUsecase *appMember.GetRecentAttendanceUsecase
 }
 
 // NewMemberHandler creates a new MemberHandler
 func NewMemberHandler(dbPool *pgxpool.Pool) *MemberHandler {
+	memberRepo := db.NewMemberRepository(dbPool)
+	attendanceRepo := db.NewAttendanceRepository(dbPool)
+
 	return &MemberHandler{
-		memberRepo: db.NewMemberRepository(dbPool),
+		memberRepo:                 memberRepo,
+		getRecentAttendanceUsecase: appMember.NewGetRecentAttendanceUsecase(memberRepo, attendanceRepo),
 	}
 }
 
@@ -103,7 +110,7 @@ func (h *MemberHandler) CreateMember(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Member エンティティの作成
-	newMember, err := member.NewMember(
+	newMember, err := domainMember.NewMember(
 		tenantID,
 		req.DisplayName,
 		req.DiscordUserID,
@@ -158,7 +165,7 @@ func (h *MemberHandler) GetMembers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// is_active フィルタ
-	var filteredMembers []*member.Member
+	var filteredMembers []*domainMember.Member
 	if isActiveStr == "true" {
 		for _, m := range members {
 			if m.IsActive() {
@@ -244,5 +251,42 @@ func (h *MemberHandler) GetMemberDetail(w http.ResponseWriter, r *http.Request) 
 	}
 
 	writeSuccess(w, http.StatusOK, resp)
+}
+
+// GetRecentAttendance handles GET /api/v1/members/recent-attendance
+func (h *MemberHandler) GetRecentAttendance(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// テナントIDの取得
+	tenantID, ok := getTenantIDFromContext(ctx)
+	if !ok {
+		writeError(w, http.StatusForbidden, "ERR_FORBIDDEN", "Tenant ID is required", nil)
+		return
+	}
+
+	// クエリパラメータからlimitを取得（デフォルト10）
+	limitStr := r.URL.Query().Get("limit")
+	limit := 10
+	if limitStr != "" {
+		var err error
+		limit, err = strconv.Atoi(limitStr)
+		if err != nil || limit <= 0 {
+			limit = 10
+		}
+	}
+
+	// Usecaseの実行
+	output, err := h.getRecentAttendanceUsecase.Execute(ctx, appMember.GetRecentAttendanceInput{
+		TenantID: tenantID.String(),
+		Limit:    limit,
+	})
+	if err != nil {
+		log.Printf("GetRecentAttendance error: %+v", err)
+		writeError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to fetch recent attendance", nil)
+		return
+	}
+
+	// レスポンス
+	writeSuccess(w, http.StatusOK, output)
 }
 
