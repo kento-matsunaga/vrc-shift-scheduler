@@ -4,6 +4,7 @@ import type { ApiResponse } from '../../types/api';
  * 候補日
  */
 export interface CandidateDate {
+  candidate_id?: string; // サーバーから取得時に含まれる
   date: string; // ISO 8601 format
   start_time?: string; // ISO 8601 format (optional)
   end_time?: string; // ISO 8601 format (optional)

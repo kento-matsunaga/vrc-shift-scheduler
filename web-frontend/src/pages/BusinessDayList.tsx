@@ -185,7 +185,7 @@ export default function BusinessDayList() {
         }
 
         const monthDays = monthGroups[selectedMonth] || [];
-        const [year, month] = selectedMonth.split('-');
+        const [_year, _month] = selectedMonth.split('-');
         const currentIndex = sortedKeys.indexOf(selectedMonth);
         const hasPrevious = currentIndex > 0;
         const hasNext = currentIndex < sortedKeys.length - 1;

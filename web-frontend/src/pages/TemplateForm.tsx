@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getTemplate, createTemplate, updateTemplate } from '../lib/api/templateApi';
-import type { Template, TemplateItem, CreateTemplateRequest } from '../types/api';
+import type { TemplateItem, CreateTemplateRequest } from '../types/api';
 import { ApiClientError } from '../lib/apiClient';
 
 export default function TemplateForm() {
