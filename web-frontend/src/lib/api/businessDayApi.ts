@@ -11,6 +11,7 @@ export async function createBusinessDay(
     start_time: string; // HH:MM
     end_time: string; // HH:MM
     occurrence_type: 'recurring' | 'special';
+    template_id?: string; // optional: テンプレートから自動的にシフト枠を作成
   }
 ): Promise<BusinessDay> {
   const res = await apiClient.post<ApiResponse<BusinessDay>>(
@@ -57,5 +58,18 @@ export async function updateBusinessDayStatus(
     { is_active: isActive }
   );
   return res.data;
+}
+
+/**
+ * 既存営業日にテンプレートを適用してシフト枠を作成
+ */
+export async function applyTemplateToBusinessDay(
+  businessDayId: string,
+  templateId: string
+): Promise<void> {
+  await apiClient.post<ApiResponse<{ message: string; business_day_id: string; template_id: string; items_count: number }>>(
+    `/api/v1/business-days/${businessDayId}/apply-template`,
+    { template_id: templateId }
+  );
 }
 

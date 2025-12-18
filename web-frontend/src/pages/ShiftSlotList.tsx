@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
-import { getBusinessDayDetail, getShiftSlots, createShiftSlot, getAssignments } from '../lib/api';
-import type { BusinessDay, ShiftSlot, ShiftAssignment } from '../types/api';
+import { getBusinessDayDetail, getShiftSlots, createShiftSlot, getAssignments, applyTemplateToBusinessDay } from '../lib/api';
+import { listTemplates } from '../lib/api/templateApi';
+import type { BusinessDay, ShiftSlot, ShiftAssignment, Template } from '../types/api';
 import { ApiClientError } from '../lib/apiClient';
 
 export default function ShiftSlotList() {
@@ -13,6 +14,7 @@ export default function ShiftSlotList() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
 
   useEffect(() => {
     if (businessDayId) {
@@ -110,9 +112,30 @@ export default function ShiftSlotList() {
             {businessDay.start_time.slice(0, 5)} 〜 {businessDay.end_time.slice(0, 5)}
           </p>
         </div>
-        <button onClick={() => setShowCreateModal(true)} className="btn-primary">
-          ＋ シフト枠を追加
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowTemplateModal(true)}
+            className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg flex items-center"
+          >
+            <svg
+              className="w-5 h-5 mr-2"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+              />
+            </svg>
+            テンプレートから追加
+          </button>
+          <button onClick={() => setShowCreateModal(true)} className="btn-primary">
+            ＋ シフト枠を追加
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -189,6 +212,19 @@ export default function ShiftSlotList() {
           businessDayId={businessDayId}
           onClose={() => setShowCreateModal(false)}
           onSuccess={handleCreateSuccess}
+        />
+      )}
+
+      {/* テンプレート適用モーダル */}
+      {showTemplateModal && businessDayId && businessDay && (
+        <ApplyTemplateModal
+          businessDayId={businessDayId}
+          eventId={businessDay.event_id}
+          onClose={() => setShowTemplateModal(false)}
+          onSuccess={() => {
+            setShowTemplateModal(false);
+            loadData();
+          }}
         />
       )}
     </div>
@@ -364,6 +400,166 @@ function CreateShiftSlotModal({
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  );
+}
+
+// テンプレート適用モーダルコンポーネント
+function ApplyTemplateModal({
+  businessDayId,
+  eventId,
+  onClose,
+  onSuccess,
+}: {
+  businessDayId: string;
+  eventId: string;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [loadingTemplates, setLoadingTemplates] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    loadTemplates();
+  }, [eventId]);
+
+  const loadTemplates = async () => {
+    try {
+      setLoadingTemplates(true);
+      const data = await listTemplates(eventId);
+      setTemplates(data);
+    } catch (err) {
+      console.error('Failed to load templates:', err);
+      if (err instanceof ApiClientError) {
+        setError(err.getUserMessage());
+      } else {
+        setError('テンプレート一覧の取得に失敗しました');
+      }
+    } finally {
+      setLoadingTemplates(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+
+    if (!selectedTemplateId) {
+      setError('テンプレートを選択してください');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      await applyTemplateToBusinessDay(businessDayId, selectedTemplateId);
+      onSuccess();
+    } catch (err) {
+      console.error('Failed to apply template:', err);
+      if (err instanceof ApiClientError) {
+        setError(err.getUserMessage());
+      } else {
+        setError('テンプレートの適用に失敗しました');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const selectedTemplate = templates.find((t) => t.template_id === selectedTemplateId);
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-lg max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
+        <h3 className="text-xl font-bold text-gray-900 mb-4">テンプレートから追加</h3>
+
+        {loadingTemplates ? (
+          <div className="text-center py-8">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+            <p className="mt-4 text-gray-600">読み込み中...</p>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit}>
+            <div className="mb-4">
+              <label htmlFor="templateSelect" className="label">
+                テンプレートを選択 <span className="text-red-500">*</span>
+              </label>
+              {templates.length === 0 ? (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                  <p className="text-sm text-yellow-800">
+                    テンプレートがまだ作成されていません。
+                    <br />
+                    テンプレート管理ページから先にテンプレートを作成してください。
+                  </p>
+                </div>
+              ) : (
+                <select
+                  id="templateSelect"
+                  value={selectedTemplateId}
+                  onChange={(e) => setSelectedTemplateId(e.target.value)}
+                  className="input-field"
+                  disabled={loading}
+                  autoFocus
+                >
+                  <option value="">テンプレートを選択してください</option>
+                  {templates.map((template) => (
+                    <option key={template.template_id} value={template.template_id}>
+                      {template.template_name} ({template.items.length}個のシフト枠)
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+
+            {selectedTemplate && (
+              <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <h4 className="font-semibold text-blue-900 mb-2">
+                  {selectedTemplate.template_name}
+                </h4>
+                {selectedTemplate.description && (
+                  <p className="text-sm text-blue-800 mb-3">{selectedTemplate.description}</p>
+                )}
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-blue-900">作成されるシフト枠:</p>
+                  {selectedTemplate.items.map((item, index) => (
+                    <div key={index} className="text-xs text-blue-800">
+                      • {item.slot_name} ({item.instance_name}) - {item.start_time.substring(0, 5)}~
+                      {item.end_time.substring(0, 5)} ({item.required_count}名)
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+                <p className="text-sm text-red-800">{error}</p>
+              </div>
+            )}
+
+            <div className="flex space-x-3">
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 btn-secondary"
+                disabled={loading}
+              >
+                キャンセル
+              </button>
+              <button
+                type="submit"
+                className="flex-1 btn-primary"
+                disabled={loading || !selectedTemplateId || templates.length === 0}
+              >
+                {loading ? '適用中...' : 'テンプレートを適用'}
+              </button>
+            </div>
+          </form>
+        )}
       </div>
     </div>
   );

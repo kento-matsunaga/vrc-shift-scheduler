@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { getEventDetail, getBusinessDays, createBusinessDay, getMembers } from '../lib/api';
 import { listSchedules, getSchedule, getScheduleResponses, type Schedule, type ScheduleResponse } from '../lib/api/scheduleApi';
-import type { Event, BusinessDay, Member } from '../types/api';
+import { listTemplates } from '../lib/api/templateApi';
+import type { Event, BusinessDay, Member, Template } from '../types/api';
 import { ApiClientError } from '../lib/apiClient';
 
 export default function BusinessDayList() {
@@ -80,9 +81,30 @@ export default function BusinessDayList() {
           <h2 className="text-2xl font-bold text-gray-900">{event.event_name}</h2>
           <p className="text-sm text-gray-600 mt-1">{event.description}</p>
         </div>
-        <button onClick={() => setShowCreateModal(true)} className="btn-primary">
-          ＋ 営業日を追加
-        </button>
+        <div className="flex gap-2">
+          <Link
+            to={`/events/${eventId}/templates`}
+            className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg flex items-center"
+          >
+            <svg
+              className="w-5 h-5 mr-2"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+              />
+            </svg>
+            テンプレート管理
+          </Link>
+          <button onClick={() => setShowCreateModal(true)} className="btn-primary">
+            ＋ 営業日を追加
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -170,6 +192,8 @@ function CreateBusinessDayModal({
   const [scheduleResponses, setScheduleResponses] = useState<ScheduleResponse[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [loadingSchedule, setLoadingSchedule] = useState(false);
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
 
   // 日程調整一覧を取得
   useEffect(() => {
@@ -188,12 +212,14 @@ function CreateBusinessDayModal({
 
   const loadSchedules = async () => {
     try {
-      const [schedulesData, membersData] = await Promise.all([
+      const [schedulesData, membersData, templatesData] = await Promise.all([
         listSchedules(),
         getMembers({ is_active: true }),
+        listTemplates(eventId),
       ]);
       setSchedules(schedulesData);
       setMembers(membersData.members);
+      setTemplates(templatesData);
     } catch (err) {
       console.error('Failed to load schedules:', err);
     }
@@ -237,6 +263,7 @@ function CreateBusinessDayModal({
         start_time: startTime,
         end_time: endTime,
         occurrence_type: 'special', // 手動作成は常に特別営業
+        template_id: selectedTemplateId || undefined,
       });
       onSuccess();
     } catch (err) {
@@ -312,6 +339,32 @@ function CreateBusinessDayModal({
               📋 手動で追加した営業日は「特別営業」として登録されます
             </p>
           </div>
+
+          {/* テンプレート選択 */}
+          {templates.length > 0 && (
+            <div className="mb-4">
+              <label htmlFor="templateSelect" className="label">
+                シフトテンプレート（任意）
+              </label>
+              <select
+                id="templateSelect"
+                value={selectedTemplateId}
+                onChange={(e) => setSelectedTemplateId(e.target.value)}
+                className="input-field"
+                disabled={loading}
+              >
+                <option value="">テンプレートを選択しない</option>
+                {templates.map((template) => (
+                  <option key={template.template_id} value={template.template_id}>
+                    {template.template_name} ({template.items.length}個のシフト枠)
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-gray-500 mt-1">
+                テンプレートを選択すると、営業日作成時に自動的にシフト枠が作成されます
+              </p>
+            </div>
+          )}
 
           {/* 日程調整選択 */}
           {schedules.length > 0 && (

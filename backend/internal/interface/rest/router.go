@@ -55,6 +55,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		memberHandler := NewMemberHandler(dbPool)
 		roleHandler := NewRoleHandler(dbPool)
 		shiftSlotHandler := NewShiftSlotHandler(dbPool)
+		shiftTemplateHandler := NewShiftTemplateHandler(dbPool)
 		shiftAssignmentHandler := NewShiftAssignmentHandler(dbPool)
 		attendanceHandler := NewAttendanceHandler(dbPool)
 		actualAttendanceHandler := NewActualAttendanceHandler(dbPool)
@@ -68,6 +69,13 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			// Event配下のBusinessDay
 			r.Post("/{event_id}/business-days", businessDayHandler.CreateBusinessDay)
 			r.Get("/{event_id}/business-days", businessDayHandler.ListBusinessDays)
+
+			// Event配下のShiftTemplate
+			r.Post("/{event_id}/templates", shiftTemplateHandler.CreateTemplate)
+			r.Get("/{event_id}/templates", shiftTemplateHandler.ListTemplates)
+			r.Get("/{event_id}/templates/{template_id}", shiftTemplateHandler.GetTemplate)
+			r.Put("/{event_id}/templates/{template_id}", shiftTemplateHandler.UpdateTemplate)
+			r.Delete("/{event_id}/templates/{template_id}", shiftTemplateHandler.DeleteTemplate)
 		})
 
 		// BusinessDay API
@@ -77,6 +85,12 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			// BusinessDay配下のShiftSlot
 			r.Post("/{business_day_id}/shift-slots", shiftSlotHandler.CreateShiftSlot)
 			r.Get("/{business_day_id}/shift-slots", shiftSlotHandler.GetShiftSlots)
+
+			// BusinessDayからShiftTemplateを作成
+			r.Post("/{business_day_id}/save-as-template", shiftTemplateHandler.SaveBusinessDayAsTemplate)
+
+			// BusinessDayにShiftTemplateを適用
+			r.Post("/{business_day_id}/apply-template", businessDayHandler.ApplyTemplate)
 		})
 
 		// Member API

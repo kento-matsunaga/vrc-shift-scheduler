@@ -386,3 +386,53 @@ func ParseRoleID(s string) (RoleID, error) {
 	}
 	return RoleID(s), nil
 }
+
+// ShiftSlotTemplateID represents a shift slot template identifier
+type ShiftSlotTemplateID string
+
+func NewShiftSlotTemplateID() ShiftSlotTemplateID {
+	return ShiftSlotTemplateID(NewULID())
+}
+
+func (id ShiftSlotTemplateID) String() string {
+	return string(id)
+}
+
+func (id ShiftSlotTemplateID) Validate() error {
+	if id == "" {
+		return fmt.Errorf("template_id is required")
+	}
+	return ValidateULID(string(id))
+}
+
+func ParseShiftSlotTemplateID(s string) (ShiftSlotTemplateID, error) {
+	if err := ValidateULID(s); err != nil {
+		return "", err
+	}
+	return ShiftSlotTemplateID(s), nil
+}
+
+// ShiftSlotTemplateItemID represents a shift slot template item identifier
+type ShiftSlotTemplateItemID string
+
+func NewShiftSlotTemplateItemID() ShiftSlotTemplateItemID {
+	return ShiftSlotTemplateItemID(NewULID())
+}
+
+func (id ShiftSlotTemplateItemID) String() string {
+	return string(id)
+}
+
+func (id ShiftSlotTemplateItemID) Validate() error {
+	if id == "" {
+		return fmt.Errorf("item_id is required")
+	}
+	return ValidateULID(string(id))
+}
+
+func ParseShiftSlotTemplateItemID(s string) (ShiftSlotTemplateItemID, error) {
+	if err := ValidateULID(s); err != nil {
+		return "", err
+	}
+	return ShiftSlotTemplateItemID(s), nil
+}

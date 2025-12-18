@@ -11,6 +11,9 @@ export * from './businessDayApi';
 // ShiftSlot API
 export * from './shiftSlotApi';
 
+// Template API
+export * from './templateApi';
+
 // ShiftAssignment API
 export * from './shiftAssignmentApi';
 

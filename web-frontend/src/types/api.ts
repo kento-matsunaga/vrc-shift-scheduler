@@ -148,3 +148,48 @@ export interface PositionListResponse {
   count: number;
 }
 
+// ShiftSlotTemplate 関連
+export interface TemplateItem {
+  item_id?: string;
+  position_id: string;
+  slot_name: string;
+  instance_name: string;
+  start_time: string; // HH:MM:SS
+  end_time: string; // HH:MM:SS
+  required_count: number;
+  priority: number;
+}
+
+export interface Template {
+  template_id: string;
+  tenant_id: string;
+  event_id: string;
+  template_name: string;
+  description: string;
+  items: TemplateItem[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TemplateListResponse {
+  templates: Template[];
+  count: number;
+}
+
+export interface CreateTemplateRequest {
+  template_name: string;
+  description: string;
+  items: TemplateItem[];
+}
+
+export interface UpdateTemplateRequest {
+  template_name: string;
+  description: string;
+  items: TemplateItem[];
+}
+
+export interface SaveAsTemplateRequest {
+  template_name: string;
+  description: string;
+}
+

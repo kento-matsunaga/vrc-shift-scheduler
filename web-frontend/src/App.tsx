@@ -13,6 +13,9 @@ import AttendanceList from './pages/AttendanceList';
 import AttendanceDetail from './pages/AttendanceDetail';
 import ScheduleList from './pages/ScheduleList';
 import ScheduleDetail from './pages/ScheduleDetail';
+import TemplateList from './pages/TemplateList';
+import TemplateForm from './pages/TemplateForm';
+import TemplateDetail from './pages/TemplateDetail';
 import Layout from './components/Layout';
 import AttendanceResponse from './pages/public/AttendanceResponse';
 import ScheduleResponse from './pages/public/ScheduleResponse';
@@ -68,6 +71,10 @@ function App() {
         <Route index element={<Navigate to="/events" replace />} />
         <Route path="events" element={<EventList />} />
         <Route path="events/:eventId/business-days" element={<BusinessDayList />} />
+        <Route path="events/:eventId/templates" element={<TemplateList />} />
+        <Route path="events/:eventId/templates/new" element={<TemplateForm />} />
+        <Route path="events/:eventId/templates/:templateId" element={<TemplateDetail />} />
+        <Route path="events/:eventId/templates/:templateId/edit" element={<TemplateForm />} />
         <Route path="business-days/:businessDayId/shift-slots" element={<ShiftSlotList />} />
         <Route path="shift-slots/:slotId/assign" element={<AssignShift />} />
         <Route path="my-shifts" element={<MyShifts />} />
