@@ -186,6 +186,10 @@ function CreateEventModal({
   const [description, setDescription] = useState('');
   const [recurrenceType, setRecurrenceType] = useState<'none' | 'weekly' | 'biweekly'>('none');
   const [recurrenceDayOfWeek, setRecurrenceDayOfWeek] = useState<number>(6); // デフォルト土曜
+  const [recurrenceStartDate, setRecurrenceStartDate] = useState(() => {
+    // デフォルトは今日
+    return new Date().toISOString().split('T')[0];
+  });
   const [defaultStartTime, setDefaultStartTime] = useState('21:00');
   const [defaultEndTime, setDefaultEndTime] = useState('23:30');
   const [loading, setLoading] = useState(false);
@@ -206,6 +210,10 @@ function CreateEventModal({
         setError('定期イベントの場合は開始時刻と終了時刻を入力してください');
         return;
       }
+      if (recurrenceType === 'biweekly' && !recurrenceStartDate) {
+        setError('隔週イベントの場合は開始日を入力してください');
+        return;
+      }
     }
 
     setLoading(true);
@@ -223,8 +231,7 @@ function CreateEventModal({
         requestData.recurrence_day_of_week = recurrenceDayOfWeek;
         requestData.default_start_time = defaultStartTime + ':00'; // HH:MM:SS形式
         requestData.default_end_time = defaultEndTime + ':00';
-        // 開始日は今日
-        requestData.recurrence_start_date = new Date().toISOString().split('T')[0];
+        requestData.recurrence_start_date = recurrenceStartDate;
       }
 
       await createEvent(requestData);
@@ -315,6 +322,26 @@ function CreateEventModal({
                   ))}
                 </select>
               </div>
+
+              {/* 隔週の場合は開始日を必須で表示 */}
+              {recurrenceType === 'biweekly' && (
+                <div className="mb-4">
+                  <label htmlFor="recurrenceStartDate" className="label">
+                    開始日（基準日） <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    id="recurrenceStartDate"
+                    value={recurrenceStartDate}
+                    onChange={(e) => setRecurrenceStartDate(e.target.value)}
+                    className="input-field"
+                    disabled={loading}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    この日付を基準に隔週で営業日が生成されます
+                  </p>
+                </div>
+              )}
 
               <div className="mb-4 grid grid-cols-2 gap-4">
                 <div>
