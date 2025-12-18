@@ -1,13 +1,12 @@
 package rest
 
 import (
-	"context"
 	"encoding/json"
 	"log"
 	"net/http"
 	"time"
 
-	"github.com/erenoa/vrc-shift-scheduler/backend/internal/app"
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/application/usecase"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/shift"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/db"
@@ -17,17 +16,23 @@ import (
 
 // ShiftAssignmentHandler handles shift assignment-related HTTP requests
 type ShiftAssignmentHandler struct {
-	assignmentService *app.ShiftAssignmentService
-	assignmentRepo    *db.ShiftAssignmentRepository
-	dbPool            *pgxpool.Pool
+	confirmAssignmentUC     *usecase.ConfirmManualAssignmentUsecase
+	getAssignmentsUC        *usecase.GetAssignmentsUsecase
+	getAssignmentDetailUC   *usecase.GetAssignmentDetailUsecase
+	cancelAssignmentUC      *usecase.CancelAssignmentUsecase
 }
 
 // NewShiftAssignmentHandler creates a new ShiftAssignmentHandler
 func NewShiftAssignmentHandler(dbPool *pgxpool.Pool) *ShiftAssignmentHandler {
+	slotRepo := db.NewShiftSlotRepository(dbPool)
+	assignmentRepo := db.NewShiftAssignmentRepository(dbPool)
+	memberRepo := db.NewMemberRepository(dbPool)
+
 	return &ShiftAssignmentHandler{
-		assignmentService: app.NewShiftAssignmentService(dbPool),
-		assignmentRepo:    db.NewShiftAssignmentRepository(dbPool),
-		dbPool:            dbPool,
+		confirmAssignmentUC:   usecase.NewConfirmManualAssignmentUsecase(dbPool, slotRepo, assignmentRepo, memberRepo),
+		getAssignmentsUC:      usecase.NewGetAssignmentsUsecase(dbPool, assignmentRepo),
+		getAssignmentDetailUC: usecase.NewGetAssignmentDetailUsecase(dbPool, assignmentRepo),
+		cancelAssignmentUC:    usecase.NewCancelAssignmentUsecase(assignmentRepo),
 	}
 }
 
@@ -102,7 +107,7 @@ func (h *ShiftAssignmentHandler) ConfirmAssignment(w http.ResponseWriter, r *htt
 		return
 	}
 
-	// ID のパース
+	// Parse IDs
 	slotID, err := shift.ParseSlotID(req.SlotID)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "Invalid slot_id format", nil)
@@ -115,18 +120,19 @@ func (h *ShiftAssignmentHandler) ConfirmAssignment(w http.ResponseWriter, r *htt
 		return
 	}
 
-	// Application Service 経由でシフト確定
-	assignment, err := h.assignmentService.ConfirmManualAssignment(
-		ctx,
-		tenantID,
-		slotID,
-		memberID,
-		actorID,
-		req.Note,
-	)
+	// Execute usecase
+	input := usecase.ConfirmManualAssignmentInput{
+		TenantID: tenantID,
+		SlotID:   slotID,
+		MemberID: memberID,
+		ActorID:  actorID,
+		Note:     req.Note,
+	}
+
+	assignment, err := h.confirmAssignmentUC.Execute(ctx, input)
 	if err != nil {
 		log.Printf("ConfirmAssignment error: %+v", err)
-		// ドメインエラーを適切な HTTP ステータスに変換
+		// Handle domain errors
 		if domainErr, ok := err.(*common.DomainError); ok {
 			switch domainErr.Code() {
 			case common.ErrConflict:
@@ -144,11 +150,16 @@ func (h *ShiftAssignmentHandler) ConfirmAssignment(w http.ResponseWriter, r *htt
 		return
 	}
 
-	// レスポンス（JOIN データを含む）
-	resp, err := h.buildAssignmentResponse(ctx, assignment, nil, nil)
+	// Get assignment details with JOIN data
+	detailInput := usecase.GetAssignmentDetailInput{
+		TenantID:     tenantID,
+		AssignmentID: assignment.AssignmentID(),
+	}
+
+	details, err := h.getAssignmentDetailUC.Execute(ctx, detailInput)
 	if err != nil {
-		// JOIN エラーは無視して最小限のレスポンスを返す
-		resp = &ShiftAssignmentResponse{
+		// If JOIN fails, return minimal response
+		resp := &ShiftAssignmentResponse{
 			AssignmentID:        assignment.AssignmentID().String(),
 			TenantID:            assignment.TenantID().String(),
 			SlotID:              assignment.SlotID().String(),
@@ -159,10 +170,14 @@ func (h *ShiftAssignmentHandler) ConfirmAssignment(w http.ResponseWriter, r *htt
 			AssignedAt:          assignment.AssignedAt().Format(time.RFC3339),
 			CreatedAt:           assignment.CreatedAt().Format(time.RFC3339),
 			UpdatedAt:           assignment.UpdatedAt().Format(time.RFC3339),
-			NotificationSent:    false, // stub
+			NotificationSent:    false,
 		}
+		writeSuccess(w, http.StatusCreated, resp)
+		return
 	}
 
+	// Build full response with JOIN data
+	resp := buildAssignmentResponse(details)
 	writeSuccess(w, http.StatusCreated, resp)
 }
 
@@ -170,21 +185,21 @@ func (h *ShiftAssignmentHandler) ConfirmAssignment(w http.ResponseWriter, r *htt
 func (h *ShiftAssignmentHandler) GetAssignments(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	// テナントIDの取得
+	// Get tenant ID
 	tenantID, ok := getTenantIDFromContext(ctx)
 	if !ok {
 		writeError(w, http.StatusForbidden, "ERR_FORBIDDEN", "Tenant ID is required", nil)
 		return
 	}
 
-	// クエリパラメータの取得
+	// Parse query parameters
 	memberIDStr := r.URL.Query().Get("member_id")
 	slotIDStr := r.URL.Query().Get("slot_id")
 	statusStr := r.URL.Query().Get("assignment_status")
 	startDateStr := r.URL.Query().Get("start_date")
 	endDateStr := r.URL.Query().Get("end_date")
 
-	// 日付範囲のパース
+	// Parse date range
 	var startDate, endDate *time.Time
 	if startDateStr != "" {
 		parsed, err := time.Parse("2006-01-02", startDateStr)
@@ -203,64 +218,44 @@ func (h *ShiftAssignmentHandler) GetAssignments(w http.ResponseWriter, r *http.R
 		endDate = &parsed
 	}
 
-	var assignments []ShiftAssignmentResponse
+	// Build usecase input
+	input := usecase.GetAssignmentsInput{
+		TenantID:  tenantID,
+		Status:    statusStr,
+		StartDate: startDate,
+		EndDate:   endDate,
+	}
 
-	// member_id でフィルタ
 	if memberIDStr != "" {
 		memberID, err := common.ParseMemberID(memberIDStr)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "Invalid member_id format", nil)
 			return
 		}
-
-		assignmentList, err := h.assignmentRepo.FindByMemberID(ctx, tenantID, memberID)
-		if err != nil {
-			writeError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to fetch assignments", nil)
-			return
-		}
-
-		for _, a := range assignmentList {
-			if statusStr == "" || (statusStr == "confirmed" && !a.IsCancelled()) || (statusStr == "cancelled" && a.IsCancelled()) {
-				resp, err := h.buildAssignmentResponse(ctx, a, startDate, endDate)
-				if err != nil {
-					writeError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to build assignment response", nil)
-					return
-				}
-				if resp != nil {
-					assignments = append(assignments, *resp)
-				}
-			}
-		}
+		input.MemberID = &memberID
 	} else if slotIDStr != "" {
-		// slot_id でフィルタ
 		slotID, err := shift.ParseSlotID(slotIDStr)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "Invalid slot_id format", nil)
 			return
 		}
-
-		assignmentList, err := h.assignmentRepo.FindBySlotID(ctx, tenantID, slotID)
-		if err != nil {
-			writeError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to fetch assignments", nil)
-			return
-		}
-
-		for _, a := range assignmentList {
-			if statusStr == "" || (statusStr == "confirmed" && !a.IsCancelled()) || (statusStr == "cancelled" && a.IsCancelled()) {
-				resp, err := h.buildAssignmentResponse(ctx, a, startDate, endDate)
-				if err != nil {
-					writeError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to build assignment response", nil)
-					return
-				}
-				if resp != nil {
-					assignments = append(assignments, *resp)
-				}
-			}
-		}
+		input.SlotID = &slotID
 	} else {
-		// フィルタなし（全件取得は非推奨だが、テスト用に許可）
 		writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "member_id or slot_id is required", nil)
 		return
+	}
+
+	// Execute usecase
+	assignmentDetails, err := h.getAssignmentsUC.Execute(ctx, input)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to fetch assignments", nil)
+		return
+	}
+
+	// Build response
+	assignments := make([]ShiftAssignmentResponse, 0, len(assignmentDetails))
+	for _, details := range assignmentDetails {
+		assignments = append(assignments, buildAssignmentResponse(details))
 	}
 
 	writeSuccess(w, http.StatusOK, map[string]interface{}{
@@ -273,14 +268,14 @@ func (h *ShiftAssignmentHandler) GetAssignments(w http.ResponseWriter, r *http.R
 func (h *ShiftAssignmentHandler) GetAssignmentDetail(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	// テナントIDの取得
+	// Get tenant ID
 	tenantID, ok := getTenantIDFromContext(ctx)
 	if !ok {
 		writeError(w, http.StatusForbidden, "ERR_FORBIDDEN", "Tenant ID is required", nil)
 		return
 	}
 
-	// assignment_id の取得
+	// Get assignment_id from URL
 	assignmentIDStr := chi.URLParam(r, "assignment_id")
 	if assignmentIDStr == "" {
 		writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "assignment_id is required", nil)
@@ -293,8 +288,13 @@ func (h *ShiftAssignmentHandler) GetAssignmentDetail(w http.ResponseWriter, r *h
 		return
 	}
 
-	// 割り当ての取得
-	assignment, err := h.assignmentRepo.FindByID(ctx, tenantID, assignmentID)
+	// Execute usecase
+	input := usecase.GetAssignmentDetailInput{
+		TenantID:     tenantID,
+		AssignmentID: assignmentID,
+	}
+
+	details, err := h.getAssignmentDetailUC.Execute(ctx, input)
 	if err != nil {
 		if err.Error() == "shift assignment not found" {
 			writeError(w, http.StatusNotFound, "ERR_NOT_FOUND", "Shift assignment not found", nil)
@@ -304,103 +304,52 @@ func (h *ShiftAssignmentHandler) GetAssignmentDetail(w http.ResponseWriter, r *h
 		return
 	}
 
-	// レスポンス
-	resp, err := h.buildAssignmentResponse(ctx, assignment, nil, nil)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to build assignment response", nil)
-		return
-	}
-	if resp == nil {
-		writeError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to build assignment response", nil)
-		return
-	}
-
+	// Build response
+	resp := buildAssignmentResponse(details)
 	writeSuccess(w, http.StatusOK, resp)
 }
 
-// buildAssignmentResponse builds a ShiftAssignmentResponse with JOIN data
-func (h *ShiftAssignmentHandler) buildAssignmentResponse(ctx context.Context, assignment *shift.ShiftAssignment, startDate, endDate *time.Time) (*ShiftAssignmentResponse, error) {
-	// JOIN クエリで member_display_name, slot_name, target_date, start_time, end_time を取得
-	query := `
-		SELECT
-			m.display_name,
-			ss.slot_name,
-			ebd.target_date,
-			ss.start_time,
-			ss.end_time
-		FROM shift_assignments sa
-		INNER JOIN members m ON sa.member_id = m.member_id AND m.deleted_at IS NULL
-		INNER JOIN shift_slots ss ON sa.slot_id = ss.slot_id AND ss.deleted_at IS NULL
-		INNER JOIN event_business_days ebd ON ss.business_day_id = ebd.business_day_id AND ebd.deleted_at IS NULL
-		WHERE sa.assignment_id = $1 AND sa.tenant_id = $2 AND sa.deleted_at IS NULL
-	`
-
-	var (
-		memberDisplayName string
-		slotName          string
-		targetDate        time.Time
-		startTime         time.Time
-		endTime           time.Time
-	)
-
-	err := h.dbPool.QueryRow(ctx, query, assignment.AssignmentID().String(), assignment.TenantID().String()).Scan(
-		&memberDisplayName,
-		&slotName,
-		&targetDate,
-		&startTime,
-		&endTime,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	// 日付範囲フィルタ
-	if startDate != nil && targetDate.Before(*startDate) {
-		return nil, nil // フィルタで除外
-	}
-	if endDate != nil && targetDate.After(*endDate) {
-		return nil, nil // フィルタで除外
-	}
-
+// buildAssignmentResponse builds a ShiftAssignmentResponse from AssignmentWithDetails
+func buildAssignmentResponse(details *usecase.AssignmentWithDetails) ShiftAssignmentResponse {
 	var cancelledAtStr *string
-	if assignment.CancelledAt() != nil {
-		s := assignment.CancelledAt().Format(time.RFC3339)
+	if details.Assignment.CancelledAt() != nil {
+		s := details.Assignment.CancelledAt().Format(time.RFC3339)
 		cancelledAtStr = &s
 	}
 
-	return &ShiftAssignmentResponse{
-		AssignmentID:        assignment.AssignmentID().String(),
-		TenantID:            assignment.TenantID().String(),
-		SlotID:              assignment.SlotID().String(),
-		MemberID:            assignment.MemberID().String(),
-		MemberDisplayName:   memberDisplayName,
-		SlotName:            slotName,
-		TargetDate:          targetDate.Format("2006-01-02"),
-		StartTime:           startTime.Format("15:04:05"),
-		EndTime:             endTime.Format("15:04:05"),
-		AssignmentStatus:    map[bool]string{true: "cancelled", false: "confirmed"}[assignment.IsCancelled()],
-		AssignmentMethod:    string(assignment.AssignmentMethod()),
-		IsOutsidePreference: assignment.IsOutsidePreference(),
-		AssignedAt:          assignment.AssignedAt().Format(time.RFC3339),
+	return ShiftAssignmentResponse{
+		AssignmentID:        details.Assignment.AssignmentID().String(),
+		TenantID:            details.Assignment.TenantID().String(),
+		SlotID:              details.Assignment.SlotID().String(),
+		MemberID:            details.Assignment.MemberID().String(),
+		MemberDisplayName:   details.MemberDisplayName,
+		SlotName:            details.SlotName,
+		TargetDate:          details.TargetDate.Format("2006-01-02"),
+		StartTime:           details.StartTime.Format("15:04:05"),
+		EndTime:             details.EndTime.Format("15:04:05"),
+		AssignmentStatus:    map[bool]string{true: "cancelled", false: "confirmed"}[details.Assignment.IsCancelled()],
+		AssignmentMethod:    string(details.Assignment.AssignmentMethod()),
+		IsOutsidePreference: details.Assignment.IsOutsidePreference(),
+		AssignedAt:          details.Assignment.AssignedAt().Format(time.RFC3339),
 		CancelledAt:         cancelledAtStr,
-		CreatedAt:           assignment.CreatedAt().Format(time.RFC3339),
-		UpdatedAt:           assignment.UpdatedAt().Format(time.RFC3339),
+		CreatedAt:           details.Assignment.CreatedAt().Format(time.RFC3339),
+		UpdatedAt:           details.Assignment.UpdatedAt().Format(time.RFC3339),
 		NotificationSent:    false, // stub
-	}, nil
+	}
 }
 
 // CancelAssignment handles DELETE /api/v1/shift-assignments/:assignment_id
 func (h *ShiftAssignmentHandler) CancelAssignment(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	// テナントIDの取得
+	// Get tenant ID
 	tenantID, ok := getTenantIDFromContext(ctx)
 	if !ok {
 		writeError(w, http.StatusForbidden, "ERR_FORBIDDEN", "Tenant ID is required", nil)
 		return
 	}
 
-	// assignment_id の取得
+	// Get assignment_id from URL
 	assignmentIDStr := chi.URLParam(r, "assignment_id")
 	if assignmentIDStr == "" {
 		writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "assignment_id is required", nil)
@@ -413,8 +362,14 @@ func (h *ShiftAssignmentHandler) CancelAssignment(w http.ResponseWriter, r *http
 		return
 	}
 
-	// 割り当ての削除（論理削除）
-	if err := h.assignmentRepo.Delete(ctx, tenantID, assignmentID); err != nil {
+	// Execute usecase
+	input := usecase.CancelAssignmentInput{
+		TenantID:     tenantID,
+		AssignmentID: assignmentID,
+	}
+
+	err = h.cancelAssignmentUC.Execute(ctx, input)
+	if err != nil {
 		if err.Error() == "shift assignment not found" {
 			writeError(w, http.StatusNotFound, "ERR_NOT_FOUND", "Shift assignment not found", nil)
 			return
