@@ -2,13 +2,23 @@ import { apiClient } from '../apiClient';
 import type { ApiResponse, Event, EventListResponse, GenerateBusinessDaysResponse } from '../../types/api';
 
 /**
- * Event 作成
+ * Event 作成リクエストの型
  */
-export async function createEvent(data: {
+export interface CreateEventRequest {
   event_name: string;
   event_type: 'normal' | 'special';
   description: string;
-}): Promise<Event> {
+  recurrence_type?: 'none' | 'weekly' | 'biweekly';
+  recurrence_start_date?: string; // YYYY-MM-DD
+  recurrence_day_of_week?: number; // 0-6: 日曜=0, 土曜=6
+  default_start_time?: string; // HH:MM:SS
+  default_end_time?: string; // HH:MM:SS
+}
+
+/**
+ * Event 作成
+ */
+export async function createEvent(data: CreateEventRequest): Promise<Event> {
   const res = await apiClient.post<ApiResponse<Event>>('/api/v1/events', data);
   return res.data;
 }

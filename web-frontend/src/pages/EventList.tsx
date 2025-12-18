@@ -184,6 +184,10 @@ function CreateEventModal({
   const [eventName, setEventName] = useState('');
   const [eventType, setEventType] = useState<'normal' | 'special'>('normal');
   const [description, setDescription] = useState('');
+  const [recurrenceType, setRecurrenceType] = useState<'none' | 'weekly' | 'biweekly'>('none');
+  const [recurrenceDayOfWeek, setRecurrenceDayOfWeek] = useState<number>(6); // デフォルト土曜
+  const [defaultStartTime, setDefaultStartTime] = useState('21:00');
+  const [defaultEndTime, setDefaultEndTime] = useState('23:30');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -196,14 +200,34 @@ function CreateEventModal({
       return;
     }
 
+    // 定期イベントの場合のバリデーション
+    if (recurrenceType !== 'none') {
+      if (!defaultStartTime || !defaultEndTime) {
+        setError('定期イベントの場合は開始時刻と終了時刻を入力してください');
+        return;
+      }
+    }
+
     setLoading(true);
 
     try {
-      await createEvent({
+      const requestData: Parameters<typeof createEvent>[0] = {
         event_name: eventName.trim(),
         event_type: eventType,
         description: description.trim(),
-      });
+        recurrence_type: recurrenceType,
+      };
+
+      // 定期イベントの場合のみ追加フィールドを送信
+      if (recurrenceType !== 'none') {
+        requestData.recurrence_day_of_week = recurrenceDayOfWeek;
+        requestData.default_start_time = defaultStartTime + ':00'; // HH:MM:SS形式
+        requestData.default_end_time = defaultEndTime + ':00';
+        // 開始日は今日
+        requestData.recurrence_start_date = new Date().toISOString().split('T')[0];
+      }
+
+      await createEvent(requestData);
       onSuccess();
     } catch (err) {
       if (err instanceof ApiClientError) {
@@ -219,7 +243,7 @@ function CreateEventModal({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg max-w-md w-full p-6">
+      <div className="bg-white rounded-lg max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
         <h3 className="text-xl font-bold text-gray-900 mb-4">新しいイベントを作成</h3>
 
         <form onSubmit={handleSubmit}>
@@ -254,6 +278,80 @@ function CreateEventModal({
               <option value="special">特別イベント</option>
             </select>
           </div>
+
+          <div className="mb-4">
+            <label htmlFor="recurrenceType" className="label">
+              開催頻度
+            </label>
+            <select
+              id="recurrenceType"
+              value={recurrenceType}
+              onChange={(e) => setRecurrenceType(e.target.value as 'none' | 'weekly' | 'biweekly')}
+              className="input-field"
+              disabled={loading}
+            >
+              <option value="none">不定期（都度設定）</option>
+              <option value="weekly">毎週</option>
+              <option value="biweekly">隔週</option>
+            </select>
+          </div>
+
+          {/* 定期イベントの場合のみ表示 */}
+          {recurrenceType !== 'none' && (
+            <>
+              <div className="mb-4">
+                <label htmlFor="recurrenceDayOfWeek" className="label">
+                  開催曜日 <span className="text-red-500">*</span>
+                </label>
+                <select
+                  id="recurrenceDayOfWeek"
+                  value={recurrenceDayOfWeek}
+                  onChange={(e) => setRecurrenceDayOfWeek(Number(e.target.value))}
+                  className="input-field"
+                  disabled={loading}
+                >
+                  {DAY_NAMES.map((name, index) => (
+                    <option key={index} value={index}>{name}曜日</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="mb-4 grid grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="defaultStartTime" className="label">
+                    開始時刻 <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="time"
+                    id="defaultStartTime"
+                    value={defaultStartTime}
+                    onChange={(e) => setDefaultStartTime(e.target.value)}
+                    className="input-field"
+                    disabled={loading}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="defaultEndTime" className="label">
+                    終了時刻 <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="time"
+                    id="defaultEndTime"
+                    value={defaultEndTime}
+                    onChange={(e) => setDefaultEndTime(e.target.value)}
+                    className="input-field"
+                    disabled={loading}
+                  />
+                </div>
+              </div>
+
+              <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm text-blue-800">
+                  定期イベントを作成後、「営業日を自動生成」ボタンで今月〜来月の営業日をまとめて作成できます。
+                </p>
+              </div>
+            </>
+          )}
 
           <div className="mb-4">
             <label htmlFor="description" className="label">
