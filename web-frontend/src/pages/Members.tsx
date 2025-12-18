@@ -686,3 +686,4 @@ function AttendanceConfirmationModal({
     </div>
   );
 }
+

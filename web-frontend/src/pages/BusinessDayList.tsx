@@ -14,6 +14,11 @@ export default function BusinessDayList() {
   const [error, setError] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
 
+  // 現在表示中の月を管理（YYYY-MM形式）
+  const now = new Date();
+  const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const [selectedMonth, setSelectedMonth] = useState<string>(currentMonthKey);
+
   useEffect(() => {
     if (eventId) {
       loadData();
@@ -46,6 +51,55 @@ export default function BusinessDayList() {
   const handleCreateSuccess = () => {
     setShowCreateModal(false);
     loadData();
+  };
+
+  // 営業日を月ごとにグループ化
+  const groupByMonth = (days: BusinessDay[]) => {
+    const groups: Record<string, BusinessDay[]> = {};
+
+    days.forEach((day) => {
+      const date = new Date(day.target_date);
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+
+      if (!groups[monthKey]) {
+        groups[monthKey] = [];
+      }
+      groups[monthKey].push(day);
+    });
+
+    // 各月内で日付順にソート
+    Object.keys(groups).forEach((key) => {
+      groups[key].sort((a, b) =>
+        new Date(a.target_date).getTime() - new Date(b.target_date).getTime()
+      );
+    });
+
+    return groups;
+  };
+
+  // 月キーをソート（時系列順）
+  const getSortedMonthKeys = (groups: Record<string, BusinessDay[]>) => {
+    return Object.keys(groups).sort((a, b) => a.localeCompare(b));
+  };
+
+  // 前の月へ移動
+  const goToPreviousMonth = () => {
+    const monthGroups = groupByMonth(businessDays);
+    const sortedKeys = getSortedMonthKeys(monthGroups);
+    const currentIndex = sortedKeys.indexOf(selectedMonth);
+    if (currentIndex > 0) {
+      setSelectedMonth(sortedKeys[currentIndex - 1]);
+    }
+  };
+
+  // 次の月へ移動
+  const goToNextMonth = () => {
+    const monthGroups = groupByMonth(businessDays);
+    const sortedKeys = getSortedMonthKeys(monthGroups);
+    const currentIndex = sortedKeys.indexOf(selectedMonth);
+    if (currentIndex < sortedKeys.length - 1) {
+      setSelectedMonth(sortedKeys[currentIndex + 1]);
+    }
   };
 
   if (loading) {
@@ -120,44 +174,128 @@ export default function BusinessDayList() {
             最初の営業日を追加
           </button>
         </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {businessDays.map((day) => (
-            <Link
-              key={day.business_day_id}
-              to={`/business-days/${day.business_day_id}/shift-slots`}
-              className="card hover:shadow-lg transition-shadow"
-            >
-              <div className="flex justify-between items-start mb-2">
-                <div>
-                  <div className="text-lg font-bold text-gray-900">
-                    {new Date(day.target_date).toLocaleDateString('ja-JP', {
-                      month: 'long',
-                      day: 'numeric',
-                      weekday: 'short',
-                    })}
-                  </div>
-                  <div className="text-sm text-gray-600">
-                    {day.start_time.slice(0, 5)} 〜 {day.end_time.slice(0, 5)}
-                  </div>
-                </div>
-                <span
-                  className={`inline-block px-2 py-1 text-xs font-semibold rounded ${
-                    day.occurrence_type === 'recurring'
-                      ? 'bg-green-100 text-green-800'
-                      : 'bg-orange-100 text-orange-800'
+      ) : (() => {
+        const monthGroups = groupByMonth(businessDays);
+        const sortedKeys = getSortedMonthKeys(monthGroups);
+
+        // 選択された月が存在しない場合は最初の月を選択
+        if (!monthGroups[selectedMonth] && sortedKeys.length > 0) {
+          setSelectedMonth(sortedKeys[0]);
+          return null;
+        }
+
+        const monthDays = monthGroups[selectedMonth] || [];
+        const [year, month] = selectedMonth.split('-');
+        const currentIndex = sortedKeys.indexOf(selectedMonth);
+        const hasPrevious = currentIndex > 0;
+        const hasNext = currentIndex < sortedKeys.length - 1;
+
+        return (
+          <div>
+            {/* 月選択コントロール */}
+            <div className="card mb-6">
+              <div className="flex items-center justify-between gap-4">
+                {/* 前月ボタン */}
+                <button
+                  onClick={goToPreviousMonth}
+                  disabled={!hasPrevious}
+                  className={`p-2 rounded-lg transition-colors ${
+                    hasPrevious
+                      ? 'text-gray-700 hover:bg-gray-100'
+                      : 'text-gray-300 cursor-not-allowed'
                   }`}
+                  title="前の月"
                 >
-                  {day.occurrence_type === 'recurring' ? '通常営業' : '特別営業'}
-                </span>
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+
+                {/* 月選択プルダウン */}
+                <select
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(e.target.value)}
+                  className="flex-1 px-4 py-2 text-center text-lg font-bold text-gray-900 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {sortedKeys.map((monthKey) => {
+                    const [y, m] = monthKey.split('-');
+                    return (
+                      <option key={monthKey} value={monthKey}>
+                        {y}年{parseInt(m)}月
+                      </option>
+                    );
+                  })}
+                </select>
+
+                {/* 次月ボタン */}
+                <button
+                  onClick={goToNextMonth}
+                  disabled={!hasNext}
+                  className={`p-2 rounded-lg transition-colors ${
+                    hasNext
+                      ? 'text-gray-700 hover:bg-gray-100'
+                      : 'text-gray-300 cursor-not-allowed'
+                  }`}
+                  title="次の月"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
               </div>
-              {!day.is_active && (
-                <div className="mt-2 text-xs text-red-600">（非アクティブ）</div>
-              )}
-            </Link>
-          ))}
-        </div>
-      )}
+
+              {/* 営業日数表示 */}
+              <div className="text-sm text-gray-600 text-center mt-3">
+                {monthDays.length}件の営業日
+              </div>
+            </div>
+
+            {/* 営業日カード */}
+            {monthDays.length === 0 ? (
+              <div className="card text-center py-12">
+                <p className="text-gray-600">この月には営業日がありません</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {monthDays.map((day) => (
+                  <Link
+                    key={day.business_day_id}
+                    to={`/business-days/${day.business_day_id}/shift-slots`}
+                    className="card hover:shadow-lg transition-shadow"
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <div className="text-lg font-bold text-gray-900">
+                          {new Date(day.target_date).toLocaleDateString('ja-JP', {
+                            month: 'long',
+                            day: 'numeric',
+                            weekday: 'short',
+                          })}
+                        </div>
+                        <div className="text-sm text-gray-600">
+                          {day.start_time.slice(0, 5)} 〜 {day.end_time.slice(0, 5)}
+                        </div>
+                      </div>
+                      <span
+                        className={`inline-block px-2 py-1 text-xs font-semibold rounded ${
+                          day.occurrence_type === 'recurring'
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-orange-100 text-orange-800'
+                        }`}
+                      >
+                        {day.occurrence_type === 'recurring' ? '通常営業' : '特別営業'}
+                      </span>
+                    </div>
+                    {!day.is_active && (
+                      <div className="mt-2 text-xs text-red-600">（非アクティブ）</div>
+                    )}
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* 営業日作成モーダル */}
       {showCreateModal && eventId && (

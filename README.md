@@ -49,6 +49,7 @@ cd web-frontend && npm run dev
 | [docs/setup-windows.md](docs/setup-windows.md) | Windows 11 セットアップ（WSL2 + Docker Desktop） |
 | [SETUP.md](SETUP.md) | 詳細なセットアップ手順（macOS / Linux） |
 | [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md) | 環境変数の説明 |
+| [docs/DEPLOYMENT_SERVER_REQUIREMENTS.md](docs/DEPLOYMENT_SERVER_REQUIREMENTS.md) | **サーバー選定・デプロイメント要件まとめ** |
 
 ---
 

@@ -12,7 +12,7 @@ import (
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/config"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/db"
-	httphandler "github.com/erenoa/vrc-shift-scheduler/backend/internal/http"
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/interface/rest"
 )
 
 func main() {
@@ -32,7 +32,7 @@ func main() {
 	defer dbPool.Close()
 
 	// Create router
-	router := httphandler.NewRouter(cfg)
+	router := rest.NewRouter(dbPool)
 
 	// Create HTTP server
 	server := &http.Server{
