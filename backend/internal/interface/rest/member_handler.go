@@ -17,16 +17,21 @@ import (
 // MemberHandler handles member-related HTTP requests
 type MemberHandler struct {
 	memberRepo                 *db.MemberRepository
+	memberRoleRepo             *db.MemberRoleRepository
+	updateMemberUsecase        *appMember.UpdateMemberUsecase
 	getRecentAttendanceUsecase *appMember.GetRecentAttendanceUsecase
 }
 
 // NewMemberHandler creates a new MemberHandler
 func NewMemberHandler(dbPool *pgxpool.Pool) *MemberHandler {
 	memberRepo := db.NewMemberRepository(dbPool)
+	memberRoleRepo := db.NewMemberRoleRepository(dbPool)
 	attendanceRepo := db.NewAttendanceRepository(dbPool)
 
 	return &MemberHandler{
 		memberRepo:                 memberRepo,
+		memberRoleRepo:             memberRoleRepo,
+		updateMemberUsecase:        appMember.NewUpdateMemberUsecase(memberRepo, memberRoleRepo),
 		getRecentAttendanceUsecase: appMember.NewGetRecentAttendanceUsecase(memberRepo, attendanceRepo),
 	}
 }
@@ -38,16 +43,26 @@ type CreateMemberRequest struct {
 	Email         string `json:"email"`
 }
 
+// UpdateMemberRequest represents the request body for updating a member
+type UpdateMemberRequest struct {
+	DisplayName   string   `json:"display_name"`
+	DiscordUserID string   `json:"discord_user_id"`
+	Email         string   `json:"email"`
+	IsActive      bool     `json:"is_active"`
+	RoleIDs       []string `json:"role_ids"` // Role IDs to assign
+}
+
 // MemberResponse represents a member in API responses
 type MemberResponse struct {
-	MemberID      string `json:"member_id"`
-	TenantID      string `json:"tenant_id"`
-	DisplayName   string `json:"display_name"`
-	DiscordUserID string `json:"discord_user_id,omitempty"`
-	Email         string `json:"email,omitempty"`
-	IsActive      bool   `json:"is_active"`
-	CreatedAt     string `json:"created_at"`
-	UpdatedAt     string `json:"updated_at"`
+	MemberID      string   `json:"member_id"`
+	TenantID      string   `json:"tenant_id"`
+	DisplayName   string   `json:"display_name"`
+	DiscordUserID string   `json:"discord_user_id,omitempty"`
+	Email         string   `json:"email,omitempty"`
+	IsActive      bool     `json:"is_active"`
+	RoleIDs       []string `json:"role_ids,omitempty"` // Assigned role IDs
+	CreatedAt     string   `json:"created_at"`
+	UpdatedAt     string   `json:"updated_at"`
 }
 
 // CreateMember handles POST /api/v1/members
@@ -136,11 +151,94 @@ func (h *MemberHandler) CreateMember(w http.ResponseWriter, r *http.Request) {
 		DiscordUserID: newMember.DiscordUserID(),
 		Email:         newMember.Email(),
 		IsActive:      newMember.IsActive(),
+		RoleIDs:       []string{}, // 新規作成時はロールなし
 		CreatedAt:     newMember.CreatedAt().Format("2006-01-02T15:04:05Z07:00"),
 		UpdatedAt:     newMember.UpdatedAt().Format("2006-01-02T15:04:05Z07:00"),
 	}
 
 	writeSuccess(w, http.StatusCreated, resp)
+}
+
+// UpdateMember handles PUT /api/v1/members/{member_id}
+func (h *MemberHandler) UpdateMember(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// テナントIDの取得
+	tenantID, ok := getTenantIDFromContext(ctx)
+	if !ok {
+		writeError(w, http.StatusForbidden, "ERR_FORBIDDEN", "Tenant ID is required", nil)
+		return
+	}
+
+	// URLパラメータからmember_idを取得
+	memberID := chi.URLParam(r, "member_id")
+	if memberID == "" {
+		writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "member_id is required", nil)
+		return
+	}
+
+	// リクエストボディのパース
+	var req UpdateMemberRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "Invalid request body", nil)
+		return
+	}
+
+	// バリデーション
+	if req.DisplayName == "" {
+		writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "display_name is required", nil)
+		return
+	}
+
+	if len(req.DisplayName) > 50 {
+		writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "display_name must be 50 characters or less", nil)
+		return
+	}
+
+	// Usecase実行
+	input := appMember.UpdateMemberInput{
+		TenantID:      tenantID.String(),
+		MemberID:      memberID,
+		DisplayName:   req.DisplayName,
+		DiscordUserID: req.DiscordUserID,
+		Email:         req.Email,
+		IsActive:      req.IsActive,
+		RoleIDs:       req.RoleIDs,
+	}
+
+	output, err := h.updateMemberUsecase.Execute(ctx, input)
+	if err != nil {
+		log.Printf("UpdateMember error: %+v", err)
+		writeError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to update member", nil)
+		return
+	}
+
+	// 更新後のロールIDを取得
+	roleIDs, err := h.memberRoleRepo.FindRolesByMemberID(ctx, common.MemberID(memberID))
+	if err != nil {
+		log.Printf("Failed to fetch roles after update: %v", err)
+		roleIDs = []common.RoleID{}
+	}
+
+	roleIDStrs := make([]string, len(roleIDs))
+	for i, roleID := range roleIDs {
+		roleIDStrs[i] = roleID.String()
+	}
+
+	// レスポンス
+	resp := MemberResponse{
+		MemberID:      output.MemberID,
+		TenantID:      output.TenantID,
+		DisplayName:   output.DisplayName,
+		DiscordUserID: output.DiscordUserID,
+		Email:         output.Email,
+		IsActive:      output.IsActive,
+		RoleIDs:       roleIDStrs,
+		CreatedAt:     "", // UpdatedAt is returned, not CreatedAt
+		UpdatedAt:     output.UpdatedAt,
+	}
+
+	writeSuccess(w, http.StatusOK, resp)
 }
 
 // GetMembers handles GET /api/v1/members
@@ -185,6 +283,19 @@ func (h *MemberHandler) GetMembers(w http.ResponseWriter, r *http.Request) {
 	// レスポンス構築
 	memberResponses := make([]MemberResponse, 0, len(filteredMembers))
 	for _, m := range filteredMembers {
+		// メンバーのロールIDを取得
+		roleIDs, err := h.memberRoleRepo.FindRolesByMemberID(ctx, m.MemberID())
+		if err != nil {
+			log.Printf("Failed to fetch roles for member %s: %v", m.MemberID().String(), err)
+			roleIDs = []common.RoleID{} // エラー時は空配列
+		}
+
+		// RoleIDをstringスライスに変換
+		roleIDStrs := make([]string, len(roleIDs))
+		for i, roleID := range roleIDs {
+			roleIDStrs[i] = roleID.String()
+		}
+
 		memberResponses = append(memberResponses, MemberResponse{
 			MemberID:      m.MemberID().String(),
 			TenantID:      m.TenantID().String(),
@@ -192,6 +303,7 @@ func (h *MemberHandler) GetMembers(w http.ResponseWriter, r *http.Request) {
 			DiscordUserID: m.DiscordUserID(),
 			Email:         m.Email(),
 			IsActive:      m.IsActive(),
+			RoleIDs:       roleIDStrs,
 			CreatedAt:     m.CreatedAt().Format("2006-01-02T15:04:05Z07:00"),
 			UpdatedAt:     m.UpdatedAt().Format("2006-01-02T15:04:05Z07:00"),
 		})

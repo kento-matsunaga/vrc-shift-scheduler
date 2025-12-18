@@ -103,6 +103,7 @@ export interface Member {
   discord_user_id?: string;
   email?: string;
   is_active: boolean;
+  role_ids?: string[]; // Assigned role IDs
   created_at: string;
   updated_at: string;
 }

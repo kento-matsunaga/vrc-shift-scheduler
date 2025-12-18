@@ -109,6 +109,13 @@ func seedData(ctx context.Context, pool *pgxpool.Pool, tenantCount int) error {
 		}
 		log.Printf("   ✅ Members created: %d", len(memberIDs))
 
+		// 3.5. ロールを作成してメンバーに割り当て
+		roleCount, err := createRolesAndAssignToMembers(ctx, pool, tenantID, memberIDs)
+		if err != nil {
+			return fmt.Errorf("failed to create roles: %w", err)
+		}
+		log.Printf("   ✅ Roles created: %d", roleCount)
+
 		// 4. ポジションを作成
 		positionIDs, err := createPositions(ctx, pool, tenantID)
 		if err != nil {
@@ -802,4 +809,82 @@ func createShiftAssignments(ctx context.Context, repo *db.ShiftAssignmentReposit
 	}
 
 	return count, nil
+}
+
+// createRolesAndAssignToMembers creates roles and assigns them to members
+func createRolesAndAssignToMembers(ctx context.Context, pool *pgxpool.Pool, tenantID common.TenantID, memberIDs []common.MemberID) (int, error) {
+	now := time.Now()
+
+	// ロール定義
+	roles := []struct {
+		name         string
+		description  string
+		color        string
+		displayOrder int
+	}{
+		{"リーダー", "チームをまとめる責任者", "#EF4444", 1},         // 赤
+		{"サブリーダー", "リーダーをサポートする役割", "#8B5CF6", 2}, // 紫
+		{"ベテラン", "経験豊富なメンバー", "#3B82F6", 3},            // 青
+		{"レギュラー", "通常メンバー", "#10B981", 4},                // 緑
+		{"新人", "新しく参加したメンバー", "#F59E0B", 5},            // オレンジ
+	}
+
+	roleIDs := make([]string, 0, len(roles))
+
+	// ロールを作成
+	for _, r := range roles {
+		roleID := common.NewRoleID()
+		query := `
+			INSERT INTO roles (role_id, tenant_id, name, description, color, display_order, created_at, updated_at)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $7)
+			ON CONFLICT (role_id) DO NOTHING
+		`
+		_, err := pool.Exec(ctx, query, string(roleID), string(tenantID), r.name, r.description, r.color, r.displayOrder, now)
+		if err != nil {
+			return 0, fmt.Errorf("failed to create role %s: %w", r.name, err)
+		}
+		roleIDs = append(roleIDs, string(roleID))
+	}
+
+	// メンバーにロールを割り当て
+	// 最初の2人: リーダー
+	// 3-4人目: サブリーダー
+	// 5-7人目: ベテラン
+	// 8-9人目: レギュラー
+	// 10人目: 新人
+	for i, memberID := range memberIDs {
+		var assignedRoleIDs []string
+
+		if i < 2 {
+			// リーダー
+			assignedRoleIDs = append(assignedRoleIDs, roleIDs[0])
+		} else if i < 4 {
+			// サブリーダー
+			assignedRoleIDs = append(assignedRoleIDs, roleIDs[1])
+		} else if i < 7 {
+			// ベテラン
+			assignedRoleIDs = append(assignedRoleIDs, roleIDs[2])
+		} else if i < 9 {
+			// レギュラー
+			assignedRoleIDs = append(assignedRoleIDs, roleIDs[3])
+		} else {
+			// 新人
+			assignedRoleIDs = append(assignedRoleIDs, roleIDs[4])
+		}
+
+		// メンバーロールを保存
+		for _, roleID := range assignedRoleIDs {
+			query := `
+				INSERT INTO member_roles (member_id, role_id, assigned_at)
+				VALUES ($1, $2, $3)
+				ON CONFLICT (member_id, role_id) DO NOTHING
+			`
+			_, err := pool.Exec(ctx, query, string(memberID), roleID, now)
+			if err != nil {
+				log.Printf("Failed to assign role to member: %v", err)
+			}
+		}
+	}
+
+	return len(roles), nil
 }

@@ -32,6 +32,20 @@ export async function getMemberDetail(memberId: string): Promise<Member> {
 }
 
 /**
+ * メンバー更新
+ */
+export async function updateMember(memberId: string, data: {
+  display_name: string;
+  discord_user_id?: string;
+  email?: string;
+  is_active: boolean;
+  role_ids?: string[];
+}): Promise<Member> {
+  const res = await apiClient.put<ApiResponse<Member>>(`/api/v1/members/${memberId}`, data);
+  return res.data;
+}
+
+/**
  * 直近の出欠状況を取得
  */
 export async function getRecentAttendance(params?: {

@@ -364,3 +364,25 @@ func ParseTargetDateID(s string) (TargetDateID, error) {
 	}
 	return TargetDateID(s), nil
 }
+
+// RoleID represents a role identifier
+type RoleID string
+
+func NewRoleID() RoleID {
+	return RoleID(NewULID())
+}
+
+func (id RoleID) String() string {
+	return string(id)
+}
+
+func (id RoleID) Validate() error {
+	return ValidateULID(string(id))
+}
+
+func ParseRoleID(s string) (RoleID, error) {
+	if err := ValidateULID(s); err != nil {
+		return "", err
+	}
+	return RoleID(s), nil
+}

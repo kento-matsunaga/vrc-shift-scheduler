@@ -53,6 +53,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		eventHandler := NewEventHandler(dbPool)
 		businessDayHandler := NewBusinessDayHandler(dbPool)
 		memberHandler := NewMemberHandler(dbPool)
+		roleHandler := NewRoleHandler(dbPool)
 		shiftSlotHandler := NewShiftSlotHandler(dbPool)
 		shiftAssignmentHandler := NewShiftAssignmentHandler(dbPool)
 		attendanceHandler := NewAttendanceHandler(dbPool)
@@ -84,6 +85,16 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			r.Get("/", memberHandler.GetMembers)
 			r.Get("/recent-attendance", memberHandler.GetRecentAttendance)
 			r.Get("/{member_id}", memberHandler.GetMemberDetail)
+			r.Put("/{member_id}", memberHandler.UpdateMember)
+		})
+
+		// Role API
+		r.Route("/roles", func(r chi.Router) {
+			r.Post("/", roleHandler.CreateRole)
+			r.Get("/", roleHandler.ListRoles)
+			r.Get("/{role_id}", roleHandler.GetRole)
+			r.Put("/{role_id}", roleHandler.UpdateRole)
+			r.Delete("/{role_id}", roleHandler.DeleteRole)
 		})
 
 		// Actual Attendance API（本出席 - 実際のシフト割り当て実績）

@@ -165,6 +165,7 @@ function CreateBusinessDayModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [schedules, setSchedules] = useState<Schedule[]>([]);
+  const [selectedScheduleId, setSelectedScheduleId] = useState<string>('');
   const [selectedSchedule, setSelectedSchedule] = useState<Schedule | null>(null);
   const [scheduleResponses, setScheduleResponses] = useState<ScheduleResponse[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
@@ -175,30 +176,15 @@ function CreateBusinessDayModal({
     loadSchedules();
   }, []);
 
-  // 選択月が変わったら日程調整をフィルター
+  // 日程調整を手動で選択したときの処理
   useEffect(() => {
-    if (targetDate && schedules.length > 0) {
-      const selectedMonth = new Date(targetDate).getMonth();
-      const selectedYear = new Date(targetDate).getFullYear();
-
-      // 選択月に候補日がある日程調整を探す
-      const matchingSchedule = schedules.find((schedule) => {
-        if (!schedule.candidates || schedule.candidates.length === 0) return false;
-        // 候補日のいずれかが選択月にあるかチェック
-        return schedule.candidates.some((candidate: any) => {
-          const candidateDate = new Date(candidate.date);
-          return candidateDate.getMonth() === selectedMonth && candidateDate.getFullYear() === selectedYear;
-        });
-      });
-
-      if (matchingSchedule) {
-        loadScheduleDetail(matchingSchedule.schedule_id);
-      } else {
-        setSelectedSchedule(null);
-        setScheduleResponses([]);
-      }
+    if (selectedScheduleId) {
+      loadScheduleDetail(selectedScheduleId);
+    } else {
+      setSelectedSchedule(null);
+      setScheduleResponses([]);
     }
-  }, [targetDate, schedules]);
+  }, [selectedScheduleId]);
 
   const loadSchedules = async () => {
     try {
@@ -269,8 +255,8 @@ function CreateBusinessDayModal({
   const respondedMemberIds = selectedSchedule ? new Set(scheduleResponses.map((r) => r.member_id)) : new Set();
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
-      <div className="bg-white rounded-lg max-w-4xl w-full p-6 my-8">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto p-6">
         <h3 className="text-xl font-bold text-gray-900 mb-4">営業日を追加</h3>
 
         <form onSubmit={handleSubmit}>
@@ -327,6 +313,32 @@ function CreateBusinessDayModal({
             </p>
           </div>
 
+          {/* 日程調整選択 */}
+          {schedules.length > 0 && (
+            <div className="mb-4">
+              <label htmlFor="scheduleSelect" className="label">
+                日程調整を参照（任意）
+              </label>
+              <select
+                id="scheduleSelect"
+                value={selectedScheduleId}
+                onChange={(e) => setSelectedScheduleId(e.target.value)}
+                className="input-field"
+                disabled={loading}
+              >
+                <option value="">日程調整を選択してください</option>
+                {schedules.map((schedule) => (
+                  <option key={schedule.schedule_id} value={schedule.schedule_id}>
+                    {schedule.title}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-gray-500 mt-1">
+                日程調整の回答状況を確認しながら営業日を追加できます
+              </p>
+            </div>
+          )}
+
           {error && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
               <p className="text-sm text-red-800">{error}</p>
@@ -334,10 +346,10 @@ function CreateBusinessDayModal({
           )}
 
           {/* 日程調整結果 */}
-          {targetDate && selectedSchedule && (
+          {selectedSchedule && (
             <div className="mt-6 pt-6 border-t border-gray-200">
               <h4 className="font-semibold text-gray-900 mb-3">
-                📅 この月の日程調整結果: {selectedSchedule.title}
+                📅 日程調整結果: {selectedSchedule.title}
               </h4>
               {loadingSchedule ? (
                 <div className="text-center py-4 text-gray-600">読み込み中...</div>
@@ -357,15 +369,7 @@ function CreateBusinessDayModal({
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-200">
-                        {selectedSchedule.candidates
-                          ?.filter((candidate: any) => {
-                            // 選択月の候補日のみ表示
-                            const candidateDate = new Date(candidate.date);
-                            const selectedMonth = new Date(targetDate).getMonth();
-                            const selectedYear = new Date(targetDate).getFullYear();
-                            return candidateDate.getMonth() === selectedMonth && candidateDate.getFullYear() === selectedYear;
-                          })
-                          .map((candidate: any) => {
+                        {selectedSchedule.candidates?.map((candidate: any) => {
                           const candidateResponses = scheduleResponses.filter(
                             (r) => r.candidate_id === candidate.candidate_id
                           );
@@ -378,7 +382,12 @@ function CreateBusinessDayModal({
                           const isSelected = targetDate === candidateDateStr;
 
                           return (
-                            <tr key={candidate.candidate_id} className={isSelected ? 'bg-blue-50' : 'hover:bg-gray-50'}>
+                            <tr
+                              key={candidate.candidate_id}
+                              className={isSelected ? 'bg-blue-50' : 'hover:bg-gray-50'}
+                              onClick={() => setTargetDate(candidateDateStr)}
+                              style={{ cursor: 'pointer' }}
+                            >
                               <td className="px-3 py-2">
                                 <div className="flex items-center gap-2">
                                   {isSelected && <span className="text-blue-600">→</span>}
@@ -413,8 +422,82 @@ function CreateBusinessDayModal({
                     </table>
                   </div>
                   <p className="text-xs text-gray-500 mt-2">
-                    💡 選択した月の候補日のみ表示しています。○: 参加可能、△: 不確定、×: 参加不可
+                    💡 候補日をクリックすると日付欄に自動入力されます。○: 参加可能、△: 不確定、×: 参加不可
                   </p>
+
+                  {/* 選択した日付のメンバー別回答詳細 */}
+                  {targetDate && (() => {
+                    // 選択した日付の候補日を見つける
+                    const selectedCandidate = selectedSchedule.candidates?.find((c: any) => {
+                      const candidateDateStr = new Date(c.date).toISOString().split('T')[0];
+                      return targetDate === candidateDateStr;
+                    });
+
+                    if (!selectedCandidate) return null;
+
+                    // この候補日への回答を取得
+                    const candidateResponses = scheduleResponses.filter(
+                      (r) => r.candidate_id === selectedCandidate.candidate_id
+                    );
+
+                    // メンバーごとの回答状況を作成
+                    const memberResponseMap = new Map<string, string>();
+                    candidateResponses.forEach((r) => {
+                      memberResponseMap.set(r.member_id, r.availability);
+                    });
+
+                    return (
+                      <div className="mt-4 pt-4 border-t border-gray-200">
+                        <h5 className="font-semibold text-gray-900 mb-3">
+                          {new Date(targetDate).toLocaleDateString('ja-JP', {
+                            month: 'long',
+                            day: 'numeric',
+                            weekday: 'short',
+                          })} のメンバー別回答
+                        </h5>
+                        <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-lg">
+                          <table className="min-w-full text-sm">
+                            <thead className="bg-gray-50 sticky top-0">
+                              <tr>
+                                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">メンバー</th>
+                                <th className="px-3 py-2 text-center text-xs font-medium text-gray-500">回答</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-200">
+                              {members.map((member) => {
+                                const availability = memberResponseMap.get(member.member_id);
+                                let statusText = '-';
+                                let statusColor = 'text-gray-400';
+
+                                if (availability === 'available') {
+                                  statusText = '○';
+                                  statusColor = 'text-green-600 font-bold';
+                                } else if (availability === 'maybe') {
+                                  statusText = '△';
+                                  statusColor = 'text-yellow-600 font-bold';
+                                } else if (availability === 'unavailable') {
+                                  statusText = '×';
+                                  statusColor = 'text-red-600 font-bold';
+                                }
+
+                                return (
+                                  <tr key={member.member_id} className="hover:bg-gray-50">
+                                    <td className="px-3 py-2 text-gray-900">{member.display_name}</td>
+                                    <td className={`px-3 py-2 text-center ${statusColor} text-base`}>
+                                      {statusText}
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-2">
+                          ○: 参加可能、△: 不確定、×: 参加不可、-: 未回答
+                        </p>
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
             </div>

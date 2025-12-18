@@ -146,6 +146,19 @@ func (m *Member) IsDeleted() bool {
 	return m.deletedAt != nil
 }
 
+// UpdateDetails updates multiple member details at once
+func (m *Member) UpdateDetails(displayName, discordUserID, email string, isActive bool) error {
+	// Update fields
+	m.displayName = displayName
+	m.discordUserID = discordUserID
+	m.email = email
+	m.isActive = isActive
+	m.updatedAt = time.Now()
+
+	// Validate after update
+	return m.validate()
+}
+
 // UpdateDisplayName updates the display name
 func (m *Member) UpdateDisplayName(displayName string) error {
 	if displayName == "" {

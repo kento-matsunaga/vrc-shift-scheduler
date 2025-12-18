@@ -40,6 +40,9 @@ export default function Layout() {
                 <Link to="/members" className={linkClass('/members')}>
                   メンバー
                 </Link>
+                <Link to="/roles" className={linkClass('/roles')}>
+                  ロール
+                </Link>
                 <Link to="/attendance" className={linkClass('/attendance')}>
                   出欠確認
                 </Link>
