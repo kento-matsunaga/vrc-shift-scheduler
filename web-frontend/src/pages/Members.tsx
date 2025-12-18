@@ -11,8 +11,8 @@ export default function Members() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // フィルター
-  const [selectedRoleId, setSelectedRoleId] = useState<string>('');
+  // フィルター（複数選択）
+  const [filterRoleIds, setFilterRoleIds] = useState<string[]>([]);
 
   // 新規登録・編集フォーム
   const [showForm, setShowForm] = useState(false);
@@ -57,9 +57,9 @@ export default function Members() {
     fetchData();
   }, []);
 
-  // フィルター後のメンバー
-  const filteredMembers = selectedRoleId
-    ? members.filter((m) => m.role_ids?.includes(selectedRoleId))
+  // フィルター後のメンバー（選択したロールのいずれかを持つメンバーを表示）
+  const filteredMembers = filterRoleIds.length > 0
+    ? members.filter((m) => m.role_ids?.some((roleId) => filterRoleIds.includes(roleId)))
     : members;
 
   // 本出席データを取得
@@ -215,24 +215,60 @@ export default function Members() {
         </div>
       )}
 
-      {/* ロールフィルター */}
+      {/* ロールフィルター（複数選択） */}
       {roles.length > 0 && (
         <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            ロールでフィルター
-          </label>
-          <select
-            value={selectedRoleId}
-            onChange={(e) => setSelectedRoleId(e.target.value)}
-            className="input-field max-w-xs"
-          >
-            <option value="">すべて表示</option>
-            {roles.map((role) => (
-              <option key={role.role_id} value={role.role_id}>
-                {role.name}
-              </option>
-            ))}
-          </select>
+          <div className="flex items-center justify-between mb-2">
+            <label className="block text-sm font-medium text-gray-700">
+              ロールでフィルター
+            </label>
+            {filterRoleIds.length > 0 && (
+              <button
+                onClick={() => setFilterRoleIds([])}
+                className="text-xs text-blue-600 hover:text-blue-800"
+              >
+                クリア
+              </button>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {roles.map((role) => {
+              const isSelected = filterRoleIds.includes(role.role_id);
+              return (
+                <button
+                  key={role.role_id}
+                  onClick={() => {
+                    if (isSelected) {
+                      setFilterRoleIds(filterRoleIds.filter((id) => id !== role.role_id));
+                    } else {
+                      setFilterRoleIds([...filterRoleIds, role.role_id]);
+                    }
+                  }}
+                  className={`inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
+                    isSelected
+                      ? 'ring-2 ring-offset-1 ring-blue-500'
+                      : 'opacity-60 hover:opacity-100'
+                  }`}
+                  style={{
+                    backgroundColor: role.color || '#6B7280',
+                    color: 'white',
+                  }}
+                >
+                  {role.name}
+                  {isSelected && (
+                    <svg className="w-4 h-4 ml-1" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          {filterRoleIds.length > 0 && (
+            <p className="text-xs text-gray-500 mt-2">
+              {filterRoleIds.length}個のロールでフィルター中（{filteredMembers.length}人表示）
+            </p>
+          )}
         </div>
       )}
 
@@ -240,9 +276,9 @@ export default function Members() {
       {filteredMembers.length === 0 ? (
         <div className="card text-center py-12">
           <p className="text-gray-600 mb-4">
-            {selectedRoleId ? 'このロールのメンバーはいません' : 'まだメンバーがいません'}
+            {filterRoleIds.length > 0 ? '選択したロールのメンバーはいません' : 'まだメンバーがいません'}
           </p>
-          {!selectedRoleId && (
+          {filterRoleIds.length === 0 && (
             <button onClick={handleOpenCreateForm} className="btn-primary">
               最初のメンバーを追加
             </button>
