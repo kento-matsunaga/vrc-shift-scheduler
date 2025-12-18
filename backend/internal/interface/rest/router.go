@@ -106,6 +106,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 
 		// Attendance API（管理用）
 		r.Route("/attendance/collections", func(r chi.Router) {
+			r.Get("/", attendanceHandler.ListCollections)
 			r.Post("/", attendanceHandler.CreateCollection)
 			r.Get("/{collection_id}", attendanceHandler.GetCollection)
 			r.Post("/{collection_id}/close", attendanceHandler.CloseCollection)

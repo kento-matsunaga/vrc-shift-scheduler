@@ -4,15 +4,11 @@ import { getSchedule, getScheduleResponses, type Schedule, type ScheduleResponse
 import { getMembers } from '../lib/api';
 import type { Member } from '../types/api';
 
-interface CandidateWithResponses {
+interface Candidate {
   candidate_id: string;
   date: string;
   start_time?: string;
   end_time?: string;
-  availableCount: number;
-  maybeCount: number;
-  unavailableCount: number;
-  noResponseCount: number;
 }
 
 export default function ScheduleDetail() {
@@ -20,7 +16,6 @@ export default function ScheduleDetail() {
   const [schedule, setSchedule] = useState<Schedule | null>(null);
   const [responses, setResponses] = useState<ScheduleResponse[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
-  const [candidatesWithResponses, setCandidatesWithResponses] = useState<CandidateWithResponses[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [publicUrl, setPublicUrl] = useState('');
@@ -47,41 +42,9 @@ export default function ScheduleDetail() {
       setResponses(responsesData);
       setMembers(membersData.members);
 
-      // 公開URLを生成
       const baseUrl = window.location.origin;
       const url = `${baseUrl}/p/schedule/${scheduleData.public_token}`;
       setPublicUrl(url);
-
-      // 候補日ごとの集計を作成
-      if (scheduleData.candidates) {
-        const candidatesMap = scheduleData.candidates.map((candidate: any) => {
-          // この候補日への回答を集計
-          const candidateResponses = responsesData.filter(
-            (r) => r.candidate_id === candidate.candidate_id
-          );
-
-          const availableCount = candidateResponses.filter((r) => r.availability === 'available').length;
-          const maybeCount = candidateResponses.filter((r) => r.availability === 'maybe').length;
-          const unavailableCount = candidateResponses.filter((r) => r.availability === 'unavailable').length;
-
-          // 回答済みメンバーのユニークIDを取得
-          const respondedMemberIds = new Set(responsesData.map((r) => r.member_id));
-          const noResponseCount = membersData.members.length - respondedMemberIds.size;
-
-          return {
-            candidate_id: candidate.candidate_id,
-            date: candidate.date,
-            start_time: candidate.start_time,
-            end_time: candidate.end_time,
-            availableCount,
-            maybeCount,
-            unavailableCount,
-            noResponseCount,
-          };
-        });
-
-        setCandidatesWithResponses(candidatesMap);
-      }
     } catch (err) {
       console.error('Failed to load schedule detail:', err);
       setError('データの取得に失敗しました');
@@ -135,13 +98,46 @@ export default function ScheduleDetail() {
     );
   }
 
-  // 回答済みメンバーのユニークIDを取得
+  const candidates = (schedule.candidates || []) as Candidate[];
+
+  // Get unique member IDs who responded
   const respondedMemberIds = new Set(responses.map((r) => r.member_id));
   const responseCount = respondedMemberIds.size;
   const totalMembers = members.length;
 
+  // Create response map for quick lookup: member_id -> candidate_id -> availability
+  const responseMap = new Map<string, Map<string, 'available' | 'maybe' | 'unavailable'>>();
+  responses.forEach((resp) => {
+    if (!responseMap.has(resp.member_id)) {
+      responseMap.set(resp.member_id, new Map());
+    }
+    responseMap.get(resp.member_id)!.set(resp.candidate_id, resp.availability);
+  });
+
+  // Calculate stats for each candidate
+  const candidateStats = candidates.map((candidate) => {
+    const availableCount = responses.filter(
+      (r) => r.candidate_id === candidate.candidate_id && r.availability === 'available'
+    ).length;
+    const maybeCount = responses.filter(
+      (r) => r.candidate_id === candidate.candidate_id && r.availability === 'maybe'
+    ).length;
+    const unavailableCount = responses.filter(
+      (r) => r.candidate_id === candidate.candidate_id && r.availability === 'unavailable'
+    ).length;
+    const noResponseCount = totalMembers - respondedMemberIds.size;
+
+    return {
+      candidateId: candidate.candidate_id,
+      availableCount,
+      maybeCount,
+      unavailableCount,
+      noResponseCount,
+    };
+  });
+
   return (
-    <div className="max-w-6xl mx-auto">
+    <div className="max-w-7xl mx-auto">
       {/* パンくずリスト */}
       <nav className="mb-6 text-sm text-gray-600">
         <Link to="/schedules" className="hover:text-gray-900">
@@ -163,10 +159,10 @@ export default function ScheduleDetail() {
           {getStatusBadge(schedule.status)}
         </div>
 
-        <div className="grid grid-cols-2 gap-4 text-sm">
+        <div className="grid grid-cols-2 gap-4 text-sm mb-4">
           <div>
             <span className="text-gray-500">候補日数:</span>{' '}
-            <span className="font-medium">{schedule.candidates?.length || 0}件</span>
+            <span className="font-medium">{candidates.length}件</span>
           </div>
           <div>
             <span className="text-gray-500">回答数:</span>{' '}
@@ -197,7 +193,7 @@ export default function ScheduleDetail() {
         </div>
 
         {/* 公開URL */}
-        <div className="mt-6 pt-6 border-t border-gray-200">
+        <div className="pt-4 border-t border-gray-200">
           <h3 className="text-sm font-semibold text-gray-900 mb-2">公開URL</h3>
           <div className="flex gap-2">
             <input
@@ -212,188 +208,135 @@ export default function ScheduleDetail() {
             >
               {copied ? '✓ コピー済み' : 'URLをコピー'}
             </button>
-            <a
-              href={publicUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition text-sm whitespace-nowrap"
-            >
-              プレビュー
-            </a>
           </div>
         </div>
       </div>
 
-      {/* 候補日ごとの回答状況 */}
+      {/* 日程調整表（調整さん形式） */}
       <div className="bg-white rounded-lg shadow overflow-hidden mb-6">
         <div className="px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">候補日ごとの回答状況</h2>
+          <h2 className="text-lg font-semibold text-gray-900">回答状況</h2>
+          <p className="text-sm text-gray-600 mt-1">
+            ○: 参加可能、△: 不確定、×: 参加不可、-: 未回答
+          </p>
         </div>
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  候補日
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50 z-10">
+                  メンバー
                 </th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  ○ 参加可能
-                </th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  △ 不確定
-                </th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  × 参加不可
-                </th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  - 未回答
-                </th>
+                {candidates.map((candidate) => (
+                  <th
+                    key={candidate.candidate_id}
+                    className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]"
+                  >
+                    <div>
+                      {new Date(candidate.date).toLocaleDateString('ja-JP', {
+                        month: '2-digit',
+                        day: '2-digit',
+                      })}
+                    </div>
+                    <div className="text-xs font-normal normal-case text-gray-400">
+                      {new Date(candidate.date).toLocaleDateString('ja-JP', {
+                        weekday: 'short',
+                      })}
+                    </div>
+                    {candidate.start_time && candidate.end_time && (
+                      <div className="text-xs font-normal normal-case text-gray-400 mt-1">
+                        {new Date(candidate.start_time).toLocaleTimeString('ja-JP', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                        -
+                        {new Date(candidate.end_time).toLocaleTimeString('ja-JP', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </div>
+                    )}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {candidatesWithResponses.length === 0 ? (
+              {members.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
-                    候補日がありません
+                  <td colSpan={candidates.length + 1} className="px-6 py-12 text-center text-gray-500">
+                    メンバーがいません
                   </td>
                 </tr>
               ) : (
-                candidatesWithResponses.map((candidate) => (
-                  <tr key={candidate.candidate_id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">
-                        {new Date(candidate.date).toLocaleString('ja-JP', {
-                          year: 'numeric',
-                          month: '2-digit',
-                          day: '2-digit',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                          weekday: 'short',
-                        })}
-                      </div>
-                      {candidate.start_time && candidate.end_time && (
-                        <div className="text-xs text-gray-500">
-                          {new Date(candidate.start_time).toLocaleTimeString('ja-JP', {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}{' '}
-                          〜{' '}
-                          {new Date(candidate.end_time).toLocaleTimeString('ja-JP', {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-center">
-                      <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
-                        {candidate.availableCount}人
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-center">
-                      <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">
-                        {candidate.maybeCount}人
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-center">
-                      <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800">
-                        {candidate.unavailableCount}人
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-center">
-                      <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-600">
-                        {candidate.noResponseCount}人
-                      </span>
-                    </td>
-                  </tr>
-                ))
+                members.map((member) => {
+                  const memberResponses = responseMap.get(member.member_id);
+                  return (
+                    <tr key={member.member_id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 sticky left-0 bg-white">
+                        {member.display_name}
+                      </td>
+                      {candidates.map((candidate) => {
+                        const availability = memberResponses?.get(candidate.candidate_id);
+                        let content;
+                        let bgColor;
+
+                        if (availability === 'available') {
+                          content = '○';
+                          bgColor = 'bg-green-50 text-green-800';
+                        } else if (availability === 'maybe') {
+                          content = '△';
+                          bgColor = 'bg-yellow-50 text-yellow-800';
+                        } else if (availability === 'unavailable') {
+                          content = '×';
+                          bgColor = 'bg-red-50 text-red-800';
+                        } else {
+                          content = '-';
+                          bgColor = 'bg-gray-50 text-gray-400';
+                        }
+
+                        return (
+                          <td
+                            key={candidate.candidate_id}
+                            className={`px-4 py-4 text-center text-lg font-semibold ${bgColor}`}
+                          >
+                            {content}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })
               )}
             </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* 個別回答一覧 */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">個別回答一覧</h2>
-          <p className="text-sm text-gray-600 mt-1">
-            {responseCount > 0 ? `${responseCount}人のメンバーが回答しました` : 'まだ回答がありません'}
-          </p>
-        </div>
-        <div className="divide-y divide-gray-200">
-          {responseCount === 0 ? (
-            <div className="px-6 py-12 text-center text-gray-500">
-              まだ回答がありません
-            </div>
-          ) : (
-            // メンバーIDでグループ化して表示
-            Array.from(respondedMemberIds).map((memberId) => {
-              const memberResponses = responses.filter((r) => r.member_id === memberId);
-              const member = members.find((m) => m.member_id === memberId);
-
-              return (
-                <div key={memberId} className="px-6 py-4">
-                  <div className="font-medium text-gray-900 mb-2">
-                    {member?.display_name || memberId}
-                  </div>
-                  <div className="space-y-1">
-                    {memberResponses.map((response) => {
-                      const candidate = schedule.candidates?.find(
-                        (c: any) => c.candidate_id === response.candidate_id
-                      );
-                      if (!candidate) return null;
-
-                      let statusBadge;
-                      if (response.availability === 'available') {
-                        statusBadge = (
-                          <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-800">
-                            ○ 参加可能
-                          </span>
-                        );
-                      } else if (response.availability === 'maybe') {
-                        statusBadge = (
-                          <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
-                            △ 不確定
-                          </span>
-                        );
-                      } else {
-                        statusBadge = (
-                          <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-red-100 text-red-800">
-                            × 参加不可
-                          </span>
-                        );
-                      }
-
-                      return (
-                        <div
-                          key={response.response_id}
-                          className="flex items-center gap-3 text-sm text-gray-600"
-                        >
-                          {statusBadge}
-                          <span>
-                            {new Date(candidate.date).toLocaleString('ja-JP', {
-                              month: '2-digit',
-                              day: '2-digit',
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })}
-                          </span>
-                          {response.note && (
-                            <span className="text-gray-500">（{response.note}）</span>
-                          )}
+            <tfoot className="bg-gray-50">
+              <tr>
+                <td className="px-6 py-3 text-sm font-medium text-gray-700 sticky left-0 bg-gray-50">
+                  集計
+                </td>
+                {candidates.map((candidate) => {
+                  const stats = candidateStats.find((s) => s.candidateId === candidate.candidate_id);
+                  return (
+                    <td key={candidate.candidate_id} className="px-4 py-3 text-center">
+                      <div className="text-xs space-y-1">
+                        <div className="text-green-700">
+                          ○ {stats?.availableCount || 0}
                         </div>
-                      );
-                    })}
-                  </div>
-                  <div className="mt-1 text-xs text-gray-400">
-                    回答日時:{' '}
-                    {new Date(memberResponses[0].responded_at).toLocaleString('ja-JP')}
-                  </div>
-                </div>
-              );
-            })
-          )}
+                        <div className="text-yellow-700">
+                          △ {stats?.maybeCount || 0}
+                        </div>
+                        <div className="text-red-700">
+                          × {stats?.unavailableCount || 0}
+                        </div>
+                        <div className="text-gray-500">
+                          - {stats?.noResponseCount || 0}
+                        </div>
+                      </div>
+                    </td>
+                  );
+                })}
+              </tr>
+            </tfoot>
+          </table>
         </div>
       </div>
     </div>

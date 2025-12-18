@@ -22,6 +22,7 @@ type AttendanceHandler struct {
 	getCollectionUsecase          *attendance.GetCollectionUsecase
 	getCollectionByTokenUsecase   *attendance.GetCollectionByTokenUsecase
 	getResponsesUsecase           *attendance.GetResponsesUsecase
+	listCollectionsUsecase        *attendance.ListCollectionsUsecase
 }
 
 // NewAttendanceHandler creates a new AttendanceHandler
@@ -39,6 +40,7 @@ func NewAttendanceHandler(dbPool *pgxpool.Pool) *AttendanceHandler {
 		getCollectionUsecase:          attendance.NewGetCollectionUsecase(repo),
 		getCollectionByTokenUsecase:   attendance.NewGetCollectionByTokenUsecase(repo),
 		getResponsesUsecase:           attendance.NewGetResponsesUsecase(repo, memberRepo),
+		listCollectionsUsecase:        attendance.NewListCollectionsUsecase(repo),
 	}
 }
 
@@ -453,6 +455,34 @@ func (h *AttendanceHandler) SubmitResponse(w http.ResponseWriter, r *http.Reques
 			Response:     output.Response,
 			Note:         output.Note,
 			RespondedAt:  output.RespondedAt,
+		},
+	})
+}
+
+// ListCollections handles GET /api/v1/attendance/collections
+func (h *AttendanceHandler) ListCollections(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// TenantIDの取得（JWTから）
+	tenantID, ok := GetTenantID(ctx)
+	if !ok {
+		RespondBadRequest(w, "tenant_id is required")
+		return
+	}
+
+	// Usecase呼び出し
+	output, err := h.listCollectionsUsecase.Execute(ctx, attendance.ListCollectionsInput{
+		TenantID: tenantID.String(),
+	})
+	if err != nil {
+		RespondDomainError(w, err)
+		return
+	}
+
+	// レスポンス
+	RespondJSON(w, http.StatusOK, SuccessResponse{
+		Data: map[string]interface{}{
+			"collections": output.Collections,
 		},
 	})
 }

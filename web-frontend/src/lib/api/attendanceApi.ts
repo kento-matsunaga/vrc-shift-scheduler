@@ -13,6 +13,15 @@ export interface CreateAttendanceRequest {
 }
 
 /**
+ * 対象日
+ */
+export interface TargetDate {
+  target_date_id: string;
+  target_date: string;
+  display_order: number;
+}
+
+/**
  * 出欠確認レスポンス
  */
 export interface AttendanceCollection {
@@ -22,9 +31,12 @@ export interface AttendanceCollection {
   description: string;
   target_type: string;
   target_id: string;
+  target_dates?: TargetDate[];
   public_token: string;
   status: 'open' | 'closed';
   deadline?: string;
+  target_date_count?: number;
+  response_count?: number;
   created_at: string;
   updated_at: string;
 }
@@ -41,6 +53,33 @@ export interface AttendanceResponse {
   response: 'attending' | 'absent';
   note: string;
   responded_at: string;
+}
+
+/**
+ * 出欠確認一覧を取得
+ */
+export async function listAttendanceCollections(): Promise<AttendanceCollection[]> {
+  const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+  const token = localStorage.getItem('auth_token');
+
+  if (!token) {
+    throw new Error('認証が必要です。ログインしてください。');
+  }
+
+  const response = await fetch(`${baseURL}/api/v1/attendance/collections`, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`出欠確認一覧の取得に失敗しました: ${text || response.statusText}`);
+  }
+
+  const result = await response.json();
+  return result.data.collections || [];
 }
 
 /**

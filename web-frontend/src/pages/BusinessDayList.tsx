@@ -29,7 +29,7 @@ export default function BusinessDayList() {
         getBusinessDays(eventId),
       ]);
       setEvent(eventData);
-      setBusinessDays(businessDaysData.business_days);
+      setBusinessDays(businessDaysData.business_days || []);
     } catch (err) {
       if (err instanceof ApiClientError) {
         setError(err.getUserMessage());
