@@ -17,7 +17,8 @@ VRC Shift Scheduler で使用する環境変数の詳細説明です。
 
 | 変数名 | 説明 | デフォルト値 | 例 |
 |--------|------|--------------|-----|
-| `DATABASE_URL` | PostgreSQL 接続文字列 | なし | `postgresql://user:pass@localhost:5432/dbname?sslmode=disable` |
+| `DATABASE_URL` | PostgreSQL 接続文字列 | なし | `postgresql://vrcshift:vrcshift@localhost:5432/vrcshift?sslmode=disable` |
+| `JWT_SECRET` | JWT署名用シークレットキー | なし | `your_secure_secret_key_here` |
 
 ### オプション
 
@@ -37,7 +38,8 @@ VRC Shift Scheduler で使用する環境変数の詳細説明です。
 #### 開発環境（`backend/.env`）
 
 ```env
-DATABASE_URL=postgresql://vrc_shift_user:password@localhost:5432/vrc_shift_scheduler?sslmode=disable
+DATABASE_URL=postgresql://vrcshift:vrcshift@localhost:5432/vrcshift?sslmode=disable
+JWT_SECRET=your_development_secret_key
 PORT=8080
 ENVIRONMENT=development
 LOG_LEVEL=debug
@@ -48,6 +50,7 @@ ALLOWED_ORIGINS=http://localhost:5173,http://localhost:3000
 
 ```env
 DATABASE_URL=<Renderが自動生成>
+JWT_SECRET=<安全なランダム文字列を設定>
 PORT=8080
 ENVIRONMENT=production
 LOG_LEVEL=info
@@ -97,9 +100,9 @@ Docker Compose 使用時のみ。
 
 | 変数名 | 説明 | デフォルト値 | 例 |
 |--------|------|--------------|-----|
-| `POSTGRES_DB` | データベース名 | `vrc_shift_scheduler` | `vrc_shift_scheduler` |
-| `POSTGRES_USER` | ユーザー名 | `vrc_shift_user` | `vrc_shift_user` |
-| `POSTGRES_PASSWORD` | パスワード | なし（必須） | `your_secure_password` |
+| `POSTGRES_DB` | データベース名 | `vrcshift` | `vrcshift` |
+| `POSTGRES_USER` | ユーザー名 | `vrcshift` | `vrcshift` |
+| `POSTGRES_PASSWORD` | パスワード | なし（必須） | `vrcshift` |
 | `POSTGRES_PORT` | ポート番号 | `5432` | `5432` |
 
 ---
@@ -110,7 +113,8 @@ Docker Compose 使用時のみ。
 
 ```bash
 # backend/.env
-DATABASE_URL=postgresql://vrc_shift_user:password@localhost:5432/vrc_shift_scheduler?sslmode=disable
+DATABASE_URL=postgresql://vrcshift:vrcshift@localhost:5432/vrcshift?sslmode=disable
+JWT_SECRET=your_development_secret_key
 PORT=8080
 ENVIRONMENT=development
 LOG_LEVEL=debug
@@ -150,6 +154,7 @@ Render の環境変数設定画面で設定：
 
 ```
 DATABASE_URL=<Renderが自動生成>
+JWT_SECRET=<安全なランダム文字列を設定>
 PORT=8080
 ENVIRONMENT=production
 LOG_LEVEL=info

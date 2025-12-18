@@ -178,16 +178,34 @@ type Member struct {
 - **役割**: シフト表やUIで表示される名前
 - **注意**: 表示名が変更されても、同一人物として追跡できるように内部識別子で管理する
 
-### ロール種別（Role Type）
+### 管理者ロール（Admin Role）
 
-メンバーの権限レベルを表す区分オブジェクト。
+システム管理者の権限レベルを表す区分オブジェクト。
 
-| 値 | 日本語名 | 説明 | シフト確定権限 |
-|---|---|---|---|
-| `owner` | 店長 | テナントの最終責任者 | ○ |
-| `vice_owner` | 副店長 | 店長を補佐し、シフト確定業務を分担する | ○ |
-| `cast` | キャスト | お客さまと直接接客する出演者 | × |
-| `staff` | スタッフ | 受付・場内案内・撮影補助などの裏方 | × |
+| 値 | 日本語名 | 説明 |
+|---|---|---|
+| `owner` | オーナー | テナントの最終責任者。すべての操作が可能 |
+| `manager` | マネージャー | テナントの管理者。通常のシフト管理操作が可能 |
+
+### メンバーロール（Member Role）
+
+メンバーに付与される役割・属性を表すエンティティ。テナントごとにカスタム定義が可能。
+
+- **英語コード**: `role`
+- **識別子**: `RoleID`（ULID形式）
+- **役割**: メンバーの役割分類（キャスト、スタッフなど）をテナント独自に定義
+- **例**: 「キャスト」「スタッフ」「受付」「カメラ」
+
+```go
+type Role struct {
+    roleID       RoleID
+    tenantID     TenantID
+    name         string
+    description  string
+    color        string       // UI表示用の色コード
+    displayOrder int          // 表示順序
+}
+```
 
 ### メンバー状態（Member Status）
 
@@ -286,7 +304,9 @@ VRChatのインスタンス（部屋）を識別する名前。
 
 ---
 
-## 4. シフト希望領域
+## 4. シフト希望領域（未実装）
+
+> **注意**: この領域は将来の実装予定です。現時点では未実装。
 
 ### シフト希望（Shift Availability / Availability）
 
@@ -297,53 +317,13 @@ VRChatのインスタンス（部屋）を識別する名前。
 - **役割**: シフト確定の入力情報として機能する
 - **状態**: 提出済み / 取下げ
 
-```go
-type Availability struct {
-    availabilityID AvailabilityID
-    memberID       MemberID
-    businessDayID  BusinessDayID
-    status         AvailabilityStatus
-    submittedAt    time.Time
-}
-```
-
-### シフト希望詳細（Availability Detail）
-
-シフト希望の詳細情報。希望ポジション・優先度を含む。
-
-- **英語コード**: `availability_detail`
-- **役割**: 特定のシフト枠に対する希望の詳細を管理
-
-### 希望順位（Preference Rank）
-
-ポジションの希望順位。
-
-- **英語コード**: `preference_rank`
-- **例**: 第1希望、第2希望、第3希望
-
-### 希望の強さ（Preference Strength）
-
-出勤希望の強さ。
-
-| 値 | 日本語名 | 説明 |
-|---|---|---|
-| 必ず出たい | 強い希望 | 可能な限り配置してほしい |
-| 出られたら出たい | 弱い希望 | 空きがあれば配置してほしい |
-
 ### 希望期間（Availability Period）
 
-まとめてシフト希望を提出する単位の期間。従来の「調整さん」の1枚に相当。
+まとめてシフト希望を提出する単位の期間。
 
 - **英語コード**: `availability_period`
 - **役割**: シフト希望の提出単位と締切を管理
 - **例**: 「12月通常営業分」「Vket特別営業分」
-
-### 提出期限（Submission Deadline）
-
-シフト希望を提出できる期限日時。
-
-- **英語コード**: `submission_deadline`
-- **役割**: 期限を過ぎた希望は「期限後提出」としてマークされる
 
 ---
 
@@ -373,14 +353,15 @@ type ShiftPlan struct {
 }
 ```
 
-### シフト確定状態（Shift Plan Status）
+### シフト計画状態（Shift Plan Status）
 
-シフト確定のライフサイクルを表す区分オブジェクト。
+シフト計画のライフサイクルを表す区分オブジェクト。
 
 | 値 | 日本語名 | 説明 |
 |---|---|---|
-| `tentative` | 仮確定 | シフト割り当てが完了したが、まだメンバーへの正式通知前 |
-| `confirmed` | 確定 | シフト割り当てが確定し、メンバーに通知済み |
+| `draft` | 下書き | 運営が調整中の状態 |
+| `published` | 公開 | メンバーが確認可能な状態 |
+| `finalized` | 確定 | 最終決定済みの状態 |
 
 ### シフト割り当て（Shift Assignment）
 
@@ -769,15 +750,17 @@ Universally Unique Lexicographically Sortable Identifier。
 - `monthly_date`: 月内日付指定
 - `custom`: カスタム
 
-### ロール種別（RoleType）
-- `owner`: 店長
-- `vice_owner`: 副店長
-- `cast`: キャスト
-- `staff`: スタッフ
+### 管理者ロール（Admin Role）
+- `owner`: オーナー
+- `manager`: マネージャー
 
-### シフト確定状態（ShiftPlanStatus）
-- `tentative`: 仮確定
-- `confirmed`: 確定
+### メンバーロール（Member Role）
+- テナントごとにカスタム定義可能（例: キャスト、スタッフ、受付等）
+
+### シフト計画状態（ShiftPlanStatus）
+- `draft`: 下書き
+- `published`: 公開
+- `finalized`: 確定
 
 ### 割り当て状態（AssignmentStatus）
 - `confirmed`: 確定
@@ -826,10 +809,9 @@ Universally Unique Lexicographically Sortable Identifier。
 | 営業日 | Business Day | 1回分の営業日 |
 | 通常営業パターン | Recurring Pattern | 反復ルール定義 |
 | メンバー | Member | 所属する人物 |
-| 店長 | Owner | 最終責任者 |
-| 副店長 | Vice Owner | 店長補佐 |
-| キャスト | Cast | 接客担当 |
-| スタッフ | Staff | 裏方担当 |
+| オーナー | Owner | 管理者の最上位ロール |
+| マネージャー | Manager | 管理者ロール |
+| メンバーロール | Role | テナント定義の役割 |
 | ポジション | Position | 役割（カウンター等） |
 | シフト枠 | Shift Slot | 1人分の配置枠 |
 | インスタンス | Instance | VRChatの部屋単位 |
@@ -838,8 +820,9 @@ Universally Unique Lexicographically Sortable Identifier。
 | シフト案 | Shift Draft | 暫定配置案 |
 | シフト確定 | Shift Plan | 最終配置計画 |
 | シフト割り当て | Shift Assignment | 枠への人員配置 |
-| 仮確定 | Tentative | 通知前の確定状態 |
-| 確定 | Confirmed | 通知済みの確定状態 |
+| 下書き | Draft | 計画調整中の状態 |
+| 公開 | Published | メンバー確認可能状態 |
+| 確定 | Finalized | 最終決定済み状態 |
 | 希望外配置 | Outside Preference | 希望範囲外の配置 |
 | 出欠確認 | Attendance Collection | 営業日への出欠収集 |
 | 出欠回答 | Attendance Response | 出欠への回答 |
