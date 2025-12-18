@@ -1,14 +1,26 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { getEvents, createEvent } from '../lib/api';
+import { getEvents, createEvent, generateBusinessDays } from '../lib/api';
 import type { Event } from '../types/api';
 import { ApiClientError } from '../lib/apiClient';
+
+// 曜日名の配列
+const DAY_NAMES = ['日', '月', '火', '水', '木', '金', '土'];
+
+// 定期タイプの表示名
+const RECURRENCE_TYPE_LABELS: Record<string, string> = {
+  none: 'なし',
+  weekly: '毎週',
+  biweekly: '隔週',
+};
 
 export default function EventList() {
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [generatingEventId, setGeneratingEventId] = useState<string | null>(null);
 
   useEffect(() => {
     loadEvents();
@@ -36,6 +48,31 @@ export default function EventList() {
     loadEvents();
   };
 
+  const handleGenerateBusinessDays = async (eventId: string, e: React.MouseEvent) => {
+    e.preventDefault(); // Link のクリックを防止
+    e.stopPropagation();
+
+    setGeneratingEventId(eventId);
+    setError('');
+    setSuccess('');
+
+    try {
+      const result = await generateBusinessDays(eventId);
+      setSuccess(result.message);
+      // 3秒後にメッセージを消す
+      setTimeout(() => setSuccess(''), 5000);
+    } catch (err) {
+      if (err instanceof ApiClientError) {
+        setError(err.getUserMessage());
+      } else {
+        setError('営業日の生成に失敗しました');
+      }
+      console.error('Failed to generate business days:', err);
+    } finally {
+      setGeneratingEventId(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="text-center py-12">
@@ -60,6 +97,12 @@ export default function EventList() {
         </div>
       )}
 
+      {success && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+          <p className="text-sm text-green-800">{success}</p>
+        </div>
+      )}
+
       {events.length === 0 ? (
         <div className="card text-center py-12">
           <p className="text-gray-600 mb-4">まだイベントがありません</p>
@@ -70,30 +113,51 @@ export default function EventList() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {events.map((event) => (
-            <Link
+            <div
               key={event.event_id}
-              to={`/events/${event.event_id}/business-days`}
               className="card hover:shadow-lg transition-shadow"
             >
-              <div className="mb-2">
-                <span
-                  className={`inline-block px-2 py-1 text-xs font-semibold rounded ${
-                    event.event_type === 'normal'
-                      ? 'bg-blue-100 text-blue-800'
-                      : 'bg-purple-100 text-purple-800'
-                  }`}
+              <Link to={`/events/${event.event_id}/business-days`}>
+                <div className="mb-2 flex flex-wrap gap-2">
+                  <span
+                    className={`inline-block px-2 py-1 text-xs font-semibold rounded ${
+                      event.event_type === 'normal'
+                        ? 'bg-blue-100 text-blue-800'
+                        : 'bg-purple-100 text-purple-800'
+                    }`}
+                  >
+                    {event.event_type === 'normal' ? '通常イベント' : '特別イベント'}
+                  </span>
+                  {event.recurrence_type !== 'none' && (
+                    <span className="inline-block px-2 py-1 text-xs font-semibold rounded bg-green-100 text-green-800">
+                      {RECURRENCE_TYPE_LABELS[event.recurrence_type]}
+                      {event.recurrence_day_of_week !== undefined && `（${DAY_NAMES[event.recurrence_day_of_week]}）`}
+                    </span>
+                  )}
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">
+                  {event.event_name}
+                </h3>
+                <p className="text-sm text-gray-600 mb-2">{event.description || '説明なし'}</p>
+                {event.recurrence_type !== 'none' && event.default_start_time && event.default_end_time && (
+                  <p className="text-xs text-gray-500 mb-2">
+                    時間: {event.default_start_time.slice(0, 5)}〜{event.default_end_time.slice(0, 5)}
+                  </p>
+                )}
+                <div className="text-xs text-gray-500 mb-3">
+                  作成日: {new Date(event.created_at).toLocaleDateString('ja-JP')}
+                </div>
+              </Link>
+              {event.recurrence_type !== 'none' && (
+                <button
+                  onClick={(e) => handleGenerateBusinessDays(event.event_id, e)}
+                  disabled={generatingEventId === event.event_id}
+                  className="w-full btn-secondary text-sm py-2"
                 >
-                  {event.event_type === 'normal' ? '通常イベント' : '特別イベント'}
-                </span>
-              </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-2">
-                {event.event_name}
-              </h3>
-              <p className="text-sm text-gray-600 mb-4">{event.description || '説明なし'}</p>
-              <div className="text-xs text-gray-500">
-                作成日: {new Date(event.created_at).toLocaleDateString('ja-JP')}
-              </div>
-            </Link>
+                  {generatingEventId === event.event_id ? '生成中...' : '営業日を自動生成'}
+                </button>
+              )}
+            </div>
           ))}
         </div>
       )}

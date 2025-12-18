@@ -22,7 +22,7 @@ func (t PatternType) Validate() error {
 	case PatternTypeWeekly, PatternTypeMonthlyDate, PatternTypeCustom:
 		return nil
 	default:
-		return fmt.Errorf("invalid pattern type: %s", t)
+		return common.NewValidationError(fmt.Sprintf("invalid pattern type: %s", t), nil)
 	}
 }
 
@@ -44,7 +44,7 @@ func (d DayOfWeek) Validate() error {
 	case Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday:
 		return nil
 	default:
-		return fmt.Errorf("invalid day of week: %s", d)
+		return common.NewValidationError(fmt.Sprintf("invalid day of week: %s", d), nil)
 	}
 }
 
@@ -63,10 +63,10 @@ type WeeklyPatternConfig struct {
 
 func (c *WeeklyPatternConfig) Validate() error {
 	if len(c.DayOfWeeks) == 0 {
-		return fmt.Errorf("day_of_weeks is required for weekly pattern")
+		return common.NewValidationError("day_of_weeks is required for weekly pattern", nil)
 	}
 	if len(c.DayOfWeeks) > 7 {
-		return fmt.Errorf("day_of_weeks must be 7 or less")
+		return common.NewValidationError("day_of_weeks must be 7 or less", nil)
 	}
 
 	for _, dow := range c.DayOfWeeks {
@@ -76,7 +76,7 @@ func (c *WeeklyPatternConfig) Validate() error {
 	}
 
 	if c.StartTime == "" || c.EndTime == "" {
-		return fmt.Errorf("start_time and end_time are required")
+		return common.NewValidationError("start_time and end_time are required", nil)
 	}
 
 	return nil
@@ -95,17 +95,17 @@ type MonthlyDatePatternConfig struct {
 
 func (c *MonthlyDatePatternConfig) Validate() error {
 	if len(c.Dates) == 0 {
-		return fmt.Errorf("dates is required for monthly_date pattern")
+		return common.NewValidationError("dates is required for monthly_date pattern", nil)
 	}
 
 	for _, date := range c.Dates {
 		if date < 1 || date > 31 {
-			return fmt.Errorf("date must be between 1 and 31, got %d", date)
+			return common.NewValidationError(fmt.Sprintf("date must be between 1 and 31, got %d", date), nil)
 		}
 	}
 
 	if c.StartTime == "" || c.EndTime == "" {
-		return fmt.Errorf("start_time and end_time are required")
+		return common.NewValidationError("start_time and end_time are required", nil)
 	}
 
 	return nil
@@ -182,23 +182,23 @@ func ReconstructRecurringPattern(
 	case PatternTypeWeekly:
 		var weeklyConfig WeeklyPatternConfig
 		if err := json.Unmarshal(configJSON, &weeklyConfig); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal weekly config: %w", err)
+			return nil, common.NewValidationError("failed to unmarshal weekly config", err)
 		}
 		config = &weeklyConfig
 	case PatternTypeMonthlyDate:
 		var monthlyConfig MonthlyDatePatternConfig
 		if err := json.Unmarshal(configJSON, &monthlyConfig); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal monthly_date config: %w", err)
+			return nil, common.NewValidationError("failed to unmarshal monthly_date config", err)
 		}
 		config = &monthlyConfig
 	case PatternTypeCustom:
 		var customConfig CustomPatternConfig
 		if err := json.Unmarshal(configJSON, &customConfig); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal custom config: %w", err)
+			return nil, common.NewValidationError("failed to unmarshal custom config", err)
 		}
 		config = customConfig
 	default:
-		return nil, fmt.Errorf("unknown pattern type: %s", patternType)
+		return nil, common.NewValidationError(fmt.Sprintf("unknown pattern type: %s", patternType), nil)
 	}
 
 	pattern := &RecurringPattern{

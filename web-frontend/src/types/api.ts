@@ -19,8 +19,19 @@ export interface Event {
   event_type: 'normal' | 'special';
   description: string;
   is_active: boolean;
+  recurrence_type: 'none' | 'weekly' | 'biweekly';
+  recurrence_start_date?: string; // YYYY-MM-DD
+  recurrence_day_of_week?: number; // 0-6: 日曜=0, 土曜=6
+  default_start_time?: string; // HH:MM:SS
+  default_end_time?: string; // HH:MM:SS
   created_at: string;
   updated_at: string;
+}
+
+export interface GenerateBusinessDaysResponse {
+  generated_count: number;
+  message: string;
+  event: Event;
 }
 
 export interface EventListResponse {

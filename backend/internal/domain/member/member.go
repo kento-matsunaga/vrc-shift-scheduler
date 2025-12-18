@@ -22,6 +22,7 @@ type Member struct {
 
 // NewMember creates a new Member entity
 func NewMember(
+	now time.Time,
 	tenantID common.TenantID,
 	displayName string,
 	discordUserID string,
@@ -34,8 +35,8 @@ func NewMember(
 		discordUserID: discordUserID,
 		email:         email,
 		isActive:      true,
-		createdAt:     time.Now(),
-		updatedAt:     time.Now(),
+		createdAt:     now,
+		updatedAt:     now,
 	}
 
 	if err := member.validate(); err != nil {

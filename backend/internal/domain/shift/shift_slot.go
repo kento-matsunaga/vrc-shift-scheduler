@@ -1,7 +1,6 @@
 package shift
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
@@ -21,7 +20,7 @@ func (id SlotID) String() string {
 
 func (id SlotID) Validate() error {
 	if id == "" {
-		return fmt.Errorf("slot_id is required")
+		return common.NewValidationError("slot_id is required", nil)
 	}
 	return common.ValidateULID(string(id))
 }
@@ -46,7 +45,7 @@ func (id PositionID) String() string {
 
 func (id PositionID) Validate() error {
 	if id == "" {
-		return fmt.Errorf("position_id is required")
+		return common.NewValidationError("position_id is required", nil)
 	}
 	return common.ValidateULID(string(id))
 }
@@ -78,6 +77,7 @@ type ShiftSlot struct {
 
 // NewShiftSlot creates a new ShiftSlot entity
 func NewShiftSlot(
+	now time.Time,
 	tenantID common.TenantID,
 	businessDayID event.BusinessDayID,
 	positionID PositionID,
@@ -99,8 +99,8 @@ func NewShiftSlot(
 		endTime:       truncateToTime(endTime),
 		requiredCount: requiredCount,
 		priority:      priority,
-		createdAt:     time.Now(),
-		updatedAt:     time.Now(),
+		createdAt:     now,
+		updatedAt:     now,
 	}
 
 	if err := slot.validate(); err != nil {

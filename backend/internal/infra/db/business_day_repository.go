@@ -9,6 +9,7 @@ import (
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/event"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -20,6 +21,14 @@ type EventBusinessDayRepository struct {
 // NewEventBusinessDayRepository creates a new EventBusinessDayRepository
 func NewEventBusinessDayRepository(db *pgxpool.Pool) *EventBusinessDayRepository {
 	return &EventBusinessDayRepository{db: db}
+}
+
+// pgtypeTimeToTime converts pgtype.Time to time.Time
+func pgtypeTimeToTime(pt pgtype.Time) time.Time {
+	if !pt.Valid {
+		return time.Time{}
+	}
+	return time.Date(0, 1, 1, int(pt.Microseconds/3600000000), int((pt.Microseconds%3600000000)/60000000), int((pt.Microseconds%60000000)/1000000), 0, time.UTC)
 }
 
 // Save saves an event business day (insert or update)
@@ -89,8 +98,8 @@ func (r *EventBusinessDayRepository) FindByID(ctx context.Context, tenantID comm
 		tenantIDStr         string
 		eventIDStr          string
 		targetDate          time.Time
-		startTime           time.Time
-		endTime             time.Time
+		startTime           pgtype.Time
+		endTime             pgtype.Time
 		occurrenceTypeStr   string
 		recurringPatternID  sql.NullString
 		isActive            bool
@@ -126,7 +135,7 @@ func (r *EventBusinessDayRepository) FindByID(ctx context.Context, tenantID comm
 	}
 
 	return r.scanToBusinessDay(
-		businessDayIDStr, tenantIDStr, eventIDStr, targetDate, startTime, endTime,
+		businessDayIDStr, tenantIDStr, eventIDStr, targetDate, pgtypeTimeToTime(startTime), pgtypeTimeToTime(endTime),
 		occurrenceTypeStr, recurringPatternID, isActive, validFrom, validTo,
 		createdAt, updatedAt, deletedAt,
 	)
@@ -246,8 +255,8 @@ func (r *EventBusinessDayRepository) queryBusinessDays(ctx context.Context, quer
 			tenantIDStr        string
 			eventIDStr         string
 			targetDate         time.Time
-			startTime          time.Time
-			endTime            time.Time
+			startTime          pgtype.Time
+			endTime            pgtype.Time
 			occurrenceTypeStr  string
 			recurringPatternID sql.NullString
 			isActive           bool
@@ -278,8 +287,12 @@ func (r *EventBusinessDayRepository) queryBusinessDays(ctx context.Context, quer
 			return nil, fmt.Errorf("failed to scan business day row: %w", err)
 		}
 
+		// pgtype.Time を time.Time に変換
+		startTimeVal := pgtypeTimeToTime(startTime)
+		endTimeVal := pgtypeTimeToTime(endTime)
+
 		bd, err := r.scanToBusinessDay(
-			businessDayIDStr, tenantIDStr, eventIDStr, targetDate, startTime, endTime,
+			businessDayIDStr, tenantIDStr, eventIDStr, targetDate, startTimeVal, endTimeVal,
 			occurrenceTypeStr, recurringPatternID, isActive, validFrom, validTo,
 			createdAt, updatedAt, deletedAt,
 		)

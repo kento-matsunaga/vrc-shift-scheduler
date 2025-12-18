@@ -18,11 +18,11 @@ func NewULID() string {
 // ValidateULID validates if a string is a valid ULID
 func ValidateULID(id string) error {
 	if len(id) != 26 {
-		return fmt.Errorf("invalid ULID length: expected 26, got %d", len(id))
+		return NewValidationError(fmt.Sprintf("invalid ULID length: expected 26, got %d", len(id)), nil)
 	}
 	_, err := ulid.Parse(id)
 	if err != nil {
-		return fmt.Errorf("invalid ULID format: %w", err)
+		return NewValidationError("invalid ULID format", err)
 	}
 	return nil
 }
@@ -40,7 +40,7 @@ func (id TenantID) String() string {
 
 func (id TenantID) Validate() error {
 	if id == "" {
-		return fmt.Errorf("tenant_id is required")
+		return NewValidationError("tenant_id is required", nil)
 	}
 	return ValidateULID(string(id))
 }
@@ -65,7 +65,7 @@ func (id EventID) String() string {
 
 func (id EventID) Validate() error {
 	if id == "" {
-		return fmt.Errorf("event_id is required")
+		return NewValidationError("event_id is required", nil)
 	}
 	return ValidateULID(string(id))
 }
@@ -90,7 +90,7 @@ func (id MemberID) String() string {
 
 func (id MemberID) Validate() error {
 	if id == "" {
-		return fmt.Errorf("member_id is required")
+		return NewValidationError("member_id is required", nil)
 	}
 	return ValidateULID(string(id))
 }
@@ -115,7 +115,7 @@ func (id PositionID) String() string {
 
 func (id PositionID) Validate() error {
 	if id == "" {
-		return fmt.Errorf("position_id is required")
+		return NewValidationError("position_id is required", nil)
 	}
 	return ValidateULID(string(id))
 }
@@ -140,7 +140,7 @@ func (id BusinessDayID) String() string {
 
 func (id BusinessDayID) Validate() error {
 	if id == "" {
-		return fmt.Errorf("business_day_id is required")
+		return NewValidationError("business_day_id is required", nil)
 	}
 	return ValidateULID(string(id))
 }
@@ -165,7 +165,7 @@ func (id AssignmentID) String() string {
 
 func (id AssignmentID) Validate() error {
 	if id == "" {
-		return fmt.Errorf("assignment_id is required")
+		return NewValidationError("assignment_id is required", nil)
 	}
 	return ValidateULID(string(id))
 }
@@ -193,7 +193,7 @@ func (t PublicToken) String() string {
 // Validate checks if the token is a valid UUID v4 format
 func (t PublicToken) Validate() error {
 	if t == "" {
-		return fmt.Errorf("public_token is required")
+		return NewValidationError("public_token is required", nil)
 	}
 	return ValidatePublicToken(string(t))
 }
@@ -201,11 +201,11 @@ func (t PublicToken) Validate() error {
 // ValidatePublicToken validates if a string is a valid UUID v4 format
 func ValidatePublicToken(token string) error {
 	if token == "" {
-		return fmt.Errorf("public_token is required")
+		return NewValidationError("public_token is required", nil)
 	}
 	_, err := uuid.Parse(token)
 	if err != nil {
-		return fmt.Errorf("invalid public_token format: must be UUID v4, got: %s", token)
+		return NewValidationError(fmt.Sprintf("invalid public_token format: must be UUID v4, got: %s", token), err)
 	}
 	return nil
 }
@@ -231,7 +231,7 @@ func (id AdminID) String() string {
 
 func (id AdminID) Validate() error {
 	if id == "" {
-		return fmt.Errorf("admin_id is required")
+		return NewValidationError("admin_id is required", nil)
 	}
 	return ValidateULID(string(id))
 }
@@ -256,7 +256,7 @@ func (id CollectionID) String() string {
 
 func (id CollectionID) Validate() error {
 	if id == "" {
-		return fmt.Errorf("collection_id is required")
+		return NewValidationError("collection_id is required", nil)
 	}
 	return ValidateULID(string(id))
 }
@@ -281,7 +281,7 @@ func (id ResponseID) String() string {
 
 func (id ResponseID) Validate() error {
 	if id == "" {
-		return fmt.Errorf("response_id is required")
+		return NewValidationError("response_id is required", nil)
 	}
 	return ValidateULID(string(id))
 }
@@ -306,7 +306,7 @@ func (id ScheduleID) String() string {
 
 func (id ScheduleID) Validate() error {
 	if id == "" {
-		return fmt.Errorf("schedule_id is required")
+		return NewValidationError("schedule_id is required", nil)
 	}
 	return ValidateULID(string(id))
 }
@@ -331,7 +331,7 @@ func (id CandidateID) String() string {
 
 func (id CandidateID) Validate() error {
 	if id == "" {
-		return fmt.Errorf("candidate_id is required")
+		return NewValidationError("candidate_id is required", nil)
 	}
 	return ValidateULID(string(id))
 }
@@ -400,7 +400,7 @@ func (id ShiftSlotTemplateID) String() string {
 
 func (id ShiftSlotTemplateID) Validate() error {
 	if id == "" {
-		return fmt.Errorf("template_id is required")
+		return NewValidationError("template_id is required", nil)
 	}
 	return ValidateULID(string(id))
 }
@@ -425,7 +425,7 @@ func (id ShiftSlotTemplateItemID) String() string {
 
 func (id ShiftSlotTemplateItemID) Validate() error {
 	if id == "" {
-		return fmt.Errorf("item_id is required")
+		return NewValidationError("item_id is required", nil)
 	}
 	return ValidateULID(string(id))
 }

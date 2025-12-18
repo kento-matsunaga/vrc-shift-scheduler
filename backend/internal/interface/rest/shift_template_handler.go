@@ -2,9 +2,11 @@ package rest
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"time"
 
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/application/usecase"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/event"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/shift"
@@ -15,17 +17,27 @@ import (
 
 // ShiftTemplateHandler handles shift template-related HTTP requests
 type ShiftTemplateHandler struct {
-	templateRepo    *db.ShiftSlotTemplateRepository
-	slotRepo        *db.ShiftSlotRepository
-	businessDayRepo *db.EventBusinessDayRepository
+	createTemplateUC        *usecase.CreateShiftTemplateUsecase
+	listTemplatesUC         *usecase.ListShiftTemplatesUsecase
+	getTemplateUC           *usecase.GetShiftTemplateUsecase
+	updateTemplateUC        *usecase.UpdateShiftTemplateUsecase
+	deleteTemplateUC        *usecase.DeleteShiftTemplateUsecase
+	saveBusinessDayAsTemplateUC *usecase.SaveBusinessDayAsTemplateUsecase
 }
 
 // NewShiftTemplateHandler creates a new ShiftTemplateHandler
 func NewShiftTemplateHandler(dbPool *pgxpool.Pool) *ShiftTemplateHandler {
+	templateRepo := db.NewShiftSlotTemplateRepository(dbPool)
+	slotRepo := db.NewShiftSlotRepository(dbPool)
+	businessDayRepo := db.NewEventBusinessDayRepository(dbPool)
+
 	return &ShiftTemplateHandler{
-		templateRepo:    db.NewShiftSlotTemplateRepository(dbPool),
-		slotRepo:        db.NewShiftSlotRepository(dbPool),
-		businessDayRepo: db.NewEventBusinessDayRepository(dbPool),
+		createTemplateUC:        usecase.NewCreateShiftTemplateUsecase(templateRepo),
+		listTemplatesUC:         usecase.NewListShiftTemplatesUsecase(templateRepo),
+		getTemplateUC:           usecase.NewGetShiftTemplateUsecase(templateRepo),
+		updateTemplateUC:        usecase.NewUpdateShiftTemplateUsecase(templateRepo),
+		deleteTemplateUC:        usecase.NewDeleteShiftTemplateUsecase(templateRepo),
+		saveBusinessDayAsTemplateUC: usecase.NewSaveBusinessDayAsTemplateUsecase(templateRepo, businessDayRepo, slotRepo),
 	}
 }
 
@@ -126,21 +138,8 @@ func (h *ShiftTemplateHandler) CreateTemplate(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// Create template first to get the template ID
-	template, err := shift.NewShiftSlotTemplate(
-		tenantID,
-		eventID,
-		req.TemplateName,
-		req.Description,
-		[]*shift.ShiftSlotTemplateItem{}, // empty items initially
-	)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", err.Error(), nil)
-		return
-	}
-
-	// Create template items using the template's ID
-	var items []*shift.ShiftSlotTemplateItem
+	// Parse template items
+	var items []usecase.TemplateItemInput
 	for _, itemReq := range req.Items {
 		positionID, err := shift.ParsePositionID(itemReq.PositionID)
 		if err != nil {
@@ -160,34 +159,31 @@ func (h *ShiftTemplateHandler) CreateTemplate(w http.ResponseWriter, r *http.Req
 			return
 		}
 
-		item, err := shift.NewShiftSlotTemplateItem(
-			template.TemplateID(),
-			positionID,
-			itemReq.SlotName,
-			itemReq.InstanceName,
-			startTime,
-			endTime,
-			itemReq.RequiredCount,
-			itemReq.Priority,
-		)
-		if err != nil {
-			writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", err.Error(), nil)
-			return
-		}
-
-		items = append(items, item)
+		items = append(items, usecase.TemplateItemInput{
+			PositionID:    positionID,
+			SlotName:      itemReq.SlotName,
+			InstanceName:  itemReq.InstanceName,
+			StartTime:     startTime,
+			EndTime:       endTime,
+			RequiredCount: itemReq.RequiredCount,
+			Priority:      itemReq.Priority,
+		})
 	}
 
-	// Update template with items
-	if err := template.UpdateDetails(req.TemplateName, req.Description, items); err != nil {
-		writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", err.Error(), nil)
-		return
+	// Execute usecase
+	input := usecase.CreateShiftTemplateInput{
+		TenantID:     tenantID,
+		EventID:      eventID,
+		TemplateName: req.TemplateName,
+		Description:  req.Description,
+		Items:        items,
 	}
 
-	// Save
-	if err := h.templateRepo.Save(ctx, template); err != nil {
-		// Log the actual error for debugging
-		writeError(w, http.StatusInternalServerError, "ERR_INTERNAL", err.Error(), nil)
+	template, err := h.createTemplateUC.Execute(ctx, input)
+	if err != nil {
+		// Log error for debugging
+		log.Printf("CreateTemplate error: %+v", err)
+		RespondDomainError(w, err)
 		return
 	}
 
@@ -220,8 +216,13 @@ func (h *ShiftTemplateHandler) ListTemplates(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// Find templates
-	templates, err := h.templateRepo.FindByEventID(ctx, tenantID, eventID)
+	// Execute usecase
+	input := usecase.ListShiftTemplatesInput{
+		TenantID: tenantID,
+		EventID:  eventID,
+	}
+
+	templates, err := h.listTemplatesUC.Execute(ctx, input)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to fetch templates", nil)
 		return
@@ -263,14 +264,15 @@ func (h *ShiftTemplateHandler) GetTemplate(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Find template
-	template, err := h.templateRepo.FindByID(ctx, tenantID, templateID)
+	// Execute usecase
+	input := usecase.GetShiftTemplateInput{
+		TenantID:   tenantID,
+		TemplateID: templateID,
+	}
+
+	template, err := h.getTemplateUC.Execute(ctx, input)
 	if err != nil {
-		if err.Error() == "ShiftSlotTemplate not found" {
-			writeError(w, http.StatusNotFound, "ERR_NOT_FOUND", "Template not found", nil)
-			return
-		}
-		writeError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to fetch template", nil)
+		RespondDomainError(w, err)
 		return
 	}
 
@@ -320,19 +322,8 @@ func (h *ShiftTemplateHandler) UpdateTemplate(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// Find existing template
-	template, err := h.templateRepo.FindByID(ctx, tenantID, templateID)
-	if err != nil {
-		if err.Error() == "ShiftSlotTemplate not found" {
-			writeError(w, http.StatusNotFound, "ERR_NOT_FOUND", "Template not found", nil)
-			return
-		}
-		writeError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to fetch template", nil)
-		return
-	}
-
-	// Create new template items
-	var items []*shift.ShiftSlotTemplateItem
+	// Parse template items
+	var items []usecase.TemplateItemInput
 	for _, itemReq := range req.Items {
 		positionID, err := shift.ParsePositionID(itemReq.PositionID)
 		if err != nil {
@@ -352,33 +343,31 @@ func (h *ShiftTemplateHandler) UpdateTemplate(w http.ResponseWriter, r *http.Req
 			return
 		}
 
-		item, err := shift.NewShiftSlotTemplateItem(
-			templateID,
-			positionID,
-			itemReq.SlotName,
-			itemReq.InstanceName,
-			startTime,
-			endTime,
-			itemReq.RequiredCount,
-			itemReq.Priority,
-		)
-		if err != nil {
-			writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", err.Error(), nil)
-			return
-		}
-
-		items = append(items, item)
+		items = append(items, usecase.TemplateItemInput{
+			PositionID:    positionID,
+			SlotName:      itemReq.SlotName,
+			InstanceName:  itemReq.InstanceName,
+			StartTime:     startTime,
+			EndTime:       endTime,
+			RequiredCount: itemReq.RequiredCount,
+			Priority:      itemReq.Priority,
+		})
 	}
 
-	// Update template
-	if err := template.UpdateDetails(req.TemplateName, req.Description, items); err != nil {
-		writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", err.Error(), nil)
-		return
+	// Execute usecase
+	input := usecase.UpdateShiftTemplateInput{
+		TenantID:     tenantID,
+		TemplateID:   templateID,
+		TemplateName: req.TemplateName,
+		Description:  req.Description,
+		Items:        items,
 	}
 
-	// Save
-	if err := h.templateRepo.Save(ctx, template); err != nil {
-		writeError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to update template", nil)
+	template, err := h.updateTemplateUC.Execute(ctx, input)
+	if err != nil {
+		// Log error for debugging
+		log.Printf("UpdateTemplate error: %+v", err)
+		RespondDomainError(w, err)
 		return
 	}
 
@@ -410,13 +399,14 @@ func (h *ShiftTemplateHandler) DeleteTemplate(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// Delete template
-	if err := h.templateRepo.Delete(ctx, tenantID, templateID); err != nil {
-		if err.Error() == "ShiftSlotTemplate not found" {
-			writeError(w, http.StatusNotFound, "ERR_NOT_FOUND", "Template not found", nil)
-			return
-		}
-		writeError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to delete template", nil)
+	// Execute usecase
+	input := usecase.DeleteShiftTemplateInput{
+		TenantID:   tenantID,
+		TemplateID: templateID,
+	}
+
+	if err := h.deleteTemplateUC.Execute(ctx, input); err != nil {
+		RespondDomainError(w, err)
 		return
 	}
 
@@ -462,68 +452,17 @@ func (h *ShiftTemplateHandler) SaveBusinessDayAsTemplate(w http.ResponseWriter, 
 		return
 	}
 
-	// Find business day
-	businessDay, err := h.businessDayRepo.FindByID(ctx, tenantID, businessDayID)
+	// Execute usecase
+	input := usecase.SaveBusinessDayAsTemplateInput{
+		TenantID:      tenantID,
+		BusinessDayID: businessDayID,
+		TemplateName:  req.TemplateName,
+		Description:   req.Description,
+	}
+
+	template, err := h.saveBusinessDayAsTemplateUC.Execute(ctx, input)
 	if err != nil {
-		if err.Error() == "business day not found" {
-			writeError(w, http.StatusNotFound, "ERR_NOT_FOUND", "Business day not found", nil)
-			return
-		}
-		writeError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to fetch business day", nil)
-		return
-	}
-
-	// Find shift slots for this business day
-	slots, err := h.slotRepo.FindByBusinessDayID(ctx, tenantID, businessDayID)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to fetch shift slots", nil)
-		return
-	}
-
-	if len(slots) == 0 {
-		writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "Business day has no shift slots to save as template", nil)
-		return
-	}
-
-	// Create template items from shift slots
-	var items []*shift.ShiftSlotTemplateItem
-	templateID := common.NewShiftSlotTemplateID()
-
-	for _, slot := range slots {
-		item, err := shift.NewShiftSlotTemplateItem(
-			templateID,
-			slot.PositionID(),
-			slot.SlotName(),
-			slot.InstanceName(),
-			slot.StartTime(),
-			slot.EndTime(),
-			slot.RequiredCount(),
-			slot.Priority(),
-		)
-		if err != nil {
-			writeError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to create template item", nil)
-			return
-		}
-
-		items = append(items, item)
-	}
-
-	// Create template
-	template, err := shift.NewShiftSlotTemplate(
-		tenantID,
-		businessDay.EventID(),
-		req.TemplateName,
-		req.Description,
-		items,
-	)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", err.Error(), nil)
-		return
-	}
-
-	// Save
-	if err := h.templateRepo.Save(ctx, template); err != nil {
-		writeError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to save template", nil)
+		RespondDomainError(w, err)
 		return
 	}
 

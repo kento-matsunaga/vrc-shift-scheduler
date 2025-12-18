@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/application/usecase"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/event"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/shift"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/db"
@@ -14,17 +15,21 @@ import (
 
 // ShiftSlotHandler handles shift slot-related HTTP requests
 type ShiftSlotHandler struct {
-	slotRepo        *db.ShiftSlotRepository
-	businessDayRepo *db.EventBusinessDayRepository
-	assignmentRepo  *db.ShiftAssignmentRepository
+	createShiftSlotUC *usecase.CreateShiftSlotUsecase
+	listShiftSlotsUC  *usecase.ListShiftSlotsUsecase
+	getShiftSlotUC    *usecase.GetShiftSlotUsecase
 }
 
 // NewShiftSlotHandler creates a new ShiftSlotHandler
 func NewShiftSlotHandler(dbPool *pgxpool.Pool) *ShiftSlotHandler {
+	slotRepo := db.NewShiftSlotRepository(dbPool)
+	businessDayRepo := db.NewEventBusinessDayRepository(dbPool)
+	assignmentRepo := db.NewShiftAssignmentRepository(dbPool)
+
 	return &ShiftSlotHandler{
-		slotRepo:        db.NewShiftSlotRepository(dbPool),
-		businessDayRepo: db.NewEventBusinessDayRepository(dbPool),
-		assignmentRepo:  db.NewShiftAssignmentRepository(dbPool),
+		createShiftSlotUC: usecase.NewCreateShiftSlotUsecase(slotRepo, businessDayRepo),
+		listShiftSlotsUC:  usecase.NewListShiftSlotsUsecase(slotRepo, assignmentRepo),
+		getShiftSlotUC:    usecase.NewGetShiftSlotUsecase(slotRepo, assignmentRepo),
 	}
 }
 
@@ -81,17 +86,6 @@ func (h *ShiftSlotHandler) CreateShiftSlot(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// BusinessDay の存在確認（tenant_id チェック）
-	_, err = h.businessDayRepo.FindByID(ctx, tenantID, businessDayID)
-	if err != nil {
-		if err.Error() == "business day not found" {
-			writeError(w, http.StatusNotFound, "ERR_NOT_FOUND", "Business day not found", nil)
-			return
-		}
-		writeError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to fetch business day", nil)
-		return
-	}
-
 	// リクエストボディのパース
 	var req CreateShiftSlotRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -140,26 +134,22 @@ func (h *ShiftSlotHandler) CreateShiftSlot(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// ShiftSlot エンティティの作成
-	newSlot, err := shift.NewShiftSlot(
-		tenantID,
-		businessDayID,
-		positionID,
-		req.SlotName,
-		req.InstanceName,
-		startTime,
-		endTime,
-		req.RequiredCount,
-		req.Priority,
-	)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", err.Error(), nil)
-		return
+	// Usecaseの実行
+	input := usecase.CreateShiftSlotInput{
+		TenantID:      tenantID,
+		BusinessDayID: businessDayID,
+		PositionID:    positionID,
+		SlotName:      req.SlotName,
+		InstanceName:  req.InstanceName,
+		StartTime:     startTime,
+		EndTime:       endTime,
+		RequiredCount: req.RequiredCount,
+		Priority:      req.Priority,
 	}
 
-	// 保存
-	if err := h.slotRepo.Save(ctx, newSlot); err != nil {
-		writeError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to create shift slot", nil)
+	newSlot, err := h.createShiftSlotUC.Execute(ctx, input)
+	if err != nil {
+		RespondDomainError(w, err)
 		return
 	}
 
@@ -207,8 +197,13 @@ func (h *ShiftSlotHandler) GetShiftSlots(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// シフト枠一覧を取得
-	slots, err := h.slotRepo.FindByBusinessDayID(ctx, tenantID, businessDayID)
+	// Usecaseの実行
+	input := usecase.ListShiftSlotsInput{
+		TenantID:      tenantID,
+		BusinessDayID: businessDayID,
+	}
+
+	slots, err := h.listShiftSlotsUC.Execute(ctx, input)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to fetch shift slots", nil)
 		return
@@ -217,28 +212,21 @@ func (h *ShiftSlotHandler) GetShiftSlots(w http.ResponseWriter, r *http.Request)
 	// レスポンス構築
 	slotResponses := make([]ShiftSlotResponse, 0, len(slots))
 	for _, s := range slots {
-		// assigned_count を取得
-		assignedCount, err := h.assignmentRepo.CountConfirmedBySlotID(ctx, tenantID, s.SlotID())
-		if err != nil {
-			writeError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to count assignments", nil)
-			return
-		}
-
 		slotResponses = append(slotResponses, ShiftSlotResponse{
-			SlotID:        s.SlotID().String(),
-			TenantID:      s.TenantID().String(),
-			BusinessDayID: s.BusinessDayID().String(),
-			PositionID:    s.PositionID().String(),
-			SlotName:      s.SlotName(),
-			InstanceName:  s.InstanceName(),
-			StartTime:     s.StartTime().Format("15:04:05"),
-			EndTime:       s.EndTime().Format("15:04:05"),
-			RequiredCount: s.RequiredCount(),
-			AssignedCount: assignedCount,
-			Priority:      s.Priority(),
-			IsOvernight:   s.IsOvernight(),
-			CreatedAt:     s.CreatedAt().Format("2006-01-02T15:04:05Z07:00"),
-			UpdatedAt:     s.UpdatedAt().Format("2006-01-02T15:04:05Z07:00"),
+			SlotID:        s.Slot.SlotID().String(),
+			TenantID:      s.Slot.TenantID().String(),
+			BusinessDayID: s.Slot.BusinessDayID().String(),
+			PositionID:    s.Slot.PositionID().String(),
+			SlotName:      s.Slot.SlotName(),
+			InstanceName:  s.Slot.InstanceName(),
+			StartTime:     s.Slot.StartTime().Format("15:04:05"),
+			EndTime:       s.Slot.EndTime().Format("15:04:05"),
+			RequiredCount: s.Slot.RequiredCount(),
+			AssignedCount: s.AssignedCount,
+			Priority:      s.Slot.Priority(),
+			IsOvernight:   s.Slot.IsOvernight(),
+			CreatedAt:     s.Slot.CreatedAt().Format("2006-01-02T15:04:05Z07:00"),
+			UpdatedAt:     s.Slot.UpdatedAt().Format("2006-01-02T15:04:05Z07:00"),
 		})
 	}
 
@@ -272,40 +260,34 @@ func (h *ShiftSlotHandler) GetShiftSlotDetail(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// シフト枠の取得
-	slot, err := h.slotRepo.FindByID(ctx, tenantID, slotID)
-	if err != nil {
-		if err.Error() == "shift slot not found" {
-			writeError(w, http.StatusNotFound, "ERR_NOT_FOUND", "Shift slot not found", nil)
-			return
-		}
-		writeError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to fetch shift slot", nil)
-		return
+	// Usecaseの実行
+	input := usecase.GetShiftSlotInput{
+		TenantID: tenantID,
+		SlotID:   slotID,
 	}
 
-	// assigned_count を取得
-	assignedCount, err := h.assignmentRepo.CountConfirmedBySlotID(ctx, tenantID, slot.SlotID())
+	result, err := h.getShiftSlotUC.Execute(ctx, input)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to count assignments", nil)
+		RespondDomainError(w, err)
 		return
 	}
 
 	// レスポンス
 	resp := ShiftSlotResponse{
-		SlotID:        slot.SlotID().String(),
-		TenantID:      slot.TenantID().String(),
-		BusinessDayID: slot.BusinessDayID().String(),
-		PositionID:    slot.PositionID().String(),
-		SlotName:      slot.SlotName(),
-		InstanceName:  slot.InstanceName(),
-		StartTime:     slot.StartTime().Format("15:04:05"),
-		EndTime:       slot.EndTime().Format("15:04:05"),
-		RequiredCount: slot.RequiredCount(),
-		AssignedCount: assignedCount,
-		Priority:      slot.Priority(),
-		IsOvernight:   slot.IsOvernight(),
-		CreatedAt:     slot.CreatedAt().Format("2006-01-02T15:04:05Z07:00"),
-		UpdatedAt:     slot.UpdatedAt().Format("2006-01-02T15:04:05Z07:00"),
+		SlotID:        result.Slot.SlotID().String(),
+		TenantID:      result.Slot.TenantID().String(),
+		BusinessDayID: result.Slot.BusinessDayID().String(),
+		PositionID:    result.Slot.PositionID().String(),
+		SlotName:      result.Slot.SlotName(),
+		InstanceName:  result.Slot.InstanceName(),
+		StartTime:     result.Slot.StartTime().Format("15:04:05"),
+		EndTime:       result.Slot.EndTime().Format("15:04:05"),
+		RequiredCount: result.Slot.RequiredCount(),
+		AssignedCount: result.AssignedCount,
+		Priority:      result.Slot.Priority(),
+		IsOvernight:   result.Slot.IsOvernight(),
+		CreatedAt:     result.Slot.CreatedAt().Format("2006-01-02T15:04:05Z07:00"),
+		UpdatedAt:     result.Slot.UpdatedAt().Format("2006-01-02T15:04:05Z07:00"),
 	}
 
 	writeSuccess(w, http.StatusOK, resp)

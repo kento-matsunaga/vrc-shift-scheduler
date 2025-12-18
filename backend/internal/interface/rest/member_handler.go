@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/application/usecase"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
-	domainMember "github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/member"
 	appMember "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/member"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/db"
 	"github.com/go-chi/chi/v5"
@@ -16,7 +16,9 @@ import (
 
 // MemberHandler handles member-related HTTP requests
 type MemberHandler struct {
-	memberRepo                 *db.MemberRepository
+	createMemberUC             *usecase.CreateMemberUsecase
+	listMembersUC              *usecase.ListMembersUsecase
+	getMemberUC                *usecase.GetMemberUsecase
 	memberRoleRepo             *db.MemberRoleRepository
 	updateMemberUsecase        *appMember.UpdateMemberUsecase
 	getRecentAttendanceUsecase *appMember.GetRecentAttendanceUsecase
@@ -29,7 +31,9 @@ func NewMemberHandler(dbPool *pgxpool.Pool) *MemberHandler {
 	attendanceRepo := db.NewAttendanceRepository(dbPool)
 
 	return &MemberHandler{
-		memberRepo:                 memberRepo,
+		createMemberUC:             usecase.NewCreateMemberUsecase(memberRepo),
+		listMembersUC:              usecase.NewListMembersUsecase(memberRepo, memberRoleRepo),
+		getMemberUC:                usecase.NewGetMemberUsecase(memberRepo, memberRoleRepo),
 		memberRoleRepo:             memberRoleRepo,
 		updateMemberUsecase:        appMember.NewUpdateMemberUsecase(memberRepo, memberRoleRepo),
 		getRecentAttendanceUsecase: appMember.NewGetRecentAttendanceUsecase(memberRepo, attendanceRepo),
@@ -94,52 +98,17 @@ func (h *MemberHandler) CreateMember(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 重複チェック（discord_user_id）
-	if req.DiscordUserID != "" {
-		existing, err := h.memberRepo.FindByDiscordUserID(ctx, tenantID, req.DiscordUserID)
-		if err != nil && err.Error() != "member not found" {
-			writeError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to check discord_user_id duplication", nil)
-			return
-		}
-		if existing != nil {
-			writeError(w, http.StatusConflict, "ERR_CONFLICT", "This discord_user_id is already registered", map[string]interface{}{
-				"member_id": existing.MemberID().String(),
-			})
-			return
-		}
+	// Usecaseの実行
+	input := usecase.CreateMemberInput{
+		TenantID:      tenantID,
+		DisplayName:   req.DisplayName,
+		DiscordUserID: req.DiscordUserID,
+		Email:         req.Email,
 	}
 
-	// 重複チェック（email）
-	if req.Email != "" {
-		existing, err := h.memberRepo.FindByEmail(ctx, tenantID, req.Email)
-		if err != nil && err.Error() != "member not found" {
-			writeError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to check email duplication", nil)
-			return
-		}
-		if existing != nil {
-			writeError(w, http.StatusConflict, "ERR_CONFLICT", "This email is already registered", map[string]interface{}{
-				"member_id": existing.MemberID().String(),
-			})
-			return
-		}
-	}
-
-	// Member エンティティの作成
-	newMember, err := domainMember.NewMember(
-		tenantID,
-		req.DisplayName,
-		req.DiscordUserID,
-		req.Email,
-	)
+	newMember, err := h.createMemberUC.Execute(ctx, input)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", err.Error(), nil)
-		return
-	}
-
-	// 保存
-	if err := h.memberRepo.Save(ctx, newMember); err != nil {
-		log.Printf("CreateMember error: %+v", err)
-		writeError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to create member", nil)
+		RespondDomainError(w, err)
 		return
 	}
 
@@ -255,57 +224,47 @@ func (h *MemberHandler) GetMembers(w http.ResponseWriter, r *http.Request) {
 	// クエリパラメータの取得
 	isActiveStr := r.URL.Query().Get("is_active")
 
-	// メンバー一覧を取得
-	members, err := h.memberRepo.FindByTenantID(ctx, tenantID)
+	// is_active フィルタのパース
+	var isActive *bool
+	if isActiveStr == "true" {
+		val := true
+		isActive = &val
+	} else if isActiveStr == "false" {
+		val := false
+		isActive = &val
+	}
+
+	// Usecaseの実行
+	input := usecase.ListMembersInput{
+		TenantID: tenantID,
+		IsActive: isActive,
+	}
+
+	membersWithRoles, err := h.listMembersUC.Execute(ctx, input)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to fetch members", nil)
 		return
 	}
 
-	// is_active フィルタ
-	var filteredMembers []*domainMember.Member
-	if isActiveStr == "true" {
-		for _, m := range members {
-			if m.IsActive() {
-				filteredMembers = append(filteredMembers, m)
-			}
-		}
-	} else if isActiveStr == "false" {
-		for _, m := range members {
-			if !m.IsActive() {
-				filteredMembers = append(filteredMembers, m)
-			}
-		}
-	} else {
-		filteredMembers = members
-	}
-
 	// レスポンス構築
-	memberResponses := make([]MemberResponse, 0, len(filteredMembers))
-	for _, m := range filteredMembers {
-		// メンバーのロールIDを取得
-		roleIDs, err := h.memberRoleRepo.FindRolesByMemberID(ctx, m.MemberID())
-		if err != nil {
-			log.Printf("Failed to fetch roles for member %s: %v", m.MemberID().String(), err)
-			roleIDs = []common.RoleID{} // エラー時は空配列
-		}
-
+	memberResponses := make([]MemberResponse, 0, len(membersWithRoles))
+	for _, mwr := range membersWithRoles {
 		// RoleIDをstringスライスに変換
-		roleIDStrs := make([]string, len(roleIDs))
-		for i, roleID := range roleIDs {
+		roleIDStrs := make([]string, len(mwr.RoleIDs))
+		for i, roleID := range mwr.RoleIDs {
 			roleIDStrs[i] = roleID.String()
 		}
 
 		memberResponses = append(memberResponses, MemberResponse{
-			MemberID:      m.MemberID().String(),
-			TenantID:      m.TenantID().String(),
-			DisplayName:   m.DisplayName(),
-			DiscordUserID: m.DiscordUserID(),
-			Email:         m.Email(),
-			IsActive:      m.IsActive(),
+			MemberID:      mwr.Member.MemberID().String(),
+			TenantID:      mwr.Member.TenantID().String(),
+			DisplayName:   mwr.Member.DisplayName(),
+			DiscordUserID: mwr.Member.DiscordUserID(),
+			Email:         mwr.Member.Email(),
+			IsActive:      mwr.Member.IsActive(),
 			RoleIDs:       roleIDStrs,
-			CreatedAt:     m.CreatedAt().Format("2006-01-02T15:04:05Z07:00"),
-			UpdatedAt:     m.UpdatedAt().Format("2006-01-02T15:04:05Z07:00"),
+			CreatedAt:     mwr.Member.CreatedAt().Format("2006-01-02T15:04:05Z07:00"),
+			UpdatedAt:     mwr.Member.UpdatedAt().Format("2006-01-02T15:04:05Z07:00"),
 		})
 	}
 
@@ -339,27 +298,35 @@ func (h *MemberHandler) GetMemberDetail(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// メンバーの取得
-	m, err := h.memberRepo.FindByID(ctx, tenantID, memberID)
+	// Usecaseの実行
+	input := usecase.GetMemberInput{
+		TenantID: tenantID,
+		MemberID: memberID,
+	}
+
+	result, err := h.getMemberUC.Execute(ctx, input)
 	if err != nil {
-		if err.Error() == "member not found" {
-			writeError(w, http.StatusNotFound, "ERR_NOT_FOUND", "Member not found", nil)
-			return
-		}
-		writeError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to fetch member", nil)
+		RespondDomainError(w, err)
 		return
+	}
+
+	// RoleIDをstringスライスに変換
+	roleIDStrs := make([]string, len(result.RoleIDs))
+	for i, roleID := range result.RoleIDs {
+		roleIDStrs[i] = roleID.String()
 	}
 
 	// レスポンス
 	resp := MemberResponse{
-		MemberID:      m.MemberID().String(),
-		TenantID:      m.TenantID().String(),
-		DisplayName:   m.DisplayName(),
-		DiscordUserID: m.DiscordUserID(),
-		Email:         m.Email(),
-		IsActive:      m.IsActive(),
-		CreatedAt:     m.CreatedAt().Format("2006-01-02T15:04:05Z07:00"),
-		UpdatedAt:     m.UpdatedAt().Format("2006-01-02T15:04:05Z07:00"),
+		MemberID:      result.Member.MemberID().String(),
+		TenantID:      result.Member.TenantID().String(),
+		DisplayName:   result.Member.DisplayName(),
+		DiscordUserID: result.Member.DiscordUserID(),
+		Email:         result.Member.Email(),
+		IsActive:      result.Member.IsActive(),
+		RoleIDs:       roleIDStrs,
+		CreatedAt:     result.Member.CreatedAt().Format("2006-01-02T15:04:05Z07:00"),
+		UpdatedAt:     result.Member.UpdatedAt().Format("2006-01-02T15:04:05Z07:00"),
 	}
 
 	writeSuccess(w, http.StatusOK, resp)

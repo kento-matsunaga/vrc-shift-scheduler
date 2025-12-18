@@ -9,6 +9,7 @@ import (
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/event"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -89,8 +90,8 @@ func (r *EventRepository) FindByID(ctx context.Context, tenantID common.TenantID
 		recurrenceTypeStr     string
 		recurrenceStartDate   sql.NullTime
 		recurrenceDayOfWeek   sql.NullInt32
-		defaultStartTime      sql.NullTime
-		defaultEndTime        sql.NullTime
+		defaultStartTime      pgtype.Time
+		defaultEndTime        pgtype.Time
 		createdAt             time.Time
 		updatedAt             time.Time
 		deletedAt             sql.NullTime
@@ -138,12 +139,14 @@ func (r *EventRepository) FindByID(ctx context.Context, tenantID common.TenantID
 
 	var defaultStartTimePtr *time.Time
 	if defaultStartTime.Valid {
-		defaultStartTimePtr = &defaultStartTime.Time
+		t := time.Date(0, 1, 1, int(defaultStartTime.Microseconds/3600000000), int((defaultStartTime.Microseconds%3600000000)/60000000), int((defaultStartTime.Microseconds%60000000)/1000000), 0, time.UTC)
+		defaultStartTimePtr = &t
 	}
 
 	var defaultEndTimePtr *time.Time
 	if defaultEndTime.Valid {
-		defaultEndTimePtr = &defaultEndTime.Time
+		t := time.Date(0, 1, 1, int(defaultEndTime.Microseconds/3600000000), int((defaultEndTime.Microseconds%3600000000)/60000000), int((defaultEndTime.Microseconds%60000000)/1000000), 0, time.UTC)
+		defaultEndTimePtr = &t
 	}
 
 	return event.ReconstructEvent(
@@ -210,8 +213,8 @@ func (r *EventRepository) scanEventRow(rows pgx.Rows) (*event.Event, error) {
 		recurrenceTypeStr     string
 		recurrenceStartDate   sql.NullTime
 		recurrenceDayOfWeek   sql.NullInt32
-		defaultStartTime      sql.NullTime
-		defaultEndTime        sql.NullTime
+		defaultStartTime      pgtype.Time
+		defaultEndTime        pgtype.Time
 		createdAt             time.Time
 		updatedAt             time.Time
 		deletedAt             sql.NullTime
@@ -255,12 +258,14 @@ func (r *EventRepository) scanEventRow(rows pgx.Rows) (*event.Event, error) {
 
 	var defaultStartTimePtr *time.Time
 	if defaultStartTime.Valid {
-		defaultStartTimePtr = &defaultStartTime.Time
+		t := time.Date(0, 1, 1, int(defaultStartTime.Microseconds/3600000000), int((defaultStartTime.Microseconds%3600000000)/60000000), int((defaultStartTime.Microseconds%60000000)/1000000), 0, time.UTC)
+		defaultStartTimePtr = &t
 	}
 
 	var defaultEndTimePtr *time.Time
 	if defaultEndTime.Valid {
-		defaultEndTimePtr = &defaultEndTime.Time
+		t := time.Date(0, 1, 1, int(defaultEndTime.Microseconds/3600000000), int((defaultEndTime.Microseconds%3600000000)/60000000), int((defaultEndTime.Microseconds%60000000)/1000000), 0, time.UTC)
+		defaultEndTimePtr = &t
 	}
 
 	e, err := event.ReconstructEvent(

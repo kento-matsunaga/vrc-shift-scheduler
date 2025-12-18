@@ -15,7 +15,7 @@ export async function listTemplates(eventId: string): Promise<Template[]> {
   const res = await apiClient.get<ApiResponse<TemplateListResponse>>(
     `/api/v1/events/${eventId}/templates`
   );
-  return res.data.templates;
+  return res.data.templates || [];
 }
 
 /**

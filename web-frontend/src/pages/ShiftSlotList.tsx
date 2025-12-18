@@ -431,9 +431,10 @@ function ApplyTemplateModal({
     try {
       setLoadingTemplates(true);
       const data = await listTemplates(eventId);
-      setTemplates(data);
+      setTemplates(data || []);
     } catch (err) {
       console.error('Failed to load templates:', err);
+      setTemplates([]);
       if (err instanceof ApiClientError) {
         setError(err.getUserMessage());
       } else {

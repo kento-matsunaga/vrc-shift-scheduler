@@ -1,5 +1,5 @@
 import { apiClient } from '../apiClient';
-import type { ApiResponse, Event, EventListResponse } from '../../types/api';
+import type { ApiResponse, Event, EventListResponse, GenerateBusinessDaysResponse } from '../../types/api';
 
 /**
  * Event 作成
@@ -50,5 +50,17 @@ export async function updateEvent(
  */
 export async function deleteEvent(eventId: string): Promise<void> {
   await apiClient.delete(`/api/v1/events/${eventId}`);
+}
+
+/**
+ * 営業日を自動生成（定期イベント用）
+ * 今月〜来月末までの営業日を生成する
+ */
+export async function generateBusinessDays(eventId: string): Promise<GenerateBusinessDaysResponse> {
+  const res = await apiClient.post<ApiResponse<GenerateBusinessDaysResponse>>(
+    `/api/v1/events/${eventId}/generate-business-days`,
+    {}
+  );
+  return res.data;
 }
 

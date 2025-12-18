@@ -30,12 +30,17 @@ func (r *ShiftSlotTemplateRepository) Save(ctx context.Context, template *shift.
 	}
 	defer tx.Rollback(ctx)
 
-	// Save template first
+	// Save template first (upsert)
 	templateQuery := `
 		INSERT INTO shift_slot_templates (
 			template_id, tenant_id, event_id, template_name, description,
 			created_at, updated_at, deleted_at
 		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		ON CONFLICT (template_id) DO UPDATE SET
+			template_name = EXCLUDED.template_name,
+			description = EXCLUDED.description,
+			updated_at = EXCLUDED.updated_at,
+			deleted_at = EXCLUDED.deleted_at
 	`
 
 	var deletedAtValue interface{}
