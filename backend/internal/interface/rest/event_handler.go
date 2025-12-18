@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/application/usecase"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/event"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/db"
@@ -14,33 +15,49 @@ import (
 
 // EventHandler handles event-related HTTP requests
 type EventHandler struct {
-	eventRepo *db.EventRepository
+	createEventUC *usecase.CreateEventUsecase
+	listEventsUC  *usecase.ListEventsUsecase
+	getEventUC    *usecase.GetEventUsecase
 }
 
 // NewEventHandler creates a new EventHandler
 func NewEventHandler(dbPool *pgxpool.Pool) *EventHandler {
+	eventRepo := db.NewEventRepository(dbPool)
+	businessDayRepo := db.NewEventBusinessDayRepository(dbPool)
 	return &EventHandler{
-		eventRepo: db.NewEventRepository(dbPool),
+		createEventUC: usecase.NewCreateEventUsecase(eventRepo, businessDayRepo),
+		listEventsUC:  usecase.NewListEventsUsecase(eventRepo),
+		getEventUC:    usecase.NewGetEventUsecase(eventRepo),
 	}
 }
 
 // CreateEventRequest represents the request body for creating an event
 type CreateEventRequest struct {
-	EventName   string `json:"event_name"`
-	EventType   string `json:"event_type"`
-	Description string `json:"description"`
+	EventName           string  `json:"event_name"`
+	EventType           string  `json:"event_type"`
+	Description         string  `json:"description"`
+	RecurrenceType      string  `json:"recurrence_type,omitempty"`       // "none", "weekly", "biweekly"
+	RecurrenceStartDate *string `json:"recurrence_start_date,omitempty"` // YYYY-MM-DD
+	RecurrenceDayOfWeek *int    `json:"recurrence_day_of_week,omitempty"`// 0-6
+	DefaultStartTime    *string `json:"default_start_time,omitempty"`    // HH:MM:SS
+	DefaultEndTime      *string `json:"default_end_time,omitempty"`      // HH:MM:SS
 }
 
 // EventResponse represents an event in API responses
 type EventResponse struct {
-	EventID     string `json:"event_id"`
-	TenantID    string `json:"tenant_id"`
-	EventName   string `json:"event_name"`
-	EventType   string `json:"event_type"`
-	Description string `json:"description"`
-	IsActive    bool   `json:"is_active"`
-	CreatedAt   string `json:"created_at"`
-	UpdatedAt   string `json:"updated_at"`
+	EventID             string  `json:"event_id"`
+	TenantID            string  `json:"tenant_id"`
+	EventName           string  `json:"event_name"`
+	EventType           string  `json:"event_type"`
+	Description         string  `json:"description"`
+	IsActive            bool    `json:"is_active"`
+	RecurrenceType      string  `json:"recurrence_type"`
+	RecurrenceStartDate *string `json:"recurrence_start_date,omitempty"`
+	RecurrenceDayOfWeek *int    `json:"recurrence_day_of_week,omitempty"`
+	DefaultStartTime    *string `json:"default_start_time,omitempty"`
+	DefaultEndTime      *string `json:"default_end_time,omitempty"`
+	CreatedAt           string  `json:"created_at"`
+	UpdatedAt           string  `json:"updated_at"`
 }
 
 // CreateEvent handles POST /api/v1/events
@@ -73,27 +90,69 @@ func (h *EventHandler) CreateEvent(w http.ResponseWriter, r *http.Request) {
 		eventType = event.EventType(req.EventType)
 	}
 
-	// イベント名の重複チェック
-	exists, err := h.eventRepo.ExistsByName(ctx, tenantID, req.EventName)
-	if err != nil {
-		RespondInternalError(w)
-		return
-	}
-	if exists {
-		RespondConflict(w, "Event with this name already exists")
-		return
+	// RecurrenceType のデフォルト値
+	recurrenceType := event.RecurrenceTypeNone
+	if req.RecurrenceType != "" {
+		recurrenceType = event.RecurrenceType(req.RecurrenceType)
 	}
 
-	// イベントの作成
-	newEvent, err := event.NewEvent(tenantID, req.EventName, eventType, req.Description)
+	// 定期設定のパース
+	var recurrenceStartDate *time.Time
+	var recurrenceDayOfWeek *int
+	var defaultStartTime *time.Time
+	var defaultEndTime *time.Time
+
+	if recurrenceType != event.RecurrenceTypeNone {
+		// 定期開始日のパース
+		if req.RecurrenceStartDate != nil {
+			t, err := time.Parse("2006-01-02", *req.RecurrenceStartDate)
+			if err != nil {
+				RespondBadRequest(w, "Invalid recurrence_start_date format (expected YYYY-MM-DD)")
+				return
+			}
+			recurrenceStartDate = &t
+		}
+
+		// 曜日のコピー
+		recurrenceDayOfWeek = req.RecurrenceDayOfWeek
+
+		// 開始時刻のパース
+		if req.DefaultStartTime != nil {
+			t, err := time.Parse("15:04:05", *req.DefaultStartTime)
+			if err != nil {
+				RespondBadRequest(w, "Invalid default_start_time format (expected HH:MM:SS)")
+				return
+			}
+			defaultStartTime = &t
+		}
+
+		// 終了時刻のパース
+		if req.DefaultEndTime != nil {
+			t, err := time.Parse("15:04:05", *req.DefaultEndTime)
+			if err != nil {
+				RespondBadRequest(w, "Invalid default_end_time format (expected HH:MM:SS)")
+				return
+			}
+			defaultEndTime = &t
+		}
+	}
+
+	// Usecaseの実行
+	input := usecase.CreateEventInput{
+		TenantID:            tenantID,
+		EventName:           req.EventName,
+		EventType:           eventType,
+		Description:         req.Description,
+		RecurrenceType:      recurrenceType,
+		RecurrenceStartDate: recurrenceStartDate,
+		RecurrenceDayOfWeek: recurrenceDayOfWeek,
+		DefaultStartTime:    defaultStartTime,
+		DefaultEndTime:      defaultEndTime,
+	}
+
+	newEvent, err := h.createEventUC.Execute(ctx, input)
 	if err != nil {
 		RespondDomainError(w, err)
-		return
-	}
-
-	// 保存
-	if err := h.eventRepo.Save(ctx, newEvent); err != nil {
-		RespondInternalError(w)
 		return
 	}
 
@@ -112,8 +171,12 @@ func (h *EventHandler) ListEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// イベント一覧の取得
-	events, err := h.eventRepo.FindByTenantID(ctx, tenantID)
+	// Usecaseの実行
+	input := usecase.ListEventsInput{
+		TenantID: tenantID,
+	}
+
+	events, err := h.listEventsUC.Execute(ctx, input)
 	if err != nil {
 		RespondInternalError(w)
 		return
@@ -155,8 +218,13 @@ func (h *EventHandler) GetEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// イベントの取得
-	foundEvent, err := h.eventRepo.FindByID(ctx, tenantID, eventID)
+	// Usecaseの実行
+	input := usecase.GetEventInput{
+		TenantID: tenantID,
+		EventID:  eventID,
+	}
+
+	foundEvent, err := h.getEventUC.Execute(ctx, input)
 	if err != nil {
 		RespondDomainError(w, err)
 		return
@@ -168,15 +236,36 @@ func (h *EventHandler) GetEvent(w http.ResponseWriter, r *http.Request) {
 
 // toEventResponse converts an Event entity to EventResponse
 func toEventResponse(e *event.Event) EventResponse {
-	return EventResponse{
-		EventID:     e.EventID().String(),
-		TenantID:    e.TenantID().String(),
-		EventName:   e.EventName(),
-		EventType:   string(e.EventType()),
-		Description: e.Description(),
-		IsActive:    e.IsActive(),
-		CreatedAt:   e.CreatedAt().Format(time.RFC3339),
-		UpdatedAt:   e.UpdatedAt().Format(time.RFC3339),
+	resp := EventResponse{
+		EventID:        e.EventID().String(),
+		TenantID:       e.TenantID().String(),
+		EventName:      e.EventName(),
+		EventType:      string(e.EventType()),
+		Description:    e.Description(),
+		IsActive:       e.IsActive(),
+		RecurrenceType: string(e.RecurrenceType()),
+		CreatedAt:      e.CreatedAt().Format(time.RFC3339),
+		UpdatedAt:      e.UpdatedAt().Format(time.RFC3339),
 	}
+
+	// 定期設定フィールドの変換
+	if e.RecurrenceStartDate() != nil {
+		dateStr := e.RecurrenceStartDate().Format("2006-01-02")
+		resp.RecurrenceStartDate = &dateStr
+	}
+
+	resp.RecurrenceDayOfWeek = e.RecurrenceDayOfWeek()
+
+	if e.DefaultStartTime() != nil {
+		timeStr := e.DefaultStartTime().Format("15:04:05")
+		resp.DefaultStartTime = &timeStr
+	}
+
+	if e.DefaultEndTime() != nil {
+		timeStr := e.DefaultEndTime().Format("15:04:05")
+		resp.DefaultEndTime = &timeStr
+	}
+
+	return resp
 }
 

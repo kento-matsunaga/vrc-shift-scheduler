@@ -27,13 +27,19 @@ func (r *EventRepository) Save(ctx context.Context, e *event.Event) error {
 	query := `
 		INSERT INTO events (
 			event_id, tenant_id, event_name, event_type, description,
-			is_active, created_at, updated_at, deleted_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+			is_active, recurrence_type, recurrence_start_date, recurrence_day_of_week,
+			default_start_time, default_end_time, created_at, updated_at, deleted_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 		ON CONFLICT (event_id) DO UPDATE SET
 			event_name = EXCLUDED.event_name,
 			event_type = EXCLUDED.event_type,
 			description = EXCLUDED.description,
 			is_active = EXCLUDED.is_active,
+			recurrence_type = EXCLUDED.recurrence_type,
+			recurrence_start_date = EXCLUDED.recurrence_start_date,
+			recurrence_day_of_week = EXCLUDED.recurrence_day_of_week,
+			default_start_time = EXCLUDED.default_start_time,
+			default_end_time = EXCLUDED.default_end_time,
 			updated_at = EXCLUDED.updated_at,
 			deleted_at = EXCLUDED.deleted_at
 	`
@@ -45,6 +51,11 @@ func (r *EventRepository) Save(ctx context.Context, e *event.Event) error {
 		string(e.EventType()),
 		e.Description(),
 		e.IsActive(),
+		string(e.RecurrenceType()),
+		e.RecurrenceStartDate(),
+		e.RecurrenceDayOfWeek(),
+		e.DefaultStartTime(),
+		e.DefaultEndTime(),
 		e.CreatedAt(),
 		e.UpdatedAt(),
 		e.DeletedAt(),
@@ -62,21 +73,27 @@ func (r *EventRepository) FindByID(ctx context.Context, tenantID common.TenantID
 	query := `
 		SELECT
 			event_id, tenant_id, event_name, event_type, description,
-			is_active, created_at, updated_at, deleted_at
+			is_active, recurrence_type, recurrence_start_date, recurrence_day_of_week,
+			default_start_time, default_end_time, created_at, updated_at, deleted_at
 		FROM events
 		WHERE tenant_id = $1 AND event_id = $2 AND deleted_at IS NULL
 	`
 
 	var (
-		eventIDStr    string
-		tenantIDStr   string
-		eventName     string
-		eventTypeStr  string
-		description   string
-		isActive      bool
-		createdAt     time.Time
-		updatedAt     time.Time
-		deletedAt     sql.NullTime
+		eventIDStr            string
+		tenantIDStr           string
+		eventName             string
+		eventTypeStr          string
+		description           string
+		isActive              bool
+		recurrenceTypeStr     string
+		recurrenceStartDate   sql.NullTime
+		recurrenceDayOfWeek   sql.NullInt32
+		defaultStartTime      sql.NullTime
+		defaultEndTime        sql.NullTime
+		createdAt             time.Time
+		updatedAt             time.Time
+		deletedAt             sql.NullTime
 	)
 
 	err := r.db.QueryRow(ctx, query, tenantID.String(), eventID.String()).Scan(
@@ -86,6 +103,11 @@ func (r *EventRepository) FindByID(ctx context.Context, tenantID common.TenantID
 		&eventTypeStr,
 		&description,
 		&isActive,
+		&recurrenceTypeStr,
+		&recurrenceStartDate,
+		&recurrenceDayOfWeek,
+		&defaultStartTime,
+		&defaultEndTime,
 		&createdAt,
 		&updatedAt,
 		&deletedAt,
@@ -103,6 +125,27 @@ func (r *EventRepository) FindByID(ctx context.Context, tenantID common.TenantID
 		deletedAtPtr = &deletedAt.Time
 	}
 
+	var recurrenceStartDatePtr *time.Time
+	if recurrenceStartDate.Valid {
+		recurrenceStartDatePtr = &recurrenceStartDate.Time
+	}
+
+	var recurrenceDayOfWeekPtr *int
+	if recurrenceDayOfWeek.Valid {
+		val := int(recurrenceDayOfWeek.Int32)
+		recurrenceDayOfWeekPtr = &val
+	}
+
+	var defaultStartTimePtr *time.Time
+	if defaultStartTime.Valid {
+		defaultStartTimePtr = &defaultStartTime.Time
+	}
+
+	var defaultEndTimePtr *time.Time
+	if defaultEndTime.Valid {
+		defaultEndTimePtr = &defaultEndTime.Time
+	}
+
 	return event.ReconstructEvent(
 		common.EventID(eventIDStr),
 		common.TenantID(tenantIDStr),
@@ -110,6 +153,11 @@ func (r *EventRepository) FindByID(ctx context.Context, tenantID common.TenantID
 		event.EventType(eventTypeStr),
 		description,
 		isActive,
+		event.RecurrenceType(recurrenceTypeStr),
+		recurrenceStartDatePtr,
+		recurrenceDayOfWeekPtr,
+		defaultStartTimePtr,
+		defaultEndTimePtr,
 		createdAt,
 		updatedAt,
 		deletedAtPtr,
@@ -121,7 +169,8 @@ func (r *EventRepository) FindByTenantID(ctx context.Context, tenantID common.Te
 	query := `
 		SELECT
 			event_id, tenant_id, event_name, event_type, description,
-			is_active, created_at, updated_at, deleted_at
+			is_active, recurrence_type, recurrence_start_date, recurrence_day_of_week,
+			default_start_time, default_end_time, created_at, updated_at, deleted_at
 		FROM events
 		WHERE tenant_id = $1 AND deleted_at IS NULL
 		ORDER BY created_at DESC
@@ -135,53 +184,10 @@ func (r *EventRepository) FindByTenantID(ctx context.Context, tenantID common.Te
 
 	var events []*event.Event
 	for rows.Next() {
-		var (
-			eventIDStr    string
-			tenantIDStr   string
-			eventName     string
-			eventTypeStr  string
-			description   string
-			isActive      bool
-			createdAt     time.Time
-			updatedAt     time.Time
-			deletedAt     sql.NullTime
-		)
-
-		err := rows.Scan(
-			&eventIDStr,
-			&tenantIDStr,
-			&eventName,
-			&eventTypeStr,
-			&description,
-			&isActive,
-			&createdAt,
-			&updatedAt,
-			&deletedAt,
-		)
+		e, err := r.scanEventRow(rows)
 		if err != nil {
-			return nil, fmt.Errorf("failed to scan event row: %w", err)
+			return nil, err
 		}
-
-		var deletedAtPtr *time.Time
-		if deletedAt.Valid {
-			deletedAtPtr = &deletedAt.Time
-		}
-
-		e, err := event.ReconstructEvent(
-			common.EventID(eventIDStr),
-			common.TenantID(tenantIDStr),
-			eventName,
-			event.EventType(eventTypeStr),
-			description,
-			isActive,
-			createdAt,
-			updatedAt,
-			deletedAtPtr,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to reconstruct event: %w", err)
-		}
-
 		events = append(events, e)
 	}
 
@@ -192,12 +198,101 @@ func (r *EventRepository) FindByTenantID(ctx context.Context, tenantID common.Te
 	return events, nil
 }
 
+// scanEventRow scans a single event row
+func (r *EventRepository) scanEventRow(rows pgx.Rows) (*event.Event, error) {
+	var (
+		eventIDStr            string
+		tenantIDStr           string
+		eventName             string
+		eventTypeStr          string
+		description           string
+		isActive              bool
+		recurrenceTypeStr     string
+		recurrenceStartDate   sql.NullTime
+		recurrenceDayOfWeek   sql.NullInt32
+		defaultStartTime      sql.NullTime
+		defaultEndTime        sql.NullTime
+		createdAt             time.Time
+		updatedAt             time.Time
+		deletedAt             sql.NullTime
+	)
+
+	err := rows.Scan(
+		&eventIDStr,
+		&tenantIDStr,
+		&eventName,
+		&eventTypeStr,
+		&description,
+		&isActive,
+		&recurrenceTypeStr,
+		&recurrenceStartDate,
+		&recurrenceDayOfWeek,
+		&defaultStartTime,
+		&defaultEndTime,
+		&createdAt,
+		&updatedAt,
+		&deletedAt,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to scan event row: %w", err)
+	}
+
+	var deletedAtPtr *time.Time
+	if deletedAt.Valid {
+		deletedAtPtr = &deletedAt.Time
+	}
+
+	var recurrenceStartDatePtr *time.Time
+	if recurrenceStartDate.Valid {
+		recurrenceStartDatePtr = &recurrenceStartDate.Time
+	}
+
+	var recurrenceDayOfWeekPtr *int
+	if recurrenceDayOfWeek.Valid {
+		val := int(recurrenceDayOfWeek.Int32)
+		recurrenceDayOfWeekPtr = &val
+	}
+
+	var defaultStartTimePtr *time.Time
+	if defaultStartTime.Valid {
+		defaultStartTimePtr = &defaultStartTime.Time
+	}
+
+	var defaultEndTimePtr *time.Time
+	if defaultEndTime.Valid {
+		defaultEndTimePtr = &defaultEndTime.Time
+	}
+
+	e, err := event.ReconstructEvent(
+		common.EventID(eventIDStr),
+		common.TenantID(tenantIDStr),
+		eventName,
+		event.EventType(eventTypeStr),
+		description,
+		isActive,
+		event.RecurrenceType(recurrenceTypeStr),
+		recurrenceStartDatePtr,
+		recurrenceDayOfWeekPtr,
+		defaultStartTimePtr,
+		defaultEndTimePtr,
+		createdAt,
+		updatedAt,
+		deletedAtPtr,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to reconstruct event: %w", err)
+	}
+
+	return e, nil
+}
+
 // FindActiveByTenantID finds all active events within a tenant
 func (r *EventRepository) FindActiveByTenantID(ctx context.Context, tenantID common.TenantID) ([]*event.Event, error) {
 	query := `
 		SELECT
 			event_id, tenant_id, event_name, event_type, description,
-			is_active, created_at, updated_at, deleted_at
+			is_active, recurrence_type, recurrence_start_date, recurrence_day_of_week,
+			default_start_time, default_end_time, created_at, updated_at, deleted_at
 		FROM events
 		WHERE tenant_id = $1 AND is_active = true AND deleted_at IS NULL
 		ORDER BY created_at DESC
@@ -211,53 +306,10 @@ func (r *EventRepository) FindActiveByTenantID(ctx context.Context, tenantID com
 
 	var events []*event.Event
 	for rows.Next() {
-		var (
-			eventIDStr    string
-			tenantIDStr   string
-			eventName     string
-			eventTypeStr  string
-			description   string
-			isActive      bool
-			createdAt     time.Time
-			updatedAt     time.Time
-			deletedAt     sql.NullTime
-		)
-
-		err := rows.Scan(
-			&eventIDStr,
-			&tenantIDStr,
-			&eventName,
-			&eventTypeStr,
-			&description,
-			&isActive,
-			&createdAt,
-			&updatedAt,
-			&deletedAt,
-		)
+		e, err := r.scanEventRow(rows)
 		if err != nil {
-			return nil, fmt.Errorf("failed to scan event row: %w", err)
+			return nil, err
 		}
-
-		var deletedAtPtr *time.Time
-		if deletedAt.Valid {
-			deletedAtPtr = &deletedAt.Time
-		}
-
-		e, err := event.ReconstructEvent(
-			common.EventID(eventIDStr),
-			common.TenantID(tenantIDStr),
-			eventName,
-			event.EventType(eventTypeStr),
-			description,
-			isActive,
-			createdAt,
-			updatedAt,
-			deletedAtPtr,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to reconstruct event: %w", err)
-		}
-
 		events = append(events, e)
 	}
 

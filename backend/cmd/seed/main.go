@@ -210,11 +210,29 @@ func createPositions(ctx context.Context, pool *pgxpool.Pool, tenantID common.Te
 }
 
 func createEvent(ctx context.Context, repo *db.EventRepository, tenantID common.TenantID, name string) (common.EventID, error) {
+	// 毎週土曜日のイベント設定
+	// 次の土曜日を開始日として設定
+	now := time.Now()
+	recurrenceStartDate := now
+	for recurrenceStartDate.Weekday() != time.Saturday {
+		recurrenceStartDate = recurrenceStartDate.AddDate(0, 0, 1)
+	}
+
+	dayOfWeek := int(time.Saturday) // 6
+	startTime := time.Date(2000, 1, 1, 21, 0, 0, 0, time.UTC)
+	endTime := time.Date(2000, 1, 1, 23, 0, 0, 0, time.UTC)
+
 	ev, err := event.NewEvent(
+		time.Now(),
 		tenantID,
 		name,
 		event.EventTypeNormal,
-		"テスト用イベントです。Alpha版での動作確認用に作成されました。",
+		"テスト用イベントです。Alpha版での動作確認用に作成されました。毎週土曜日21:00-23:00に開催されます。",
+		event.RecurrenceTypeWeekly,
+		&recurrenceStartDate,
+		&dayOfWeek,
+		&startTime,
+		&endTime,
 	)
 	if err != nil {
 		return "", err
@@ -239,6 +257,7 @@ func createBusinessDays(ctx context.Context, repo *db.EventBusinessDayRepository
 		endTime := time.Date(2000, 1, 1, 23, 30, 0, 0, time.UTC)
 
 		bd, err := event.NewEventBusinessDay(
+			time.Now(),
 			tenantID,
 			eventID,
 			targetDate,
@@ -279,6 +298,7 @@ func createMembers(ctx context.Context, repo *db.MemberRepository, tenantID comm
 
 	for i := 0; i < count && i < len(names); i++ {
 		m, err := member.NewMember(
+			time.Now(),
 			tenantID,
 			names[i],
 			fmt.Sprintf("discord_user_%d", 100000000000000000+i), // Discord User ID
@@ -325,6 +345,7 @@ func createShiftSlots(ctx context.Context, repo *db.ShiftSlotRepository, tenantI
 		endTime := time.Date(2000, 1, 1, cfg.endHour, cfg.endMinute, 0, 0, time.UTC)
 
 		slot, err := shift.NewShiftSlot(
+			time.Now(),
 			tenantID,
 			businessDayID,
 			positionID,
@@ -666,6 +687,7 @@ func createWeeklyBusinessDays(ctx context.Context, repo *db.EventBusinessDayRepo
 		endTime := time.Date(2000, 1, 1, 23, 0, 0, 0, time.UTC)
 
 		bd, err := event.NewEventBusinessDay(
+			time.Now(),
 			tenantID,
 			eventID,
 			targetDate,
@@ -732,6 +754,7 @@ func createBusinessDaysWithHistory(ctx context.Context, repo *db.EventBusinessDa
 		endTime := time.Date(2000, 1, 1, 23, 30, 0, 0, time.UTC)
 
 		bd, err := event.NewEventBusinessDay(
+			time.Now(),
 			tenantID,
 			eventID,
 			targetDate,

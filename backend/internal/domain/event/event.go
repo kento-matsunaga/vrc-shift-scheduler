@@ -20,40 +20,74 @@ func (t EventType) Validate() error {
 	case EventTypeNormal, EventTypeSpecial:
 		return nil
 	default:
-		return fmt.Errorf("invalid event type: %s", t)
+		return common.NewValidationError(fmt.Sprintf("invalid event type: %s", t), nil)
+	}
+}
+
+// RecurrenceType represents the recurrence type of an event
+type RecurrenceType string
+
+const (
+	RecurrenceTypeNone     RecurrenceType = "none"     // 定期なし
+	RecurrenceTypeWeekly   RecurrenceType = "weekly"   // 毎週
+	RecurrenceTypeBiweekly RecurrenceType = "biweekly" // 隔週
+)
+
+func (t RecurrenceType) Validate() error {
+	switch t {
+	case RecurrenceTypeNone, RecurrenceTypeWeekly, RecurrenceTypeBiweekly:
+		return nil
+	default:
+		return common.NewValidationError(fmt.Sprintf("invalid recurrence type: %s", t), nil)
 	}
 }
 
 // Event represents an event entity (aggregate root)
 // イベントはVRChatイベントの定義を表す集約ルート
 type Event struct {
-	eventID     common.EventID
-	tenantID    common.TenantID
-	eventName   string
-	eventType   EventType
-	description string
-	isActive    bool
-	createdAt   time.Time
-	updatedAt   time.Time
-	deletedAt   *time.Time
+	eventID               common.EventID
+	tenantID              common.TenantID
+	eventName             string
+	eventType             EventType
+	description           string
+	isActive              bool
+	recurrenceType        RecurrenceType
+	recurrenceStartDate   *time.Time // DATE型として扱う
+	recurrenceDayOfWeek   *int       // 0-6: 日曜日=0, 土曜日=6
+	defaultStartTime      *time.Time // TIME型として扱う
+	defaultEndTime        *time.Time // TIME型として扱う
+	createdAt             time.Time
+	updatedAt             time.Time
+	deletedAt             *time.Time
 }
 
 // NewEvent creates a new Event entity
 func NewEvent(
+	now time.Time,
 	tenantID common.TenantID,
 	eventName string,
 	eventType EventType,
 	description string,
+	recurrenceType RecurrenceType,
+	recurrenceStartDate *time.Time,
+	recurrenceDayOfWeek *int,
+	defaultStartTime *time.Time,
+	defaultEndTime *time.Time,
 ) (*Event, error) {
 	event := &Event{
-		eventID:     common.NewEventID(),
-		tenantID:    tenantID,
-		eventName:   eventName,
-		eventType:   eventType,
-		description: description,
-		isActive:    true,
-		createdAt:   time.Now(),
-		updatedAt:   time.Now(),
+		eventID:             common.NewEventID(),
+		tenantID:            tenantID,
+		eventName:           eventName,
+		eventType:           eventType,
+		description:         description,
+		isActive:            true,
+		recurrenceType:      recurrenceType,
+		recurrenceStartDate: recurrenceStartDate,
+		recurrenceDayOfWeek: recurrenceDayOfWeek,
+		defaultStartTime:    defaultStartTime,
+		defaultEndTime:      defaultEndTime,
+		createdAt:           now,
+		updatedAt:           now,
 	}
 
 	if err := event.validate(); err != nil {
@@ -71,20 +105,30 @@ func ReconstructEvent(
 	eventType EventType,
 	description string,
 	isActive bool,
+	recurrenceType RecurrenceType,
+	recurrenceStartDate *time.Time,
+	recurrenceDayOfWeek *int,
+	defaultStartTime *time.Time,
+	defaultEndTime *time.Time,
 	createdAt time.Time,
 	updatedAt time.Time,
 	deletedAt *time.Time,
 ) (*Event, error) {
 	event := &Event{
-		eventID:     eventID,
-		tenantID:    tenantID,
-		eventName:   eventName,
-		eventType:   eventType,
-		description: description,
-		isActive:    isActive,
-		createdAt:   createdAt,
-		updatedAt:   updatedAt,
-		deletedAt:   deletedAt,
+		eventID:             eventID,
+		tenantID:            tenantID,
+		eventName:           eventName,
+		eventType:           eventType,
+		description:         description,
+		isActive:            isActive,
+		recurrenceType:      recurrenceType,
+		recurrenceStartDate: recurrenceStartDate,
+		recurrenceDayOfWeek: recurrenceDayOfWeek,
+		defaultStartTime:    defaultStartTime,
+		defaultEndTime:      defaultEndTime,
+		createdAt:           createdAt,
+		updatedAt:           updatedAt,
+		deletedAt:           deletedAt,
 	}
 
 	if err := event.validate(); err != nil {
@@ -113,6 +157,18 @@ func (e *Event) validate() error {
 	// EventType のバリデーション
 	if err := e.eventType.Validate(); err != nil {
 		return common.NewValidationError("invalid event_type", err)
+	}
+
+	// RecurrenceType のバリデーション
+	if err := e.recurrenceType.Validate(); err != nil {
+		return common.NewValidationError("invalid recurrence_type", err)
+	}
+
+	// recurrenceDayOfWeek のバリデーション（0-6の範囲チェック）
+	if e.recurrenceDayOfWeek != nil {
+		if *e.recurrenceDayOfWeek < 0 || *e.recurrenceDayOfWeek > 6 {
+			return common.NewValidationError("recurrence_day_of_week must be between 0 and 6", nil)
+		}
 	}
 
 	return nil
@@ -158,6 +214,30 @@ func (e *Event) DeletedAt() *time.Time {
 
 func (e *Event) IsDeleted() bool {
 	return e.deletedAt != nil
+}
+
+func (e *Event) RecurrenceType() RecurrenceType {
+	return e.recurrenceType
+}
+
+func (e *Event) RecurrenceStartDate() *time.Time {
+	return e.recurrenceStartDate
+}
+
+func (e *Event) RecurrenceDayOfWeek() *int {
+	return e.recurrenceDayOfWeek
+}
+
+func (e *Event) DefaultStartTime() *time.Time {
+	return e.defaultStartTime
+}
+
+func (e *Event) DefaultEndTime() *time.Time {
+	return e.defaultEndTime
+}
+
+func (e *Event) HasRecurrence() bool {
+	return e.recurrenceType != RecurrenceTypeNone
 }
 
 // UpdateEventName updates the event name

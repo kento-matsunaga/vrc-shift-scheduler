@@ -20,7 +20,7 @@ func (t OccurrenceType) Validate() error {
 	case OccurrenceTypeRecurring, OccurrenceTypeSpecial:
 		return nil
 	default:
-		return fmt.Errorf("invalid occurrence type: %s", t)
+		return common.NewValidationError(fmt.Sprintf("invalid occurrence type: %s", t), nil)
 	}
 }
 
@@ -37,7 +37,7 @@ func (id BusinessDayID) String() string {
 
 func (id BusinessDayID) Validate() error {
 	if id == "" {
-		return fmt.Errorf("business_day_id is required")
+		return common.NewValidationError("business_day_id is required", nil)
 	}
 	return common.ValidateULID(string(id))
 }
@@ -71,6 +71,7 @@ type EventBusinessDay struct {
 
 // NewEventBusinessDay creates a new EventBusinessDay entity
 func NewEventBusinessDay(
+	now time.Time,
 	tenantID common.TenantID,
 	eventID common.EventID,
 	targetDate time.Time,
@@ -89,8 +90,8 @@ func NewEventBusinessDay(
 		occurrenceType:     occurrenceType,
 		recurringPatternID: recurringPatternID,
 		isActive:           true,
-		createdAt:          time.Now(),
-		updatedAt:          time.Now(),
+		createdAt:          now,
+		updatedAt:          now,
 	}
 
 	if err := businessDay.validate(); err != nil {
@@ -157,12 +158,9 @@ func (b *EventBusinessDay) validate() error {
 		return common.NewValidationError("invalid occurrence_type", err)
 	}
 
-	// recurring の場合は recurringPatternID が必須、special の場合は NULL
-	if b.occurrenceType == OccurrenceTypeRecurring {
-		if b.recurringPatternID == nil {
-			return common.NewValidationError("recurring_pattern_id is required for recurring occurrence", nil)
-		}
-	} else if b.occurrenceType == OccurrenceTypeSpecial {
+	// special の場合は recurringPatternID は NULL である必要がある
+	// recurring の場合は recurringPatternID は任意（イベント自体が定期情報を持っている場合はnilでも可）
+	if b.occurrenceType == OccurrenceTypeSpecial {
 		if b.recurringPatternID != nil {
 			return common.NewValidationError("recurring_pattern_id must be null for special occurrence", nil)
 		}

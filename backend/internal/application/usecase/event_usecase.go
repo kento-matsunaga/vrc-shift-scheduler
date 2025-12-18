@@ -18,21 +18,28 @@ type EventRepository interface {
 
 // CreateEventInput represents the input for creating an event
 type CreateEventInput struct {
-	TenantID    common.TenantID
-	EventName   string
-	EventType   event.EventType
-	Description string
+	TenantID            common.TenantID
+	EventName           string
+	EventType           event.EventType
+	Description         string
+	RecurrenceType      event.RecurrenceType
+	RecurrenceStartDate *time.Time
+	RecurrenceDayOfWeek *int
+	DefaultStartTime    *time.Time
+	DefaultEndTime      *time.Time
 }
 
 // CreateEventUsecase handles the event creation use case
 type CreateEventUsecase struct {
-	eventRepo EventRepository
+	eventRepo       EventRepository
+	businessDayRepo EventBusinessDayRepository
 }
 
 // NewCreateEventUsecase creates a new CreateEventUsecase
-func NewCreateEventUsecase(eventRepo EventRepository) *CreateEventUsecase {
+func NewCreateEventUsecase(eventRepo EventRepository, businessDayRepo EventBusinessDayRepository) *CreateEventUsecase {
 	return &CreateEventUsecase{
-		eventRepo: eventRepo,
+		eventRepo:       eventRepo,
+		businessDayRepo: businessDayRepo,
 	}
 }
 
@@ -48,7 +55,18 @@ func (uc *CreateEventUsecase) Execute(ctx context.Context, input CreateEventInpu
 	}
 
 	// イベントの作成
-	newEvent, err := event.NewEvent(time.Now(), input.TenantID, input.EventName, input.EventType, input.Description)
+	newEvent, err := event.NewEvent(
+		time.Now(),
+		input.TenantID,
+		input.EventName,
+		input.EventType,
+		input.Description,
+		input.RecurrenceType,
+		input.RecurrenceStartDate,
+		input.RecurrenceDayOfWeek,
+		input.DefaultStartTime,
+		input.DefaultEndTime,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -58,7 +76,93 @@ func (uc *CreateEventUsecase) Execute(ctx context.Context, input CreateEventInpu
 		return nil, err
 	}
 
+	// 定期設定がある場合、営業日を自動生成
+	if newEvent.HasRecurrence() {
+		if err := uc.generateBusinessDays(ctx, newEvent); err != nil {
+			return nil, err
+		}
+	}
+
 	return newEvent, nil
+}
+
+// generateBusinessDays generates business days for recurring events
+// 今月と来月末までの営業日を自動生成
+func (uc *CreateEventUsecase) generateBusinessDays(ctx context.Context, e *event.Event) error {
+	if !e.HasRecurrence() {
+		return nil
+	}
+
+	if e.RecurrenceStartDate() == nil || e.RecurrenceDayOfWeek() == nil ||
+		e.DefaultStartTime() == nil || e.DefaultEndTime() == nil {
+		return common.NewValidationError("recurrence fields are incomplete", nil)
+	}
+
+	now := time.Now()
+	startDate := *e.RecurrenceStartDate()
+	targetDayOfWeek := time.Weekday(*e.RecurrenceDayOfWeek())
+
+	// 今月の最初の日と来月末の日を計算
+	currentMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.Local)
+	nextMonthEnd := currentMonth.AddDate(0, 2, 0).AddDate(0, 0, -1)
+
+	// 定期開始日から次の指定曜日を見つける
+	candidateDate := startDate
+	for candidateDate.Weekday() != targetDayOfWeek {
+		candidateDate = candidateDate.AddDate(0, 0, 1)
+	}
+
+	// 営業日を生成
+	interval := 7 // 毎週の場合は7日間隔
+	if e.RecurrenceType() == event.RecurrenceTypeBiweekly {
+		interval = 14 // 隔週の場合は14日間隔
+	}
+
+	for candidateDate.Before(nextMonthEnd) || candidateDate.Equal(nextMonthEnd) {
+		// 開始日より前の日付はスキップ
+		if candidateDate.Before(startDate) {
+			candidateDate = candidateDate.AddDate(0, 0, interval)
+			continue
+		}
+
+		// 重複チェック
+		exists, err := uc.businessDayRepo.ExistsByEventIDAndDate(
+			ctx,
+			e.TenantID(),
+			e.EventID(),
+			candidateDate,
+			*e.DefaultStartTime(),
+		)
+		if err != nil {
+			return err
+		}
+
+		if !exists {
+			// 営業日を作成（普通営業 = recurring）
+			businessDay, err := event.NewEventBusinessDay(
+				time.Now(),
+				e.TenantID(),
+				e.EventID(),
+				candidateDate,
+				*e.DefaultStartTime(),
+				*e.DefaultEndTime(),
+				event.OccurrenceTypeRecurring,
+				nil, // recurring_pattern_idはnilで良い（イベント自体が定期情報を持っているため）
+			)
+			if err != nil {
+				return err
+			}
+
+			// 保存
+			if err := uc.businessDayRepo.Save(ctx, businessDay); err != nil {
+				return err
+			}
+		}
+
+		candidateDate = candidateDate.AddDate(0, 0, interval)
+	}
+
+	return nil
 }
 
 // ListEventsInput represents the input for listing events
