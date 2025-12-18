@@ -406,6 +406,7 @@ export default function AssignShift() {
                     <span className="text-xs text-gray-600">ロールでフィルター</span>
                     {memberFilterRoleIds.length > 0 && (
                       <button
+                        type="button"
                         onClick={() => setMemberFilterRoleIds([])}
                         className="text-xs text-blue-600 hover:text-blue-800"
                       >
@@ -418,6 +419,7 @@ export default function AssignShift() {
                       const isSelected = memberFilterRoleIds.includes(role.role_id);
                       return (
                         <button
+                          type="button"
                           key={role.role_id}
                           onClick={() => {
                             if (isSelected) {
