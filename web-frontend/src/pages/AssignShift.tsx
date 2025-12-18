@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { getShiftSlotDetail, getMembers, confirmAssignment, getRecentAttendance, getActualAttendance, getBusinessDayDetail, getAssignments, cancelAssignment } from '../lib/api';
+import { listRoles, type Role } from '../lib/api/roleApi';
 import type { ShiftSlot, Member, RecentAttendanceResponse } from '../types/api';
 import { ApiClientError } from '../lib/apiClient';
 
@@ -10,6 +11,7 @@ export default function AssignShift() {
   const [shiftSlot, setShiftSlot] = useState<ShiftSlot | null>(null);
   const [businessDay, setBusinessDay] = useState<any | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
+  const [roles, setRoles] = useState<Role[]>([]);
   const [actualAttendance, setActualAttendance] = useState<RecentAttendanceResponse | null>(null);
   const [todayAttendance, setTodayAttendance] = useState<string[]>([]);
   const [existingAssignmentIds, setExistingAssignmentIds] = useState<string[]>([]);
@@ -19,6 +21,46 @@ export default function AssignShift() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  // ロールフィルター（表用とメンバー選択用で別々に管理）
+  const [tableFilterRoleIds, setTableFilterRoleIds] = useState<string[]>([]);
+  const [memberFilterRoleIds, setMemberFilterRoleIds] = useState<string[]>([]);
+
+  // ロールのカラーを取得
+  const getRoleColor = (roleId: string) => {
+    const role = roles.find((r) => r.role_id === roleId);
+    return role?.color || '#6B7280';
+  };
+
+  // ロール名を取得
+  const getRoleName = (roleId: string) => {
+    const role = roles.find((r) => r.role_id === roleId);
+    return role?.name || 'Unknown';
+  };
+
+  // メンバーIDからロールIDリストを取得（membersから）
+  const getMemberRoleIds = (memberId: string): string[] => {
+    const member = members.find((m) => m.member_id === memberId);
+    return member?.role_ids || [];
+  };
+
+  // フィルタリングされたメンバー一覧（メンバー選択用）
+  const filteredMembers = memberFilterRoleIds.length > 0
+    ? members.filter((m) => m.role_ids?.some((roleId) => memberFilterRoleIds.includes(roleId)))
+    : members;
+
+  // フィルタリングされた本出席データ（表用）
+  const filteredActualAttendance = actualAttendance
+    ? {
+        ...actualAttendance,
+        member_attendances: tableFilterRoleIds.length > 0
+          ? actualAttendance.member_attendances.filter((memberAtt) => {
+              const memberRoleIds = getMemberRoleIds(memberAtt.member_id);
+              return memberRoleIds.some((roleId) => tableFilterRoleIds.includes(roleId));
+            })
+          : actualAttendance.member_attendances,
+      }
+    : null;
 
   useEffect(() => {
     if (slotId) {
@@ -34,9 +76,10 @@ export default function AssignShift() {
       const shiftSlotData = await getShiftSlotDetail(slotId);
       setShiftSlot(shiftSlotData);
 
-      const [businessDayData, membersData, recentAttendanceData, actualAttendanceData, existingAssignments] = await Promise.all([
+      const [businessDayData, membersData, rolesData, recentAttendanceData, actualAttendanceData, existingAssignments] = await Promise.all([
         getBusinessDayDetail(shiftSlotData.business_day_id),
         getMembers({ is_active: true }),
+        listRoles(),
         getRecentAttendance({ limit: 30 }),
         getActualAttendance({ limit: 30 }),
         getAssignments({ slot_id: slotId, assignment_status: 'confirmed' }),
@@ -44,6 +87,7 @@ export default function AssignShift() {
 
       setBusinessDay(businessDayData);
       setMembers(membersData.members);
+      setRoles(rolesData);
       setActualAttendance(actualAttendanceData);
 
       // 既存の割り当てを初期選択状態にする
@@ -221,7 +265,65 @@ export default function AssignShift() {
         {/* 直近の本出席状況（全体） */}
         {actualAttendance && actualAttendance.target_dates.length > 0 && (
           <div className="mb-6">
-            <h3 className="font-bold text-gray-900 mb-3">直近の本出席状況（参考）</h3>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-bold text-gray-900">直近の本出席状況（参考）</h3>
+            </div>
+
+            {/* ロールフィルター（表用） */}
+            {roles.length > 0 && (
+              <div className="mb-3">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs text-gray-600">ロールでフィルター</span>
+                  {tableFilterRoleIds.length > 0 && (
+                    <button
+                      onClick={() => setTableFilterRoleIds([])}
+                      className="text-xs text-blue-600 hover:text-blue-800"
+                    >
+                      クリア
+                    </button>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {roles.map((role) => {
+                    const isSelected = tableFilterRoleIds.includes(role.role_id);
+                    return (
+                      <button
+                        key={role.role_id}
+                        onClick={() => {
+                          if (isSelected) {
+                            setTableFilterRoleIds(tableFilterRoleIds.filter((id) => id !== role.role_id));
+                          } else {
+                            setTableFilterRoleIds([...tableFilterRoleIds, role.role_id]);
+                          }
+                        }}
+                        className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium transition-all ${
+                          isSelected
+                            ? 'ring-2 ring-offset-1 ring-blue-500'
+                            : 'opacity-60 hover:opacity-100'
+                        }`}
+                        style={{
+                          backgroundColor: role.color || '#6B7280',
+                          color: 'white',
+                        }}
+                      >
+                        {role.name}
+                        {isSelected && (
+                          <svg className="w-3 h-3 ml-1" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+                {tableFilterRoleIds.length > 0 && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    {filteredActualAttendance?.member_attendances.length || 0}人表示中
+                  </p>
+                )}
+              </div>
+            )}
+
             <div className="overflow-x-auto">
               <table className="min-w-full text-xs border-collapse border border-gray-300">
                 <thead>
@@ -240,10 +342,20 @@ export default function AssignShift() {
                   </tr>
                 </thead>
                 <tbody>
-                  {actualAttendance.member_attendances.map((memberAtt) => (
+                  {filteredActualAttendance?.member_attendances.map((memberAtt) => (
                     <tr key={memberAtt.member_id} className="hover:bg-gray-50">
                       <td className="border border-gray-300 px-2 py-1 font-medium sticky left-0 bg-white z-10">
-                        {memberAtt.member_name}
+                        <div className="flex items-center gap-1">
+                          <span>{memberAtt.member_name}</span>
+                          {getMemberRoleIds(memberAtt.member_id).map((roleId) => (
+                            <span
+                              key={roleId}
+                              className="inline-block w-2 h-2 rounded-full"
+                              style={{ backgroundColor: getRoleColor(roleId) }}
+                              title={getRoleName(roleId)}
+                            />
+                          ))}
+                        </div>
                       </td>
                       {actualAttendance.target_dates.map((td) => {
                         const status = memberAtt.attendance_map[td.target_date_id] || '';
@@ -286,14 +398,74 @@ export default function AssignShift() {
                   </span>
                 )}
               </label>
+
+              {/* ロールフィルター（メンバー選択用） */}
+              {roles.length > 0 && (
+                <div className="mb-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs text-gray-600">ロールでフィルター</span>
+                    {memberFilterRoleIds.length > 0 && (
+                      <button
+                        onClick={() => setMemberFilterRoleIds([])}
+                        className="text-xs text-blue-600 hover:text-blue-800"
+                      >
+                        クリア
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {roles.map((role) => {
+                      const isSelected = memberFilterRoleIds.includes(role.role_id);
+                      return (
+                        <button
+                          key={role.role_id}
+                          onClick={() => {
+                            if (isSelected) {
+                              setMemberFilterRoleIds(memberFilterRoleIds.filter((id) => id !== role.role_id));
+                            } else {
+                              setMemberFilterRoleIds([...memberFilterRoleIds, role.role_id]);
+                            }
+                          }}
+                          className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium transition-all ${
+                            isSelected
+                              ? 'ring-2 ring-offset-1 ring-blue-500'
+                              : 'opacity-60 hover:opacity-100'
+                          }`}
+                          style={{
+                            backgroundColor: role.color || '#6B7280',
+                            color: 'white',
+                          }}
+                        >
+                          {role.name}
+                          {isSelected && (
+                            <svg className="w-3 h-3 ml-1" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {memberFilterRoleIds.length > 0 && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      {filteredMembers.length}人表示中
+                    </p>
+                  )}
+                </div>
+              )}
+
               <div className="border border-gray-300 rounded-lg p-4 max-h-64 overflow-y-auto bg-white">
                 {members.length === 0 ? (
                   <p className="text-sm text-red-600">
                     メンバーが登録されていません。先にメンバーを登録してください。
                   </p>
+                ) : filteredMembers.length === 0 ? (
+                  <p className="text-sm text-gray-600">
+                    選択したロールのメンバーがいません。
+                  </p>
                 ) : (
                   <div className="space-y-2">
-                    {members.map((member) => (
+                    {filteredMembers.map((member) => (
                       <label
                         key={member.member_id}
                         className="flex items-center p-2 hover:bg-gray-50 rounded cursor-pointer"
@@ -305,7 +477,21 @@ export default function AssignShift() {
                           disabled={submitting}
                           className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                         />
-                        <span className="ml-3 text-sm text-gray-900">{member.display_name}</span>
+                        <div className="ml-3 flex items-center gap-2">
+                          <span className="text-sm text-gray-900">{member.display_name}</span>
+                          {member.role_ids && member.role_ids.length > 0 && (
+                            <div className="flex gap-1">
+                              {member.role_ids.map((roleId) => (
+                                <span
+                                  key={roleId}
+                                  className="inline-block w-2 h-2 rounded-full"
+                                  style={{ backgroundColor: getRoleColor(roleId) }}
+                                  title={getRoleName(roleId)}
+                                />
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </label>
                     ))}
                   </div>
