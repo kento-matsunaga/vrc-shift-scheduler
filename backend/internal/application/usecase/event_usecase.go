@@ -219,3 +219,137 @@ func (uc *GetEventUsecase) Execute(ctx context.Context, input GetEventInput) (*e
 
 	return foundEvent, nil
 }
+
+// GenerateBusinessDaysInput represents the input for generating business days
+type GenerateBusinessDaysInput struct {
+	TenantID common.TenantID
+	EventID  common.EventID
+}
+
+// GenerateBusinessDaysOutput represents the output of generating business days
+type GenerateBusinessDaysOutput struct {
+	GeneratedCount int
+	Event          *event.Event
+}
+
+// GenerateBusinessDaysUsecase handles generating business days for recurring events
+type GenerateBusinessDaysUsecase struct {
+	eventRepo       EventRepository
+	businessDayRepo EventBusinessDayRepository
+}
+
+// NewGenerateBusinessDaysUsecase creates a new GenerateBusinessDaysUsecase
+func NewGenerateBusinessDaysUsecase(eventRepo EventRepository, businessDayRepo EventBusinessDayRepository) *GenerateBusinessDaysUsecase {
+	return &GenerateBusinessDaysUsecase{
+		eventRepo:       eventRepo,
+		businessDayRepo: businessDayRepo,
+	}
+}
+
+// Execute generates business days for a recurring event
+func (uc *GenerateBusinessDaysUsecase) Execute(ctx context.Context, input GenerateBusinessDaysInput) (*GenerateBusinessDaysOutput, error) {
+	// イベントを取得
+	e, err := uc.eventRepo.FindByID(ctx, input.TenantID, input.EventID)
+	if err != nil {
+		return nil, err
+	}
+
+	// 定期設定がない場合はエラー
+	if !e.HasRecurrence() {
+		return nil, common.NewValidationError("Event does not have recurrence settings", nil)
+	}
+
+	// 営業日を生成
+	generatedCount, err := uc.generateBusinessDays(ctx, e)
+	if err != nil {
+		return nil, err
+	}
+
+	return &GenerateBusinessDaysOutput{
+		GeneratedCount: generatedCount,
+		Event:          e,
+	}, nil
+}
+
+// generateBusinessDays generates business days for recurring events
+// 今月と来月末までの営業日を自動生成し、生成された件数を返す
+func (uc *GenerateBusinessDaysUsecase) generateBusinessDays(ctx context.Context, e *event.Event) (int, error) {
+	if !e.HasRecurrence() {
+		return 0, nil
+	}
+
+	if e.RecurrenceStartDate() == nil || e.RecurrenceDayOfWeek() == nil ||
+		e.DefaultStartTime() == nil || e.DefaultEndTime() == nil {
+		return 0, common.NewValidationError("recurrence fields are incomplete", nil)
+	}
+
+	now := time.Now()
+	startDate := *e.RecurrenceStartDate()
+	targetDayOfWeek := time.Weekday(*e.RecurrenceDayOfWeek())
+
+	// 今月の最初の日と来月末の日を計算
+	currentMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.Local)
+	nextMonthEnd := currentMonth.AddDate(0, 2, 0).AddDate(0, 0, -1)
+
+	// 定期開始日から次の指定曜日を見つける
+	candidateDate := startDate
+	for candidateDate.Weekday() != targetDayOfWeek {
+		candidateDate = candidateDate.AddDate(0, 0, 1)
+	}
+
+	// 営業日を生成
+	interval := 7 // 毎週の場合は7日間隔
+	if e.RecurrenceType() == event.RecurrenceTypeBiweekly {
+		interval = 14 // 隔週の場合は14日間隔
+	}
+
+	generatedCount := 0
+
+	for candidateDate.Before(nextMonthEnd) || candidateDate.Equal(nextMonthEnd) {
+		// 開始日より前の日付はスキップ
+		if candidateDate.Before(startDate) {
+			candidateDate = candidateDate.AddDate(0, 0, interval)
+			continue
+		}
+
+		// 重複チェック
+		exists, err := uc.businessDayRepo.ExistsByEventIDAndDate(
+			ctx,
+			e.TenantID(),
+			e.EventID(),
+			candidateDate,
+			*e.DefaultStartTime(),
+		)
+		if err != nil {
+			return generatedCount, err
+		}
+
+		if !exists {
+			// 営業日を作成（普通営業 = recurring）
+			businessDay, err := event.NewEventBusinessDay(
+				time.Now(),
+				e.TenantID(),
+				e.EventID(),
+				candidateDate,
+				*e.DefaultStartTime(),
+				*e.DefaultEndTime(),
+				event.OccurrenceTypeRecurring,
+				nil,
+			)
+			if err != nil {
+				return generatedCount, err
+			}
+
+			// 保存
+			if err := uc.businessDayRepo.Save(ctx, businessDay); err != nil {
+				return generatedCount, err
+			}
+
+			generatedCount++
+		}
+
+		candidateDate = candidateDate.AddDate(0, 0, interval)
+	}
+
+	return generatedCount, nil
+}

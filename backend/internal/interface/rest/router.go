@@ -70,6 +70,9 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			r.Post("/{event_id}/business-days", businessDayHandler.CreateBusinessDay)
 			r.Get("/{event_id}/business-days", businessDayHandler.ListBusinessDays)
 
+			// Event配下の営業日生成
+			r.Post("/{event_id}/generate-business-days", eventHandler.GenerateBusinessDays)
+
 			// Event配下のShiftTemplate
 			r.Post("/{event_id}/templates", shiftTemplateHandler.CreateTemplate)
 			r.Get("/{event_id}/templates", shiftTemplateHandler.ListTemplates)

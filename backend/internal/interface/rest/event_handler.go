@@ -15,9 +15,10 @@ import (
 
 // EventHandler handles event-related HTTP requests
 type EventHandler struct {
-	createEventUC *usecase.CreateEventUsecase
-	listEventsUC  *usecase.ListEventsUsecase
-	getEventUC    *usecase.GetEventUsecase
+	createEventUC           *usecase.CreateEventUsecase
+	listEventsUC            *usecase.ListEventsUsecase
+	getEventUC              *usecase.GetEventUsecase
+	generateBusinessDaysUC  *usecase.GenerateBusinessDaysUsecase
 }
 
 // NewEventHandler creates a new EventHandler
@@ -25,9 +26,10 @@ func NewEventHandler(dbPool *pgxpool.Pool) *EventHandler {
 	eventRepo := db.NewEventRepository(dbPool)
 	businessDayRepo := db.NewEventBusinessDayRepository(dbPool)
 	return &EventHandler{
-		createEventUC: usecase.NewCreateEventUsecase(eventRepo, businessDayRepo),
-		listEventsUC:  usecase.NewListEventsUsecase(eventRepo),
-		getEventUC:    usecase.NewGetEventUsecase(eventRepo),
+		createEventUC:          usecase.NewCreateEventUsecase(eventRepo, businessDayRepo),
+		listEventsUC:           usecase.NewListEventsUsecase(eventRepo),
+		getEventUC:             usecase.NewGetEventUsecase(eventRepo),
+		generateBusinessDaysUC: usecase.NewGenerateBusinessDaysUsecase(eventRepo, businessDayRepo),
 	}
 }
 
@@ -267,5 +269,62 @@ func toEventResponse(e *event.Event) EventResponse {
 	}
 
 	return resp
+}
+
+// GenerateBusinessDaysResponse represents the response for generating business days
+type GenerateBusinessDaysResponse struct {
+	GeneratedCount int           `json:"generated_count"`
+	Message        string        `json:"message"`
+	Event          EventResponse `json:"event"`
+}
+
+// GenerateBusinessDays handles POST /api/v1/events/:event_id/generate-business-days
+func (h *EventHandler) GenerateBusinessDays(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// テナントIDの取得
+	tenantID, ok := GetTenantID(ctx)
+	if !ok {
+		RespondBadRequest(w, "tenant_id is required")
+		return
+	}
+
+	// イベントIDの取得
+	eventIDStr := chi.URLParam(r, "event_id")
+	if eventIDStr == "" {
+		RespondBadRequest(w, "event_id is required")
+		return
+	}
+
+	eventID := common.EventID(eventIDStr)
+	if err := eventID.Validate(); err != nil {
+		RespondBadRequest(w, "Invalid event_id format")
+		return
+	}
+
+	// Usecaseの実行
+	input := usecase.GenerateBusinessDaysInput{
+		TenantID: tenantID,
+		EventID:  eventID,
+	}
+
+	output, err := h.generateBusinessDaysUC.Execute(ctx, input)
+	if err != nil {
+		RespondDomainError(w, err)
+		return
+	}
+
+	// メッセージを生成
+	message := "営業日の生成が完了しました"
+	if output.GeneratedCount == 0 {
+		message = "新しい営業日はありませんでした（既に生成済み）"
+	}
+
+	// レスポンス
+	RespondSuccess(w, GenerateBusinessDaysResponse{
+		GeneratedCount: output.GeneratedCount,
+		Message:        message,
+		Event:          toEventResponse(output.Event),
+	})
 }
 
