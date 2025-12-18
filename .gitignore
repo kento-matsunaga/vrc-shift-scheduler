@@ -9,6 +9,7 @@
 *.dylib
 backend/bin/
 backend/tmp/
+backend/server
 
 # Test binary
 *.test
