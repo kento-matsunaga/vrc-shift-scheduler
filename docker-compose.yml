@@ -16,11 +16,10 @@ services:
       retries: 5
 
   backend:
-    build: ./backend
-    command: ["go", "run", "./cmd/server"]
-    working_dir: /app
-    volumes:
-      - ./backend:/app
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: ["/app/server"]
     environment:
       DATABASE_URL: postgres://vrcshift:vrcshift@db:5432/vrcshift?sslmode=disable
       APP_ENV: development

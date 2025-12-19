@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { getEvents, createEvent, generateBusinessDays } from '../lib/api';
+import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { getEvents, createEvent, generateBusinessDays, updateEvent } from '../lib/api';
 import type { Event } from '../types/api';
 import { ApiClientError } from '../lib/apiClient';
 
@@ -15,12 +15,17 @@ const RECURRENCE_TYPE_LABELS: Record<string, string> = {
 };
 
 export default function EventList() {
+  const navigate = useNavigate();
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [generatingEventId, setGeneratingEventId] = useState<string | null>(null);
+  const [editingEventId, setEditingEventId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState('');
+  const [savingEventId, setSavingEventId] = useState<string | null>(null);
+  const editInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     loadEvents();
@@ -73,6 +78,69 @@ export default function EventList() {
     }
   };
 
+  // 編集モードを開始
+  const handleStartEdit = (event: Event, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setEditingEventId(event.event_id);
+    setEditingName(event.event_name);
+    setError('');
+    // 次のレンダリングでinputにフォーカス
+    setTimeout(() => editInputRef.current?.focus(), 0);
+  };
+
+  // 編集をキャンセル
+  const handleCancelEdit = (e?: React.MouseEvent | React.KeyboardEvent) => {
+    e?.preventDefault();
+    e?.stopPropagation();
+    setEditingEventId(null);
+    setEditingName('');
+  };
+
+  // 編集を保存
+  const handleSaveEdit = async (eventId: string, e?: React.MouseEvent | React.FormEvent) => {
+    e?.preventDefault();
+    e?.stopPropagation();
+
+    if (!editingName.trim()) {
+      setError('イベント名を入力してください');
+      return;
+    }
+
+    setSavingEventId(eventId);
+    setError('');
+
+    try {
+      await updateEvent(eventId, { event_name: editingName.trim() });
+      // ローカルのevents配列を更新
+      setEvents(events.map(ev =>
+        ev.event_id === eventId ? { ...ev, event_name: editingName.trim() } : ev
+      ));
+      setEditingEventId(null);
+      setEditingName('');
+      setSuccess('イベント名を更新しました');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      if (err instanceof ApiClientError) {
+        setError(err.getUserMessage());
+      } else {
+        setError('イベント名の更新に失敗しました');
+      }
+      console.error('Failed to update event:', err);
+    } finally {
+      setSavingEventId(null);
+    }
+  };
+
+  // キーボードイベント処理
+  const handleEditKeyDown = (eventId: string, e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSaveEdit(eventId, e);
+    } else if (e.key === 'Escape') {
+      handleCancelEdit(e);
+    }
+  };
+
   if (loading) {
     return (
       <div className="text-center py-12">
@@ -115,39 +183,96 @@ export default function EventList() {
           {events.map((event) => (
             <div
               key={event.event_id}
-              className="card hover:shadow-lg transition-shadow"
+              className="card hover:shadow-lg transition-shadow cursor-pointer"
+              onClick={() => {
+                // 編集中でなければ遷移
+                if (editingEventId !== event.event_id) {
+                  navigate(`/events/${event.event_id}/business-days`);
+                }
+              }}
             >
-              <Link to={`/events/${event.event_id}/business-days`}>
-                <div className="mb-2 flex flex-wrap gap-2">
-                  <span
-                    className={`inline-block px-2 py-1 text-xs font-semibold rounded ${
-                      event.event_type === 'normal'
-                        ? 'bg-blue-100 text-blue-800'
-                        : 'bg-purple-100 text-purple-800'
-                    }`}
-                  >
-                    {event.event_type === 'normal' ? '通常イベント' : '特別イベント'}
+              {/* バッジ類 */}
+              <div className="mb-2 flex flex-wrap gap-2">
+                <span
+                  className={`inline-block px-2 py-1 text-xs font-semibold rounded ${
+                    event.event_type === 'normal'
+                      ? 'bg-blue-100 text-blue-800'
+                      : 'bg-purple-100 text-purple-800'
+                  }`}
+                >
+                  {event.event_type === 'normal' ? '通常イベント' : '特別イベント'}
+                </span>
+                {event.recurrence_type !== 'none' && (
+                  <span className="inline-block px-2 py-1 text-xs font-semibold rounded bg-green-100 text-green-800">
+                    {RECURRENCE_TYPE_LABELS[event.recurrence_type]}
+                    {event.recurrence_day_of_week !== undefined && `（${DAY_NAMES[event.recurrence_day_of_week]}）`}
                   </span>
-                  {event.recurrence_type !== 'none' && (
-                    <span className="inline-block px-2 py-1 text-xs font-semibold rounded bg-green-100 text-green-800">
-                      {RECURRENCE_TYPE_LABELS[event.recurrence_type]}
-                      {event.recurrence_day_of_week !== undefined && `（${DAY_NAMES[event.recurrence_day_of_week]}）`}
-                    </span>
-                  )}
-                </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-2">
-                  {event.event_name}
-                </h3>
-                <p className="text-sm text-gray-600 mb-2">{event.description || '説明なし'}</p>
-                {event.recurrence_type !== 'none' && event.default_start_time && event.default_end_time && (
-                  <p className="text-xs text-gray-500 mb-2">
-                    時間: {event.default_start_time.slice(0, 5)}〜{event.default_end_time.slice(0, 5)}
-                  </p>
                 )}
-                <div className="text-xs text-gray-500 mb-3">
-                  作成日: {new Date(event.created_at).toLocaleDateString('ja-JP')}
+              </div>
+
+              {/* イベント名（編集可能） */}
+              {editingEventId === event.event_id ? (
+                <div className="mb-2" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex items-center gap-2">
+                    <input
+                      ref={editInputRef}
+                      type="text"
+                      value={editingName}
+                      onChange={(e) => setEditingName(e.target.value)}
+                      onKeyDown={(e) => handleEditKeyDown(event.event_id, e)}
+                      className="flex-1 px-2 py-1 text-lg font-bold border border-blue-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      disabled={savingEventId === event.event_id}
+                    />
+                    <button
+                      onClick={(e) => handleSaveEdit(event.event_id, e)}
+                      disabled={savingEventId === event.event_id}
+                      className="p-1 text-green-600 hover:text-green-800 disabled:opacity-50"
+                      title="保存"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={handleCancelEdit}
+                      disabled={savingEventId === event.event_id}
+                      className="p-1 text-gray-500 hover:text-gray-700 disabled:opacity-50"
+                      title="キャンセル"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
-              </Link>
+              ) : (
+                <div className="flex items-center gap-2 mb-2">
+                  <h3 className="text-xl font-bold text-gray-900">
+                    {event.event_name}
+                  </h3>
+                  <button
+                    onClick={(e) => handleStartEdit(event, e)}
+                    className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                    title="イベント名を編集"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                    </svg>
+                  </button>
+                </div>
+              )}
+
+              {/* イベント詳細 */}
+              <p className="text-sm text-gray-600 mb-2">{event.description || '説明なし'}</p>
+              {event.recurrence_type !== 'none' && event.default_start_time && event.default_end_time && (
+                <p className="text-xs text-gray-500 mb-2">
+                  時間: {event.default_start_time.slice(0, 5)}〜{event.default_end_time.slice(0, 5)}
+                </p>
+              )}
+              <div className="text-xs text-gray-500 mb-3">
+                作成日: {new Date(event.created_at).toLocaleDateString('ja-JP')}
+              </div>
+
               {event.recurrence_type !== 'none' && (
                 <button
                   onClick={(e) => handleGenerateBusinessDays(event.event_id, e)}

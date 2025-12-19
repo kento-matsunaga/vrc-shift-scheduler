@@ -273,6 +273,46 @@ func (uc *GenerateBusinessDaysUsecase) Execute(ctx context.Context, input Genera
 	}, nil
 }
 
+// UpdateEventInput represents the input for updating an event
+type UpdateEventInput struct {
+	TenantID  common.TenantID
+	EventID   common.EventID
+	EventName string
+}
+
+// UpdateEventUsecase handles the event update use case
+type UpdateEventUsecase struct {
+	eventRepo EventRepository
+}
+
+// NewUpdateEventUsecase creates a new UpdateEventUsecase
+func NewUpdateEventUsecase(eventRepo EventRepository) *UpdateEventUsecase {
+	return &UpdateEventUsecase{
+		eventRepo: eventRepo,
+	}
+}
+
+// Execute updates an event
+func (uc *UpdateEventUsecase) Execute(ctx context.Context, input UpdateEventInput) (*event.Event, error) {
+	// イベントを取得
+	e, err := uc.eventRepo.FindByID(ctx, input.TenantID, input.EventID)
+	if err != nil {
+		return nil, err
+	}
+
+	// イベント名を更新
+	if err := e.UpdateEventName(input.EventName); err != nil {
+		return nil, err
+	}
+
+	// 保存
+	if err := uc.eventRepo.Save(ctx, e); err != nil {
+		return nil, err
+	}
+
+	return e, nil
+}
+
 // generateBusinessDays generates business days for recurring events
 // 今月と来月末までの営業日を自動生成し、生成された件数を返す
 func (uc *GenerateBusinessDaysUsecase) generateBusinessDays(ctx context.Context, e *event.Event) (int, error) {

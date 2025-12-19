@@ -18,6 +18,7 @@ type EventHandler struct {
 	createEventUC           *usecase.CreateEventUsecase
 	listEventsUC            *usecase.ListEventsUsecase
 	getEventUC              *usecase.GetEventUsecase
+	updateEventUC           *usecase.UpdateEventUsecase
 	generateBusinessDaysUC  *usecase.GenerateBusinessDaysUsecase
 }
 
@@ -29,6 +30,7 @@ func NewEventHandler(dbPool *pgxpool.Pool) *EventHandler {
 		createEventUC:          usecase.NewCreateEventUsecase(eventRepo, businessDayRepo),
 		listEventsUC:           usecase.NewListEventsUsecase(eventRepo),
 		getEventUC:             usecase.NewGetEventUsecase(eventRepo),
+		updateEventUC:          usecase.NewUpdateEventUsecase(eventRepo),
 		generateBusinessDaysUC: usecase.NewGenerateBusinessDaysUsecase(eventRepo, businessDayRepo),
 	}
 }
@@ -43,6 +45,11 @@ type CreateEventRequest struct {
 	RecurrenceDayOfWeek *int    `json:"recurrence_day_of_week,omitempty"`// 0-6
 	DefaultStartTime    *string `json:"default_start_time,omitempty"`    // HH:MM:SS
 	DefaultEndTime      *string `json:"default_end_time,omitempty"`      // HH:MM:SS
+}
+
+// UpdateEventRequest represents the request body for updating an event
+type UpdateEventRequest struct {
+	EventName string `json:"event_name"`
 }
 
 // EventResponse represents an event in API responses
@@ -234,6 +241,60 @@ func (h *EventHandler) GetEvent(w http.ResponseWriter, r *http.Request) {
 
 	// レスポンス
 	RespondSuccess(w, toEventResponse(foundEvent))
+}
+
+// UpdateEvent handles PUT /api/v1/events/:event_id
+func (h *EventHandler) UpdateEvent(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// テナントIDの取得
+	tenantID, ok := GetTenantID(ctx)
+	if !ok {
+		RespondBadRequest(w, "tenant_id is required")
+		return
+	}
+
+	// イベントIDの取得
+	eventIDStr := chi.URLParam(r, "event_id")
+	if eventIDStr == "" {
+		RespondBadRequest(w, "event_id is required")
+		return
+	}
+
+	eventID := common.EventID(eventIDStr)
+	if err := eventID.Validate(); err != nil {
+		RespondBadRequest(w, "Invalid event_id format")
+		return
+	}
+
+	// リクエストボディのパース
+	var req UpdateEventRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		RespondBadRequest(w, "Invalid request body")
+		return
+	}
+
+	// バリデーション
+	if req.EventName == "" {
+		RespondBadRequest(w, "event_name is required")
+		return
+	}
+
+	// Usecaseの実行
+	input := usecase.UpdateEventInput{
+		TenantID:  tenantID,
+		EventID:   eventID,
+		EventName: req.EventName,
+	}
+
+	updatedEvent, err := h.updateEventUC.Execute(ctx, input)
+	if err != nil {
+		RespondDomainError(w, err)
+		return
+	}
+
+	// レスポンス
+	RespondSuccess(w, toEventResponse(updatedEvent))
 }
 
 // toEventResponse converts an Event entity to EventResponse
