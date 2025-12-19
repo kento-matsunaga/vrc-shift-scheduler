@@ -59,6 +59,8 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		shiftAssignmentHandler := NewShiftAssignmentHandler(dbPool)
 		attendanceHandler := NewAttendanceHandler(dbPool)
 		actualAttendanceHandler := NewActualAttendanceHandler(dbPool)
+		tenantHandler := NewTenantHandler(dbPool)
+		adminHandler := NewAdminHandler(dbPool)
 
 		// Event API
 		r.Route("/events", func(r chi.Router) {
@@ -159,6 +161,17 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		// Invitation API（管理者のみ）
 		r.Route("/invitations", func(r chi.Router) {
 			r.Post("/", invitationHandler.InviteAdmin)
+		})
+
+		// Tenant API
+		r.Route("/tenants", func(r chi.Router) {
+			r.Get("/me", tenantHandler.GetCurrentTenant)
+			r.Put("/me", tenantHandler.UpdateCurrentTenant)
+		})
+
+		// Admin API
+		r.Route("/admins", func(r chi.Router) {
+			r.Post("/me/change-password", adminHandler.ChangePassword)
 		})
 	})
 

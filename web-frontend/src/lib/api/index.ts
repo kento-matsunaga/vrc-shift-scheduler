@@ -23,3 +23,9 @@ export * from './memberApi';
 // Actual Attendance API（本出席 - 実際のシフト割り当て実績）
 export * from './actualAttendanceApi';
 
+// Tenant API
+export * from './tenantApi';
+
+// Admin API
+export * from './adminApi';
+

@@ -1,9 +1,25 @@
 import { useState, useEffect } from 'react';
-import { getEvents, deleteEvent } from '../lib/api';
+import { getEvents, deleteEvent, getCurrentTenant, updateTenant, changePassword } from '../lib/api';
 import type { Event } from '../types/api';
+import type { Tenant } from '../lib/api/tenantApi';
 import { ApiClientError } from '../lib/apiClient';
 
 export default function Settings() {
+  // Tenant state
+  const [tenant, setTenant] = useState<Tenant | null>(null);
+  const [editingTenantName, setEditingTenantName] = useState(false);
+  const [tenantName, setTenantName] = useState('');
+  const [savingTenant, setSavingTenant] = useState(false);
+
+  // Password change state
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordSuccess, setPasswordSuccess] = useState('');
+
+  // Events state
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -13,26 +29,121 @@ export default function Settings() {
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
-    loadEvents();
+    loadData();
   }, []);
 
-  const loadEvents = async () => {
+  const loadData = async () => {
     try {
       setLoading(true);
-      const data = await getEvents({ is_active: true });
-      setEvents(data.events);
+      const [tenantData, eventsData] = await Promise.all([
+        getCurrentTenant(),
+        getEvents({ is_active: true }),
+      ]);
+      setTenant(tenantData);
+      setTenantName(tenantData.tenant_name);
+      setEvents(eventsData.events);
     } catch (err) {
       if (err instanceof ApiClientError) {
         setError(err.getUserMessage());
       } else {
-        setError('イベント一覧の取得に失敗しました');
+        setError('データの取得に失敗しました');
       }
-      console.error('Failed to load events:', err);
+      console.error('Failed to load data:', err);
     } finally {
       setLoading(false);
     }
   };
 
+  // Tenant handlers
+  const handleSaveTenantName = async () => {
+    if (!tenantName.trim()) {
+      setError('組織名を入力してください');
+      return;
+    }
+
+    setSavingTenant(true);
+    setError('');
+
+    try {
+      const updated = await updateTenant({ tenant_name: tenantName.trim() });
+      setTenant(updated);
+      setEditingTenantName(false);
+      setSuccess('組織名を更新しました');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      if (err instanceof ApiClientError) {
+        setError(err.getUserMessage());
+      } else {
+        setError('組織名の更新に失敗しました');
+      }
+      console.error('Failed to update tenant:', err);
+    } finally {
+      setSavingTenant(false);
+    }
+  };
+
+  const handleCancelTenantEdit = () => {
+    setTenantName(tenant?.tenant_name || '');
+    setEditingTenantName(false);
+  };
+
+  // Password change handlers
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordError('');
+    setPasswordSuccess('');
+
+    // Validation
+    if (!currentPassword) {
+      setPasswordError('現在のパスワードを入力してください');
+      return;
+    }
+    if (!newPassword) {
+      setPasswordError('新しいパスワードを入力してください');
+      return;
+    }
+    if (newPassword.length < 8) {
+      setPasswordError('新しいパスワードは8文字以上で入力してください');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError('新しいパスワードと確認用パスワードが一致しません');
+      return;
+    }
+    if (currentPassword === newPassword) {
+      setPasswordError('新しいパスワードは現在のパスワードと異なるものを入力してください');
+      return;
+    }
+
+    setChangingPassword(true);
+
+    try {
+      await changePassword({
+        current_password: currentPassword,
+        new_password: newPassword,
+        confirm_new_password: confirmPassword,
+      });
+      setPasswordSuccess('パスワードを変更しました');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err) {
+      if (err instanceof ApiClientError) {
+        if (err.message.includes('incorrect') || err.message.includes('Unauthorized')) {
+          setPasswordError('現在のパスワードが正しくありません');
+        } else {
+          setPasswordError(err.getUserMessage());
+        }
+      } else {
+        setPasswordError('パスワードの変更に失敗しました');
+      }
+      console.error('Failed to change password:', err);
+    } finally {
+      setChangingPassword(false);
+    }
+  };
+
+  // Event deletion handlers
   const handleDeleteClick = (event: Event) => {
     setDeleteTarget(event);
     setConfirmText('');
@@ -97,6 +208,144 @@ export default function Settings() {
           <p className="text-sm text-green-800">{success}</p>
         </div>
       )}
+
+      {/* テナント情報セクション */}
+      <div className="card mb-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+          </svg>
+          組織情報
+        </h3>
+
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">組織名</label>
+            {editingTenantName ? (
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={tenantName}
+                  onChange={(e) => setTenantName(e.target.value)}
+                  className="input-field flex-1"
+                  disabled={savingTenant}
+                  autoFocus
+                />
+                <button
+                  onClick={handleSaveTenantName}
+                  disabled={savingTenant}
+                  className="btn-primary"
+                >
+                  {savingTenant ? '保存中...' : '保存'}
+                </button>
+                <button
+                  onClick={handleCancelTenantEdit}
+                  disabled={savingTenant}
+                  className="btn-secondary"
+                >
+                  キャンセル
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <span className="text-gray-900">{tenant?.tenant_name}</span>
+                <button
+                  onClick={() => setEditingTenantName(true)}
+                  className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                  title="組織名を編集"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                  </svg>
+                </button>
+              </div>
+            )}
+          </div>
+          {tenant && (
+            <div className="text-sm text-gray-500">
+              タイムゾーン: {tenant.timezone}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* パスワード変更セクション */}
+      <div className="card mb-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+          </svg>
+          パスワード変更
+        </h3>
+
+        {passwordError && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+            <p className="text-sm text-red-800">{passwordError}</p>
+          </div>
+        )}
+
+        {passwordSuccess && (
+          <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
+            <p className="text-sm text-green-800">{passwordSuccess}</p>
+          </div>
+        )}
+
+        <form onSubmit={handleChangePassword} className="space-y-4">
+          <div>
+            <label htmlFor="currentPassword" className="block text-sm font-medium text-gray-700 mb-1">
+              現在のパスワード
+            </label>
+            <input
+              type="password"
+              id="currentPassword"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              className="input-field"
+              disabled={changingPassword}
+              autoComplete="current-password"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700 mb-1">
+              新しいパスワード
+            </label>
+            <input
+              type="password"
+              id="newPassword"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              className="input-field"
+              disabled={changingPassword}
+              autoComplete="new-password"
+            />
+            <p className="text-xs text-gray-500 mt-1">8文字以上で入力してください</p>
+          </div>
+
+          <div>
+            <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
+              新しいパスワード（確認）
+            </label>
+            <input
+              type="password"
+              id="confirmPassword"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              className="input-field"
+              disabled={changingPassword}
+              autoComplete="new-password"
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={changingPassword || !currentPassword || !newPassword || !confirmPassword}
+            className="btn-primary"
+          >
+            {changingPassword ? 'パスワード変更中...' : 'パスワードを変更'}
+          </button>
+        </form>
+      </div>
 
       {/* イベント削除セクション */}
       <div className="card mb-6">
