@@ -50,6 +50,7 @@ cd web-frontend && npm run dev
 | [SETUP.md](SETUP.md) | 詳細なセットアップ手順（macOS / Linux） |
 | [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md) | 環境変数の説明 |
 | [docs/DEPLOYMENT_SERVER_REQUIREMENTS.md](docs/DEPLOYMENT_SERVER_REQUIREMENTS.md) | **サーバー選定・デプロイメント要件まとめ** |
+| [docs/PRODUCTION_DEPLOYMENT.md](docs/PRODUCTION_DEPLOYMENT.md) | **本番デプロイ運用ガイド** |
 
 ---
 
@@ -57,7 +58,7 @@ cd web-frontend && npm run dev
 
 ### バックエンド
 
-- **Go 1.23+**
+- **Go 1.24+**
 - **go-chi/chi v5** - HTTP ルーター
 - **pgx v5** - PostgreSQL ドライバー
 - **PostgreSQL 16**

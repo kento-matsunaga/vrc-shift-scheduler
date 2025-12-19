@@ -12,9 +12,9 @@
 
 ### 1. 必要な環境
 - Docker & Docker Compose
-- Node.js 18+ (フロントエンド開発時)
-- Go 1.21+ (バックエンド開発時)
-- PostgreSQL 16+ (ローカル開発時)
+- Node.js 20+ (フロントエンド開発時)
+- Go 1.24+ (バックエンド開発時)
+- PostgreSQL 16 (ローカル開発時)
 
 ### 2. Docker で起動
 
@@ -56,10 +56,9 @@ npm run dev
 
 | メールアドレス | パスワード | 権限 | 説明 |
 |---|---|---|---|
-| `admin@test.com` | `password123` | owner | デフォルトテストアカウント |
-| `admin1@example.com` | `password123` | owner | シードデータアカウント #1 |
+| `admin1@example.com` | `password123` | owner | シードデータで作成されるアカウント |
 
-**注意**: これらのアカウントは開発/テスト環境専用です。本番環境では使用しないでください。
+**注意**: このアカウントは開発/テスト環境専用です。本番環境では使用しないでください。シードデータを投入して使用してください。
 
 ---
 
@@ -77,7 +76,7 @@ POST /api/v1/auth/login
 Content-Type: application/json
 
 {
-  "email": "admin@test.com",
+  "email": "admin1@example.com",
   "password": "password123"
 }
 
@@ -99,7 +98,7 @@ Content-Type: application/json
 # JWTトークンを取得
 TOKEN=$(curl -s -X POST http://localhost:8080/api/v1/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"admin@test.com","password":"password123"}' \
+  -d '{"email":"admin1@example.com","password":"password123"}' \
   | grep -o '"token":"[^"]*"' | cut -d'"' -f4)
 
 # 認証が必要なAPIを呼び出し
@@ -173,7 +172,7 @@ DATABASE_URL="postgres://vrcshift:vrcshift@localhost:5432/vrcshift?sslmode=disab
 # 新しいトークンを取得
 curl -X POST http://localhost:8080/api/v1/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"admin@test.com","password":"password123"}'
+  -d '{"email":"admin1@example.com","password":"password123"}'
 ```
 
 トークンのデフォルト有効期限は **24時間** です。
@@ -263,4 +262,4 @@ npm run preview
 
 ---
 
-**最終更新**: 2025-12-16
+**最終更新**: 2025-12-19

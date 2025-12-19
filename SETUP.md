@@ -4,9 +4,9 @@ VRC Shift Scheduler の開発環境セットアップ手順です。
 
 ## 必要な環境
 
-- **Go**: 1.23 以上（推奨: 1.23.4）
-- **Node.js**: 18.x 以上（推奨: 20.x）
-- **PostgreSQL**: 14 以上
+- **Go**: 1.24 以上
+- **Node.js**: 20.x 以上
+- **PostgreSQL**: 16
 - **Git**
 
 ## 1. Go のインストール
@@ -20,7 +20,7 @@ VRC Shift Scheduler の開発環境セットアップ手順です。
 ```
 
 このスクリプトは：
-- Go 1.23.4 を `$HOME/.local/go` にインストール
+- Go 1.24 を `$HOME/.local/go` にインストール
 - `$HOME/.bashrc` に PATH を自動追加
 
 インストール後、以下のコマンドで PATH を反映：
@@ -33,7 +33,7 @@ export PATH=$HOME/.local/go/bin:$HOME/go/bin:$PATH
 
 ### 手動インストール
 
-1. [Go 公式サイト](https://go.dev/dl/)から Go 1.23.4 以上をダウンロード
+1. [Go 公式サイト](https://go.dev/dl/)から Go 1.24 以上をダウンロード
 2. インストール先を選択（例: `/usr/local/go` または `$HOME/.local/go`）
 3. PATH を設定：
    ```bash
@@ -71,8 +71,8 @@ sudo systemctl enable postgresql
 ### macOS
 
 ```bash
-brew install postgresql@14
-brew services start postgresql@14
+brew install postgresql@16
+brew services start postgresql@16
 ```
 
 ### Docker（開発環境）
@@ -82,7 +82,7 @@ docker run --name vrc-shift-postgres \
   -e POSTGRES_PASSWORD=postgres \
   -e POSTGRES_DB=vrc_shift_scheduler \
   -p 5432:5432 \
-  -d postgres:14
+  -d postgres:16
 ```
 
 ## 4. データベースのセットアップ
@@ -185,10 +185,10 @@ npm run build
 ### Go のバージョンが古い
 
 ```bash
-go version  # 1.23 以上であることを確認
+go version  # 1.24 以上であることを確認
 ```
 
-1.23 未満の場合：
+1.24 未満の場合：
 
 ```bash
 # プロジェクトのインストールスクリプトを実行
@@ -255,7 +255,6 @@ npm run lint
 
 ## 次のステップ
 
-- [TASKS_PUBLIC_ALPHA_RELEASE.md](backend/TASKS_PUBLIC_ALPHA_RELEASE.md) で実装タスクを確認
-- [API ドキュメント](backend/docs/API.md) で API 仕様を確認
-- [アーキテクチャ](backend/docs/ARCHITECTURE.md) でシステム設計を確認
+- [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) で開発ガイド・API情報を確認
+- [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md) で環境変数を確認
 

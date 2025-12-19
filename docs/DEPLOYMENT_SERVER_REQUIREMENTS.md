@@ -280,6 +280,7 @@
 | 変数名 | 説明 | 例 |
 |--------|------|-----|
 | `DATABASE_URL` | PostgreSQL 接続文字列 | `postgresql://user:pass@host:5432/dbname?sslmode=require` |
+| `JWT_SECRET` | JWT署名用シークレットキー | 32文字以上のランダム文字列 |
 | `PORT` | サーバーポート | `8080` |
 | `ENVIRONMENT` | 実行環境 | `production` |
 | `ALLOWED_ORIGINS` | CORS許可オリジン | `https://scheduler.example.com` |
