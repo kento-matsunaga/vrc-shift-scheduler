@@ -19,6 +19,7 @@ type EventHandler struct {
 	listEventsUC            *usecase.ListEventsUsecase
 	getEventUC              *usecase.GetEventUsecase
 	updateEventUC           *usecase.UpdateEventUsecase
+	deleteEventUC           *usecase.DeleteEventUsecase
 	generateBusinessDaysUC  *usecase.GenerateBusinessDaysUsecase
 }
 
@@ -31,6 +32,7 @@ func NewEventHandler(dbPool *pgxpool.Pool) *EventHandler {
 		listEventsUC:           usecase.NewListEventsUsecase(eventRepo),
 		getEventUC:             usecase.NewGetEventUsecase(eventRepo),
 		updateEventUC:          usecase.NewUpdateEventUsecase(eventRepo),
+		deleteEventUC:          usecase.NewDeleteEventUsecase(eventRepo),
 		generateBusinessDaysUC: usecase.NewGenerateBusinessDaysUsecase(eventRepo, businessDayRepo),
 	}
 }
@@ -295,6 +297,45 @@ func (h *EventHandler) UpdateEvent(w http.ResponseWriter, r *http.Request) {
 
 	// レスポンス
 	RespondSuccess(w, toEventResponse(updatedEvent))
+}
+
+// DeleteEvent handles DELETE /api/v1/events/:event_id
+func (h *EventHandler) DeleteEvent(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// テナントIDの取得
+	tenantID, ok := GetTenantID(ctx)
+	if !ok {
+		RespondBadRequest(w, "tenant_id is required")
+		return
+	}
+
+	// イベントIDの取得
+	eventIDStr := chi.URLParam(r, "event_id")
+	if eventIDStr == "" {
+		RespondBadRequest(w, "event_id is required")
+		return
+	}
+
+	eventID := common.EventID(eventIDStr)
+	if err := eventID.Validate(); err != nil {
+		RespondBadRequest(w, "Invalid event_id format")
+		return
+	}
+
+	// Usecaseの実行
+	input := usecase.DeleteEventInput{
+		TenantID: tenantID,
+		EventID:  eventID,
+	}
+
+	if err := h.deleteEventUC.Execute(ctx, input); err != nil {
+		RespondDomainError(w, err)
+		return
+	}
+
+	// 204 No Content で応答
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // toEventResponse converts an Event entity to EventResponse

@@ -15,6 +15,7 @@ import ScheduleDetail from './pages/ScheduleDetail';
 import TemplateList from './pages/TemplateList';
 import TemplateForm from './pages/TemplateForm';
 import TemplateDetail from './pages/TemplateDetail';
+import Settings from './pages/Settings';
 import Layout from './components/Layout';
 import AttendanceResponse from './pages/public/AttendanceResponse';
 import ScheduleResponse from './pages/public/ScheduleResponse';
@@ -83,6 +84,7 @@ function App() {
         <Route path="schedules" element={<ScheduleList />} />
         <Route path="schedules/:scheduleId" element={<ScheduleDetail />} />
         <Route path="admin/invite" element={<AdminInvitation />} />
+        <Route path="settings" element={<Settings />} />
       </Route>
 
       {/* 404 */}

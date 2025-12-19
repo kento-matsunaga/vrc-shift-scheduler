@@ -65,9 +65,10 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			r.Post("/", eventHandler.CreateEvent)
 			r.Get("/", eventHandler.ListEvents)
 
-			// 単一イベントのGET/PUT
+			// 単一イベントのGET/PUT/DELETE
 			r.Get("/{event_id}", eventHandler.GetEvent)
 			r.MethodFunc("PUT", "/{event_id}", eventHandler.UpdateEvent)
+			r.Delete("/{event_id}", eventHandler.DeleteEvent)
 
 			// Event配下のBusinessDay
 			r.Post("/{event_id}/business-days", businessDayHandler.CreateBusinessDay)

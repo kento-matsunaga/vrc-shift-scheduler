@@ -54,6 +54,9 @@ export default function Layout() {
                     管理者招待
                   </Link>
                 )}
+                <Link to="/settings" className={linkClass('/settings')}>
+                  設定
+                </Link>
               </nav>
             </div>
             <div className="flex items-center space-x-4">

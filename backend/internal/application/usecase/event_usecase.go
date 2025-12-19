@@ -313,6 +313,43 @@ func (uc *UpdateEventUsecase) Execute(ctx context.Context, input UpdateEventInpu
 	return e, nil
 }
 
+// DeleteEventInput represents the input for deleting an event
+type DeleteEventInput struct {
+	TenantID common.TenantID
+	EventID  common.EventID
+}
+
+// DeleteEventUsecase handles the event deletion use case
+type DeleteEventUsecase struct {
+	eventRepo EventRepository
+}
+
+// NewDeleteEventUsecase creates a new DeleteEventUsecase
+func NewDeleteEventUsecase(eventRepo EventRepository) *DeleteEventUsecase {
+	return &DeleteEventUsecase{
+		eventRepo: eventRepo,
+	}
+}
+
+// Execute deletes an event (soft delete)
+func (uc *DeleteEventUsecase) Execute(ctx context.Context, input DeleteEventInput) error {
+	// イベントを取得
+	e, err := uc.eventRepo.FindByID(ctx, input.TenantID, input.EventID)
+	if err != nil {
+		return err
+	}
+
+	// soft delete
+	e.Delete()
+
+	// 保存
+	if err := uc.eventRepo.Save(ctx, e); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // generateBusinessDays generates business days for recurring events
 // 今月と来月末までの営業日を自動生成し、生成された件数を返す
 func (uc *GenerateBusinessDaysUsecase) generateBusinessDays(ctx context.Context, e *event.Event) (int, error) {
