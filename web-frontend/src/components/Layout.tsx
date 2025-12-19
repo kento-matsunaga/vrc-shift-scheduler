@@ -49,9 +49,6 @@ export default function Layout() {
                 <Link to="/schedules" className={linkClass('/schedules')}>
                   日程調整
                 </Link>
-                <Link to="/my-shifts" className={linkClass('/my-shifts')}>
-                  自分のシフト
-                </Link>
                 {(adminRole === 'admin' || adminRole === 'owner') && (
                   <Link to="/admin/invite" className={linkClass('/admin/invite')}>
                     管理者招待

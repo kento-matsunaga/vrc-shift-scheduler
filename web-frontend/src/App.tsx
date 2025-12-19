@@ -6,7 +6,6 @@ import EventList from './pages/EventList';
 import BusinessDayList from './pages/BusinessDayList';
 import ShiftSlotList from './pages/ShiftSlotList';
 import AssignShift from './pages/AssignShift';
-import MyShifts from './pages/MyShifts';
 import Members from './pages/Members';
 import RoleList from './pages/RoleList';
 import AttendanceList from './pages/AttendanceList';
@@ -77,7 +76,6 @@ function App() {
         <Route path="events/:eventId/templates/:templateId/edit" element={<TemplateForm />} />
         <Route path="business-days/:businessDayId/shift-slots" element={<ShiftSlotList />} />
         <Route path="shift-slots/:slotId/assign" element={<AssignShift />} />
-        <Route path="my-shifts" element={<MyShifts />} />
         <Route path="members" element={<Members />} />
         <Route path="roles" element={<RoleList />} />
         <Route path="attendance" element={<AttendanceList />} />
