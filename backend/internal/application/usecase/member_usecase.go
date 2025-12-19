@@ -201,3 +201,36 @@ func (uc *GetMemberUsecase) Execute(ctx context.Context, input GetMemberInput) (
 		RoleIDs: roleIDs,
 	}, nil
 }
+
+// DeleteMemberInput represents the input for deleting a member
+type DeleteMemberInput struct {
+	TenantID common.TenantID
+	MemberID common.MemberID
+}
+
+// DeleteMemberUsecase handles the member deletion use case
+type DeleteMemberUsecase struct {
+	memberRepo MemberRepository
+}
+
+// NewDeleteMemberUsecase creates a new DeleteMemberUsecase
+func NewDeleteMemberUsecase(memberRepo MemberRepository) *DeleteMemberUsecase {
+	return &DeleteMemberUsecase{
+		memberRepo: memberRepo,
+	}
+}
+
+// Execute deletes a member (soft delete)
+func (uc *DeleteMemberUsecase) Execute(ctx context.Context, input DeleteMemberInput) error {
+	// メンバーの取得
+	m, err := uc.memberRepo.FindByID(ctx, input.TenantID, input.MemberID)
+	if err != nil {
+		return err
+	}
+
+	// 削除（soft delete）
+	m.Delete()
+
+	// 保存
+	return uc.memberRepo.Save(ctx, m)
+}

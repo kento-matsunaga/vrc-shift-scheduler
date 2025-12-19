@@ -109,6 +109,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			r.Get("/recent-attendance", memberHandler.GetRecentAttendance)
 			r.Get("/{member_id}", memberHandler.GetMemberDetail)
 			r.Put("/{member_id}", memberHandler.UpdateMember)
+			r.Delete("/{member_id}", memberHandler.DeleteMember)
 		})
 
 		// Role API

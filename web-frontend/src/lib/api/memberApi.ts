@@ -55,3 +55,10 @@ export async function getRecentAttendance(params?: {
   return res.data;
 }
 
+/**
+ * メンバー削除（ソフトデリート）
+ */
+export async function deleteMember(memberId: string): Promise<void> {
+  await apiClient.delete(`/api/v1/members/${memberId}`);
+}
+

@@ -19,6 +19,7 @@ type MemberHandler struct {
 	createMemberUC             *usecase.CreateMemberUsecase
 	listMembersUC              *usecase.ListMembersUsecase
 	getMemberUC                *usecase.GetMemberUsecase
+	deleteMemberUC             *usecase.DeleteMemberUsecase
 	memberRoleRepo             *db.MemberRoleRepository
 	updateMemberUsecase        *appMember.UpdateMemberUsecase
 	getRecentAttendanceUsecase *appMember.GetRecentAttendanceUsecase
@@ -34,6 +35,7 @@ func NewMemberHandler(dbPool *pgxpool.Pool) *MemberHandler {
 		createMemberUC:             usecase.NewCreateMemberUsecase(memberRepo),
 		listMembersUC:              usecase.NewListMembersUsecase(memberRepo, memberRoleRepo),
 		getMemberUC:                usecase.NewGetMemberUsecase(memberRepo, memberRoleRepo),
+		deleteMemberUC:             usecase.NewDeleteMemberUsecase(memberRepo),
 		memberRoleRepo:             memberRoleRepo,
 		updateMemberUsecase:        appMember.NewUpdateMemberUsecase(memberRepo, memberRoleRepo),
 		getRecentAttendanceUsecase: appMember.NewGetRecentAttendanceUsecase(memberRepo, attendanceRepo),
@@ -367,5 +369,44 @@ func (h *MemberHandler) GetRecentAttendance(w http.ResponseWriter, r *http.Reque
 
 	// レスポンス
 	writeSuccess(w, http.StatusOK, output)
+}
+
+// DeleteMember handles DELETE /api/v1/members/{member_id}
+func (h *MemberHandler) DeleteMember(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// テナントIDの取得
+	tenantID, ok := getTenantIDFromContext(ctx)
+	if !ok {
+		writeError(w, http.StatusForbidden, "ERR_FORBIDDEN", "Tenant ID is required", nil)
+		return
+	}
+
+	// member_id の取得
+	memberIDStr := chi.URLParam(r, "member_id")
+	if memberIDStr == "" {
+		writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "member_id is required", nil)
+		return
+	}
+
+	memberID, err := common.ParseMemberID(memberIDStr)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "Invalid member_id format", nil)
+		return
+	}
+
+	// Usecaseの実行
+	input := usecase.DeleteMemberInput{
+		TenantID: tenantID,
+		MemberID: memberID,
+	}
+
+	if err := h.deleteMemberUC.Execute(ctx, input); err != nil {
+		RespondDomainError(w, err)
+		return
+	}
+
+	// 成功レスポンス（No Content）
+	w.WriteHeader(http.StatusNoContent)
 }
 

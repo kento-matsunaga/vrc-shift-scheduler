@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getMembers, createMember, updateMember, getRecentAttendance } from '../lib/api/memberApi';
+import { getMembers, createMember, updateMember, getRecentAttendance, deleteMember } from '../lib/api/memberApi';
 import { getActualAttendance } from '../lib/api/actualAttendanceApi';
 import { listRoles, type Role } from '../lib/api/roleApi';
 import type { Member, RecentAttendanceResponse } from '../types/api';
@@ -183,6 +183,25 @@ export default function Members() {
     return role?.color || '#6B7280';
   };
 
+  // メンバー削除
+  const handleDeleteMember = async (member: Member) => {
+    if (!confirm(`「${member.display_name}」を削除しますか？\nこの操作は取り消せません。`)) {
+      return;
+    }
+
+    try {
+      await deleteMember(member.member_id);
+      await fetchData();
+    } catch (err) {
+      if (err instanceof ApiClientError) {
+        alert(err.getUserMessage());
+      } else {
+        alert('メンバーの削除に失敗しました');
+      }
+      console.error('Failed to delete member:', err);
+    }
+  };
+
   if (loading) {
     return (
       <div className="text-center py-12">
@@ -333,12 +352,18 @@ export default function Members() {
                       {member.is_active ? 'アクティブ' : '非アクティブ'}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-sm text-right">
+                  <td className="px-4 py-3 text-sm text-right space-x-3">
                     <button
                       onClick={() => handleOpenEditForm(member)}
                       className="text-blue-600 hover:text-blue-800 font-medium"
                     >
                       編集
+                    </button>
+                    <button
+                      onClick={() => handleDeleteMember(member)}
+                      className="text-red-600 hover:text-red-800 font-medium"
+                    >
+                      削除
                     </button>
                   </td>
                 </tr>
