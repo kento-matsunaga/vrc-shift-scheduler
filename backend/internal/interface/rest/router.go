@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/app/auth"
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/application/usecase"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/db"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/security"
@@ -218,6 +219,28 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		ctx := context.WithValue(r.Context(), ContextKeyTenantID, common.TenantID(tenantID))
 		r = r.WithContext(ctx)
 		memberHandler.GetMembers(w, r)
+	})
+
+	// License Claim API（認証不要、レート制限あり）
+	r.Route("/api/v1/public/license", func(r chi.Router) {
+		// Initialize dependencies for license claim
+		txManager := db.NewPgxTxManager(dbPool)
+		licenseKeyRepo := db.NewLicenseKeyRepository(dbPool)
+		billingAuditLogRepo := db.NewBillingAuditLogRepository(dbPool)
+		claimRateLimiter := DefaultClaimRateLimiter()
+
+		claimUsecase := usecase.NewLicenseClaimUsecase(
+			txManager,
+			tenantRepo,
+			adminRepo,
+			licenseKeyRepo,
+			entitlementRepo,
+			billingAuditLogRepo,
+			passwordHasher,
+		)
+		licenseClaimHandler := NewLicenseClaimHandler(claimUsecase, claimRateLimiter)
+
+		r.Post("/claim", licenseClaimHandler.Claim)
 	})
 
 	return r
