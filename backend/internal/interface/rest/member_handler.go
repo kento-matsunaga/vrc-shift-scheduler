@@ -20,7 +20,6 @@ type MemberHandler struct {
 	listMembersUC              *usecase.ListMembersUsecase
 	getMemberUC                *usecase.GetMemberUsecase
 	deleteMemberUC             *usecase.DeleteMemberUsecase
-	memberRoleRepo             *db.MemberRoleRepository
 	updateMemberUsecase        *appMember.UpdateMemberUsecase
 	getRecentAttendanceUsecase *appMember.GetRecentAttendanceUsecase
 }
@@ -36,7 +35,6 @@ func NewMemberHandler(dbPool *pgxpool.Pool) *MemberHandler {
 		listMembersUC:              usecase.NewListMembersUsecase(memberRepo, memberRoleRepo),
 		getMemberUC:                usecase.NewGetMemberUsecase(memberRepo, memberRoleRepo),
 		deleteMemberUC:             usecase.NewDeleteMemberUsecase(memberRepo),
-		memberRoleRepo:             memberRoleRepo,
 		updateMemberUsecase:        appMember.NewUpdateMemberUsecase(memberRepo, memberRoleRepo),
 		getRecentAttendanceUsecase: appMember.NewGetRecentAttendanceUsecase(memberRepo, attendanceRepo),
 	}
@@ -184,19 +182,7 @@ func (h *MemberHandler) UpdateMember(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 更新後のロールIDを取得
-	roleIDs, err := h.memberRoleRepo.FindRolesByMemberID(ctx, common.MemberID(memberID))
-	if err != nil {
-		log.Printf("Failed to fetch roles after update: %v", err)
-		roleIDs = []common.RoleID{}
-	}
-
-	roleIDStrs := make([]string, len(roleIDs))
-	for i, roleID := range roleIDs {
-		roleIDStrs[i] = roleID.String()
-	}
-
-	// レスポンス
+	// レスポンス（RoleIDsはUsecaseの出力から取得）
 	resp := MemberResponse{
 		MemberID:      output.MemberID,
 		TenantID:      output.TenantID,
@@ -204,7 +190,7 @@ func (h *MemberHandler) UpdateMember(w http.ResponseWriter, r *http.Request) {
 		DiscordUserID: output.DiscordUserID,
 		Email:         output.Email,
 		IsActive:      output.IsActive,
-		RoleIDs:       roleIDStrs,
+		RoleIDs:       output.RoleIDs,
 		CreatedAt:     "", // UpdatedAt is returned, not CreatedAt
 		UpdatedAt:     output.UpdatedAt,
 	}

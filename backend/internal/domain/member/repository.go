@@ -39,3 +39,21 @@ type MemberRepository interface {
 	ExistsByEmail(ctx context.Context, tenantID common.TenantID, email string) (bool, error)
 }
 
+// MemberRoleRepository defines the interface for member-role association persistence
+type MemberRoleRepository interface {
+	// AssignRole assigns a role to a member
+	AssignRole(ctx context.Context, memberID common.MemberID, roleID common.RoleID) error
+
+	// RemoveRole removes a role from a member
+	RemoveRole(ctx context.Context, memberID common.MemberID, roleID common.RoleID) error
+
+	// FindRolesByMemberID finds all roles assigned to a member
+	FindRolesByMemberID(ctx context.Context, memberID common.MemberID) ([]common.RoleID, error)
+
+	// FindMemberIDsByRoleID finds all members with a specific role
+	FindMemberIDsByRoleID(ctx context.Context, roleID common.RoleID) ([]common.MemberID, error)
+
+	// SetMemberRoles sets all roles for a member (replaces existing roles)
+	SetMemberRoles(ctx context.Context, memberID common.MemberID, roleIDs []common.RoleID) error
+}
+

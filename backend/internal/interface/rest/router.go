@@ -58,7 +58,12 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		shiftTemplateHandler := NewShiftTemplateHandler(dbPool)
 		shiftAssignmentHandler := NewShiftAssignmentHandler(dbPool)
 		attendanceHandler := NewAttendanceHandler(dbPool)
-		actualAttendanceHandler := NewActualAttendanceHandler(dbPool)
+
+		// Repositories for actual attendance
+		businessDayRepo := db.NewEventBusinessDayRepository(dbPool)
+		memberRepo := db.NewMemberRepository(dbPool)
+		assignmentRepo := db.NewShiftAssignmentRepository(dbPool)
+		actualAttendanceHandler := NewActualAttendanceHandler(businessDayRepo, memberRepo, assignmentRepo)
 		tenantHandler := NewTenantHandler(dbPool)
 		adminHandler := NewAdminHandler(dbPool)
 

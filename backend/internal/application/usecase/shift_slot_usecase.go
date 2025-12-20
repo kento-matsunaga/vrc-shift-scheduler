@@ -11,6 +11,7 @@ import (
 
 // ShiftAssignmentRepository defines the interface for shift assignment persistence
 type ShiftAssignmentRepository interface {
+	Save(ctx context.Context, assignment *shift.ShiftAssignment) error
 	CountConfirmedBySlotID(ctx context.Context, tenantID common.TenantID, slotID shift.SlotID) (int, error)
 	FindByID(ctx context.Context, tenantID common.TenantID, assignmentID shift.AssignmentID) (*shift.ShiftAssignment, error)
 	FindByMemberID(ctx context.Context, tenantID common.TenantID, memberID common.MemberID) ([]*shift.ShiftAssignment, error)

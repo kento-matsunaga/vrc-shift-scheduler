@@ -41,5 +41,9 @@ type ShiftAssignmentRepository interface {
 	// ExistsBySlotIDAndMemberID checks if a confirmed assignment exists for the given slot and member
 	// 重複割り当てチェックに使用
 	ExistsBySlotIDAndMemberID(ctx context.Context, tenantID common.TenantID, slotID SlotID, memberID common.MemberID) (bool, error)
+
+	// HasConfirmedByMemberAndBusinessDayID checks if a confirmed assignment exists for the given member and business day
+	// Used for actual attendance calculation
+	HasConfirmedByMemberAndBusinessDayID(ctx context.Context, tenantID common.TenantID, memberID common.MemberID, businessDayID string) (bool, error)
 }
 

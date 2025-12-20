@@ -27,11 +27,12 @@ func NewShiftAssignmentHandler(dbPool *pgxpool.Pool) *ShiftAssignmentHandler {
 	slotRepo := db.NewShiftSlotRepository(dbPool)
 	assignmentRepo := db.NewShiftAssignmentRepository(dbPool)
 	memberRepo := db.NewMemberRepository(dbPool)
+	businessDayRepo := db.NewEventBusinessDayRepository(dbPool)
 
 	return &ShiftAssignmentHandler{
-		confirmAssignmentUC:   usecase.NewConfirmManualAssignmentUsecase(dbPool, slotRepo, assignmentRepo, memberRepo),
-		getAssignmentsUC:      usecase.NewGetAssignmentsUsecase(dbPool, assignmentRepo),
-		getAssignmentDetailUC: usecase.NewGetAssignmentDetailUsecase(dbPool, assignmentRepo),
+		confirmAssignmentUC:   usecase.NewConfirmManualAssignmentUsecase(slotRepo, assignmentRepo, memberRepo),
+		getAssignmentsUC:      usecase.NewGetAssignmentsUsecase(assignmentRepo, memberRepo, slotRepo, businessDayRepo),
+		getAssignmentDetailUC: usecase.NewGetAssignmentDetailUsecase(assignmentRepo, memberRepo, slotRepo, businessDayRepo),
 		cancelAssignmentUC:    usecase.NewCancelAssignmentUsecase(assignmentRepo),
 	}
 }

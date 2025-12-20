@@ -33,5 +33,9 @@ type EventBusinessDayRepository interface {
 
 	// ExistsByEventIDAndDate checks if a business day exists for the given event and date
 	ExistsByEventIDAndDate(ctx context.Context, tenantID common.TenantID, eventID common.EventID, date time.Time, startTime time.Time) (bool, error)
+
+	// FindRecentByTenantID finds recent N business days within a tenant (past only, oldest first)
+	// Used for actual attendance calculation
+	FindRecentByTenantID(ctx context.Context, tenantID common.TenantID, limit int) ([]*EventBusinessDay, error)
 }
 

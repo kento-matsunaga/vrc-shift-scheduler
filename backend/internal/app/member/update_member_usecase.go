@@ -5,15 +5,14 @@ import (
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/member"
-	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/db"
 )
 
 type UpdateMemberUsecase struct {
 	memberRepo     member.MemberRepository
-	memberRoleRepo *db.MemberRoleRepository
+	memberRoleRepo member.MemberRoleRepository
 }
 
-func NewUpdateMemberUsecase(memberRepo member.MemberRepository, memberRoleRepo *db.MemberRoleRepository) *UpdateMemberUsecase {
+func NewUpdateMemberUsecase(memberRepo member.MemberRepository, memberRoleRepo member.MemberRoleRepository) *UpdateMemberUsecase {
 	return &UpdateMemberUsecase{
 		memberRepo:     memberRepo,
 		memberRoleRepo: memberRoleRepo,
@@ -31,13 +30,14 @@ type UpdateMemberInput struct {
 }
 
 type UpdateMemberOutput struct {
-	MemberID      string `json:"member_id"`
-	TenantID      string `json:"tenant_id"`
-	DisplayName   string `json:"display_name"`
-	DiscordUserID string `json:"discord_user_id"`
-	Email         string `json:"email"`
-	IsActive      bool   `json:"is_active"`
-	UpdatedAt     string `json:"updated_at"`
+	MemberID      string   `json:"member_id"`
+	TenantID      string   `json:"tenant_id"`
+	DisplayName   string   `json:"display_name"`
+	DiscordUserID string   `json:"discord_user_id"`
+	Email         string   `json:"email"`
+	IsActive      bool     `json:"is_active"`
+	RoleIDs       []string `json:"role_ids"`
+	UpdatedAt     string   `json:"updated_at"`
 }
 
 func (u *UpdateMemberUsecase) Execute(ctx context.Context, input UpdateMemberInput) (*UpdateMemberOutput, error) {
@@ -84,6 +84,18 @@ func (u *UpdateMemberUsecase) Execute(ctx context.Context, input UpdateMemberInp
 		}
 	}
 
+	// Get updated roles
+	roleIDs, err := u.memberRoleRepo.FindRolesByMemberID(ctx, memberID)
+	if err != nil {
+		// ロール取得エラーは空配列で継続
+		roleIDs = []common.RoleID{}
+	}
+
+	roleIDStrs := make([]string, len(roleIDs))
+	for i, roleID := range roleIDs {
+		roleIDStrs[i] = roleID.String()
+	}
+
 	// Build output
 	return &UpdateMemberOutput{
 		MemberID:      m.MemberID().String(),
@@ -92,6 +104,7 @@ func (u *UpdateMemberUsecase) Execute(ctx context.Context, input UpdateMemberInp
 		DiscordUserID: m.DiscordUserID(),
 		Email:         m.Email(),
 		IsActive:      m.IsActive(),
+		RoleIDs:       roleIDStrs,
 		UpdatedAt:     m.UpdatedAt().Format("2006-01-02T15:04:05Z07:00"),
 	}, nil
 }

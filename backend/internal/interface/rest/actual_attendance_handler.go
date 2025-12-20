@@ -5,7 +5,9 @@ import (
 	"strconv"
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/application/usecase"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/event"
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/member"
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/shift"
 )
 
 // ActualAttendanceHandler handles actual attendance-related HTTP requests
@@ -14,9 +16,17 @@ type ActualAttendanceHandler struct {
 }
 
 // NewActualAttendanceHandler creates a new ActualAttendanceHandler
-func NewActualAttendanceHandler(dbPool *pgxpool.Pool) *ActualAttendanceHandler {
+func NewActualAttendanceHandler(
+	businessDayRepo event.EventBusinessDayRepository,
+	memberRepo member.MemberRepository,
+	assignmentRepo shift.ShiftAssignmentRepository,
+) *ActualAttendanceHandler {
 	return &ActualAttendanceHandler{
-		getRecentActualAttendanceUC: usecase.NewGetRecentActualAttendanceUsecase(dbPool),
+		getRecentActualAttendanceUC: usecase.NewGetRecentActualAttendanceUsecase(
+			businessDayRepo,
+			memberRepo,
+			assignmentRepo,
+		),
 	}
 }
 

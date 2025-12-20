@@ -240,6 +240,24 @@ func (r *EventBusinessDayRepository) ExistsByEventIDAndDate(ctx context.Context,
 	return exists, nil
 }
 
+// FindRecentByTenantID finds recent N business days within a tenant (past only, oldest first)
+func (r *EventBusinessDayRepository) FindRecentByTenantID(ctx context.Context, tenantID common.TenantID, limit int) ([]*event.EventBusinessDay, error) {
+	query := `
+		SELECT
+			business_day_id, tenant_id, event_id, target_date, start_time, end_time,
+			occurrence_type, recurring_pattern_id, is_active, valid_from, valid_to,
+			created_at, updated_at, deleted_at
+		FROM event_business_days
+		WHERE tenant_id = $1
+		  AND deleted_at IS NULL
+		  AND target_date <= CURRENT_DATE
+		ORDER BY target_date ASC
+		LIMIT $2
+	`
+
+	return r.queryBusinessDays(ctx, query, tenantID.String(), limit)
+}
+
 // queryBusinessDays executes a query and returns a list of business days
 func (r *EventBusinessDayRepository) queryBusinessDays(ctx context.Context, query string, args ...interface{}) ([]*event.EventBusinessDay, error) {
 	rows, err := r.db.Query(ctx, query, args...)

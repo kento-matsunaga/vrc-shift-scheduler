@@ -256,6 +256,29 @@ func (r *ShiftAssignmentRepository) ExistsBySlotIDAndMemberID(ctx context.Contex
 	return exists, nil
 }
 
+// HasConfirmedByMemberAndBusinessDayID checks if a confirmed assignment exists for the given member and business day
+func (r *ShiftAssignmentRepository) HasConfirmedByMemberAndBusinessDayID(ctx context.Context, tenantID common.TenantID, memberID common.MemberID, businessDayID string) (bool, error) {
+	query := `
+		SELECT EXISTS(
+			SELECT 1 FROM shift_assignments sa
+			INNER JOIN shift_slots ss ON sa.slot_id = ss.slot_id AND ss.deleted_at IS NULL
+			WHERE sa.tenant_id = $1
+			  AND sa.member_id = $2
+			  AND ss.business_day_id = $3
+			  AND sa.assignment_status = 'confirmed'
+			  AND sa.deleted_at IS NULL
+		)
+	`
+
+	var exists bool
+	err := r.db.QueryRow(ctx, query, tenantID.String(), memberID.String(), businessDayID).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("failed to check member attendance: %w", err)
+	}
+
+	return exists, nil
+}
+
 // queryShiftAssignments executes a query and returns a list of shift assignments
 func (r *ShiftAssignmentRepository) queryShiftAssignments(ctx context.Context, query string, args ...interface{}) ([]*shift.ShiftAssignment, error) {
 	rows, err := r.db.Query(ctx, query, args...)
