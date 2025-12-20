@@ -26,7 +26,7 @@ func NewTenantRepository(db *pgxpool.Pool) *TenantRepository {
 func (r *TenantRepository) FindByID(ctx context.Context, tenantID common.TenantID) (*tenant.Tenant, error) {
 	query := `
 		SELECT
-			tenant_id, tenant_name, timezone, is_active,
+			tenant_id, tenant_name, timezone, is_active, status, grace_until,
 			created_at, updated_at, deleted_at
 		FROM tenants
 		WHERE tenant_id = $1 AND deleted_at IS NULL
@@ -37,6 +37,8 @@ func (r *TenantRepository) FindByID(ctx context.Context, tenantID common.TenantI
 		tenantName  string
 		timezone    string
 		isActive    bool
+		status      string
+		graceUntil  sql.NullTime
 		createdAt   time.Time
 		updatedAt   time.Time
 		deletedAt   sql.NullTime
@@ -47,6 +49,8 @@ func (r *TenantRepository) FindByID(ctx context.Context, tenantID common.TenantI
 		&tenantName,
 		&timezone,
 		&isActive,
+		&status,
+		&graceUntil,
 		&createdAt,
 		&updatedAt,
 		&deletedAt,
@@ -69,11 +73,18 @@ func (r *TenantRepository) FindByID(ctx context.Context, tenantID common.TenantI
 		deletedAtPtr = &deletedAt.Time
 	}
 
+	var graceUntilPtr *time.Time
+	if graceUntil.Valid {
+		graceUntilPtr = &graceUntil.Time
+	}
+
 	return tenant.ReconstructTenant(
 		parsedTenantID,
 		tenantName,
 		timezone,
 		isActive,
+		tenant.TenantStatus(status),
+		graceUntilPtr,
 		createdAt,
 		updatedAt,
 		deletedAtPtr,
@@ -84,13 +95,15 @@ func (r *TenantRepository) FindByID(ctx context.Context, tenantID common.TenantI
 func (r *TenantRepository) Save(ctx context.Context, t *tenant.Tenant) error {
 	query := `
 		INSERT INTO tenants (
-			tenant_id, tenant_name, timezone, is_active,
+			tenant_id, tenant_name, timezone, is_active, status, grace_until,
 			created_at, updated_at, deleted_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 		ON CONFLICT (tenant_id) DO UPDATE SET
 			tenant_name = EXCLUDED.tenant_name,
 			timezone = EXCLUDED.timezone,
 			is_active = EXCLUDED.is_active,
+			status = EXCLUDED.status,
+			grace_until = EXCLUDED.grace_until,
 			updated_at = EXCLUDED.updated_at,
 			deleted_at = EXCLUDED.deleted_at
 	`
@@ -100,6 +113,8 @@ func (r *TenantRepository) Save(ctx context.Context, t *tenant.Tenant) error {
 		t.TenantName(),
 		t.Timezone(),
 		t.IsActive(),
+		t.Status().String(),
+		t.GraceUntil(),
 		t.CreatedAt(),
 		t.UpdatedAt(),
 		t.DeletedAt(),

@@ -44,10 +44,20 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		r.Post("/login", authHandler.Login)
 	})
 
+	// Billing guard dependencies
+	tenantRepo := db.NewTenantRepository(dbPool)
+	entitlementRepo := db.NewEntitlementRepository(dbPool)
+	billingGuardDeps := BillingGuardDeps{
+		TenantRepo:      tenantRepo,
+		EntitlementRepo: entitlementRepo,
+	}
+
 	// API v1 ルート（認証必要）
 	r.Route("/api/v1", func(r chi.Router) {
 		// 認証ミドルウェアを適用（JWT優先、X-Tenant-IDフォールバック）
 		r.Use(Auth(jwtManager))
+		// 課金状態に基づくアクセス制御
+		r.Use(BillingGuard(billingGuardDeps))
 
 		// ハンドラの初期化
 		eventHandler := NewEventHandler(dbPool)

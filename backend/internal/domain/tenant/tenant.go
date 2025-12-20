@@ -6,6 +6,35 @@ import (
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
 )
 
+// TenantStatus represents the tenant's billing status
+type TenantStatus string
+
+const (
+	TenantStatusActive    TenantStatus = "active"
+	TenantStatusGrace     TenantStatus = "grace"
+	TenantStatusSuspended TenantStatus = "suspended"
+)
+
+// ValidTenantStatuses returns all valid tenant statuses
+func ValidTenantStatuses() []TenantStatus {
+	return []TenantStatus{TenantStatusActive, TenantStatusGrace, TenantStatusSuspended}
+}
+
+// IsValid checks if the status is valid
+func (s TenantStatus) IsValid() bool {
+	for _, valid := range ValidTenantStatuses() {
+		if s == valid {
+			return true
+		}
+	}
+	return false
+}
+
+// String returns the string representation
+func (s TenantStatus) String() string {
+	return string(s)
+}
+
 // Tenant represents a tenant entity (aggregate root)
 // テナントは組織単位で、メンバー・イベント・シフトなどを管理する
 type Tenant struct {
@@ -13,6 +42,8 @@ type Tenant struct {
 	tenantName string
 	timezone   string
 	isActive   bool
+	status     TenantStatus
+	graceUntil *time.Time
 	createdAt  time.Time
 	updatedAt  time.Time
 	deletedAt  *time.Time
@@ -29,6 +60,8 @@ func NewTenant(
 		tenantName: tenantName,
 		timezone:   timezone,
 		isActive:   true,
+		status:     TenantStatusActive,
+		graceUntil: nil,
 		createdAt:  now,
 		updatedAt:  now,
 	}
@@ -46,6 +79,8 @@ func ReconstructTenant(
 	tenantName string,
 	timezone string,
 	isActive bool,
+	status TenantStatus,
+	graceUntil *time.Time,
 	createdAt time.Time,
 	updatedAt time.Time,
 	deletedAt *time.Time,
@@ -55,6 +90,8 @@ func ReconstructTenant(
 		tenantName: tenantName,
 		timezone:   timezone,
 		isActive:   isActive,
+		status:     status,
+		graceUntil: graceUntil,
 		createdAt:  createdAt,
 		updatedAt:  updatedAt,
 		deletedAt:  deletedAt,
@@ -108,6 +145,14 @@ func (t *Tenant) Timezone() string {
 
 func (t *Tenant) IsActive() bool {
 	return t.isActive
+}
+
+func (t *Tenant) Status() TenantStatus {
+	return t.status
+}
+
+func (t *Tenant) GraceUntil() *time.Time {
+	return t.graceUntil
 }
 
 func (t *Tenant) CreatedAt() time.Time {
@@ -170,4 +215,48 @@ func (t *Tenant) Deactivate(now time.Time) {
 func (t *Tenant) Delete(now time.Time) {
 	t.deletedAt = &now
 	t.updatedAt = now
+}
+
+// SetStatusActive sets the tenant status to active
+func (t *Tenant) SetStatusActive(now time.Time) {
+	t.status = TenantStatusActive
+	t.graceUntil = nil
+	t.isActive = true
+	t.updatedAt = now
+}
+
+// SetStatusGrace sets the tenant status to grace with a grace period end time
+func (t *Tenant) SetStatusGrace(now time.Time, graceUntil time.Time) {
+	t.status = TenantStatusGrace
+	t.graceUntil = &graceUntil
+	t.isActive = false
+	t.updatedAt = now
+}
+
+// SetStatusSuspended sets the tenant status to suspended
+func (t *Tenant) SetStatusSuspended(now time.Time) {
+	t.status = TenantStatusSuspended
+	t.graceUntil = nil
+	t.isActive = false
+	t.updatedAt = now
+}
+
+// CanWrite checks if write operations are allowed for this tenant
+func (t *Tenant) CanWrite() bool {
+	return t.status == TenantStatusActive && !t.IsDeleted()
+}
+
+// CanRead checks if read operations are allowed for this tenant
+func (t *Tenant) CanRead() bool {
+	return (t.status == TenantStatusActive || t.status == TenantStatusGrace || t.status == TenantStatusSuspended) && !t.IsDeleted()
+}
+
+// IsInGracePeriod checks if the tenant is currently in grace period
+func (t *Tenant) IsInGracePeriod() bool {
+	return t.status == TenantStatusGrace
+}
+
+// IsSuspended checks if the tenant is suspended
+func (t *Tenant) IsSuspended() bool {
+	return t.status == TenantStatusSuspended
 }
