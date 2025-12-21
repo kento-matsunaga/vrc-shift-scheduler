@@ -3,6 +3,7 @@ package rest
 import (
 	"context"
 	"net/http"
+	"os"
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/app/auth"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/application/usecase"
@@ -22,7 +23,9 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 	r.Use(middleware.RequestID)
 	r.Use(Recover)
 	r.Use(Logger)
-	r.Use(CORS)
+	// CORS設定: ALLOWED_ORIGINS環境変数で許可オリジンを指定
+	// 未設定の場合は全オリジン許可（開発環境用）
+	r.Use(CORSWithOrigins(os.Getenv("ALLOWED_ORIGINS")))
 
 	// ヘルスチェック（認証不要）
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
