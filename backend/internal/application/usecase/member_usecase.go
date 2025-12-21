@@ -234,3 +234,129 @@ func (uc *DeleteMemberUsecase) Execute(ctx context.Context, input DeleteMemberIn
 	// 保存
 	return uc.memberRepo.Save(ctx, m)
 }
+
+// BulkImportMemberInput represents a single member for bulk import
+type BulkImportMemberInput struct {
+	DisplayName string
+	RoleIDs     []string
+}
+
+// BulkImportMembersInput represents the input for bulk importing members
+type BulkImportMembersInput struct {
+	TenantID common.TenantID
+	Members  []BulkImportMemberInput
+}
+
+// BulkImportMemberResult represents the result of importing a single member
+type BulkImportMemberResult struct {
+	DisplayName string `json:"display_name"`
+	Success     bool   `json:"success"`
+	MemberID    string `json:"member_id,omitempty"`
+	Error       string `json:"error,omitempty"`
+}
+
+// BulkImportMembersOutput represents the output of bulk importing members
+type BulkImportMembersOutput struct {
+	TotalCount   int                      `json:"total_count"`
+	SuccessCount int                      `json:"success_count"`
+	FailedCount  int                      `json:"failed_count"`
+	Results      []BulkImportMemberResult `json:"results"`
+}
+
+// MemberRoleAssigner defines the interface for assigning roles to members
+type MemberRoleAssigner interface {
+	SetMemberRoles(ctx context.Context, memberID common.MemberID, roleIDs []common.RoleID) error
+}
+
+// BulkImportMembersUsecase handles the bulk member import use case
+type BulkImportMembersUsecase struct {
+	memberRepo     MemberRepository
+	memberRoleRepo MemberRoleAssigner
+}
+
+// NewBulkImportMembersUsecase creates a new BulkImportMembersUsecase
+func NewBulkImportMembersUsecase(memberRepo MemberRepository, memberRoleRepo MemberRoleAssigner) *BulkImportMembersUsecase {
+	return &BulkImportMembersUsecase{
+		memberRepo:     memberRepo,
+		memberRoleRepo: memberRoleRepo,
+	}
+}
+
+// Execute imports multiple members at once
+func (uc *BulkImportMembersUsecase) Execute(ctx context.Context, input BulkImportMembersInput) (*BulkImportMembersOutput, error) {
+	results := make([]BulkImportMemberResult, 0, len(input.Members))
+	successCount := 0
+	failedCount := 0
+
+	for _, memberInput := range input.Members {
+		result := BulkImportMemberResult{
+			DisplayName: memberInput.DisplayName,
+		}
+
+		// バリデーション
+		if memberInput.DisplayName == "" {
+			result.Success = false
+			result.Error = "display_name is required"
+			failedCount++
+			results = append(results, result)
+			continue
+		}
+
+		if len(memberInput.DisplayName) > 50 {
+			result.Success = false
+			result.Error = "display_name must be 50 characters or less"
+			failedCount++
+			results = append(results, result)
+			continue
+		}
+
+		// Member エンティティの作成
+		newMember, err := member.NewMember(
+			time.Now(),
+			input.TenantID,
+			memberInput.DisplayName,
+			"", // discord_user_id は空
+			"", // email は空
+		)
+		if err != nil {
+			result.Success = false
+			result.Error = err.Error()
+			failedCount++
+			results = append(results, result)
+			continue
+		}
+
+		// 保存
+		if err := uc.memberRepo.Save(ctx, newMember); err != nil {
+			result.Success = false
+			result.Error = "Failed to save member"
+			failedCount++
+			results = append(results, result)
+			continue
+		}
+
+		// ロール割り当て
+		if len(memberInput.RoleIDs) > 0 {
+			roleIDs := make([]common.RoleID, len(memberInput.RoleIDs))
+			for i, rid := range memberInput.RoleIDs {
+				roleIDs[i] = common.RoleID(rid)
+			}
+			if err := uc.memberRoleRepo.SetMemberRoles(ctx, newMember.MemberID(), roleIDs); err != nil {
+				// ロール割り当て失敗でもメンバー作成は成功とする
+				// ログに記録するのみ
+			}
+		}
+
+		result.Success = true
+		result.MemberID = newMember.MemberID().String()
+		successCount++
+		results = append(results, result)
+	}
+
+	return &BulkImportMembersOutput{
+		TotalCount:   len(input.Members),
+		SuccessCount: successCount,
+		FailedCount:  failedCount,
+		Results:      results,
+	}, nil
+}

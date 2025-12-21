@@ -124,6 +124,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		// Member API
 		r.Route("/members", func(r chi.Router) {
 			r.Post("/", memberHandler.CreateMember)
+			r.Post("/bulk-import", memberHandler.BulkImportMembers)
 			r.Get("/", memberHandler.GetMembers)
 			r.Get("/recent-attendance", memberHandler.GetRecentAttendance)
 			r.Get("/{member_id}", memberHandler.GetMemberDetail)

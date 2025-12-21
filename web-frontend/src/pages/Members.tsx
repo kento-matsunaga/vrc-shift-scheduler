@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getMembers, createMember, updateMember, getRecentAttendance, deleteMember } from '../lib/api/memberApi';
+import { getMembers, createMember, updateMember, getRecentAttendance, deleteMember, bulkImportMembers, type BulkImportMemberInput } from '../lib/api/memberApi';
 import { getActualAttendance } from '../lib/api/actualAttendanceApi';
 import { listRoles, type Role } from '../lib/api/roleApi';
 import type { Member, RecentAttendanceResponse } from '../types/api';
@@ -33,6 +33,9 @@ export default function Members() {
   const [showAttendanceConfirmationModal, setShowAttendanceConfirmationModal] = useState(false);
   const [attendanceConfirmationData, setAttendanceConfirmationData] = useState<RecentAttendanceResponse | null>(null);
   const [loadingAttendanceConfirmation, setLoadingAttendanceConfirmation] = useState(false);
+
+  // 一括登録モーダル
+  const [showBulkImportModal, setShowBulkImportModal] = useState(false);
 
   // データ取得
   const fetchData = async () => {
@@ -104,6 +107,11 @@ export default function Members() {
     if (!attendanceConfirmationData) {
       await fetchAttendanceConfirmation();
     }
+  };
+
+  // 一括登録成功時
+  const handleBulkImportSuccess = () => {
+    fetchData();
   };
 
   // 新規登録フォームを開く
@@ -221,6 +229,9 @@ export default function Members() {
           </button>
           <button onClick={handleOpenAttendanceConfirmation} className="btn-secondary text-sm">
             出欠確認を見る
+          </button>
+          <button onClick={() => setShowBulkImportModal(true)} className="btn-secondary">
+            一括登録
           </button>
           <button onClick={handleOpenCreateForm} className="btn-primary">
             ＋ メンバーを追加
@@ -409,6 +420,15 @@ export default function Members() {
           data={attendanceConfirmationData}
           loading={loadingAttendanceConfirmation}
           onClose={() => setShowAttendanceConfirmationModal(false)}
+        />
+      )}
+
+      {/* 一括登録モーダル */}
+      {showBulkImportModal && (
+        <BulkImportModal
+          roles={roles}
+          onClose={() => setShowBulkImportModal(false)}
+          onSuccess={handleBulkImportSuccess}
         />
       )}
     </div>
@@ -748,4 +768,254 @@ function AttendanceConfirmationModal({
   );
 }
 
+// 一括登録用のメンバーデータ
+interface BulkMemberData {
+  displayName: string;
+  roleIds: string[];
+}
 
+// 一括登録モーダル
+function BulkImportModal({
+  roles,
+  onClose,
+  onSuccess,
+}: {
+  roles: Role[];
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [step, setStep] = useState<1 | 2>(1);
+  const [text, setText] = useState('');
+  const [membersData, setMembersData] = useState<BulkMemberData[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  // Step 1: テキストから名前を解析
+  const parseNames = () => {
+    const lines = text
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
+
+    if (lines.length === 0) {
+      setError('メンバー名を入力してください');
+      return;
+    }
+
+    if (lines.length > 100) {
+      setError('一度に登録できるのは100名までです');
+      return;
+    }
+
+    setMembersData(lines.map((name) => ({ displayName: name, roleIds: [] })));
+    setError('');
+    setStep(2);
+  };
+
+  // Step 2: ロール選択を更新
+  const toggleRole = (index: number, roleId: string) => {
+    setMembersData((prev) =>
+      prev.map((m, i) => {
+        if (i !== index) return m;
+        const newRoleIds = m.roleIds.includes(roleId)
+          ? m.roleIds.filter((id) => id !== roleId)
+          : [...m.roleIds, roleId];
+        return { ...m, roleIds: newRoleIds };
+      })
+    );
+  };
+
+  // 全員に同じロールを適用
+  const applyRoleToAll = (roleId: string, checked: boolean) => {
+    setMembersData((prev) =>
+      prev.map((m) => ({
+        ...m,
+        roleIds: checked
+          ? [...new Set([...m.roleIds, roleId])]
+          : m.roleIds.filter((id) => id !== roleId),
+      }))
+    );
+  };
+
+  // 登録実行
+  const handleSubmit = async () => {
+    setLoading(true);
+    setError('');
+
+    try {
+      const members: BulkImportMemberInput[] = membersData.map((m) => ({
+        display_name: m.displayName,
+        role_ids: m.roleIds.length > 0 ? m.roleIds : undefined,
+      }));
+
+      const result = await bulkImportMembers(members);
+
+      if (result.failed_count > 0) {
+        const failedNames = result.results
+          .filter((r) => !r.success)
+          .map((r) => `${r.display_name}: ${r.error}`)
+          .join('\n');
+        setError(`${result.success_count}名を登録しました。\n失敗: ${result.failed_count}名\n${failedNames}`);
+      }
+
+      if (result.success_count > 0) {
+        onSuccess();
+      }
+
+      if (result.failed_count === 0) {
+        onClose();
+      }
+    } catch (err) {
+      if (err instanceof ApiClientError) {
+        setError(err.getUserMessage());
+      } else {
+        setError('一括登録に失敗しました');
+      }
+      console.error('Bulk import failed:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const lineCount = text.split('\n').filter((l) => l.trim()).length;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-lg max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
+        <h3 className="text-xl font-bold text-gray-900 mb-4">
+          メンバー一括登録 {step === 2 && `(${membersData.length}名)`}
+        </h3>
+
+        {step === 1 && (
+          <>
+            <div className="mb-4">
+              <label htmlFor="bulk-names" className="label">
+                メンバー名 <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                id="bulk-names"
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                className="input-field h-40 font-mono text-sm"
+                autoFocus
+                placeholder="1行に1名ずつ入力&#10;例:&#10;山田太郎&#10;佐藤花子&#10;鈴木一郎"
+              />
+              <p className="text-sm text-gray-500 mt-1">
+                {lineCount > 0 ? `${lineCount}名` : '1行に1名ずつ入力（最大100名）'}
+              </p>
+            </div>
+
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+                <p className="text-sm text-red-800 whitespace-pre-wrap">{error}</p>
+              </div>
+            )}
+
+            <div className="flex space-x-3">
+              <button type="button" onClick={onClose} className="flex-1 btn-secondary">
+                キャンセル
+              </button>
+              <button
+                type="button"
+                onClick={parseNames}
+                className="flex-1 btn-primary"
+                disabled={lineCount === 0}
+              >
+                次へ：ロール設定
+              </button>
+            </div>
+          </>
+        )}
+
+        {step === 2 && (
+          <>
+            {roles.length > 0 && (
+              <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+                <p className="text-sm font-medium text-gray-700 mb-2">全員に適用</p>
+                <div className="flex flex-wrap gap-2">
+                  {roles.map((role) => (
+                    <label
+                      key={role.role_id}
+                      className="inline-flex items-center px-2 py-1 rounded text-xs font-medium cursor-pointer border-2 border-transparent hover:border-gray-300"
+                      style={{ backgroundColor: role.color || '#6B7280', color: 'white' }}
+                    >
+                      <input
+                        type="checkbox"
+                        className="sr-only"
+                        onChange={(e) => applyRoleToAll(role.role_id, e.target.checked)}
+                      />
+                      {role.name}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="mb-4 border border-gray-200 rounded-lg overflow-hidden">
+              <table className="min-w-full text-sm">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-2 text-left font-medium text-gray-700">名前</th>
+                    <th className="px-4 py-2 text-left font-medium text-gray-700">ロール</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200 max-h-64 overflow-y-auto">
+                  {membersData.map((member, index) => (
+                    <tr key={index} className="hover:bg-gray-50">
+                      <td className="px-4 py-2 font-medium text-gray-900">{member.displayName}</td>
+                      <td className="px-4 py-2">
+                        <div className="flex flex-wrap gap-1">
+                          {roles.map((role) => {
+                            const isSelected = member.roleIds.includes(role.role_id);
+                            return (
+                              <button
+                                key={role.role_id}
+                                type="button"
+                                onClick={() => toggleRole(index, role.role_id)}
+                                className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium transition-opacity ${
+                                  isSelected ? 'opacity-100' : 'opacity-40'
+                                }`}
+                                style={{ backgroundColor: role.color || '#6B7280', color: 'white' }}
+                              >
+                                {role.name}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+                <p className="text-sm text-red-800 whitespace-pre-wrap">{error}</p>
+              </div>
+            )}
+
+            <div className="flex space-x-3">
+              <button
+                type="button"
+                onClick={() => setStep(1)}
+                className="flex-1 btn-secondary"
+                disabled={loading}
+              >
+                戻る
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmit}
+                className="flex-1 btn-primary"
+                disabled={loading}
+              >
+                {loading ? '登録中...' : `${membersData.length}名を登録`}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
