@@ -29,3 +29,6 @@ export * from './tenantApi';
 // Admin API
 export * from './adminApi';
 
+// Billing API
+export * from './billingApi';
+

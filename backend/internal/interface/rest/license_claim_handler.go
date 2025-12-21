@@ -1,0 +1,134 @@
+package rest
+
+import (
+	"encoding/json"
+	"net/http"
+	"time"
+
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/application/usecase"
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
+)
+
+// LicenseClaimHandler handles license claim requests
+type LicenseClaimHandler struct {
+	claimUsecase *usecase.LicenseClaimUsecase
+	rateLimiter  *RateLimiter
+}
+
+// NewLicenseClaimHandler creates a new LicenseClaimHandler
+func NewLicenseClaimHandler(claimUsecase *usecase.LicenseClaimUsecase, rateLimiter *RateLimiter) *LicenseClaimHandler {
+	return &LicenseClaimHandler{
+		claimUsecase: claimUsecase,
+		rateLimiter:  rateLimiter,
+	}
+}
+
+// ClaimLicenseRequest represents the request body for claiming a license
+type ClaimLicenseRequest struct {
+	Email       string `json:"email"`
+	Password    string `json:"password"`
+	DisplayName string `json:"display_name"`
+	TenantName  string `json:"tenant_name"`
+	LicenseKey  string `json:"license_key"`
+}
+
+// ClaimLicenseResponse represents the response for a successful claim
+type ClaimLicenseResponse struct {
+	TenantID    string `json:"tenant_id"`
+	AdminID     string `json:"admin_id"`
+	TenantName  string `json:"tenant_name"`
+	DisplayName string `json:"display_name"`
+	Email       string `json:"email"`
+	Message     string `json:"message"`
+}
+
+// Claim handles POST /api/v1/public/license/claim
+func (h *LicenseClaimHandler) Claim(w http.ResponseWriter, r *http.Request) {
+	// Extract client IP for rate limiting
+	clientIP := getClientIP(r)
+
+	// Check rate limit (5 requests per minute)
+	if !h.rateLimiter.Allow(clientIP) {
+		// Delay response to slow down attackers
+		time.Sleep(1 * time.Second)
+		RespondError(w, http.StatusTooManyRequests, "ERR_RATE_LIMITED",
+			"Too many requests. Please try again later.", nil)
+		return
+	}
+
+	// Parse request body
+	var req ClaimLicenseRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		RespondBadRequest(w, "Invalid request body")
+		return
+	}
+
+	// Validate required fields
+	if req.Email == "" || req.Password == "" || req.DisplayName == "" ||
+		req.TenantName == "" || req.LicenseKey == "" {
+		RespondBadRequest(w, "All fields are required")
+		return
+	}
+
+	// Execute claim usecase
+	input := usecase.LicenseClaimInput{
+		Email:       req.Email,
+		Password:    req.Password,
+		DisplayName: req.DisplayName,
+		TenantName:  req.TenantName,
+		LicenseKey:  req.LicenseKey,
+		IPAddress:   clientIP,
+		UserAgent:   r.UserAgent(),
+	}
+
+	output, err := h.claimUsecase.Execute(r.Context(), input)
+	if err != nil {
+		// Delay response for failed attempts to prevent timing attacks
+		time.Sleep(1 * time.Second)
+
+		// Check for validation errors
+		if domainErr, ok := err.(*common.DomainError); ok {
+			RespondError(w, http.StatusBadRequest, domainErr.Code(), domainErr.Message, nil)
+			return
+		}
+
+		RespondInternalError(w)
+		return
+	}
+
+	// Success response
+	response := ClaimLicenseResponse{
+		TenantID:    output.TenantID.String(),
+		AdminID:     output.AdminID.String(),
+		TenantName:  output.TenantName,
+		DisplayName: output.DisplayName,
+		Email:       output.Email,
+		Message:     "License claimed successfully. Please log in to continue.",
+	}
+
+	RespondJSON(w, http.StatusCreated, map[string]interface{}{
+		"data": response,
+	})
+}
+
+// getClientIP extracts the client IP address from the request
+func getClientIP(r *http.Request) string {
+	// Check X-Forwarded-For header (for reverse proxy scenarios)
+	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+		// X-Forwarded-For can contain multiple IPs, take the first one
+		for i := 0; i < len(xff); i++ {
+			if xff[i] == ',' {
+				return xff[:i]
+			}
+		}
+		return xff
+	}
+
+	// Check X-Real-IP header
+	if xrip := r.Header.Get("X-Real-IP"); xrip != "" {
+		return xrip
+	}
+
+	// Fall back to RemoteAddr
+	return r.RemoteAddr
+}

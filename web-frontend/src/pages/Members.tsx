@@ -43,7 +43,7 @@ export default function Members() {
         listRoles(),
       ]);
       setMembers(membersResponse.members || []);
-      setRoles(rolesData);
+      setRoles(rolesData || []);
       setError(null);
     } catch (err) {
       console.error('Failed to fetch data:', err);
@@ -600,7 +600,7 @@ function ActualAttendanceModal({
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
             <p className="mt-4 text-gray-600">読み込み中...</p>
           </div>
-        ) : data && data.target_dates.length > 0 ? (
+        ) : data && data.target_dates && data.target_dates.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="min-w-full text-xs border-collapse border border-gray-300">
               <thead>
@@ -608,7 +608,7 @@ function ActualAttendanceModal({
                   <th className="border border-gray-300 px-2 py-1 text-left font-semibold sticky left-0 bg-gray-100 z-10">
                     メンバー
                   </th>
-                  {data.target_dates.map((td) => (
+                  {(data.target_dates || []).map((td) => (
                     <th key={td.target_date_id} className="border border-gray-300 px-2 py-1 text-center font-semibold whitespace-nowrap">
                       {new Date(td.target_date).toLocaleDateString('ja-JP', {
                         month: 'numeric',
@@ -619,12 +619,12 @@ function ActualAttendanceModal({
                 </tr>
               </thead>
               <tbody>
-                {data.member_attendances.map((memberAtt) => (
+                {(data.member_attendances || []).map((memberAtt) => (
                   <tr key={memberAtt.member_id} className="hover:bg-gray-50">
                     <td className="border border-gray-300 px-2 py-1 font-medium sticky left-0 bg-white z-10">
                       {memberAtt.member_name}
                     </td>
-                    {data.target_dates.map((td) => {
+                    {(data.target_dates || []).map((td) => {
                       const status = memberAtt.attendance_map[td.target_date_id] || '';
                       let symbol = '×';
                       let color = 'text-red-600';
@@ -689,7 +689,7 @@ function AttendanceConfirmationModal({
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
             <p className="mt-4 text-gray-600">読み込み中...</p>
           </div>
-        ) : data && data.target_dates.length > 0 ? (
+        ) : data && data.target_dates && data.target_dates.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="min-w-full text-xs border-collapse border border-gray-300">
               <thead>
@@ -697,7 +697,7 @@ function AttendanceConfirmationModal({
                   <th className="border border-gray-300 px-2 py-1 text-left font-semibold sticky left-0 bg-gray-100 z-10">
                     メンバー
                   </th>
-                  {data.target_dates.map((td) => (
+                  {(data.target_dates || []).map((td) => (
                     <th key={td.target_date_id} className="border border-gray-300 px-2 py-1 text-center font-semibold whitespace-nowrap">
                       {new Date(td.target_date).toLocaleDateString('ja-JP', {
                         month: 'numeric',
@@ -708,12 +708,12 @@ function AttendanceConfirmationModal({
                 </tr>
               </thead>
               <tbody>
-                {data.member_attendances.map((memberAtt) => (
+                {(data.member_attendances || []).map((memberAtt) => (
                   <tr key={memberAtt.member_id} className="hover:bg-gray-50">
                     <td className="border border-gray-300 px-2 py-1 font-medium sticky left-0 bg-white z-10">
                       {memberAtt.member_name}
                     </td>
-                    {data.target_dates.map((td) => {
+                    {(data.target_dates || []).map((td) => {
                       const status = memberAtt.attendance_map[td.target_date_id] || '';
                       let symbol = '-';
                       let color = 'text-gray-400';

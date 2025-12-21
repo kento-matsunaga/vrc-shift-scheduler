@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/app/auth"
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/application/usecase"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/db"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/security"
@@ -44,10 +45,20 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		r.Post("/login", authHandler.Login)
 	})
 
+	// Billing guard dependencies
+	tenantRepo := db.NewTenantRepository(dbPool)
+	entitlementRepo := db.NewEntitlementRepository(dbPool)
+	billingGuardDeps := BillingGuardDeps{
+		TenantRepo:      tenantRepo,
+		EntitlementRepo: entitlementRepo,
+	}
+
 	// API v1 ルート（認証必要）
 	r.Route("/api/v1", func(r chi.Router) {
 		// 認証ミドルウェアを適用（JWT優先、X-Tenant-IDフォールバック）
 		r.Use(Auth(jwtManager))
+		// 課金状態に基づくアクセス制御
+		r.Use(BillingGuard(billingGuardDeps))
 
 		// ハンドラの初期化
 		eventHandler := NewEventHandler(dbPool)
@@ -175,10 +186,64 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			r.Put("/me", tenantHandler.UpdateCurrentTenant)
 		})
 
-		// Admin API
+		// Admin API (テナント管理者のパスワード変更)
 		r.Route("/admins", func(r chi.Router) {
 			r.Post("/me/change-password", adminHandler.ChangePassword)
 		})
+	})
+
+	// ============================================================
+	// Admin Billing API (Cloudflare Access保護 - 運営専用)
+	// ============================================================
+	// NOTE: このルートはテナントJWT認証とは完全に分離されています
+	// 本番環境ではCloudflare Accessで保護され、ローカル開発では
+	// CF_ACCESS_TEAM_DOMAIN が未設定の場合は認証をスキップします
+	r.Route("/api/v1/admin", func(r chi.Router) {
+		// Cloudflare Access 認証ミドルウェア
+		cfConfig := LoadCloudflareAccessConfig()
+		r.Use(CloudflareAccessMiddleware(cfConfig))
+
+		// Initialize dependencies for admin billing
+		txManager := db.NewPgxTxManager(dbPool)
+		licenseKeyRepo := db.NewLicenseKeyRepository(dbPool)
+		billingAuditLogRepo := db.NewBillingAuditLogRepository(dbPool)
+
+		adminLicenseKeyUsecase := usecase.NewAdminLicenseKeyUsecase(
+			txManager,
+			licenseKeyRepo,
+			billingAuditLogRepo,
+		)
+		adminTenantUsecase := usecase.NewAdminTenantUsecase(
+			txManager,
+			tenantRepo,
+			entitlementRepo,
+			billingAuditLogRepo,
+		)
+		adminAuditLogUsecase := usecase.NewAdminAuditLogUsecase(
+			billingAuditLogRepo,
+		)
+		adminBillingHandler := NewAdminBillingHandler(
+			adminLicenseKeyUsecase,
+			adminTenantUsecase,
+			adminAuditLogUsecase,
+		)
+
+		// License Key Management
+		r.Route("/license-keys", func(r chi.Router) {
+			r.Post("/", adminBillingHandler.GenerateLicenseKeys)
+			r.Get("/", adminBillingHandler.ListLicenseKeys)
+			r.Patch("/{id}", adminBillingHandler.UpdateLicenseKey)
+		})
+
+		// Tenant Management
+		r.Route("/tenants", func(r chi.Router) {
+			r.Get("/", adminBillingHandler.ListTenants)
+			r.Get("/{id}", adminBillingHandler.GetTenantDetail)
+			r.Patch("/{id}/status", adminBillingHandler.UpdateTenantStatus)
+		})
+
+		// Audit Logs
+		r.Get("/audit-logs", adminBillingHandler.ListAuditLogs)
 	})
 
 	// Public API（認証不要）
@@ -208,6 +273,49 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		ctx := context.WithValue(r.Context(), ContextKeyTenantID, common.TenantID(tenantID))
 		r = r.WithContext(ctx)
 		memberHandler.GetMembers(w, r)
+	})
+
+	// License Claim API（認証不要、レート制限あり）
+	r.Route("/api/v1/public/license", func(r chi.Router) {
+		// Initialize dependencies for license claim
+		txManager := db.NewPgxTxManager(dbPool)
+		licenseKeyRepo := db.NewLicenseKeyRepository(dbPool)
+		billingAuditLogRepo := db.NewBillingAuditLogRepository(dbPool)
+		claimRateLimiter := DefaultClaimRateLimiter()
+
+		claimUsecase := usecase.NewLicenseClaimUsecase(
+			txManager,
+			tenantRepo,
+			adminRepo,
+			licenseKeyRepo,
+			entitlementRepo,
+			billingAuditLogRepo,
+			passwordHasher,
+		)
+		licenseClaimHandler := NewLicenseClaimHandler(claimUsecase, claimRateLimiter)
+
+		r.Post("/claim", licenseClaimHandler.Claim)
+	})
+
+	// Stripe Webhook API（認証不要、署名検証のみ）
+	r.Route("/api/v1/stripe", func(r chi.Router) {
+		// Initialize dependencies for Stripe webhook
+		txManager := db.NewPgxTxManager(dbPool)
+		subscriptionRepo := db.NewSubscriptionRepository(dbPool)
+		webhookEventRepo := db.NewWebhookEventRepository(dbPool)
+		billingAuditLogRepo := db.NewBillingAuditLogRepository(dbPool)
+
+		stripeWebhookUsecase := usecase.NewStripeWebhookUsecase(
+			txManager,
+			tenantRepo,
+			subscriptionRepo,
+			entitlementRepo,
+			webhookEventRepo,
+			billingAuditLogRepo,
+		)
+		stripeWebhookHandler := NewStripeWebhookHandler(stripeWebhookUsecase)
+
+		r.Post("/webhook", stripeWebhookHandler.HandleWebhook)
 	})
 
 	return r

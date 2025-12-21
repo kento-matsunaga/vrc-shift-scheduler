@@ -39,8 +39,8 @@ export default function ScheduleDetail() {
       ]);
 
       setSchedule(scheduleData);
-      setResponses(responsesData);
-      setMembers(membersData.members);
+      setResponses(responsesData || []);
+      setMembers(membersData.members || []);
 
       const baseUrl = window.location.origin;
       const url = `${baseUrl}/p/schedule/${scheduleData.public_token}`;

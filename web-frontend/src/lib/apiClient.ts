@@ -7,7 +7,7 @@ import type { ApiError } from '../types/api';
 export class ApiClient {
   private baseURL: string;
 
-  constructor(baseURL: string = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080') {
+  constructor(baseURL: string = import.meta.env.VITE_API_BASE_URL || '') {
     this.baseURL = baseURL;
   }
 

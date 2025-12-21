@@ -33,7 +33,7 @@ export default function TemplateForm() {
       const template = await getTemplate(eventId, templateId);
       setTemplateName(template.template_name);
       setDescription(template.description);
-      setItems(template.items);
+      setItems(template.items || []);
     } catch (err) {
       console.error('Failed to load template:', err);
       if (err instanceof ApiClientError) {

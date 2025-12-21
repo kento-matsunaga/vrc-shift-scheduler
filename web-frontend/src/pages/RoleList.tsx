@@ -17,7 +17,7 @@ export default function RoleList() {
     try {
       setLoading(true);
       const data = await listRoles();
-      setRoles(data);
+      setRoles(data || []);
     } catch (err) {
       if (err instanceof ApiClientError) {
         setError(err.getUserMessage());

@@ -355,9 +355,9 @@ function CreateBusinessDayModal({
         getMembers({ is_active: true }),
         listTemplates(eventId),
       ]);
-      setSchedules(schedulesData);
-      setMembers(membersData.members);
-      setTemplates(templatesData);
+      setSchedules(schedulesData || []);
+      setMembers(membersData.members || []);
+      setTemplates(templatesData || []);
     } catch (err) {
       console.error('Failed to load schedules:', err);
     }
@@ -371,7 +371,7 @@ function CreateBusinessDayModal({
         getScheduleResponses(scheduleId),
       ]);
       setSelectedSchedule(scheduleData);
-      setScheduleResponses(responsesData);
+      setScheduleResponses(responsesData || []);
     } catch (err) {
       console.error('Failed to load schedule detail:', err);
     } finally {
@@ -494,7 +494,7 @@ function CreateBusinessDayModal({
                 <option value="">テンプレートを選択しない</option>
                 {templates.map((template) => (
                   <option key={template.template_id} value={template.template_id}>
-                    {template.template_name} ({template.items.length}個のシフト枠)
+                    {template.template_name} ({(template.items || []).length}個のシフト枠)
                   </option>
                 ))}
               </select>

@@ -41,7 +41,7 @@ export interface AcceptInvitationResponse {
  * 管理者を招待
  */
 export async function inviteAdmin(data: InviteAdminRequest): Promise<InviteAdminResponse> {
-  const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+  const baseURL = import.meta.env.VITE_API_BASE_URL || '';
   const token = localStorage.getItem('auth_token');
 
   if (!token) {
@@ -91,7 +91,7 @@ export async function acceptInvitation(
   token: string,
   data: AcceptInvitationRequest
 ): Promise<AcceptInvitationResponse> {
-  const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+  const baseURL = import.meta.env.VITE_API_BASE_URL || '';
 
   const response = await fetch(`${baseURL}/api/v1/invitations/accept/${token}`, {
     method: 'POST',

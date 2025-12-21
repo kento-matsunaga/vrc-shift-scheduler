@@ -86,8 +86,8 @@ export default function AssignShift() {
       ]);
 
       setBusinessDay(businessDayData);
-      setMembers(membersData.members);
-      setRoles(rolesData);
+      setMembers(membersData.members || []);
+      setRoles(rolesData || []);
       setActualAttendance(actualAttendanceData);
 
       // 既存の割り当てを初期選択状態にする
@@ -263,7 +263,7 @@ export default function AssignShift() {
         )}
 
         {/* 直近の本出席状況（全体） */}
-        {actualAttendance && actualAttendance.target_dates.length > 0 && (
+        {actualAttendance && actualAttendance.target_dates && actualAttendance.target_dates.length > 0 && (
           <div className="mb-6">
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-bold text-gray-900">直近の本出席状況（参考）</h3>
@@ -318,7 +318,7 @@ export default function AssignShift() {
                 </div>
                 {tableFilterRoleIds.length > 0 && (
                   <p className="text-xs text-gray-500 mt-1">
-                    {filteredActualAttendance?.member_attendances.length || 0}人表示中
+                    {filteredActualAttendance?.member_attendances?.length || 0}人表示中
                   </p>
                 )}
               </div>
@@ -331,7 +331,7 @@ export default function AssignShift() {
                     <th className="border border-gray-300 px-2 py-1 text-left font-semibold sticky left-0 bg-gray-100 z-10">
                       メンバー
                     </th>
-                    {actualAttendance.target_dates.map((td) => (
+                    {(actualAttendance.target_dates || []).map((td) => (
                       <th key={td.target_date_id} className="border border-gray-300 px-2 py-1 text-center font-semibold whitespace-nowrap">
                         {new Date(td.target_date).toLocaleDateString('ja-JP', {
                           month: 'numeric',
@@ -342,7 +342,7 @@ export default function AssignShift() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredActualAttendance?.member_attendances.map((memberAtt) => (
+                  {(filteredActualAttendance?.member_attendances || []).map((memberAtt) => (
                     <tr key={memberAtt.member_id} className="hover:bg-gray-50">
                       <td className="border border-gray-300 px-2 py-1 font-medium sticky left-0 bg-white z-10">
                         <div className="flex items-center gap-1">
@@ -357,7 +357,7 @@ export default function AssignShift() {
                           ))}
                         </div>
                       </td>
-                      {actualAttendance.target_dates.map((td) => {
+                      {(actualAttendance.target_dates || []).map((td) => {
                         const status = memberAtt.attendance_map[td.target_date_id] || '';
                         let symbol = '×';
                         let color = 'text-red-600';

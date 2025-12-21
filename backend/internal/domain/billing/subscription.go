@@ -1,0 +1,183 @@
+package billing
+
+import (
+	"time"
+
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
+)
+
+// SubscriptionID represents the unique identifier for a subscription
+type SubscriptionID string
+
+// NewSubscriptionID generates a new SubscriptionID
+func NewSubscriptionID() SubscriptionID {
+	return SubscriptionID(common.NewULID())
+}
+
+// ParseSubscriptionID parses a string into SubscriptionID
+func ParseSubscriptionID(id string) (SubscriptionID, error) {
+	if err := common.ValidateULID(id); err != nil {
+		return "", err
+	}
+	return SubscriptionID(id), nil
+}
+
+// String returns the string representation
+func (id SubscriptionID) String() string {
+	return string(id)
+}
+
+// SubscriptionStatus represents the status of a Stripe subscription
+type SubscriptionStatus string
+
+const (
+	SubscriptionStatusActive     SubscriptionStatus = "active"
+	SubscriptionStatusPastDue    SubscriptionStatus = "past_due"
+	SubscriptionStatusCanceled   SubscriptionStatus = "canceled"
+	SubscriptionStatusUnpaid     SubscriptionStatus = "unpaid"
+	SubscriptionStatusIncomplete SubscriptionStatus = "incomplete"
+	SubscriptionStatusTrialing   SubscriptionStatus = "trialing"
+)
+
+// String returns the string representation
+func (s SubscriptionStatus) String() string {
+	return string(s)
+}
+
+// IsValid checks if the status is valid
+func (s SubscriptionStatus) IsValid() bool {
+	switch s {
+	case SubscriptionStatusActive, SubscriptionStatusPastDue,
+		SubscriptionStatusCanceled, SubscriptionStatusUnpaid,
+		SubscriptionStatusIncomplete, SubscriptionStatusTrialing:
+		return true
+	}
+	return false
+}
+
+// Subscription represents a Stripe subscription
+type Subscription struct {
+	subscriptionID       SubscriptionID
+	tenantID             common.TenantID
+	stripeCustomerID     string
+	stripeSubscriptionID string
+	status               SubscriptionStatus
+	currentPeriodEnd     *time.Time
+	createdAt            time.Time
+	updatedAt            time.Time
+}
+
+// NewSubscription creates a new Subscription entity
+func NewSubscription(
+	now time.Time,
+	tenantID common.TenantID,
+	stripeCustomerID string,
+	stripeSubscriptionID string,
+	status SubscriptionStatus,
+	currentPeriodEnd *time.Time,
+) (*Subscription, error) {
+	sub := &Subscription{
+		subscriptionID:       NewSubscriptionID(),
+		tenantID:             tenantID,
+		stripeCustomerID:     stripeCustomerID,
+		stripeSubscriptionID: stripeSubscriptionID,
+		status:               status,
+		currentPeriodEnd:     currentPeriodEnd,
+		createdAt:            now,
+		updatedAt:            now,
+	}
+
+	if err := sub.validate(); err != nil {
+		return nil, err
+	}
+
+	return sub, nil
+}
+
+// ReconstructSubscription reconstructs a Subscription entity from persistence
+func ReconstructSubscription(
+	subscriptionID SubscriptionID,
+	tenantID common.TenantID,
+	stripeCustomerID string,
+	stripeSubscriptionID string,
+	status SubscriptionStatus,
+	currentPeriodEnd *time.Time,
+	createdAt time.Time,
+	updatedAt time.Time,
+) (*Subscription, error) {
+	sub := &Subscription{
+		subscriptionID:       subscriptionID,
+		tenantID:             tenantID,
+		stripeCustomerID:     stripeCustomerID,
+		stripeSubscriptionID: stripeSubscriptionID,
+		status:               status,
+		currentPeriodEnd:     currentPeriodEnd,
+		createdAt:            createdAt,
+		updatedAt:            updatedAt,
+	}
+
+	if err := sub.validate(); err != nil {
+		return nil, err
+	}
+
+	return sub, nil
+}
+
+func (s *Subscription) validate() error {
+	if s.stripeCustomerID == "" {
+		return common.NewValidationError("stripe_customer_id is required", nil)
+	}
+	if s.stripeSubscriptionID == "" {
+		return common.NewValidationError("stripe_subscription_id is required", nil)
+	}
+	if !s.status.IsValid() {
+		return common.NewValidationError("invalid subscription status", nil)
+	}
+	return nil
+}
+
+// Getters
+
+func (s *Subscription) SubscriptionID() SubscriptionID {
+	return s.subscriptionID
+}
+
+func (s *Subscription) TenantID() common.TenantID {
+	return s.tenantID
+}
+
+func (s *Subscription) StripeCustomerID() string {
+	return s.stripeCustomerID
+}
+
+func (s *Subscription) StripeSubscriptionID() string {
+	return s.stripeSubscriptionID
+}
+
+func (s *Subscription) Status() SubscriptionStatus {
+	return s.status
+}
+
+func (s *Subscription) CurrentPeriodEnd() *time.Time {
+	return s.currentPeriodEnd
+}
+
+func (s *Subscription) CreatedAt() time.Time {
+	return s.createdAt
+}
+
+func (s *Subscription) UpdatedAt() time.Time {
+	return s.updatedAt
+}
+
+// IsActive checks if the subscription is active
+func (s *Subscription) IsActive() bool {
+	return s.status == SubscriptionStatusActive || s.status == SubscriptionStatusTrialing
+}
+
+// UpdateStatus updates the subscription status
+func (s *Subscription) UpdateStatus(now time.Time, status SubscriptionStatus, currentPeriodEnd *time.Time) {
+	s.status = status
+	s.currentPeriodEnd = currentPeriodEnd
+	s.updatedAt = now
+}

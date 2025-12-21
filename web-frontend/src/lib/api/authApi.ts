@@ -63,7 +63,7 @@ export interface RegisterByInviteResponse {
  * ログイン
  */
 export async function login(data: LoginRequest): Promise<LoginResponse> {
-  const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+  const baseURL = import.meta.env.VITE_API_BASE_URL || '';
   
   const response = await fetch(`${baseURL}/api/v1/auth/login`, {
     method: 'POST',
@@ -108,7 +108,7 @@ export async function login(data: LoginRequest): Promise<LoginResponse> {
  * 初回セットアップ（テナントと管理者を作成）
  */
 export async function setup(data: SetupRequest): Promise<SetupResponse> {
-  const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+  const baseURL = import.meta.env.VITE_API_BASE_URL || '';
   
   const response = await fetch(`${baseURL}/api/v1/setup`, {
     method: 'POST',
@@ -153,7 +153,7 @@ export async function setup(data: SetupRequest): Promise<SetupResponse> {
  * 招待URL経由でのメンバー登録
  */
 export async function registerByInvite(data: RegisterByInviteRequest): Promise<RegisterByInviteResponse> {
-  const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+  const baseURL = import.meta.env.VITE_API_BASE_URL || '';
   
   const response = await fetch(`${baseURL}/api/v1/auth/register-by-invite`, {
     method: 'POST',

@@ -56,7 +56,7 @@ export interface ScheduleResponse {
  * 日程調整を作成
  */
 export async function createSchedule(data: CreateScheduleRequest): Promise<Schedule> {
-  const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+  const baseURL = import.meta.env.VITE_API_BASE_URL || '';
   const token = localStorage.getItem('auth_token');
 
   if (!token) {
@@ -85,7 +85,7 @@ export async function createSchedule(data: CreateScheduleRequest): Promise<Sched
  * 日程調整一覧を取得
  */
 export async function listSchedules(): Promise<Schedule[]> {
-  const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+  const baseURL = import.meta.env.VITE_API_BASE_URL || '';
   const token = localStorage.getItem('auth_token');
 
   if (!token) {
@@ -112,7 +112,7 @@ export async function listSchedules(): Promise<Schedule[]> {
  * 日程調整を取得
  */
 export async function getSchedule(scheduleId: string): Promise<Schedule> {
-  const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+  const baseURL = import.meta.env.VITE_API_BASE_URL || '';
   const token = localStorage.getItem('auth_token');
 
   if (!token) {
@@ -139,7 +139,7 @@ export async function getSchedule(scheduleId: string): Promise<Schedule> {
  * 日程を決定
  */
 export async function decideSchedule(scheduleId: string, decidedDate: string): Promise<void> {
-  const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+  const baseURL = import.meta.env.VITE_API_BASE_URL || '';
   const token = localStorage.getItem('auth_token');
 
   if (!token) {
@@ -165,7 +165,7 @@ export async function decideSchedule(scheduleId: string, decidedDate: string): P
  * 日程調整を締め切る
  */
 export async function closeSchedule(scheduleId: string): Promise<void> {
-  const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+  const baseURL = import.meta.env.VITE_API_BASE_URL || '';
   const token = localStorage.getItem('auth_token');
 
   if (!token) {
@@ -189,7 +189,7 @@ export async function closeSchedule(scheduleId: string): Promise<void> {
  * 日程回答一覧を取得
  */
 export async function getScheduleResponses(scheduleId: string): Promise<ScheduleResponse[]> {
-  const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+  const baseURL = import.meta.env.VITE_API_BASE_URL || '';
   const token = localStorage.getItem('auth_token');
 
   if (!token) {

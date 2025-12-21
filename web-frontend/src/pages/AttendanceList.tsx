@@ -30,7 +30,7 @@ export default function AttendanceList() {
     try {
       setLoading(true);
       const data = await listAttendanceCollections();
-      setCollections(data);
+      setCollections(data || []);
     } catch (err) {
       console.error('Failed to load collections:', err);
       setError('出欠確認一覧の取得に失敗しました');

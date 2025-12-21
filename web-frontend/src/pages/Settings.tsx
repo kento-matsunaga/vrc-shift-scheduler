@@ -41,7 +41,7 @@ export default function Settings() {
       ]);
       setTenant(tenantData);
       setTenantName(tenantData.tenant_name);
-      setEvents(eventsData.events);
+      setEvents(eventsData.events || []);
     } catch (err) {
       if (err instanceof ApiClientError) {
         setError(err.getUserMessage());

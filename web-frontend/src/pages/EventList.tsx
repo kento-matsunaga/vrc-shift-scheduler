@@ -35,7 +35,7 @@ export default function EventList() {
     try {
       setLoading(true);
       const data = await getEvents({ is_active: true });
-      setEvents(data.events);
+      setEvents(data.events || []);
     } catch (err) {
       if (err instanceof ApiClientError) {
         setError(err.getUserMessage());

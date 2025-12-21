@@ -26,7 +26,7 @@ export default function ScheduleList() {
     try {
       setLoading(true);
       const data = await listSchedules();
-      setSchedules(data);
+      setSchedules(data || []);
     } catch (err) {
       console.error('Failed to load schedules:', err);
       setError('日程調整一覧の取得に失敗しました');
