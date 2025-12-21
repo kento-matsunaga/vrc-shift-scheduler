@@ -18,8 +18,6 @@ export default function Members() {
   const [showForm, setShowForm] = useState(false);
   const [editingMember, setEditingMember] = useState<Member | null>(null);
   const [displayName, setDisplayName] = useState('');
-  const [discordUserId, setDiscordUserId] = useState('');
-  const [email, setEmail] = useState('');
   const [isActive, setIsActive] = useState(true);
   const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
@@ -118,8 +116,6 @@ export default function Members() {
   const handleOpenCreateForm = () => {
     setEditingMember(null);
     setDisplayName('');
-    setDiscordUserId('');
-    setEmail('');
     setIsActive(true);
     setSelectedRoleIds([]);
     setShowForm(true);
@@ -129,8 +125,6 @@ export default function Members() {
   const handleOpenEditForm = (member: Member) => {
     setEditingMember(member);
     setDisplayName(member.display_name);
-    setDiscordUserId(member.discord_user_id || '');
-    setEmail(member.email || '');
     setIsActive(member.is_active);
     setSelectedRoleIds(member.role_ids || []);
     setShowForm(true);
@@ -151,8 +145,6 @@ export default function Members() {
         // 更新
         await updateMember(editingMember.member_id, {
           display_name: displayName,
-          discord_user_id: discordUserId,
-          email: email,
           is_active: isActive,
           role_ids: selectedRoleIds,
         });
@@ -160,8 +152,6 @@ export default function Members() {
         // 新規作成
         await createMember({
           display_name: displayName,
-          discord_user_id: discordUserId,
-          email: email,
         });
       }
 
@@ -321,8 +311,6 @@ export default function Members() {
               <tr className="border-b border-gray-200">
                 <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">名前</th>
                 <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">ロール</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Discord ID</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Email</th>
                 <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">ステータス</th>
                 <th className="px-4 py-3 text-right text-sm font-semibold text-gray-900">操作</th>
               </tr>
@@ -348,10 +336,6 @@ export default function Members() {
                       )}
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-600">
-                    {member.discord_user_id || '-'}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-600">{member.email || '-'}</td>
                   <td className="px-4 py-3 text-sm">
                     <span
                       className={`inline-flex px-2 py-1 text-xs font-semibold rounded ${
@@ -391,10 +375,6 @@ export default function Members() {
           roles={roles}
           displayName={displayName}
           setDisplayName={setDisplayName}
-          discordUserId={discordUserId}
-          setDiscordUserId={setDiscordUserId}
-          email={email}
-          setEmail={setEmail}
           isActive={isActive}
           setIsActive={setIsActive}
           selectedRoleIds={selectedRoleIds}
@@ -441,10 +421,6 @@ function MemberFormModal({
   roles,
   displayName,
   setDisplayName,
-  discordUserId,
-  setDiscordUserId,
-  email,
-  setEmail,
   isActive,
   setIsActive,
   selectedRoleIds,
@@ -457,10 +433,6 @@ function MemberFormModal({
   roles: Role[];
   displayName: string;
   setDisplayName: (v: string) => void;
-  discordUserId: string;
-  setDiscordUserId: (v: string) => void;
-  email: string;
-  setEmail: (v: string) => void;
   isActive: boolean;
   setIsActive: (v: boolean) => void;
   selectedRoleIds: string[];
@@ -497,30 +469,6 @@ function MemberFormModal({
               required
               disabled={submitting}
               autoFocus
-            />
-          </div>
-
-          <div className="mb-4">
-            <label className="label">Discord User ID</label>
-            <input
-              type="text"
-              value={discordUserId}
-              onChange={(e) => setDiscordUserId(e.target.value)}
-              className="input-field"
-              disabled={submitting}
-              placeholder="オプション"
-            />
-          </div>
-
-          <div className="mb-4">
-            <label className="label">Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="input-field"
-              disabled={submitting}
-              placeholder="オプション"
             />
           </div>
 
