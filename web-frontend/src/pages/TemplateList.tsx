@@ -80,7 +80,7 @@ const TemplateList = () => {
         </div>
         <button
           onClick={() => navigate(`/events/${eventId}/templates/new`)}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center"
+          className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg flex items-center"
         >
           <svg
             className="w-5 h-5 mr-2"
@@ -121,7 +121,7 @@ const TemplateList = () => {
           <div className="mt-6">
             <button
               onClick={() => navigate(`/events/${eventId}/templates/new`)}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg"
             >
               テンプレートを作成
             </button>
@@ -138,7 +138,7 @@ const TemplateList = () => {
                 <h3 className="text-lg font-semibold text-gray-900 flex-1">
                   {template.template_name}
                 </h3>
-                <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded">
+                <span className="bg-indigo-100 text-indigo-800 text-xs font-medium px-2.5 py-0.5 rounded">
                   {(template.items || []).length} 枠
                 </span>
               </div>
@@ -154,7 +154,7 @@ const TemplateList = () => {
                 <div className="space-y-1">
                   {(template.items || []).slice(0, 3).map((item, index) => (
                     <div key={index} className="text-xs text-gray-600 flex items-center">
-                      <span className="w-2 h-2 bg-blue-400 rounded-full mr-2"></span>
+                      <span className="w-2 h-2 bg-indigo-400 rounded-full mr-2"></span>
                       {item.slot_name} ({item.instance_name}) - {item.start_time.substring(0, 5)}~
                       {item.end_time.substring(0, 5)} ({item.required_count}名)
                     </div>
@@ -176,7 +176,7 @@ const TemplateList = () => {
                 </button>
                 <button
                   onClick={() => navigate(`/events/${eventId}/templates/${template.template_id}/edit`)}
-                  className="flex-1 bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-2 rounded text-sm font-medium"
+                  className="flex-1 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 px-3 py-2 rounded text-sm font-medium"
                 >
                   編集
                 </button>

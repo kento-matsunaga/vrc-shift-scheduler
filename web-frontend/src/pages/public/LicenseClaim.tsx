@@ -78,49 +78,68 @@ export default function LicenseClaim() {
 
   if (success) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-md w-full space-y-8">
-          <div className="text-center">
-            <h2 className="mt-6 text-3xl font-extrabold text-gray-900">登録完了！</h2>
-            <p className="mt-2 text-sm text-gray-600">
-              アカウントが正常に作成されました。メールアドレスとパスワードでログインできます。
-            </p>
+      <div className="min-h-screen bg-gray-100 flex flex-col">
+        {/* ヘッダー */}
+        <header className="bg-indigo-900 text-white shadow">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <h1 className="text-xl font-bold">VRC Shift Scheduler</h1>
           </div>
-          <div className="mt-8">
+        </header>
+
+        {/* メインコンテンツ */}
+        <main className="flex-1 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-md max-w-md w-full p-8">
+            <div className="text-center mb-8">
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">登録完了！</h2>
+              <p className="text-sm text-gray-500">
+                アカウントが正常に作成されました。メールアドレスとパスワードでログインできます。
+              </p>
+            </div>
             <button
               onClick={() => navigate('/login')}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              className="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
             >
               ログインへ
             </button>
           </div>
-        </div>
+        </main>
+
+        {/* フッター */}
+        <footer className="bg-white border-t">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <p className="text-center text-sm text-gray-500">
+              VRC Shift Scheduler
+            </p>
+          </div>
+        </footer>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            ライセンスキーで登録
-          </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            BOOTHで購入したライセンスキーを入力してアカウントを作成してください
-          </p>
+    <div className="min-h-screen bg-gray-100 flex flex-col">
+      {/* ヘッダー */}
+      <header className="bg-indigo-900 text-white shadow">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <h1 className="text-xl font-bold">VRC Shift Scheduler</h1>
         </div>
+      </header>
 
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          {error && (
-            <div className="rounded-md bg-red-50 p-4">
-              <div className="text-sm text-red-700">{error}</div>
-            </div>
-          )}
+      {/* メインコンテンツ */}
+      <main className="flex-1 flex items-center justify-center p-4">
+        <div className="bg-white rounded-lg shadow-md max-w-md w-full p-8">
+          <div className="text-center mb-8">
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">
+              ライセンスキーで登録
+            </h2>
+            <p className="text-sm text-gray-500">
+              BOOTHで購入したライセンスキーを入力してアカウントを作成してください
+            </p>
+          </div>
 
-          <div className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label htmlFor="license_key" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="license_key" className="block text-sm font-medium text-gray-700 mb-1.5">
                 ライセンスキー
               </label>
               <input
@@ -131,12 +150,13 @@ export default function LicenseClaim() {
                 value={formData.license_key}
                 onChange={handleLicenseKeyChange}
                 placeholder="XXXX-XXXX-XXXX-XXXX"
-                className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm font-mono"
+                className="w-full px-4 py-3 border border-gray-300 rounded-md text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition font-mono"
+                disabled={isLoading}
               />
             </div>
 
             <div>
-              <label htmlFor="tenant_name" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="tenant_name" className="block text-sm font-medium text-gray-700 mb-1.5">
                 組織名
               </label>
               <input
@@ -147,12 +167,13 @@ export default function LicenseClaim() {
                 value={formData.tenant_name}
                 onChange={handleChange}
                 placeholder="VRCイベント名"
-                className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                className="w-full px-4 py-3 border border-gray-300 rounded-md text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+                disabled={isLoading}
               />
             </div>
 
             <div>
-              <label htmlFor="display_name" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="display_name" className="block text-sm font-medium text-gray-700 mb-1.5">
                 表示名
               </label>
               <input
@@ -163,12 +184,13 @@ export default function LicenseClaim() {
                 value={formData.display_name}
                 onChange={handleChange}
                 placeholder="管理者"
-                className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                className="w-full px-4 py-3 border border-gray-300 rounded-md text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+                disabled={isLoading}
               />
             </div>
 
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1.5">
                 メールアドレス
               </label>
               <input
@@ -179,12 +201,14 @@ export default function LicenseClaim() {
                 required
                 value={formData.email}
                 onChange={handleChange}
-                className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                placeholder="admin@example.com"
+                className="w-full px-4 py-3 border border-gray-300 rounded-md text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+                disabled={isLoading}
               />
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1.5">
                 パスワード
               </label>
               <input
@@ -195,13 +219,15 @@ export default function LicenseClaim() {
                 required
                 value={formData.password}
                 onChange={handleChange}
-                className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                placeholder="••••••••"
+                className="w-full px-4 py-3 border border-gray-300 rounded-md text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+                disabled={isLoading}
               />
               <p className="mt-1 text-xs text-gray-500">8文字以上</p>
             </div>
 
             <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1.5">
                 パスワード（確認）
               </label>
               <input
@@ -212,28 +238,53 @@ export default function LicenseClaim() {
                 required
                 value={formData.confirmPassword}
                 onChange={handleChange}
-                className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                placeholder="••••••••"
+                className="w-full px-4 py-3 border border-gray-300 rounded-md text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+                disabled={isLoading}
               />
             </div>
-          </div>
 
-          <div>
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-md p-3">
+                <p className="text-sm text-red-600">{error}</p>
+              </div>
+            )}
+
             <button
               type="submit"
+              className="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white font-medium rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
               disabled={isLoading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isLoading ? '登録中...' : '登録'}
+              {isLoading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  登録中...
+                </span>
+              ) : (
+                '登録'
+              )}
             </button>
-          </div>
 
-          <div className="text-center">
-            <a href="/login" className="text-sm text-indigo-600 hover:text-indigo-500">
-              アカウントをお持ちですか？ログイン
-            </a>
-          </div>
-        </form>
-      </div>
+            <div className="text-center">
+              <a href="/login" className="text-sm text-indigo-600 hover:text-indigo-500">
+                アカウントをお持ちですか？ログイン
+              </a>
+            </div>
+          </form>
+        </div>
+      </main>
+
+      {/* フッター */}
+      <footer className="bg-white border-t">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <p className="text-center text-sm text-gray-500">
+            VRC Shift Scheduler
+          </p>
+        </div>
+      </footer>
     </div>
   );
 }

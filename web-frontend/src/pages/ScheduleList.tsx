@@ -124,7 +124,7 @@ export default function ScheduleList() {
       case 'open':
         return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">受付中</span>;
       case 'decided':
-        return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">決定済み</span>;
+        return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-indigo-100 text-indigo-800">決定済み</span>;
       case 'closed':
         return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">締切済み</span>;
       default:
@@ -135,7 +135,7 @@ export default function ScheduleList() {
   if (loading) {
     return (
       <div className="text-center py-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
         <p className="mt-4 text-gray-600">読み込み中...</p>
       </div>
     );
@@ -152,7 +152,7 @@ export default function ScheduleList() {
         </div>
         <button
           onClick={() => setShowCreateForm(!showCreateForm)}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+          className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium"
         >
           {showCreateForm ? 'キャンセル' : '+ 新規作成'}
         </button>
@@ -174,7 +174,7 @@ export default function ScheduleList() {
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="例：忘年会の日程調整"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 disabled={submitting}
               />
             </div>
@@ -188,7 +188,7 @@ export default function ScheduleList() {
                 onChange={(e) => setDescription(e.target.value)}
                 rows={3}
                 placeholder="詳細な説明や注意事項を入力してください"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 disabled={submitting}
               />
             </div>
@@ -204,7 +204,7 @@ export default function ScheduleList() {
                       type="datetime-local"
                       value={date}
                       onChange={(e) => handleDateChange(index, e.target.value)}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                       disabled={submitting}
                     />
                     {candidateDates.length > 1 && (
@@ -223,7 +223,7 @@ export default function ScheduleList() {
               <button
                 type="button"
                 onClick={handleAddDate}
-                className="mt-2 px-3 py-1 text-sm text-blue-600 hover:bg-blue-50 rounded-md transition"
+                className="mt-2 px-3 py-1 text-sm text-indigo-600 hover:bg-indigo-50 rounded-md transition"
                 disabled={submitting}
               >
                 + 候補日を追加
@@ -238,7 +238,7 @@ export default function ScheduleList() {
                 type="datetime-local"
                 value={deadline}
                 onChange={(e) => setDeadline(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 disabled={submitting}
               />
             </div>
@@ -252,7 +252,7 @@ export default function ScheduleList() {
             <button
               type="submit"
               disabled={submitting || !title.trim()}
-              className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
+              className="w-full px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
               {submitting ? '作成中...' : '日程調整を作成'}
             </button>
@@ -376,7 +376,7 @@ export default function ScheduleList() {
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <button
                         onClick={() => navigate(`/schedules/${schedule.schedule_id}`)}
-                        className="text-blue-600 hover:text-blue-900 transition"
+                        className="text-indigo-600 hover:text-indigo-900 transition"
                       >
                         詳細
                       </button>
@@ -389,9 +389,9 @@ export default function ScheduleList() {
         </div>
       </div>
 
-      <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-        <h3 className="text-sm font-semibold text-blue-900 mb-2">💡 使い方</h3>
-        <ul className="text-sm text-blue-800 space-y-1 list-disc list-inside">
+      <div className="mt-6 p-4 bg-indigo-50 border border-indigo-200 rounded-lg">
+        <h3 className="text-sm font-semibold text-indigo-900 mb-2">💡 使い方</h3>
+        <ul className="text-sm text-indigo-800 space-y-1 list-disc list-inside">
           <li>日程調整を作成すると公開URLが発行されます</li>
           <li>URLをメンバーに送信して、参加可能な日程を回答してもらいましょう</li>
           <li>メンバーは候補日の中から参加可能な日程を複数選択できます</li>
