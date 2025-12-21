@@ -14,6 +14,10 @@ type Config struct {
 
 	// DatabaseURL is the PostgreSQL connection string
 	DatabaseURL string `envconfig:"DATABASE_URL" required:"true"`
+
+	// AllowedOrigins is a comma-separated list of allowed CORS origins
+	// In production, this should be set to specific domains
+	AllowedOrigins string `envconfig:"ALLOWED_ORIGINS" default:""`
 }
 
 // LoadConfig loads configuration from environment variables

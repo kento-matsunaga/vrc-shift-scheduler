@@ -2,8 +2,11 @@ package rest
 
 import (
 	"context"
+	"crypto/subtle"
 	"log"
 	"net/http"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
@@ -55,16 +58,79 @@ func (w *responseWriter) WriteHeader(statusCode int) {
 	w.ResponseWriter.WriteHeader(statusCode)
 }
 
-// CORS is a middleware that handles CORS headers
-func CORS(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-Tenant-ID, X-Member-ID, Authorization")
-		w.Header().Set("Access-Control-Max-Age", "86400")
+// CORSWithOrigins creates a CORS middleware with specified allowed origins
+// If allowedOrigins is empty, it falls back to allowing all origins (development mode)
+func CORSWithOrigins(allowedOrigins string) func(http.Handler) http.Handler {
+	// Parse allowed origins into a map for fast lookup
+	origins := make(map[string]bool)
+	if allowedOrigins != "" {
+		for _, origin := range strings.Split(allowedOrigins, ",") {
+			origins[strings.TrimSpace(origin)] = true
+		}
+	}
 
-		if r.Method == http.MethodOptions {
-			w.WriteHeader(http.StatusNoContent)
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			origin := r.Header.Get("Origin")
+
+			// Check if the origin is allowed
+			if len(origins) > 0 {
+				// Production mode: check against allowed origins
+				if origins[origin] {
+					w.Header().Set("Access-Control-Allow-Origin", origin)
+					w.Header().Set("Vary", "Origin")
+				}
+				// If origin not in allowed list, don't set CORS headers (request will be blocked by browser)
+			} else {
+				// Development mode: allow all origins
+				w.Header().Set("Access-Control-Allow-Origin", "*")
+			}
+
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-Tenant-ID, X-Member-ID, Authorization, X-Admin-API-Key")
+			w.Header().Set("Access-Control-Max-Age", "86400")
+
+			if r.Method == http.MethodOptions {
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+// CORS is a middleware that handles CORS headers (allows all origins - for backward compatibility)
+// Deprecated: Use CORSWithOrigins with ALLOWED_ORIGINS environment variable instead
+func CORS(next http.Handler) http.Handler {
+	return CORSWithOrigins("")(next)
+}
+
+// AdminAPIKeyAuth is a middleware that validates the X-Admin-API-Key header
+// This provides an additional authentication layer for admin endpoints
+// The API key is read from ADMIN_API_KEY environment variable
+func AdminAPIKeyAuth(next http.Handler) http.Handler {
+	apiKey := os.Getenv("ADMIN_API_KEY")
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// If no API key is configured, skip validation (development mode)
+		if apiKey == "" {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		// Get the API key from header
+		providedKey := r.Header.Get("X-Admin-API-Key")
+		if providedKey == "" {
+			RespondError(w, http.StatusUnauthorized, "ERR_ADMIN_API_KEY_REQUIRED",
+				"Admin API key is required", nil)
+			return
+		}
+
+		// Constant-time comparison to prevent timing attacks
+		if subtle.ConstantTimeCompare([]byte(apiKey), []byte(providedKey)) != 1 {
+			RespondError(w, http.StatusUnauthorized, "ERR_ADMIN_API_KEY_INVALID",
+				"Invalid admin API key", nil)
 			return
 		}
 
@@ -165,4 +231,3 @@ func GetAdminID(ctx context.Context) (common.AdminID, bool) {
 	adminID, ok := ctx.Value(ContextKeyAdminID).(common.AdminID)
 	return adminID, ok
 }
-

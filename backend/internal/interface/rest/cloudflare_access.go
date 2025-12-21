@@ -31,6 +31,9 @@ type CloudflareAccessConfig struct {
 	AllowedEmails []string
 	// Enabled controls whether Cloudflare Access validation is enabled
 	Enabled bool
+	// AllowDevBypass allows X-Admin-Email header bypass (ONLY for local development)
+	// WARNING: This should NEVER be true in production
+	AllowDevBypass bool
 }
 
 // ContextKeyCFEmail is the context key for Cloudflare Access email
@@ -86,11 +89,14 @@ func CloudflareAccessMiddleware(config CloudflareAccessConfig) func(http.Handler
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Skip validation if disabled (local development)
 			if !config.Enabled {
-				// In development, optionally check for a bypass header
-				devEmail := r.Header.Get("X-Admin-Email")
-				if devEmail != "" {
-					ctx := context.WithValue(r.Context(), ContextKeyCFEmail, devEmail)
-					r = r.WithContext(ctx)
+				// Only allow X-Admin-Email bypass if explicitly enabled
+				// This should ONLY be enabled in local development
+				if config.AllowDevBypass {
+					devEmail := r.Header.Get("X-Admin-Email")
+					if devEmail != "" {
+						ctx := context.WithValue(r.Context(), ContextKeyCFEmail, devEmail)
+						r = r.WithContext(ctx)
+					}
 				}
 				next.ServeHTTP(w, r)
 				return
@@ -270,6 +276,9 @@ func LoadCloudflareAccessConfig() CloudflareAccessConfig {
 	teamDomain := os.Getenv("CF_ACCESS_TEAM_DOMAIN")
 	policyAUD := os.Getenv("CF_ACCESS_POLICY_AUD")
 	allowedEmailsStr := os.Getenv("CF_ACCESS_ALLOWED_EMAILS")
+	// ALLOW_DEV_BYPASS should ONLY be set to "true" in local development
+	// WARNING: Setting this in production is a security vulnerability
+	allowDevBypass := os.Getenv("ALLOW_DEV_BYPASS") == "true"
 
 	var allowedEmails []string
 	if allowedEmailsStr != "" {
@@ -283,9 +292,10 @@ func LoadCloudflareAccessConfig() CloudflareAccessConfig {
 	enabled := teamDomain != "" && policyAUD != ""
 
 	return CloudflareAccessConfig{
-		TeamDomain:    teamDomain,
-		PolicyAUD:     policyAUD,
-		AllowedEmails: allowedEmails,
-		Enabled:       enabled,
+		TeamDomain:     teamDomain,
+		PolicyAUD:      policyAUD,
+		AllowedEmails:  allowedEmails,
+		Enabled:        enabled,
+		AllowDevBypass: allowDevBypass,
 	}
 }

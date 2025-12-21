@@ -95,6 +95,16 @@ func (h *EventHandler) CreateEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 長さ制限（DoS対策）
+	if len(req.EventName) > 255 {
+		RespondBadRequest(w, "event_name must be 255 characters or less")
+		return
+	}
+	if len(req.Description) > 2000 {
+		RespondBadRequest(w, "description must be 2000 characters or less")
+		return
+	}
+
 	// EventType のデフォルト値
 	eventType := event.EventTypeNormal
 	if req.EventType != "" {
@@ -279,6 +289,12 @@ func (h *EventHandler) UpdateEvent(w http.ResponseWriter, r *http.Request) {
 	// バリデーション
 	if req.EventName == "" {
 		RespondBadRequest(w, "event_name is required")
+		return
+	}
+
+	// 長さ制限
+	if len(req.EventName) > 255 {
+		RespondBadRequest(w, "event_name must be 255 characters or less")
 		return
 	}
 

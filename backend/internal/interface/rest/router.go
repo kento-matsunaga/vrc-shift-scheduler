@@ -3,6 +3,7 @@ package rest
 import (
 	"context"
 	"net/http"
+	"os"
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/app/auth"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/application/usecase"
@@ -22,7 +23,9 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 	r.Use(middleware.RequestID)
 	r.Use(Recover)
 	r.Use(Logger)
-	r.Use(CORS)
+	// CORS設定: ALLOWED_ORIGINS環境変数で許可オリジンを指定
+	// 未設定の場合は全オリジン許可（開発環境用）
+	r.Use(CORSWithOrigins(os.Getenv("ALLOWED_ORIGINS")))
 
 	// ヘルスチェック（認証不要）
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
@@ -193,15 +196,18 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 	})
 
 	// ============================================================
-	// Admin Billing API (Cloudflare Access保護 - 運営専用)
+	// Admin Billing API (Cloudflare Access + API Key 保護 - 運営専用)
 	// ============================================================
 	// NOTE: このルートはテナントJWT認証とは完全に分離されています
-	// 本番環境ではCloudflare Accessで保護され、ローカル開発では
-	// CF_ACCESS_TEAM_DOMAIN が未設定の場合は認証をスキップします
+	// 本番環境では以下の2層認証で保護:
+	// 1. Cloudflare Access (CF_ACCESS_TEAM_DOMAIN, CF_ACCESS_POLICY_AUD)
+	// 2. Admin API Key (ADMIN_API_KEY)
 	r.Route("/api/v1/admin", func(r chi.Router) {
 		// Cloudflare Access 認証ミドルウェア
 		cfConfig := LoadCloudflareAccessConfig()
 		r.Use(CloudflareAccessMiddleware(cfConfig))
+		// Admin API Key 認証ミドルウェア（追加のセキュリティ層）
+		r.Use(AdminAPIKeyAuth)
 
 		// Initialize dependencies for admin billing
 		txManager := db.NewPgxTxManager(dbPool)
