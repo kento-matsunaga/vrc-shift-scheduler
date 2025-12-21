@@ -3,6 +3,7 @@ package rest
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/application/usecase"
@@ -112,23 +113,20 @@ func (h *LicenseClaimHandler) Claim(w http.ResponseWriter, r *http.Request) {
 }
 
 // getClientIP extracts the client IP address from the request
+// Priority: CF-Connecting-IP (Cloudflare) > RemoteAddr
+// Note: X-Forwarded-For and X-Real-IP are not trusted as they can be spoofed
 func getClientIP(r *http.Request) string {
-	// Check X-Forwarded-For header (for reverse proxy scenarios)
-	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		// X-Forwarded-For can contain multiple IPs, take the first one
-		for i := 0; i < len(xff); i++ {
-			if xff[i] == ',' {
-				return xff[:i]
-			}
-		}
-		return xff
+	// Cloudflare sets CF-Connecting-IP header with the original client IP
+	// This header cannot be spoofed when behind Cloudflare
+	if cfIP := r.Header.Get("CF-Connecting-IP"); cfIP != "" {
+		return cfIP
 	}
 
-	// Check X-Real-IP header
-	if xrip := r.Header.Get("X-Real-IP"); xrip != "" {
-		return xrip
+	// Fall back to RemoteAddr (direct connection or development)
+	// RemoteAddr includes port, so extract just the IP
+	host := r.RemoteAddr
+	if idx := strings.LastIndex(host, ":"); idx != -1 {
+		return host[:idx]
 	}
-
-	// Fall back to RemoteAddr
-	return r.RemoteAddr
+	return host
 }
