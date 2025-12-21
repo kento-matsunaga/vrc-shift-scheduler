@@ -73,3 +73,8 @@ tmp/
 .cache/
 coverage/
 
+# ===========================
+# Local Only (not for git)
+# ===========================
+LOCAL_DEPLOY_GUIDE.md
+
