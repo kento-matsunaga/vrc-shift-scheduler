@@ -14,6 +14,7 @@ export default function AssignShift() {
   const [roles, setRoles] = useState<Role[]>([]);
   const [actualAttendance, setActualAttendance] = useState<RecentAttendanceResponse | null>(null);
   const [todayAttendance, setTodayAttendance] = useState<string[]>([]);
+  const [todayAttendingMemberIds, setTodayAttendingMemberIds] = useState<string[]>([]);
   const [existingAssignmentIds, setExistingAssignmentIds] = useState<string[]>([]);
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
   const [note, setNote] = useState('');
@@ -25,6 +26,8 @@ export default function AssignShift() {
   // ロールフィルター（表用とメンバー選択用で別々に管理）
   const [tableFilterRoleIds, setTableFilterRoleIds] = useState<string[]>([]);
   const [memberFilterRoleIds, setMemberFilterRoleIds] = useState<string[]>([]);
+  // 参加回答者のみ表示フィルター
+  const [showOnlyAttending, setShowOnlyAttending] = useState(false);
 
   // ロールのカラーを取得
   const getRoleColor = (roleId: string) => {
@@ -45,20 +48,42 @@ export default function AssignShift() {
   };
 
   // フィルタリングされたメンバー一覧（メンバー選択用）
-  const filteredMembers = memberFilterRoleIds.length > 0
-    ? members.filter((m) => m.role_ids?.some((roleId) => memberFilterRoleIds.includes(roleId)))
-    : members;
+  const filteredMembers = members.filter((m) => {
+    // ロールフィルター
+    if (memberFilterRoleIds.length > 0) {
+      if (!m.role_ids?.some((roleId) => memberFilterRoleIds.includes(roleId))) {
+        return false;
+      }
+    }
+    // 参加回答者フィルター
+    if (showOnlyAttending && todayAttendingMemberIds.length > 0) {
+      if (!todayAttendingMemberIds.includes(m.member_id)) {
+        return false;
+      }
+    }
+    return true;
+  });
 
   // フィルタリングされた本出席データ（表用）
   const filteredActualAttendance = actualAttendance
     ? {
         ...actualAttendance,
-        member_attendances: tableFilterRoleIds.length > 0
-          ? actualAttendance.member_attendances.filter((memberAtt) => {
-              const memberRoleIds = getMemberRoleIds(memberAtt.member_id);
-              return memberRoleIds.some((roleId) => tableFilterRoleIds.includes(roleId));
-            })
-          : actualAttendance.member_attendances,
+        member_attendances: actualAttendance.member_attendances.filter((memberAtt) => {
+          // ロールフィルター
+          if (tableFilterRoleIds.length > 0) {
+            const memberRoleIds = getMemberRoleIds(memberAtt.member_id);
+            if (!memberRoleIds.some((roleId) => tableFilterRoleIds.includes(roleId))) {
+              return false;
+            }
+          }
+          // 参加回答者フィルター
+          if (showOnlyAttending && todayAttendingMemberIds.length > 0) {
+            if (!todayAttendingMemberIds.includes(memberAtt.member_id)) {
+              return false;
+            }
+          }
+          return true;
+        }),
       }
     : null;
 
@@ -105,14 +130,17 @@ export default function AssignShift() {
       });
 
       if (matchingTargetDate) {
-        const attendingMembers: string[] = [];
+        const attendingMemberNames: string[] = [];
+        const attendingMemberIdList: string[] = [];
         recentAttendanceData.member_attendances.forEach((memberAtt) => {
           const response = memberAtt.attendance_map[matchingTargetDate.target_date_id];
           if (response === 'attending') {
-            attendingMembers.push(memberAtt.member_name);
+            attendingMemberNames.push(memberAtt.member_name);
+            attendingMemberIdList.push(memberAtt.member_id);
           }
         });
-        setTodayAttendance(attendingMembers);
+        setTodayAttendance(attendingMemberNames);
+        setTodayAttendingMemberIds(attendingMemberIdList);
       }
     } catch (err) {
       if (err instanceof ApiClientError) {
@@ -248,9 +276,31 @@ export default function AssignShift() {
         {/* この日の参加予定メンバー */}
         {businessDay && todayAttendance.length > 0 && (
           <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-            <h3 className="font-bold text-gray-900 mb-2">
-              {new Date(businessDay.target_date).toLocaleDateString('ja-JP')} の参加予定メンバー
-            </h3>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="font-bold text-gray-900">
+                {new Date(businessDay.target_date).toLocaleDateString('ja-JP')} の参加予定メンバー
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowOnlyAttending(!showOnlyAttending)}
+                className={`inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
+                  showOnlyAttending
+                    ? 'bg-green-600 text-white ring-2 ring-green-600 ring-offset-2'
+                    : 'bg-white text-green-700 border border-green-300 hover:bg-green-50'
+                }`}
+              >
+                {showOnlyAttending ? (
+                  <>
+                    <svg className="w-4 h-4 mr-1.5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                    参加者のみ表示中
+                  </>
+                ) : (
+                  '参加者のみ表示'
+                )}
+              </button>
+            </div>
             <p className="text-sm text-green-700 mb-2">出欠確認で「参加」と回答したメンバー ({todayAttendance.length}人)</p>
             <div className="flex flex-wrap gap-2">
               {todayAttendance.map((name, idx) => (
