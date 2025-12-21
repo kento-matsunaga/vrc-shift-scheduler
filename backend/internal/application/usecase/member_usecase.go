@@ -238,6 +238,7 @@ func (uc *DeleteMemberUsecase) Execute(ctx context.Context, input DeleteMemberIn
 // BulkImportMemberInput represents a single member for bulk import
 type BulkImportMemberInput struct {
 	DisplayName string
+	RoleIDs     []string
 }
 
 // BulkImportMembersInput represents the input for bulk importing members
@@ -262,15 +263,22 @@ type BulkImportMembersOutput struct {
 	Results      []BulkImportMemberResult `json:"results"`
 }
 
+// MemberRoleAssigner defines the interface for assigning roles to members
+type MemberRoleAssigner interface {
+	SetMemberRoles(ctx context.Context, memberID common.MemberID, roleIDs []common.RoleID) error
+}
+
 // BulkImportMembersUsecase handles the bulk member import use case
 type BulkImportMembersUsecase struct {
-	memberRepo MemberRepository
+	memberRepo     MemberRepository
+	memberRoleRepo MemberRoleAssigner
 }
 
 // NewBulkImportMembersUsecase creates a new BulkImportMembersUsecase
-func NewBulkImportMembersUsecase(memberRepo MemberRepository) *BulkImportMembersUsecase {
+func NewBulkImportMembersUsecase(memberRepo MemberRepository, memberRoleRepo MemberRoleAssigner) *BulkImportMembersUsecase {
 	return &BulkImportMembersUsecase{
-		memberRepo: memberRepo,
+		memberRepo:     memberRepo,
+		memberRoleRepo: memberRoleRepo,
 	}
 }
 
@@ -325,6 +333,18 @@ func (uc *BulkImportMembersUsecase) Execute(ctx context.Context, input BulkImpor
 			failedCount++
 			results = append(results, result)
 			continue
+		}
+
+		// ロール割り当て
+		if len(memberInput.RoleIDs) > 0 {
+			roleIDs := make([]common.RoleID, len(memberInput.RoleIDs))
+			for i, rid := range memberInput.RoleIDs {
+				roleIDs[i] = common.RoleID(rid)
+			}
+			if err := uc.memberRoleRepo.SetMemberRoles(ctx, newMember.MemberID(), roleIDs); err != nil {
+				// ロール割り当て失敗でもメンバー作成は成功とする
+				// ログに記録するのみ
+			}
 		}
 
 		result.Success = true

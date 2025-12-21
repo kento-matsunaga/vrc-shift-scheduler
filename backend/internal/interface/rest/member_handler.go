@@ -38,7 +38,7 @@ func NewMemberHandler(dbPool *pgxpool.Pool) *MemberHandler {
 		deleteMemberUC:             usecase.NewDeleteMemberUsecase(memberRepo),
 		updateMemberUsecase:        appMember.NewUpdateMemberUsecase(memberRepo, memberRoleRepo),
 		getRecentAttendanceUsecase: appMember.NewGetRecentAttendanceUsecase(memberRepo, attendanceRepo),
-		bulkImportMembersUC:        usecase.NewBulkImportMembersUsecase(memberRepo),
+		bulkImportMembersUC:        usecase.NewBulkImportMembersUsecase(memberRepo, memberRoleRepo),
 	}
 }
 
@@ -405,7 +405,8 @@ type BulkImportMembersRequest struct {
 
 // BulkImportMemberRequest represents a single member in bulk import request
 type BulkImportMemberRequest struct {
-	DisplayName string `json:"display_name"`
+	DisplayName string   `json:"display_name"`
+	RoleIDs     []string `json:"role_ids,omitempty"`
 }
 
 // BulkImportMembers handles POST /api/v1/members/bulk-import
@@ -443,6 +444,7 @@ func (h *MemberHandler) BulkImportMembers(w http.ResponseWriter, r *http.Request
 	for i, m := range req.Members {
 		memberInputs[i] = usecase.BulkImportMemberInput{
 			DisplayName: m.DisplayName,
+			RoleIDs:     m.RoleIDs,
 		}
 	}
 

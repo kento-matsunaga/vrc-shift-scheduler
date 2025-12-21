@@ -83,10 +83,17 @@ export interface BulkImportResponse {
 }
 
 /**
+ * 一括登録のメンバー入力
+ */
+export interface BulkImportMemberInput {
+  display_name: string;
+  role_ids?: string[];
+}
+
+/**
  * メンバー一括登録
  */
-export async function bulkImportMembers(displayNames: string[]): Promise<BulkImportResponse> {
-  const members = displayNames.map(name => ({ display_name: name }));
+export async function bulkImportMembers(members: BulkImportMemberInput[]): Promise<BulkImportResponse> {
   const res = await apiClient.post<ApiResponse<BulkImportResponse>>('/api/v1/members/bulk-import', { members });
   return res.data;
 }
