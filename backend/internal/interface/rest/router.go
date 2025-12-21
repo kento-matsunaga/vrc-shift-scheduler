@@ -196,18 +196,14 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 	})
 
 	// ============================================================
-	// Admin Billing API (Cloudflare Access + API Key 保護 - 運営専用)
+	// Admin Billing API (Cloudflare Access 保護 - 運営専用)
 	// ============================================================
 	// NOTE: このルートはテナントJWT認証とは完全に分離されています
-	// 本番環境では以下の2層認証で保護:
-	// 1. Cloudflare Access (CF_ACCESS_TEAM_DOMAIN, CF_ACCESS_POLICY_AUD)
-	// 2. Admin API Key (ADMIN_API_KEY)
+	// 本番環境ではCloudflare Accessで保護されます
 	r.Route("/api/v1/admin", func(r chi.Router) {
 		// Cloudflare Access 認証ミドルウェア
 		cfConfig := LoadCloudflareAccessConfig()
 		r.Use(CloudflareAccessMiddleware(cfConfig))
-		// Admin API Key 認証ミドルウェア（追加のセキュリティ層）
-		r.Use(AdminAPIKeyAuth)
 
 		// Initialize dependencies for admin billing
 		txManager := db.NewPgxTxManager(dbPool)
