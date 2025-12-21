@@ -33,6 +33,15 @@ VRC Shift Scheduler で使用する環境変数の詳細説明です。
 | `ENABLE_NOTIFICATION` | 通知機能の有効化 | `false` | `true`, `false` |
 | `DISCORD_WEBHOOK_URL` | Discord Webhook URL（将来実装用） | なし | `https://discord.com/api/webhooks/...` |
 
+### Billing/課金関連
+
+| 変数名 | 説明 | デフォルト値 | 例 |
+|--------|------|--------------|-----|
+| `STRIPE_SECRET_KEY` | Stripe シークレットキー | なし | `sk_live_...` |
+| `STRIPE_WEBHOOK_SECRET` | Stripe Webhook署名シークレット | なし | `whsec_...` |
+| `STRIPE_PRICE_ID` | Stripe 価格ID（月額プラン） | なし | `price_...` |
+| `LICENSE_KEY_PREFIX` | ライセンスキーのプレフィックス | `VRCSS-` | `VRCSS-` |
+
 ### 設定例
 
 #### 開発環境（`backend/.env`）

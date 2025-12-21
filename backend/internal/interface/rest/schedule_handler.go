@@ -543,7 +543,8 @@ func (h *ScheduleHandler) GetScheduleByToken(w http.ResponseWriter, r *http.Requ
 		UpdatedAt:          output.UpdatedAt,
 	}
 
-	RespondJSON(w, http.StatusOK, resp)
+	// フロントエンドが { data: ... } 形式を期待しているため、SuccessResponseでラップ
+	RespondJSON(w, http.StatusOK, SuccessResponse{Data: resp})
 }
 
 type ScheduleSubmitResponseRequest struct {

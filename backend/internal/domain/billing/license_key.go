@@ -60,6 +60,8 @@ type LicenseKey struct {
 	keyHash      string
 	status       LicenseKeyStatus
 	batchID      *string
+	expiresAt    *time.Time
+	memo         string
 	usedAt       *time.Time
 	usedTenantID *common.TenantID
 	revokedAt    *time.Time
@@ -70,13 +72,16 @@ type LicenseKey struct {
 func NewLicenseKey(
 	now time.Time,
 	keyHash string,
-	batchID *string,
+	expiresAt *time.Time,
+	memo string,
 ) (*LicenseKey, error) {
 	key := &LicenseKey{
 		keyID:        NewLicenseKeyID(),
 		keyHash:      keyHash,
 		status:       LicenseKeyStatusUnused,
-		batchID:      batchID,
+		batchID:      nil,
+		expiresAt:    expiresAt,
+		memo:         memo,
 		usedAt:       nil,
 		usedTenantID: nil,
 		revokedAt:    nil,
@@ -96,6 +101,8 @@ func ReconstructLicenseKey(
 	keyHash string,
 	status LicenseKeyStatus,
 	batchID *string,
+	expiresAt *time.Time,
+	memo string,
 	usedAt *time.Time,
 	usedTenantID *common.TenantID,
 	revokedAt *time.Time,
@@ -106,6 +113,8 @@ func ReconstructLicenseKey(
 		keyHash:      keyHash,
 		status:       status,
 		batchID:      batchID,
+		expiresAt:    expiresAt,
+		memo:         memo,
 		usedAt:       usedAt,
 		usedTenantID: usedTenantID,
 		revokedAt:    revokedAt,
@@ -150,8 +159,26 @@ func (k *LicenseKey) BatchID() *string {
 	return k.batchID
 }
 
+func (k *LicenseKey) ExpiresAt() *time.Time {
+	return k.expiresAt
+}
+
+func (k *LicenseKey) Memo() string {
+	return k.memo
+}
+
 func (k *LicenseKey) UsedAt() *time.Time {
 	return k.usedAt
+}
+
+// ClaimedAt returns when the key was used (alias for UsedAt)
+func (k *LicenseKey) ClaimedAt() *time.Time {
+	return k.usedAt
+}
+
+// ClaimedBy returns the tenant that used this key (alias for UsedTenantID)
+func (k *LicenseKey) ClaimedBy() *common.TenantID {
+	return k.usedTenantID
 }
 
 func (k *LicenseKey) UsedTenantID() *common.TenantID {

@@ -63,6 +63,30 @@ db-reset:
 	@echo "Database reset complete."
 
 # ============================================================
+# Batch Processing
+# ============================================================
+
+## Run batch job: check expired grace periods and suspend tenants
+.PHONY: batch-grace-expiry
+batch-grace-expiry:
+	go run ./cmd/batch/main.go -task=grace-expiry
+
+## Run batch job: clean up old webhook logs (30+ days)
+.PHONY: batch-webhook-cleanup
+batch-webhook-cleanup:
+	go run ./cmd/batch/main.go -task=webhook-cleanup
+
+## Run batch job (dry run): check expired grace periods
+.PHONY: batch-grace-expiry-dry
+batch-grace-expiry-dry:
+	go run ./cmd/batch/main.go -task=grace-expiry -dry-run
+
+## Run batch job (dry run): clean up old webhook logs
+.PHONY: batch-webhook-cleanup-dry
+batch-webhook-cleanup-dry:
+	go run ./cmd/batch/main.go -task=webhook-cleanup -dry-run
+
+# ============================================================
 # Testing
 # ============================================================
 

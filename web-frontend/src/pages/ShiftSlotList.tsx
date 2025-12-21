@@ -32,7 +32,7 @@ export default function ShiftSlotList() {
         getShiftSlots(businessDayId),
       ]);
       setBusinessDay(businessDayData);
-      setShiftSlots(shiftSlotsData.shift_slots);
+      setShiftSlots(shiftSlotsData.shift_slots || []);
 
       // 各シフト枠の割り当てを取得
       const assignmentsMap: Record<string, ShiftAssignment[]> = {};
@@ -509,7 +509,7 @@ function ApplyTemplateModal({
                   <option value="">テンプレートを選択してください</option>
                   {templates.map((template) => (
                     <option key={template.template_id} value={template.template_id}>
-                      {template.template_name} ({template.items.length}個のシフト枠)
+                      {template.template_name} ({(template.items || []).length}個のシフト枠)
                     </option>
                   ))}
                 </select>
@@ -526,7 +526,7 @@ function ApplyTemplateModal({
                 )}
                 <div className="space-y-2">
                   <p className="text-xs font-semibold text-blue-900">作成されるシフト枠:</p>
-                  {selectedTemplate.items.map((item, index) => (
+                  {(selectedTemplate.items || []).map((item, index) => (
                     <div key={index} className="text-xs text-blue-800">
                       • {item.slot_name} ({item.instance_name}) - {item.start_time.substring(0, 5)}~
                       {item.end_time.substring(0, 5)} ({item.required_count}名)

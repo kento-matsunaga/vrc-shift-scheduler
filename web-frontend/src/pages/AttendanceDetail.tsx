@@ -37,8 +37,8 @@ export default function AttendanceDetail() {
           getMembers({ is_active: true }),
         ]);
         setCollection(collectionData);
-        setResponses(responsesData);
-        setMembers(membersData.members);
+        setResponses(responsesData || []);
+        setMembers(membersData.members || []);
 
         const baseUrl = window.location.origin;
         const url = `${baseUrl}/p/attendance/${collectionData.public_token}`;

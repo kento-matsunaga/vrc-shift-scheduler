@@ -29,7 +29,8 @@ func (r *BillingAuditLogRepository) Save(ctx context.Context, log *billing.Billi
 		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 	`
 
-	_, err := r.db.Exec(ctx, query,
+	// Use GetTx to support transaction context
+	_, err := GetTx(ctx, r.db).Exec(ctx, query,
 		log.LogID().String(),
 		log.ActorType().String(),
 		log.ActorID(),
@@ -133,6 +134,63 @@ func (r *BillingAuditLogRepository) CountByDateRange(ctx context.Context, startD
 	}
 
 	return count, nil
+}
+
+// List returns audit logs with optional action filter
+func (r *BillingAuditLogRepository) List(ctx context.Context, action *string, limit, offset int) ([]*billing.BillingAuditLog, int, error) {
+	// Count query
+	countQuery := `SELECT COUNT(*) FROM billing_audit_logs`
+	countArgs := []interface{}{}
+
+	if action != nil {
+		countQuery += ` WHERE action = $1`
+		countArgs = append(countArgs, *action)
+	}
+
+	var totalCount int
+	if err := r.db.QueryRow(ctx, countQuery, countArgs...).Scan(&totalCount); err != nil {
+		return nil, 0, fmt.Errorf("failed to count billing audit logs: %w", err)
+	}
+
+	// Data query
+	query := `
+		SELECT
+			log_id, actor_type, actor_id, action, target_type, target_id,
+			before_json, after_json, ip_address, user_agent, created_at
+		FROM billing_audit_logs
+	`
+	args := []interface{}{}
+	argIdx := 1
+
+	if action != nil {
+		query += fmt.Sprintf(` WHERE action = $%d`, argIdx)
+		args = append(args, *action)
+		argIdx++
+	}
+
+	query += fmt.Sprintf(` ORDER BY created_at DESC LIMIT $%d OFFSET $%d`, argIdx, argIdx+1)
+	args = append(args, limit, offset)
+
+	rows, err := r.db.Query(ctx, query, args...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to query billing audit logs: %w", err)
+	}
+	defer rows.Close()
+
+	var logs []*billing.BillingAuditLog
+	for rows.Next() {
+		log, err := r.scanRow(rows)
+		if err != nil {
+			return nil, 0, err
+		}
+		logs = append(logs, log)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("error iterating billing audit logs: %w", err)
+	}
+
+	return logs, totalCount, nil
 }
 
 type scannable interface {

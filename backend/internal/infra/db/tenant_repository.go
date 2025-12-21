@@ -126,3 +126,112 @@ func (r *TenantRepository) Save(ctx context.Context, t *tenant.Tenant) error {
 
 	return nil
 }
+
+// ListAll returns all tenants with optional status filter
+func (r *TenantRepository) ListAll(ctx context.Context, status *tenant.TenantStatus, limit, offset int) ([]*tenant.Tenant, int, error) {
+	// Count query
+	countQuery := `SELECT COUNT(*) FROM tenants WHERE deleted_at IS NULL`
+	countArgs := []interface{}{}
+
+	if status != nil {
+		countQuery += ` AND status = $1`
+		countArgs = append(countArgs, status.String())
+	}
+
+	var totalCount int
+	if err := r.db.QueryRow(ctx, countQuery, countArgs...).Scan(&totalCount); err != nil {
+		return nil, 0, fmt.Errorf("failed to count tenants: %w", err)
+	}
+
+	// Data query
+	query := `
+		SELECT
+			tenant_id, tenant_name, timezone, is_active, status, grace_until,
+			created_at, updated_at, deleted_at
+		FROM tenants
+		WHERE deleted_at IS NULL
+	`
+	args := []interface{}{}
+	argIdx := 1
+
+	if status != nil {
+		query += fmt.Sprintf(` AND status = $%d`, argIdx)
+		args = append(args, status.String())
+		argIdx++
+	}
+
+	query += fmt.Sprintf(` ORDER BY created_at DESC LIMIT $%d OFFSET $%d`, argIdx, argIdx+1)
+	args = append(args, limit, offset)
+
+	rows, err := r.db.Query(ctx, query, args...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to query tenants: %w", err)
+	}
+	defer rows.Close()
+
+	var tenants []*tenant.Tenant
+	for rows.Next() {
+		var (
+			tenantIDStr string
+			tenantName  string
+			timezone    string
+			isActive    bool
+			statusStr   string
+			graceUntil  sql.NullTime
+			createdAt   time.Time
+			updatedAt   time.Time
+			deletedAt   sql.NullTime
+		)
+
+		if err := rows.Scan(
+			&tenantIDStr,
+			&tenantName,
+			&timezone,
+			&isActive,
+			&statusStr,
+			&graceUntil,
+			&createdAt,
+			&updatedAt,
+			&deletedAt,
+		); err != nil {
+			return nil, 0, fmt.Errorf("failed to scan tenant: %w", err)
+		}
+
+		parsedTenantID, err := common.ParseTenantID(tenantIDStr)
+		if err != nil {
+			return nil, 0, fmt.Errorf("failed to parse tenant_id: %w", err)
+		}
+
+		var deletedAtPtr *time.Time
+		if deletedAt.Valid {
+			deletedAtPtr = &deletedAt.Time
+		}
+
+		var graceUntilPtr *time.Time
+		if graceUntil.Valid {
+			graceUntilPtr = &graceUntil.Time
+		}
+
+		t, err := tenant.ReconstructTenant(
+			parsedTenantID,
+			tenantName,
+			timezone,
+			isActive,
+			tenant.TenantStatus(statusStr),
+			graceUntilPtr,
+			createdAt,
+			updatedAt,
+			deletedAtPtr,
+		)
+		if err != nil {
+			return nil, 0, err
+		}
+		tenants = append(tenants, t)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("error iterating tenants: %w", err)
+	}
+
+	return tenants, totalCount, nil
+}

@@ -55,6 +55,9 @@ type LicenseKeyRepository interface {
 
 	// RevokeBatch revokes all keys in a batch
 	RevokeBatch(ctx context.Context, batchID string) error
+
+	// List returns license keys with optional status filter
+	List(ctx context.Context, status *LicenseKeyStatus, limit, offset int) ([]*LicenseKey, int, error)
 }
 
 // SubscriptionRepository defines the interface for subscription persistence
@@ -91,4 +94,7 @@ type BillingAuditLogRepository interface {
 
 	// CountByDateRange counts audit logs within a date range
 	CountByDateRange(ctx context.Context, startDate, endDate string) (int, error)
+
+	// List returns audit logs with optional action filter
+	List(ctx context.Context, action *string, limit, offset int) ([]*BillingAuditLog, int, error)
 }

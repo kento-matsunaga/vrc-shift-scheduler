@@ -13,4 +13,7 @@ type TenantRepository interface {
 
 	// Save saves a tenant (INSERT or UPDATE)
 	Save(ctx context.Context, tenant *Tenant) error
+
+	// ListAll returns all tenants with optional status filter (for admin)
+	ListAll(ctx context.Context, status *TenantStatus, limit, offset int) ([]*Tenant, int, error)
 }

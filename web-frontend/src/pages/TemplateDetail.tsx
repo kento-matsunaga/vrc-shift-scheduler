@@ -119,7 +119,7 @@ export default function TemplateDetail() {
         <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-200">
           <div>
             <p className="text-sm text-gray-600">シフト枠数</p>
-            <p className="text-lg font-semibold text-gray-900">{template.items.length} 枠</p>
+            <p className="text-lg font-semibold text-gray-900">{(template.items || []).length} 枠</p>
           </div>
           <div>
             <p className="text-sm text-gray-600">作成日</p>
@@ -134,11 +134,11 @@ export default function TemplateDetail() {
       <div className="bg-white rounded-lg shadow p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">シフト枠一覧</h3>
 
-        {template.items.length === 0 ? (
+        {(template.items || []).length === 0 ? (
           <p className="text-gray-600 text-center py-8">シフト枠がありません</p>
         ) : (
           <div className="space-y-4">
-            {template.items.map((item, index) => (
+            {(template.items || []).map((item, index) => (
               <div key={index} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
                 <div className="flex items-start justify-between mb-3">
                   <div>

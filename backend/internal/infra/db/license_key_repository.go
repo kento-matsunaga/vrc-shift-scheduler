@@ -26,9 +26,9 @@ func NewLicenseKeyRepository(db *pgxpool.Pool) *LicenseKeyRepository {
 func (r *LicenseKeyRepository) Save(ctx context.Context, k *billing.LicenseKey) error {
 	query := `
 		INSERT INTO license_keys (
-			key_id, key_hash, status, issued_batch_id, used_at, used_tenant_id,
-			revoked_at, created_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+			key_id, key_hash, status, issued_batch_id, expires_at, memo,
+			used_at, used_tenant_id, revoked_at, created_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 		ON CONFLICT (key_id) DO UPDATE SET
 			status = EXCLUDED.status,
 			used_at = EXCLUDED.used_at,
@@ -42,11 +42,14 @@ func (r *LicenseKeyRepository) Save(ctx context.Context, k *billing.LicenseKey) 
 		usedTenantIDStr = &s
 	}
 
-	_, err := r.db.Exec(ctx, query,
+	// Use GetTx to support transaction context
+	_, err := GetTx(ctx, r.db).Exec(ctx, query,
 		k.KeyID().String(),
 		k.KeyHash(),
 		k.Status().String(),
 		k.BatchID(),
+		k.ExpiresAt(),
+		k.Memo(),
 		k.UsedAt(),
 		usedTenantIDStr,
 		k.RevokedAt(),
@@ -70,9 +73,9 @@ func (r *LicenseKeyRepository) SaveBatch(ctx context.Context, keys []*billing.Li
 
 	query := `
 		INSERT INTO license_keys (
-			key_id, key_hash, status, issued_batch_id, used_at, used_tenant_id,
-			revoked_at, created_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+			key_id, key_hash, status, issued_batch_id, expires_at, memo,
+			used_at, used_tenant_id, revoked_at, created_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 	`
 
 	for _, k := range keys {
@@ -87,6 +90,8 @@ func (r *LicenseKeyRepository) SaveBatch(ctx context.Context, keys []*billing.Li
 			k.KeyHash(),
 			k.Status().String(),
 			k.BatchID(),
+			k.ExpiresAt(),
+			k.Memo(),
 			k.UsedAt(),
 			usedTenantIDStr,
 			k.RevokedAt(),
@@ -110,8 +115,8 @@ func (r *LicenseKeyRepository) SaveBatch(ctx context.Context, keys []*billing.Li
 func (r *LicenseKeyRepository) FindByHashForUpdate(ctx context.Context, keyHash string) (*billing.LicenseKey, error) {
 	query := `
 		SELECT
-			key_id, key_hash, status, issued_batch_id, used_at, used_tenant_id,
-			revoked_at, created_at
+			key_id, key_hash, status, issued_batch_id, expires_at, memo,
+			used_at, used_tenant_id, revoked_at, created_at
 		FROM license_keys
 		WHERE key_hash = $1
 		FOR UPDATE
@@ -124,8 +129,8 @@ func (r *LicenseKeyRepository) FindByHashForUpdate(ctx context.Context, keyHash 
 func (r *LicenseKeyRepository) FindByID(ctx context.Context, keyID billing.LicenseKeyID) (*billing.LicenseKey, error) {
 	query := `
 		SELECT
-			key_id, key_hash, status, issued_batch_id, used_at, used_tenant_id,
-			revoked_at, created_at
+			key_id, key_hash, status, issued_batch_id, expires_at, memo,
+			used_at, used_tenant_id, revoked_at, created_at
 		FROM license_keys
 		WHERE key_id = $1
 	`
@@ -137,8 +142,8 @@ func (r *LicenseKeyRepository) FindByID(ctx context.Context, keyID billing.Licen
 func (r *LicenseKeyRepository) FindByBatchID(ctx context.Context, batchID string) ([]*billing.LicenseKey, error) {
 	query := `
 		SELECT
-			key_id, key_hash, status, issued_batch_id, used_at, used_tenant_id,
-			revoked_at, created_at
+			key_id, key_hash, status, issued_batch_id, expires_at, memo,
+			used_at, used_tenant_id, revoked_at, created_at
 		FROM license_keys
 		WHERE issued_batch_id = $1
 		ORDER BY created_at
@@ -182,16 +187,67 @@ func (r *LicenseKeyRepository) RevokeBatch(ctx context.Context, batchID string) 
 	return nil
 }
 
+// List returns license keys with optional status filter
+func (r *LicenseKeyRepository) List(ctx context.Context, status *billing.LicenseKeyStatus, limit, offset int) ([]*billing.LicenseKey, int, error) {
+	// Count query
+	countQuery := `SELECT COUNT(*) FROM license_keys`
+	countArgs := []interface{}{}
+
+	if status != nil {
+		countQuery += ` WHERE status = $1`
+		countArgs = append(countArgs, status.String())
+	}
+
+	var totalCount int
+	if err := r.db.QueryRow(ctx, countQuery, countArgs...).Scan(&totalCount); err != nil {
+		return nil, 0, fmt.Errorf("failed to count license keys: %w", err)
+	}
+
+	// Data query
+	query := `
+		SELECT
+			key_id, key_hash, status, issued_batch_id, expires_at, memo,
+			used_at, used_tenant_id, revoked_at, created_at
+		FROM license_keys
+	`
+	args := []interface{}{}
+	argIdx := 1
+
+	if status != nil {
+		query += fmt.Sprintf(` WHERE status = $%d`, argIdx)
+		args = append(args, status.String())
+		argIdx++
+	}
+
+	query += fmt.Sprintf(` ORDER BY created_at DESC LIMIT $%d OFFSET $%d`, argIdx, argIdx+1)
+	args = append(args, limit, offset)
+
+	rows, err := r.db.Query(ctx, query, args...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to query license keys: %w", err)
+	}
+	defer rows.Close()
+
+	keys, err := r.scanLicenseKeys(rows)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return keys, totalCount, nil
+}
+
 func (r *LicenseKeyRepository) scanLicenseKey(ctx context.Context, query string, args ...interface{}) (*billing.LicenseKey, error) {
 	var (
-		keyIDStr      string
-		keyHash       string
-		status        string
-		batchID       sql.NullString
-		usedAt        sql.NullTime
-		usedTenantID  sql.NullString
-		revokedAt     sql.NullTime
-		createdAt     time.Time
+		keyIDStr     string
+		keyHash      string
+		status       string
+		batchID      sql.NullString
+		expiresAt    sql.NullTime
+		memo         sql.NullString
+		usedAt       sql.NullTime
+		usedTenantID sql.NullString
+		revokedAt    sql.NullTime
+		createdAt    time.Time
 	)
 
 	err := r.db.QueryRow(ctx, query, args...).Scan(
@@ -199,6 +255,8 @@ func (r *LicenseKeyRepository) scanLicenseKey(ctx context.Context, query string,
 		&keyHash,
 		&status,
 		&batchID,
+		&expiresAt,
+		&memo,
 		&usedAt,
 		&usedTenantID,
 		&revokedAt,
@@ -220,6 +278,16 @@ func (r *LicenseKeyRepository) scanLicenseKey(ctx context.Context, query string,
 	var batchIDPtr *string
 	if batchID.Valid {
 		batchIDPtr = &batchID.String
+	}
+
+	var expiresAtPtr *time.Time
+	if expiresAt.Valid {
+		expiresAtPtr = &expiresAt.Time
+	}
+
+	var memoStr string
+	if memo.Valid {
+		memoStr = memo.String
 	}
 
 	var usedAtPtr *time.Time
@@ -246,6 +314,8 @@ func (r *LicenseKeyRepository) scanLicenseKey(ctx context.Context, query string,
 		keyHash,
 		billing.LicenseKeyStatus(status),
 		batchIDPtr,
+		expiresAtPtr,
+		memoStr,
 		usedAtPtr,
 		usedTenantIDPtr,
 		revokedAtPtr,
@@ -262,6 +332,8 @@ func (r *LicenseKeyRepository) scanLicenseKeys(rows pgx.Rows) ([]*billing.Licens
 			keyHash      string
 			status       string
 			batchID      sql.NullString
+			expiresAt    sql.NullTime
+			memo         sql.NullString
 			usedAt       sql.NullTime
 			usedTenantID sql.NullString
 			revokedAt    sql.NullTime
@@ -273,6 +345,8 @@ func (r *LicenseKeyRepository) scanLicenseKeys(rows pgx.Rows) ([]*billing.Licens
 			&keyHash,
 			&status,
 			&batchID,
+			&expiresAt,
+			&memo,
 			&usedAt,
 			&usedTenantID,
 			&revokedAt,
@@ -289,6 +363,16 @@ func (r *LicenseKeyRepository) scanLicenseKeys(rows pgx.Rows) ([]*billing.Licens
 		var batchIDPtr *string
 		if batchID.Valid {
 			batchIDPtr = &batchID.String
+		}
+
+		var expiresAtPtr *time.Time
+		if expiresAt.Valid {
+			expiresAtPtr = &expiresAt.Time
+		}
+
+		var memoStr string
+		if memo.Valid {
+			memoStr = memo.String
 		}
 
 		var usedAtPtr *time.Time
@@ -315,6 +399,8 @@ func (r *LicenseKeyRepository) scanLicenseKeys(rows pgx.Rows) ([]*billing.Licens
 			keyHash,
 			billing.LicenseKeyStatus(status),
 			batchIDPtr,
+			expiresAtPtr,
+			memoStr,
 			usedAtPtr,
 			usedTenantIDPtr,
 			revokedAtPtr,

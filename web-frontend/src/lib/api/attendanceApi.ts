@@ -59,7 +59,7 @@ export interface AttendanceResponse {
  * 出欠確認一覧を取得
  */
 export async function listAttendanceCollections(): Promise<AttendanceCollection[]> {
-  const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+  const baseURL = import.meta.env.VITE_API_BASE_URL || '';
   const token = localStorage.getItem('auth_token');
 
   if (!token) {
@@ -88,7 +88,7 @@ export async function listAttendanceCollections(): Promise<AttendanceCollection[
 export async function createAttendanceCollection(
   data: CreateAttendanceRequest
 ): Promise<AttendanceCollection> {
-  const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+  const baseURL = import.meta.env.VITE_API_BASE_URL || '';
   const token = localStorage.getItem('auth_token');
 
   if (!token) {
@@ -117,7 +117,7 @@ export async function createAttendanceCollection(
  * 出欠確認を取得
  */
 export async function getAttendanceCollection(collectionId: string): Promise<AttendanceCollection> {
-  const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+  const baseURL = import.meta.env.VITE_API_BASE_URL || '';
   const token = localStorage.getItem('auth_token');
 
   if (!token) {
@@ -147,7 +147,7 @@ export async function getAttendanceCollection(collectionId: string): Promise<Att
  * 出欠確認を締め切る
  */
 export async function closeAttendanceCollection(collectionId: string): Promise<void> {
-  const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+  const baseURL = import.meta.env.VITE_API_BASE_URL || '';
   const token = localStorage.getItem('auth_token');
 
   if (!token) {
@@ -176,7 +176,7 @@ export async function closeAttendanceCollection(collectionId: string): Promise<v
 export async function getAttendanceResponses(
   collectionId: string
 ): Promise<AttendanceResponse[]> {
-  const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+  const baseURL = import.meta.env.VITE_API_BASE_URL || '';
   const token = localStorage.getItem('auth_token');
 
   if (!token) {

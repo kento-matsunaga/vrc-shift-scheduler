@@ -72,6 +72,8 @@ func BillingGuard(deps BillingGuardDeps) func(http.Handler) http.Handler {
 				r.Method == http.MethodDelete
 
 			// For write operations, check tenant status
+			// NOTE: Admin billing routes are now completely separate (Cloudflare Access protected)
+			// so we no longer need to exempt them here
 			if isWriteOperation {
 				switch t.Status() {
 				case tenant.TenantStatusGrace:

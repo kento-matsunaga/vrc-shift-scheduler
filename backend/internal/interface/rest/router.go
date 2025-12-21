@@ -186,10 +186,64 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			r.Put("/me", tenantHandler.UpdateCurrentTenant)
 		})
 
-		// Admin API
+		// Admin API (テナント管理者のパスワード変更)
 		r.Route("/admins", func(r chi.Router) {
 			r.Post("/me/change-password", adminHandler.ChangePassword)
 		})
+	})
+
+	// ============================================================
+	// Admin Billing API (Cloudflare Access保護 - 運営専用)
+	// ============================================================
+	// NOTE: このルートはテナントJWT認証とは完全に分離されています
+	// 本番環境ではCloudflare Accessで保護され、ローカル開発では
+	// CF_ACCESS_TEAM_DOMAIN が未設定の場合は認証をスキップします
+	r.Route("/api/v1/admin", func(r chi.Router) {
+		// Cloudflare Access 認証ミドルウェア
+		cfConfig := LoadCloudflareAccessConfig()
+		r.Use(CloudflareAccessMiddleware(cfConfig))
+
+		// Initialize dependencies for admin billing
+		txManager := db.NewPgxTxManager(dbPool)
+		licenseKeyRepo := db.NewLicenseKeyRepository(dbPool)
+		billingAuditLogRepo := db.NewBillingAuditLogRepository(dbPool)
+
+		adminLicenseKeyUsecase := usecase.NewAdminLicenseKeyUsecase(
+			txManager,
+			licenseKeyRepo,
+			billingAuditLogRepo,
+		)
+		adminTenantUsecase := usecase.NewAdminTenantUsecase(
+			txManager,
+			tenantRepo,
+			entitlementRepo,
+			billingAuditLogRepo,
+		)
+		adminAuditLogUsecase := usecase.NewAdminAuditLogUsecase(
+			billingAuditLogRepo,
+		)
+		adminBillingHandler := NewAdminBillingHandler(
+			adminLicenseKeyUsecase,
+			adminTenantUsecase,
+			adminAuditLogUsecase,
+		)
+
+		// License Key Management
+		r.Route("/license-keys", func(r chi.Router) {
+			r.Post("/", adminBillingHandler.GenerateLicenseKeys)
+			r.Get("/", adminBillingHandler.ListLicenseKeys)
+			r.Patch("/{id}", adminBillingHandler.UpdateLicenseKey)
+		})
+
+		// Tenant Management
+		r.Route("/tenants", func(r chi.Router) {
+			r.Get("/", adminBillingHandler.ListTenants)
+			r.Get("/{id}", adminBillingHandler.GetTenantDetail)
+			r.Patch("/{id}/status", adminBillingHandler.UpdateTenantStatus)
+		})
+
+		// Audit Logs
+		r.Get("/audit-logs", adminBillingHandler.ListAuditLogs)
 	})
 
 	// Public API（認証不要）
@@ -241,6 +295,27 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		licenseClaimHandler := NewLicenseClaimHandler(claimUsecase, claimRateLimiter)
 
 		r.Post("/claim", licenseClaimHandler.Claim)
+	})
+
+	// Stripe Webhook API（認証不要、署名検証のみ）
+	r.Route("/api/v1/stripe", func(r chi.Router) {
+		// Initialize dependencies for Stripe webhook
+		txManager := db.NewPgxTxManager(dbPool)
+		subscriptionRepo := db.NewSubscriptionRepository(dbPool)
+		webhookEventRepo := db.NewWebhookEventRepository(dbPool)
+		billingAuditLogRepo := db.NewBillingAuditLogRepository(dbPool)
+
+		stripeWebhookUsecase := usecase.NewStripeWebhookUsecase(
+			txManager,
+			tenantRepo,
+			subscriptionRepo,
+			entitlementRepo,
+			webhookEventRepo,
+			billingAuditLogRepo,
+		)
+		stripeWebhookHandler := NewStripeWebhookHandler(stripeWebhookUsecase)
+
+		r.Post("/webhook", stripeWebhookHandler.HandleWebhook)
 	})
 
 	return r

@@ -1,0 +1,307 @@
+package usecase
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"log"
+	"time"
+
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/billing"
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/tenant"
+)
+
+// StripeEvent represents a Stripe webhook event
+type StripeEvent struct {
+	ID   string          `json:"id"`
+	Type string          `json:"type"`
+	Data StripeEventData `json:"data"`
+}
+
+// StripeEventData represents the data object in a Stripe event
+type StripeEventData struct {
+	Object json.RawMessage `json:"object"`
+}
+
+// StripeInvoice represents a Stripe invoice object
+type StripeInvoice struct {
+	ID           string `json:"id"`
+	Customer     string `json:"customer"`
+	Subscription string `json:"subscription"`
+	Status       string `json:"status"`
+	Paid         bool   `json:"paid"`
+}
+
+// StripeSubscription represents a Stripe subscription object
+type StripeSubscription struct {
+	ID               string `json:"id"`
+	Customer         string `json:"customer"`
+	Status           string `json:"status"`
+	CurrentPeriodEnd int64  `json:"current_period_end"`
+}
+
+// StripeWebhookUsecase handles Stripe webhook events
+type StripeWebhookUsecase struct {
+	txManager            TxManager
+	tenantRepo           tenant.TenantRepository
+	subscriptionRepo     billing.SubscriptionRepository
+	entitlementRepo      billing.EntitlementRepository
+	webhookEventRepo     billing.WebhookEventRepository
+	auditLogRepo         billing.BillingAuditLogRepository
+	gracePeriodDays      int
+}
+
+// NewStripeWebhookUsecase creates a new StripeWebhookUsecase
+func NewStripeWebhookUsecase(
+	txManager TxManager,
+	tenantRepo tenant.TenantRepository,
+	subscriptionRepo billing.SubscriptionRepository,
+	entitlementRepo billing.EntitlementRepository,
+	webhookEventRepo billing.WebhookEventRepository,
+	auditLogRepo billing.BillingAuditLogRepository,
+) *StripeWebhookUsecase {
+	return &StripeWebhookUsecase{
+		txManager:        txManager,
+		tenantRepo:       tenantRepo,
+		subscriptionRepo: subscriptionRepo,
+		entitlementRepo:  entitlementRepo,
+		webhookEventRepo: webhookEventRepo,
+		auditLogRepo:     auditLogRepo,
+		gracePeriodDays:  14,
+	}
+}
+
+// HandleWebhook processes a Stripe webhook event
+// Returns (processed bool, error)
+// processed=false means the event was already processed (duplicate)
+func (uc *StripeWebhookUsecase) HandleWebhook(ctx context.Context, event StripeEvent, rawPayload string) (bool, error) {
+	now := time.Now().UTC()
+
+	// Try to insert the event for idempotency
+	isNew, err := uc.webhookEventRepo.TryInsert(ctx, "stripe", event.ID, &rawPayload)
+	if err != nil {
+		return false, fmt.Errorf("failed to check webhook idempotency: %w", err)
+	}
+
+	if !isNew {
+		// Event was already processed
+		log.Printf("[Stripe Webhook] Duplicate event ignored: %s", event.ID)
+		return false, nil
+	}
+
+	// Process based on event type
+	switch event.Type {
+	case "invoice.paid":
+		return true, uc.handleInvoicePaid(ctx, now, event)
+	case "invoice.payment_failed":
+		return true, uc.handleInvoicePaymentFailed(ctx, now, event)
+	case "customer.subscription.deleted":
+		return true, uc.handleSubscriptionDeleted(ctx, now, event)
+	default:
+		// Unknown event type - log and ignore
+		log.Printf("[Stripe Webhook] Unknown event type: %s", event.Type)
+		return true, nil
+	}
+}
+
+// handleInvoicePaid handles invoice.paid events
+// Sets tenant to active and updates subscription
+func (uc *StripeWebhookUsecase) handleInvoicePaid(ctx context.Context, now time.Time, event StripeEvent) error {
+	var invoice StripeInvoice
+	if err := json.Unmarshal(event.Data.Object, &invoice); err != nil {
+		return fmt.Errorf("failed to parse invoice: %w", err)
+	}
+
+	if invoice.Subscription == "" {
+		// Not a subscription invoice, ignore
+		return nil
+	}
+
+	// Find subscription by Stripe ID
+	sub, err := uc.subscriptionRepo.FindByStripeSubscriptionID(ctx, invoice.Subscription)
+	if err != nil {
+		return fmt.Errorf("failed to find subscription: %w", err)
+	}
+	if sub == nil {
+		// Subscription not found, might be a new subscription
+		log.Printf("[Stripe Webhook] Subscription not found: %s", invoice.Subscription)
+		return nil
+	}
+
+	return uc.txManager.WithTx(ctx, func(txCtx context.Context) error {
+		// Update subscription status
+		sub.UpdateStatus(now, billing.SubscriptionStatusActive, sub.CurrentPeriodEnd())
+		if err := uc.subscriptionRepo.Save(txCtx, sub); err != nil {
+			return fmt.Errorf("failed to save subscription: %w", err)
+		}
+
+		// Update tenant status to active
+		t, err := uc.tenantRepo.FindByID(txCtx, sub.TenantID())
+		if err != nil {
+			return fmt.Errorf("failed to find tenant: %w", err)
+		}
+
+		previousStatus := t.Status()
+		t.SetStatusActive(now)
+		if err := uc.tenantRepo.Save(txCtx, t); err != nil {
+			return fmt.Errorf("failed to save tenant: %w", err)
+		}
+
+		// Create audit log
+		tenantIDStr := t.TenantID().String()
+		afterJSON := fmt.Sprintf(`{"status":"active","previous_status":"%s"}`, previousStatus)
+		auditLog, err := billing.NewBillingAuditLog(
+			now,
+			billing.ActorTypeStripe,
+			nil,
+			string(billing.BillingAuditActionPaymentSucceeded),
+			strPtr("tenant"),
+			&tenantIDStr,
+			nil,
+			&afterJSON,
+			nil,
+			nil,
+		)
+		if err != nil {
+			return err
+		}
+		return uc.auditLogRepo.Save(txCtx, auditLog)
+	})
+}
+
+// handleInvoicePaymentFailed handles invoice.payment_failed events
+// Sets tenant to grace period
+func (uc *StripeWebhookUsecase) handleInvoicePaymentFailed(ctx context.Context, now time.Time, event StripeEvent) error {
+	var invoice StripeInvoice
+	if err := json.Unmarshal(event.Data.Object, &invoice); err != nil {
+		return fmt.Errorf("failed to parse invoice: %w", err)
+	}
+
+	if invoice.Subscription == "" {
+		return nil
+	}
+
+	sub, err := uc.subscriptionRepo.FindByStripeSubscriptionID(ctx, invoice.Subscription)
+	if err != nil {
+		return fmt.Errorf("failed to find subscription: %w", err)
+	}
+	if sub == nil {
+		log.Printf("[Stripe Webhook] Subscription not found: %s", invoice.Subscription)
+		return nil
+	}
+
+	return uc.txManager.WithTx(ctx, func(txCtx context.Context) error {
+		// Update subscription status
+		sub.UpdateStatus(now, billing.SubscriptionStatusPastDue, sub.CurrentPeriodEnd())
+		if err := uc.subscriptionRepo.Save(txCtx, sub); err != nil {
+			return fmt.Errorf("failed to save subscription: %w", err)
+		}
+
+		// Update tenant status to grace
+		t, err := uc.tenantRepo.FindByID(txCtx, sub.TenantID())
+		if err != nil {
+			return fmt.Errorf("failed to find tenant: %w", err)
+		}
+
+		graceUntil := now.AddDate(0, 0, uc.gracePeriodDays)
+		previousStatus := t.Status()
+		t.SetStatusGrace(now, graceUntil)
+		if err := uc.tenantRepo.Save(txCtx, t); err != nil {
+			return fmt.Errorf("failed to save tenant: %w", err)
+		}
+
+		// Create audit log
+		tenantIDStr := t.TenantID().String()
+		afterJSON := fmt.Sprintf(`{"status":"grace","grace_until":"%s","previous_status":"%s"}`,
+			graceUntil.Format(time.RFC3339), previousStatus)
+		auditLog, err := billing.NewBillingAuditLog(
+			now,
+			billing.ActorTypeStripe,
+			nil,
+			string(billing.BillingAuditActionPaymentFailed),
+			strPtr("tenant"),
+			&tenantIDStr,
+			nil,
+			&afterJSON,
+			nil,
+			nil,
+		)
+		if err != nil {
+			return err
+		}
+		return uc.auditLogRepo.Save(txCtx, auditLog)
+	})
+}
+
+// handleSubscriptionDeleted handles customer.subscription.deleted events
+// Marks tenant as suspended (or schedules it via grace_until check)
+func (uc *StripeWebhookUsecase) handleSubscriptionDeleted(ctx context.Context, now time.Time, event StripeEvent) error {
+	var subscription StripeSubscription
+	if err := json.Unmarshal(event.Data.Object, &subscription); err != nil {
+		return fmt.Errorf("failed to parse subscription: %w", err)
+	}
+
+	sub, err := uc.subscriptionRepo.FindByStripeSubscriptionID(ctx, subscription.ID)
+	if err != nil {
+		return fmt.Errorf("failed to find subscription: %w", err)
+	}
+	if sub == nil {
+		log.Printf("[Stripe Webhook] Subscription not found: %s", subscription.ID)
+		return nil
+	}
+
+	return uc.txManager.WithTx(ctx, func(txCtx context.Context) error {
+		// Update subscription status
+		periodEnd := time.Unix(subscription.CurrentPeriodEnd, 0).UTC()
+		sub.UpdateStatus(now, billing.SubscriptionStatusCanceled, &periodEnd)
+		if err := uc.subscriptionRepo.Save(txCtx, sub); err != nil {
+			return fmt.Errorf("failed to save subscription: %w", err)
+		}
+
+		// Check if period has already ended
+		t, err := uc.tenantRepo.FindByID(txCtx, sub.TenantID())
+		if err != nil {
+			if common.IsNotFoundError(err) {
+				return nil
+			}
+			return fmt.Errorf("failed to find tenant: %w", err)
+		}
+
+		previousStatus := t.Status()
+
+		// If period has ended, suspend immediately
+		// Otherwise, let the batch job handle it when period ends
+		if now.After(periodEnd) {
+			t.SetStatusSuspended(now)
+		} else {
+			// Set grace_until to period end so batch job will suspend later
+			t.SetStatusGrace(now, periodEnd)
+		}
+
+		if err := uc.tenantRepo.Save(txCtx, t); err != nil {
+			return fmt.Errorf("failed to save tenant: %w", err)
+		}
+
+		// Create audit log
+		tenantIDStr := t.TenantID().String()
+		afterJSON := fmt.Sprintf(`{"status":"%s","previous_status":"%s","period_end":"%s"}`,
+			t.Status(), previousStatus, periodEnd.Format(time.RFC3339))
+		auditLog, err := billing.NewBillingAuditLog(
+			now,
+			billing.ActorTypeStripe,
+			nil,
+			string(billing.BillingAuditActionSubscriptionUpdate),
+			strPtr("tenant"),
+			&tenantIDStr,
+			nil,
+			&afterJSON,
+			nil,
+			nil,
+		)
+		if err != nil {
+			return err
+		}
+		return uc.auditLogRepo.Save(txCtx, auditLog)
+	})
+}

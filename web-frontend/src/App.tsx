@@ -16,9 +16,11 @@ import TemplateList from './pages/TemplateList';
 import TemplateForm from './pages/TemplateForm';
 import TemplateDetail from './pages/TemplateDetail';
 import Settings from './pages/Settings';
+// BillingManagement は管理フロントエンド（admin-frontend）に移動しました
 import Layout from './components/Layout';
 import AttendanceResponse from './pages/public/AttendanceResponse';
 import ScheduleResponse from './pages/public/ScheduleResponse';
+import LicenseClaim from './pages/public/LicenseClaim';
 
 /**
  * ログイン状態をチェック
@@ -65,6 +67,9 @@ function App() {
       {/* 公開ページ（認証不要） */}
       <Route path="/p/attendance/:token" element={<AttendanceResponse />} />
       <Route path="/p/schedule/:token" element={<ScheduleResponse />} />
+
+      {/* ライセンス登録（認証不要） */}
+      <Route path="/register" element={<LicenseClaim />} />
 
       {/* ログイン必須の画面 */}
       <Route path="/" element={isLoggedIn ? <Layout /> : <Navigate to="/admin/login" replace />}>

@@ -24,7 +24,7 @@ const TemplateList = () => {
     try {
       setLoading(true);
       const data = await listTemplates(eventId);
-      setTemplates(data);
+      setTemplates(data || []);
       setError(null);
     } catch (err: any) {
       console.error('Failed to fetch templates:', err);
@@ -139,7 +139,7 @@ const TemplateList = () => {
                   {template.template_name}
                 </h3>
                 <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded">
-                  {template.items.length} 枠
+                  {(template.items || []).length} 枠
                 </span>
               </div>
 
@@ -152,16 +152,16 @@ const TemplateList = () => {
               <div className="mb-4">
                 <h4 className="text-xs font-semibold text-gray-700 mb-2">シフト枠:</h4>
                 <div className="space-y-1">
-                  {template.items.slice(0, 3).map((item, index) => (
+                  {(template.items || []).slice(0, 3).map((item, index) => (
                     <div key={index} className="text-xs text-gray-600 flex items-center">
                       <span className="w-2 h-2 bg-blue-400 rounded-full mr-2"></span>
                       {item.slot_name} ({item.instance_name}) - {item.start_time.substring(0, 5)}~
                       {item.end_time.substring(0, 5)} ({item.required_count}名)
                     </div>
                   ))}
-                  {template.items.length > 3 && (
+                  {(template.items || []).length > 3 && (
                     <div className="text-xs text-gray-500 ml-4">
-                      他 {template.items.length - 3} 件
+                      他 {(template.items || []).length - 3} 件
                     </div>
                   )}
                 </div>
