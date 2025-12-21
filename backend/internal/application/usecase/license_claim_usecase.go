@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"time"
+	"unicode"
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/auth"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/billing"
@@ -86,9 +87,9 @@ func (uc *LicenseClaimUsecase) Execute(ctx context.Context, input LicenseClaimIn
 		return nil, common.NewValidationError("Email is required", nil)
 	}
 
-	// Validate password
-	if len(input.Password) < 8 {
-		return nil, common.NewValidationError("Password must be at least 8 characters", nil)
+	// Validate password complexity
+	if err := validatePasswordComplexity(input.Password); err != nil {
+		return nil, err
 	}
 
 	// Validate display name
@@ -255,4 +256,39 @@ func strPtr(s string) *string {
 		return nil
 	}
 	return &s
+}
+
+// validatePasswordComplexity checks password meets security requirements
+func validatePasswordComplexity(password string) error {
+	if len(password) < 8 {
+		return common.NewValidationError("Password must be at least 8 characters", nil)
+	}
+
+	if len(password) > 128 {
+		return common.NewValidationError("Password must be 128 characters or less", nil)
+	}
+
+	var hasUpper, hasLower, hasDigit bool
+	for _, r := range password {
+		switch {
+		case unicode.IsUpper(r):
+			hasUpper = true
+		case unicode.IsLower(r):
+			hasLower = true
+		case unicode.IsDigit(r):
+			hasDigit = true
+		}
+	}
+
+	if !hasUpper {
+		return common.NewValidationError("Password must contain at least one uppercase letter", nil)
+	}
+	if !hasLower {
+		return common.NewValidationError("Password must contain at least one lowercase letter", nil)
+	}
+	if !hasDigit {
+		return common.NewValidationError("Password must contain at least one number", nil)
+	}
+
+	return nil
 }
