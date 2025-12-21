@@ -62,3 +62,32 @@ export async function deleteMember(memberId: string): Promise<void> {
   await apiClient.delete(`/api/v1/members/${memberId}`);
 }
 
+/**
+ * 一括登録の結果
+ */
+export interface BulkImportResult {
+  display_name: string;
+  success: boolean;
+  member_id?: string;
+  error?: string;
+}
+
+/**
+ * 一括登録のレスポンス
+ */
+export interface BulkImportResponse {
+  total_count: number;
+  success_count: number;
+  failed_count: number;
+  results: BulkImportResult[];
+}
+
+/**
+ * メンバー一括登録
+ */
+export async function bulkImportMembers(displayNames: string[]): Promise<BulkImportResponse> {
+  const members = displayNames.map(name => ({ display_name: name }));
+  const res = await apiClient.post<ApiResponse<BulkImportResponse>>('/api/v1/members/bulk-import', { members });
+  return res.data;
+}
+
