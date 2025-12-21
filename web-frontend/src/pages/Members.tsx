@@ -36,9 +36,6 @@ export default function Members() {
 
   // 一括登録モーダル
   const [showBulkImportModal, setShowBulkImportModal] = useState(false);
-  const [bulkImportText, setBulkImportText] = useState('');
-  const [bulkImportSubmitting, setBulkImportSubmitting] = useState(false);
-  const [bulkImportResult, setBulkImportResult] = useState<BulkImportResponse | null>(null);
 
   // データ取得
   const fetchData = async () => {
@@ -112,47 +109,9 @@ export default function Members() {
     }
   };
 
-  // 一括登録モーダルを開く
-  const handleOpenBulkImport = () => {
-    setBulkImportText('');
-    setBulkImportResult(null);
-    setShowBulkImportModal(true);
-  };
-
-  // 一括登録を実行
-  const handleBulkImport = async () => {
-    const lines = bulkImportText
-      .split('\n')
-      .map((line) => line.trim())
-      .filter((line) => line.length > 0);
-
-    if (lines.length === 0) {
-      alert('メンバー名を入力してください');
-      return;
-    }
-
-    if (lines.length > 100) {
-      alert('一度に登録できるのは100名までです');
-      return;
-    }
-
-    try {
-      setBulkImportSubmitting(true);
-      const result = await bulkImportMembers(lines);
-      setBulkImportResult(result);
-      if (result.success_count > 0) {
-        await fetchData();
-      }
-    } catch (err) {
-      if (err instanceof ApiClientError) {
-        alert(err.getUserMessage());
-      } else {
-        alert('一括登録に失敗しました');
-      }
-      console.error('Bulk import failed:', err);
-    } finally {
-      setBulkImportSubmitting(false);
-    }
+  // 一括登録成功時
+  const handleBulkImportSuccess = () => {
+    fetchData();
   };
 
   // 新規登録フォームを開く
@@ -271,7 +230,7 @@ export default function Members() {
           <button onClick={handleOpenAttendanceConfirmation} className="btn-secondary text-sm">
             出欠確認を見る
           </button>
-          <button onClick={handleOpenBulkImport} className="btn-secondary">
+          <button onClick={() => setShowBulkImportModal(true)} className="btn-secondary">
             一括登録
           </button>
           <button onClick={handleOpenCreateForm} className="btn-primary">
@@ -467,12 +426,8 @@ export default function Members() {
       {/* 一括登録モーダル */}
       {showBulkImportModal && (
         <BulkImportModal
-          text={bulkImportText}
-          setText={setBulkImportText}
-          submitting={bulkImportSubmitting}
-          result={bulkImportResult}
-          onSubmit={handleBulkImport}
           onClose={() => setShowBulkImportModal(false)}
+          onSuccess={handleBulkImportSuccess}
         />
       )}
     </div>
@@ -814,121 +769,152 @@ function AttendanceConfirmationModal({
 
 // 一括登録モーダル
 function BulkImportModal({
-  text,
-  setText,
-  submitting,
-  result,
-  onSubmit,
   onClose,
+  onSuccess,
 }: {
-  text: string;
-  setText: (v: string) => void;
-  submitting: boolean;
-  result: BulkImportResponse | null;
-  onSubmit: () => void;
   onClose: () => void;
+  onSuccess: () => void;
 }) {
-  const lineCount = text
-    .split('\n')
-    .filter((line) => line.trim().length > 0).length;
+  const [text, setText] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [result, setResult] = useState<BulkImportResponse | null>(null);
 
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-xl font-bold text-gray-900">メンバー一括登録</h3>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-2xl"
-          >
-            ×
+  const lines = text
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+
+    if (lines.length === 0) {
+      setError('メンバー名を入力してください');
+      return;
+    }
+
+    if (lines.length > 100) {
+      setError('一度に登録できるのは100名までです');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const importResult = await bulkImportMembers(lines);
+      setResult(importResult);
+      if (importResult.success_count > 0) {
+        onSuccess();
+      }
+    } catch (err) {
+      if (err instanceof ApiClientError) {
+        setError(err.getUserMessage());
+      } else {
+        setError('一括登録に失敗しました');
+      }
+      console.error('Bulk import failed:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 結果表示モード
+  if (result) {
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="bg-white rounded-lg max-w-md w-full p-6">
+          <h3 className="text-xl font-bold text-gray-900 mb-4">登録結果</h3>
+
+          <div className="mb-4 p-4 rounded-lg bg-gray-50">
+            <div className="grid grid-cols-3 gap-4 text-center">
+              <div>
+                <div className="text-2xl font-bold text-gray-900">{result.total_count}</div>
+                <div className="text-sm text-gray-600">合計</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-green-600">{result.success_count}</div>
+                <div className="text-sm text-gray-600">成功</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-red-600">{result.failed_count}</div>
+                <div className="text-sm text-gray-600">失敗</div>
+              </div>
+            </div>
+          </div>
+
+          {result.failed_count > 0 && (
+            <div className="mb-4">
+              <label className="label">エラー詳細</label>
+              <div className="max-h-32 overflow-y-auto border border-gray-200 rounded-md p-3 bg-red-50">
+                {result.results
+                  .filter((r) => !r.success)
+                  .map((r, i) => (
+                    <div key={i} className="text-sm text-red-700 mb-1 last:mb-0">
+                      {r.display_name}: {r.error}
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
+
+          <button onClick={onClose} className="w-full btn-primary">
+            閉じる
           </button>
         </div>
+      </div>
+    );
+  }
 
-        {result ? (
-          // 結果表示
-          <div>
-            <div className="mb-4 p-4 rounded-lg bg-gray-50">
-              <div className="grid grid-cols-3 gap-4 text-center">
-                <div>
-                  <div className="text-2xl font-bold text-gray-900">{result.total_count}</div>
-                  <div className="text-sm text-gray-600">合計</div>
-                </div>
-                <div>
-                  <div className="text-2xl font-bold text-green-600">{result.success_count}</div>
-                  <div className="text-sm text-gray-600">成功</div>
-                </div>
-                <div>
-                  <div className="text-2xl font-bold text-red-600">{result.failed_count}</div>
-                  <div className="text-sm text-gray-600">失敗</div>
-                </div>
-              </div>
+  // 入力フォームモード
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-lg max-w-md w-full p-6">
+        <h3 className="text-xl font-bold text-gray-900 mb-4">メンバー一括登録</h3>
+
+        <form onSubmit={handleSubmit}>
+          <div className="mb-4">
+            <label htmlFor="bulk-names" className="label">
+              メンバー名 <span className="text-red-500">*</span>
+            </label>
+            <textarea
+              id="bulk-names"
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              className="input-field h-40 font-mono text-sm"
+              disabled={loading}
+              autoFocus
+              placeholder="1行に1名ずつ入力&#10;例:&#10;山田太郎&#10;佐藤花子&#10;鈴木一郎"
+            />
+            <p className="text-sm text-gray-500 mt-1">
+              {lines.length > 0 ? `${lines.length}名` : '1行に1名ずつ入力してください（最大100名）'}
+            </p>
+          </div>
+
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+              <p className="text-sm text-red-800">{error}</p>
             </div>
+          )}
 
-            {result.failed_count > 0 && (
-              <div className="mb-4">
-                <h4 className="text-sm font-medium text-gray-900 mb-2">エラー詳細:</h4>
-                <div className="max-h-40 overflow-y-auto border border-gray-200 rounded p-2">
-                  {result.results
-                    .filter((r) => !r.success)
-                    .map((r, i) => (
-                      <div key={i} className="text-sm text-red-600 mb-1">
-                        「{r.display_name}」: {r.error}
-                      </div>
-                    ))}
-                </div>
-              </div>
-            )}
-
+          <div className="flex space-x-3">
             <button
+              type="button"
               onClick={onClose}
-              className="w-full btn-primary"
+              className="flex-1 btn-secondary"
+              disabled={loading}
             >
-              閉じる
+              キャンセル
+            </button>
+            <button
+              type="submit"
+              className="flex-1 btn-primary"
+              disabled={loading || lines.length === 0}
+            >
+              {loading ? '登録中...' : '登録'}
             </button>
           </div>
-        ) : (
-          // 入力フォーム
-          <div>
-            <p className="text-sm text-gray-600 mb-4">
-              メンバー名を1行に1名ずつ入力してください。最大100名まで一度に登録できます。
-            </p>
-
-            <div className="mb-4">
-              <textarea
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                className="w-full h-48 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-sm"
-                placeholder="例:
-山田太郎
-佐藤花子
-鈴木一郎"
-                disabled={submitting}
-                autoFocus
-              />
-              <div className="text-right text-sm text-gray-500 mt-1">
-                {lineCount} 名
-              </div>
-            </div>
-
-            <div className="flex space-x-3">
-              <button
-                onClick={onClose}
-                className="flex-1 btn-secondary"
-                disabled={submitting}
-              >
-                キャンセル
-              </button>
-              <button
-                onClick={onSubmit}
-                className="flex-1 btn-primary"
-                disabled={submitting || lineCount === 0}
-              >
-                {submitting ? '登録中...' : `${lineCount}名を登録`}
-              </button>
-            </div>
-          </div>
-        )}
+        </form>
       </div>
     </div>
   );
