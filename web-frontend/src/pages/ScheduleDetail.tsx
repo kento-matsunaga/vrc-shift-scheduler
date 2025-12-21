@@ -68,7 +68,7 @@ export default function ScheduleDetail() {
       case 'open':
         return <span className="px-3 py-1 text-sm font-semibold rounded-full bg-green-100 text-green-800">受付中</span>;
       case 'decided':
-        return <span className="px-3 py-1 text-sm font-semibold rounded-full bg-blue-100 text-blue-800">決定済み</span>;
+        return <span className="px-3 py-1 text-sm font-semibold rounded-full bg-indigo-100 text-indigo-800">決定済み</span>;
       case 'closed':
         return <span className="px-3 py-1 text-sm font-semibold rounded-full bg-gray-100 text-gray-800">締切済み</span>;
       default:
@@ -79,7 +79,7 @@ export default function ScheduleDetail() {
   if (loading) {
     return (
       <div className="text-center py-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
         <p className="mt-4 text-gray-600">読み込み中...</p>
       </div>
     );
@@ -90,7 +90,7 @@ export default function ScheduleDetail() {
       <div className="max-w-4xl mx-auto">
         <div className="bg-red-50 border border-red-200 rounded-lg p-6">
           <p className="text-red-800">{error || '日程調整が見つかりません'}</p>
-          <Link to="/schedules" className="text-blue-600 hover:underline mt-4 inline-block">
+          <Link to="/schedules" className="text-indigo-600 hover:underline mt-4 inline-block">
             ← 日程調整一覧に戻る
           </Link>
         </div>
@@ -204,7 +204,7 @@ export default function ScheduleDetail() {
             />
             <button
               onClick={handleCopy}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition text-sm whitespace-nowrap"
+              className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition text-sm whitespace-nowrap"
             >
               {copied ? '✓ コピー済み' : 'URLをコピー'}
             </button>

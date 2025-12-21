@@ -205,7 +205,7 @@ export default function Members() {
   if (loading) {
     return (
       <div className="text-center py-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
         <p className="mt-4 text-gray-600">読み込み中...</p>
       </div>
     );
@@ -244,7 +244,7 @@ export default function Members() {
             {filterRoleIds.length > 0 && (
               <button
                 onClick={() => setFilterRoleIds([])}
-                className="text-xs text-blue-600 hover:text-blue-800"
+                className="text-xs text-indigo-600 hover:text-indigo-800"
               >
                 クリア
               </button>
@@ -265,7 +265,7 @@ export default function Members() {
                   }}
                   className={`inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
                     isSelected
-                      ? 'ring-2 ring-offset-1 ring-blue-500'
+                      ? 'ring-2 ring-offset-1 ring-indigo-500'
                       : 'opacity-60 hover:opacity-100'
                   }`}
                   style={{
@@ -355,7 +355,7 @@ export default function Members() {
                   <td className="px-4 py-3 text-sm text-right space-x-3">
                     <button
                       onClick={() => handleOpenEditForm(member)}
-                      className="text-blue-600 hover:text-blue-800 font-medium"
+                      className="text-indigo-600 hover:text-indigo-800 font-medium"
                     >
                       編集
                     </button>
@@ -597,7 +597,7 @@ function ActualAttendanceModal({
 
         {loading ? (
           <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
             <p className="mt-4 text-gray-600">読み込み中...</p>
           </div>
         ) : data && data.target_dates && data.target_dates.length > 0 ? (
@@ -686,7 +686,7 @@ function AttendanceConfirmationModal({
 
         {loading ? (
           <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
             <p className="mt-4 text-gray-600">読み込み中...</p>
           </div>
         ) : data && data.target_dates && data.target_dates.length > 0 ? (

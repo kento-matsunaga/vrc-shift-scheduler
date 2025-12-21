@@ -19,57 +19,64 @@ export default function Layout() {
 
   // ナビゲーションリンクのスタイル
   const linkClass = (path: string) =>
-    `px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+    `px-4 py-2 rounded-md text-sm font-medium transition-colors ${
       location.pathname.startsWith(path)
-        ? 'bg-blue-100 text-blue-700'
+        ? 'bg-indigo-100 text-indigo-700'
         : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
     }`;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-100">
       {/* ヘッダー */}
-      <header className="bg-white shadow">
+      <header className="bg-indigo-900 text-white shadow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center space-x-8">
-              <h1 className="text-2xl font-bold text-gray-900">VRC Shift Scheduler</h1>
-              <nav className="hidden md:flex space-x-2">
-                <Link to="/events" className={linkClass('/events')}>
-                  イベント
-                </Link>
-                <Link to="/members" className={linkClass('/members')}>
-                  メンバー
-                </Link>
-                <Link to="/roles" className={linkClass('/roles')}>
-                  ロール
-                </Link>
-                <Link to="/attendance" className={linkClass('/attendance')}>
-                  出欠確認
-                </Link>
-                <Link to="/schedules" className={linkClass('/schedules')}>
-                  日程調整
-                </Link>
-                {(adminRole === 'admin' || adminRole === 'owner') && (
-                  <Link to="/admin/invite" className={linkClass('/admin/invite')}>
-                    管理者招待
-                  </Link>
-                )}
-                <Link to="/settings" className={linkClass('/settings')}>
-                  設定
-                </Link>
-              </nav>
-            </div>
+          <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-600">
-                {adminRole === 'owner' ? '👑 オーナー' : '👤 マネージャー'}
+              <h1 className="text-xl font-bold">VRC Shift Scheduler</h1>
+              <span className="bg-indigo-700 px-2 py-1 rounded text-xs font-medium">
+                {adminRole === 'owner' ? 'オーナー' : 'マネージャー'}
               </span>
-              <button onClick={handleLogout} className="btn-secondary text-sm">
-                ログアウト
-              </button>
             </div>
+            <button
+              onClick={handleLogout}
+              className="px-4 py-2 text-sm font-medium text-indigo-200 hover:text-white transition-colors"
+            >
+              ログアウト
+            </button>
           </div>
         </div>
       </header>
+
+      {/* ナビゲーション */}
+      <nav className="bg-white shadow">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex space-x-4 py-3 overflow-x-auto">
+            <Link to="/events" className={linkClass('/events')}>
+              イベント
+            </Link>
+            <Link to="/members" className={linkClass('/members')}>
+              メンバー
+            </Link>
+            <Link to="/roles" className={linkClass('/roles')}>
+              ロール
+            </Link>
+            <Link to="/attendance" className={linkClass('/attendance')}>
+              出欠確認
+            </Link>
+            <Link to="/schedules" className={linkClass('/schedules')}>
+              日程調整
+            </Link>
+            {(adminRole === 'admin' || adminRole === 'owner') && (
+              <Link to="/admin/invite" className={linkClass('/admin/invite')}>
+                管理者招待
+              </Link>
+            )}
+            <Link to="/settings" className={linkClass('/settings')}>
+              設定
+            </Link>
+          </div>
+        </div>
+      </nav>
 
       {/* メインコンテンツ */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -80,7 +87,7 @@ export default function Layout() {
       <footer className="bg-white border-t mt-auto">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <p className="text-center text-sm text-gray-500">
-            ⚠️ これは α 版のテストです。データは予告なく消える可能性があります。
+            VRC Shift Scheduler
           </p>
         </div>
       </footer>

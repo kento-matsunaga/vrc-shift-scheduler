@@ -59,7 +59,7 @@ export default function TemplateDetail() {
   if (loading) {
     return (
       <div className="text-center py-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
         <p className="mt-4 text-gray-600">読み込み中...</p>
       </div>
     );
@@ -72,7 +72,7 @@ export default function TemplateDetail() {
           <p className="text-sm text-red-800">{error || 'テンプレートが見つかりません'}</p>
         </div>
         <div className="mt-4">
-          <Link to={`/events/${eventId}/templates`} className="text-blue-600 hover:text-blue-800">
+          <Link to={`/events/${eventId}/templates`} className="text-indigo-600 hover:text-indigo-800">
             ← テンプレート一覧に戻る
           </Link>
         </div>
@@ -103,7 +103,7 @@ export default function TemplateDetail() {
           <div className="flex gap-2 ml-4">
             <Link
               to={`/events/${eventId}/templates/${templateId}/edit`}
-              className="bg-blue-100 hover:bg-blue-200 text-blue-700 px-4 py-2 rounded-lg text-sm font-medium"
+              className="bg-indigo-100 hover:bg-indigo-200 text-indigo-700 px-4 py-2 rounded-lg text-sm font-medium"
             >
               編集
             </Link>
@@ -149,7 +149,7 @@ export default function TemplateDetail() {
                       優先度: {item.priority}
                     </p>
                   </div>
-                  <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded">
+                  <span className="bg-indigo-100 text-indigo-800 text-xs font-medium px-2.5 py-0.5 rounded">
                     {item.required_count}名
                   </span>
                 </div>
@@ -171,9 +171,9 @@ export default function TemplateDetail() {
       </div>
 
       {/* 使用方法の説明 */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-6">
-        <h4 className="font-semibold text-blue-900 mb-2">💡 テンプレートの使い方</h4>
-        <p className="text-sm text-blue-800">
+      <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4 mt-6">
+        <h4 className="font-semibold text-indigo-900 mb-2">💡 テンプレートの使い方</h4>
+        <p className="text-sm text-indigo-800">
           このテンプレートは営業日作成時に選択することで、登録されているシフト枠を自動的に作成します。
           営業日一覧ページから「営業日を追加」を選択し、テンプレートを選んでください。
         </p>

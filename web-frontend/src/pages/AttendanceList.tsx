@@ -132,7 +132,7 @@ export default function AttendanceList() {
   if (loading) {
     return (
       <div className="text-center py-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
         <p className="mt-4 text-gray-600">読み込み中...</p>
       </div>
     );
@@ -149,7 +149,7 @@ export default function AttendanceList() {
         </div>
         <button
           onClick={() => setShowCreateForm(!showCreateForm)}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+          className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium"
         >
           {showCreateForm ? 'キャンセル' : '+ 新規作成'}
         </button>
@@ -171,7 +171,7 @@ export default function AttendanceList() {
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="例：12月のシフト出欠確認"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 disabled={submitting}
               />
             </div>
@@ -185,7 +185,7 @@ export default function AttendanceList() {
                 onChange={(e) => setDescription(e.target.value)}
                 rows={3}
                 placeholder="詳細な説明や注意事項を入力してください"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 disabled={submitting}
               />
             </div>
@@ -201,7 +201,7 @@ export default function AttendanceList() {
                       type="date"
                       value={date}
                       onChange={(e) => handleDateChange(index, e.target.value)}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                       disabled={submitting}
                     />
                     {targetDates.length > 1 && (
@@ -220,7 +220,7 @@ export default function AttendanceList() {
               <button
                 type="button"
                 onClick={handleAddDate}
-                className="mt-2 px-3 py-1 text-sm text-blue-600 hover:bg-blue-50 rounded-md transition"
+                className="mt-2 px-3 py-1 text-sm text-indigo-600 hover:bg-indigo-50 rounded-md transition"
                 disabled={submitting}
               >
                 + 対象日を追加
@@ -235,7 +235,7 @@ export default function AttendanceList() {
                 type="datetime-local"
                 value={deadline}
                 onChange={(e) => setDeadline(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 disabled={submitting}
               />
             </div>
@@ -249,7 +249,7 @@ export default function AttendanceList() {
             <button
               type="submit"
               disabled={submitting || !title.trim()}
-              className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
+              className="w-full px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
               {submitting ? '作成中...' : '出欠確認を作成'}
             </button>
@@ -373,7 +373,7 @@ export default function AttendanceList() {
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <button
                         onClick={() => navigate(`/attendance/${collection.collection_id}`)}
-                        className="text-blue-600 hover:text-blue-900 transition"
+                        className="text-indigo-600 hover:text-indigo-900 transition"
                       >
                         詳細
                       </button>
@@ -386,9 +386,9 @@ export default function AttendanceList() {
         </div>
       </div>
 
-      <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-        <h3 className="text-sm font-semibold text-blue-900 mb-2">💡 使い方</h3>
-        <ul className="text-sm text-blue-800 space-y-1 list-disc list-inside">
+      <div className="mt-6 p-4 bg-indigo-50 border border-indigo-200 rounded-lg">
+        <h3 className="text-sm font-semibold text-indigo-900 mb-2">💡 使い方</h3>
+        <ul className="text-sm text-indigo-800 space-y-1 list-disc list-inside">
           <li>出欠確認を作成すると公開URLが発行されます</li>
           <li>複数の対象日を設定して、メンバーに各日の出欠を回答してもらえます</li>
           <li>URLをメンバーに送信して、各日の出欠を回答してもらいましょう</li>

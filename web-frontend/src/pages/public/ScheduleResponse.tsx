@@ -159,7 +159,7 @@ export default function ScheduleResponse() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
           <p className="mt-4 text-gray-600">読み込み中...</p>
         </div>
       </div>
@@ -204,7 +204,7 @@ export default function ScheduleResponse() {
                 });
                 setResponses(initialResponses);
               }}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
+              className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition"
             >
               別の回答を送信
             </button>
@@ -266,7 +266,7 @@ export default function ScheduleResponse() {
               <select
                 value={selectedMemberId}
                 onChange={(e) => setSelectedMemberId(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 required
                 disabled={schedule?.status !== 'open'}
               >
@@ -365,7 +365,7 @@ export default function ScheduleResponse() {
                               e.target.value
                             )
                           }
-                          className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500"
                           disabled={schedule?.status !== 'open'}
                         />
                       </div>
@@ -378,7 +378,7 @@ export default function ScheduleResponse() {
             <button
               type="submit"
               disabled={submitting || schedule?.status !== 'open'}
-              className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
+              className="w-full px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
               {submitting ? '送信中...' : '回答を送信'}
             </button>
