@@ -23,8 +23,6 @@ services:
       start_period: 10s
     networks:
       - vrc-shift-network
-    # 本番ではポートを外部公開しない（セキュリティ）
-    # デバッグ時のみ: ports: ["5432:5432"]
 
   # ==================== Backend API ====================
   backend:
@@ -37,23 +35,18 @@ services:
       db:
         condition: service_healthy
     environment:
-      # Database
       DATABASE_URL: postgres://${POSTGRES_USER:-vrcshift}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-vrcshift}?sslmode=disable
-      # Server
       PORT: 8080
       HOST: 0.0.0.0
       ENVIRONMENT: production
       LOG_LEVEL: ${LOG_LEVEL:-info}
       TZ: Asia/Tokyo
-      # Authentication
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
-      # CORS
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
-      # Features (optional)
       ENABLE_AUDIT_LOG: ${ENABLE_AUDIT_LOG:-false}
       ENABLE_NOTIFICATION: ${ENABLE_NOTIFICATION:-false}
     ports:
-      - "${BACKEND_PORT:-8080}:8080"
+      - "8080:8080"
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
       interval: 30s
@@ -63,20 +56,43 @@ services:
     networks:
       - vrc-shift-network
 
-  # ==================== Frontend ====================
+  # ==================== Web Frontend (一般ユーザー向け) ====================
   frontend:
     build:
       context: ./web-frontend
       dockerfile: Dockerfile
       args:
-        VITE_API_BASE_URL: ${VITE_API_BASE_URL:?VITE_API_BASE_URL is required}
+        VITE_API_BASE_URL: ""
     container_name: vrc-shift-frontend
     restart: unless-stopped
     depends_on:
       backend:
         condition: service_healthy
     ports:
-      - "${FRONTEND_PORT:-80}:80"
+      - "5173:80"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - vrc-shift-network
+
+  # ==================== Admin Frontend (運営管理画面) ====================
+  admin-frontend:
+    build:
+      context: ./admin-frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: ""
+    container_name: vrc-shift-admin
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "5174:80"
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/"]
       interval: 30s
@@ -103,8 +119,6 @@ services:
       TZ: Asia/Tokyo
     networks:
       - vrc-shift-network
-    # Bot はオプション。起動する場合は --profile bot を追加
-    # docker compose -f docker-compose.prod.yml --profile bot up -d
     profiles:
       - bot
 
