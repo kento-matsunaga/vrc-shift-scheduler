@@ -94,7 +94,7 @@ export default function AttendanceDetail() {
   if (loading) {
     return (
       <div className="text-center py-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
         <p className="mt-4 text-gray-600">読み込み中...</p>
       </div>
     );
@@ -105,7 +105,7 @@ export default function AttendanceDetail() {
       <div className="max-w-4xl mx-auto">
         <div className="bg-red-50 border border-red-200 rounded-lg p-6">
           <p className="text-red-800">{error || '出欠確認が見つかりません'}</p>
-          <Link to="/attendance" className="text-blue-600 hover:underline mt-4 inline-block">
+          <Link to="/attendance" className="text-indigo-600 hover:underline mt-4 inline-block">
             ← 出欠確認一覧に戻る
           </Link>
         </div>
@@ -227,7 +227,7 @@ export default function AttendanceDetail() {
             />
             <button
               onClick={handleCopy}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition text-sm whitespace-nowrap"
+              className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition text-sm whitespace-nowrap"
             >
               {copied ? '✓ コピー済み' : 'URLをコピー'}
             </button>

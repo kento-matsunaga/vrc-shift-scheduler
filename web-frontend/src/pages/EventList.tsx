@@ -144,7 +144,7 @@ export default function EventList() {
   if (loading) {
     return (
       <div className="text-center py-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
         <p className="mt-4 text-gray-600">読み込み中...</p>
       </div>
     );
@@ -196,7 +196,7 @@ export default function EventList() {
                 <span
                   className={`inline-block px-2 py-1 text-xs font-semibold rounded ${
                     event.event_type === 'normal'
-                      ? 'bg-blue-100 text-blue-800'
+                      ? 'bg-indigo-100 text-indigo-800'
                       : 'bg-purple-100 text-purple-800'
                   }`}
                 >
@@ -220,7 +220,7 @@ export default function EventList() {
                       value={editingName}
                       onChange={(e) => setEditingName(e.target.value)}
                       onKeyDown={(e) => handleEditKeyDown(event.event_id, e)}
-                      className="flex-1 px-2 py-1 text-lg font-bold border border-blue-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="flex-1 px-2 py-1 text-lg font-bold border border-indigo-300 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
                       disabled={savingEventId === event.event_id}
                     />
                     <button
@@ -252,7 +252,7 @@ export default function EventList() {
                   </h3>
                   <button
                     onClick={(e) => handleStartEdit(event, e)}
-                    className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                    className="p-1 text-gray-400 hover:text-indigo-600 transition-colors"
                     title="イベント名を編集"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -497,8 +497,8 @@ function CreateEventModal({
                 </div>
               </div>
 
-              <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <p className="text-sm text-blue-800">
+              <div className="mb-4 p-3 bg-indigo-50 border border-indigo-200 rounded-lg">
+                <p className="text-sm text-indigo-800">
                   定期イベントを作成後、「営業日を自動生成」ボタンで今月〜来月の営業日をまとめて作成できます。
                 </p>
               </div>
