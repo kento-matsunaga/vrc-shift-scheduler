@@ -436,3 +436,28 @@ func ParseShiftSlotTemplateItemID(s string) (ShiftSlotTemplateItemID, error) {
 	}
 	return ShiftSlotTemplateItemID(s), nil
 }
+
+// MemberGroupID represents a member group identifier
+type MemberGroupID string
+
+func NewMemberGroupID() MemberGroupID {
+	return MemberGroupID(NewULID())
+}
+
+func (id MemberGroupID) String() string {
+	return string(id)
+}
+
+func (id MemberGroupID) Validate() error {
+	if id == "" {
+		return NewValidationError("group_id is required", nil)
+	}
+	return ValidateULID(string(id))
+}
+
+func ParseMemberGroupID(s string) (MemberGroupID, error) {
+	if err := ValidateULID(s); err != nil {
+		return "", err
+	}
+	return MemberGroupID(s), nil
+}

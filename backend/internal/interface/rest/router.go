@@ -141,6 +141,17 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			r.Delete("/{role_id}", roleHandler.DeleteRole)
 		})
 
+		// Member Group API
+		memberGroupHandler := NewMemberGroupHandler(dbPool)
+		r.Route("/member-groups", func(r chi.Router) {
+			r.Post("/", memberGroupHandler.CreateGroup)
+			r.Get("/", memberGroupHandler.ListGroups)
+			r.Get("/{group_id}", memberGroupHandler.GetGroup)
+			r.Put("/{group_id}", memberGroupHandler.UpdateGroup)
+			r.Delete("/{group_id}", memberGroupHandler.DeleteGroup)
+			r.Put("/{group_id}/members", memberGroupHandler.AssignMembers)
+		})
+
 		// Actual Attendance API（本出席 - 実際のシフト割り当て実績）
 		r.Route("/actual-attendance", func(r chi.Router) {
 			r.Get("/", actualAttendanceHandler.GetRecentActualAttendance)
