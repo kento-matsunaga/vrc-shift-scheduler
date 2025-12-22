@@ -20,6 +20,12 @@ export * from './shiftAssignmentApi';
 // Member API
 export * from './memberApi';
 
+// Member Group API
+export * from './memberGroupApi';
+
+// Role Group API
+export * from './roleGroupApi';
+
 // Actual Attendance API（本出席 - 実際のシフト割り当て実績）
 export * from './actualAttendanceApi';
 

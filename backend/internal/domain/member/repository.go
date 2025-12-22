@@ -57,3 +57,33 @@ type MemberRoleRepository interface {
 	SetMemberRoles(ctx context.Context, memberID common.MemberID, roleIDs []common.RoleID) error
 }
 
+// MemberGroupRepository defines the interface for MemberGroup persistence
+type MemberGroupRepository interface {
+	// Save saves a member group (insert or update)
+	Save(ctx context.Context, group *MemberGroup) error
+
+	// FindByID finds a member group by ID within a tenant
+	FindByID(ctx context.Context, tenantID common.TenantID, groupID common.MemberGroupID) (*MemberGroup, error)
+
+	// FindByTenantID finds all member groups within a tenant
+	FindByTenantID(ctx context.Context, tenantID common.TenantID) ([]*MemberGroup, error)
+
+	// Delete deletes a member group (physical delete)
+	Delete(ctx context.Context, tenantID common.TenantID, groupID common.MemberGroupID) error
+
+	// AssignMember assigns a member to a group
+	AssignMember(ctx context.Context, groupID common.MemberGroupID, memberID common.MemberID) error
+
+	// RemoveMember removes a member from a group
+	RemoveMember(ctx context.Context, groupID common.MemberGroupID, memberID common.MemberID) error
+
+	// FindMemberIDsByGroupID finds all members in a group
+	FindMemberIDsByGroupID(ctx context.Context, groupID common.MemberGroupID) ([]common.MemberID, error)
+
+	// FindGroupIDsByMemberID finds all groups a member belongs to
+	FindGroupIDsByMemberID(ctx context.Context, memberID common.MemberID) ([]common.MemberGroupID, error)
+
+	// SetMemberGroups sets all groups for a member (replaces existing groups)
+	SetMemberGroups(ctx context.Context, memberID common.MemberID, groupIDs []common.MemberGroupID) error
+}
+
