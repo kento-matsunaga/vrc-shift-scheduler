@@ -8,6 +8,7 @@ import ShiftSlotList from './pages/ShiftSlotList';
 import AssignShift from './pages/AssignShift';
 import Members from './pages/Members';
 import RoleList from './pages/RoleList';
+import RoleGroupList from './pages/RoleGroupList';
 import MemberGroupList from './pages/MemberGroupList';
 import AttendanceList from './pages/AttendanceList';
 import AttendanceDetail from './pages/AttendanceDetail';
@@ -85,6 +86,7 @@ function App() {
         <Route path="shift-slots/:slotId/assign" element={<AssignShift />} />
         <Route path="members" element={<Members />} />
         <Route path="roles" element={<RoleList />} />
+        <Route path="role-groups" element={<RoleGroupList />} />
         <Route path="groups" element={<MemberGroupList />} />
         <Route path="attendance" element={<AttendanceList />} />
         <Route path="attendance/:collectionId" element={<AttendanceDetail />} />

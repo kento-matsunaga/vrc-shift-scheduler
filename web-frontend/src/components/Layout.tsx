@@ -60,8 +60,11 @@ export default function Layout() {
             <Link to="/roles" className={linkClass('/roles')}>
               ロール
             </Link>
+            <Link to="/role-groups" className={linkClass('/role-groups')}>
+              ロールグループ
+            </Link>
             <Link to="/groups" className={linkClass('/groups')}>
-              グループ
+              メンバーグループ
             </Link>
             <Link to="/attendance" className={linkClass('/attendance')}>
               出欠確認
