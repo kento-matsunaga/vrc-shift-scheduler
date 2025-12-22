@@ -1,9 +1,11 @@
+import { useState } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 
 export default function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
   const adminRole = localStorage.getItem('admin_role') || '';
+  const [showGroupMenu, setShowGroupMenu] = useState(false);
 
   const handleLogout = () => {
     // JWT認証関連のデータをクリア
@@ -24,6 +26,9 @@ export default function Layout() {
         ? 'bg-indigo-100 text-indigo-700'
         : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
     }`;
+
+  // グループメニューがアクティブかどうか
+  const isGroupActive = location.pathname.startsWith('/groups') || location.pathname.startsWith('/role-groups');
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -60,12 +65,40 @@ export default function Layout() {
             <Link to="/roles" className={linkClass('/roles')}>
               ロール
             </Link>
-            <Link to="/role-groups" className={linkClass('/role-groups')}>
-              ロールグループ
-            </Link>
-            <Link to="/groups" className={linkClass('/groups')}>
-              メンバーグループ
-            </Link>
+            {/* グループドロップダウン */}
+            <div
+              className="relative"
+              onMouseEnter={() => setShowGroupMenu(true)}
+              onMouseLeave={() => setShowGroupMenu(false)}
+            >
+              <button
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  isGroupActive
+                    ? 'bg-indigo-100 text-indigo-700'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                }`}
+              >
+                グループ ▼
+              </button>
+              {showGroupMenu && (
+                <div className="absolute left-0 top-full mt-1 w-48 bg-white rounded-md shadow-lg border border-gray-200 z-50">
+                  <Link
+                    to="/role-groups"
+                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-t-md"
+                    onClick={() => setShowGroupMenu(false)}
+                  >
+                    ロールグループ
+                  </Link>
+                  <Link
+                    to="/groups"
+                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-b-md"
+                    onClick={() => setShowGroupMenu(false)}
+                  >
+                    メンバーグループ
+                  </Link>
+                </div>
+              )}
+            </div>
             <Link to="/attendance" className={linkClass('/attendance')}>
               出欠確認
             </Link>
@@ -100,4 +133,3 @@ export default function Layout() {
     </div>
   );
 }
-
