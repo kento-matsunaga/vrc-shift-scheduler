@@ -1,7 +1,18 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getEvents, createEvent, generateBusinessDays, updateEvent } from '../lib/api';
+import {
+  getEvents,
+  createEvent,
+  generateBusinessDays,
+  updateEvent,
+  getEventGroupAssignments,
+  updateEventGroupAssignments,
+  getMemberGroups,
+  getRoleGroups,
+} from '../lib/api';
 import type { Event } from '../types/api';
+import type { MemberGroup } from '../lib/api/memberGroupApi';
+import type { RoleGroup } from '../lib/api/roleGroupApi';
 import { ApiClientError } from '../lib/apiClient';
 
 // 曜日名の配列
@@ -26,6 +37,8 @@ export default function EventList() {
   const [editingName, setEditingName] = useState('');
   const [savingEventId, setSavingEventId] = useState<string | null>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
+  const [showGroupModal, setShowGroupModal] = useState(false);
+  const [selectedEventForGroups, setSelectedEventForGroups] = useState<Event | null>(null);
 
   useEffect(() => {
     loadEvents();
@@ -139,6 +152,20 @@ export default function EventList() {
     } else if (e.key === 'Escape') {
       handleCancelEdit(e);
     }
+  };
+
+  // グループ設定モーダルを開く
+  const handleOpenGroupModal = (event: Event, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setSelectedEventForGroups(event);
+    setShowGroupModal(true);
+  };
+
+  // グループ設定モーダルを閉じる
+  const handleCloseGroupModal = () => {
+    setShowGroupModal(false);
+    setSelectedEventForGroups(null);
   };
 
   if (loading) {
@@ -273,15 +300,24 @@ export default function EventList() {
                 作成日: {new Date(event.created_at).toLocaleDateString('ja-JP')}
               </div>
 
-              {event.recurrence_type !== 'none' && (
+              <div className="flex gap-2 mt-2">
                 <button
-                  onClick={(e) => handleGenerateBusinessDays(event.event_id, e)}
-                  disabled={generatingEventId === event.event_id}
-                  className="w-full btn-secondary text-sm py-2"
+                  onClick={(e) => handleOpenGroupModal(event, e)}
+                  className="flex-1 px-3 py-2 text-sm text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+                  title="対象グループを設定"
                 >
-                  {generatingEventId === event.event_id ? '生成中...' : '営業日を自動生成'}
+                  グループ設定
                 </button>
-              )}
+                {event.recurrence_type !== 'none' && (
+                  <button
+                    onClick={(e) => handleGenerateBusinessDays(event.event_id, e)}
+                    disabled={generatingEventId === event.event_id}
+                    className="flex-1 btn-secondary text-sm py-2"
+                  >
+                    {generatingEventId === event.event_id ? '生成中...' : '営業日生成'}
+                  </button>
+                )}
+              </div>
             </div>
           ))}
         </div>
@@ -292,6 +328,18 @@ export default function EventList() {
         <CreateEventModal
           onClose={() => setShowCreateModal(false)}
           onSuccess={handleCreateSuccess}
+        />
+      )}
+
+      {/* グループ設定モーダル */}
+      {showGroupModal && selectedEventForGroups && (
+        <EventGroupModal
+          event={selectedEventForGroups}
+          onClose={handleCloseGroupModal}
+          onSuccess={() => {
+            setSuccess('グループ設定を更新しました');
+            setTimeout(() => setSuccess(''), 3000);
+          }}
         />
       )}
     </div>
@@ -544,6 +592,217 @@ function CreateEventModal({
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  );
+}
+
+// イベントグループ設定モーダルコンポーネント
+function EventGroupModal({
+  event,
+  onClose,
+  onSuccess,
+}: {
+  event: Event;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [memberGroups, setMemberGroups] = useState<MemberGroup[]>([]);
+  const [roleGroups, setRoleGroups] = useState<RoleGroup[]>([]);
+  const [selectedMemberGroups, setSelectedMemberGroups] = useState<string[]>([]);
+  const [selectedRoleGroups, setSelectedRoleGroups] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    loadData();
+  }, [event.event_id]);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      // 並列でデータを取得
+      const [memberGroupsData, roleGroupsData, assignmentsData] = await Promise.all([
+        getMemberGroups(),
+        getRoleGroups(),
+        getEventGroupAssignments(event.event_id),
+      ]);
+
+      setMemberGroups(memberGroupsData.groups || []);
+      setRoleGroups(roleGroupsData.groups || []);
+      setSelectedMemberGroups(assignmentsData.member_group_ids || []);
+      setSelectedRoleGroups(assignmentsData.role_group_ids || []);
+    } catch (err) {
+      console.error('Failed to load group data:', err);
+      setError('グループデータの取得に失敗しました');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    setError('');
+
+    try {
+      await updateEventGroupAssignments(event.event_id, {
+        member_group_ids: selectedMemberGroups,
+        role_group_ids: selectedRoleGroups,
+      });
+      onSuccess();
+      onClose();
+    } catch (err) {
+      if (err instanceof ApiClientError) {
+        setError(err.getUserMessage());
+      } else {
+        setError('グループ設定の保存に失敗しました');
+      }
+      console.error('Failed to save group assignments:', err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const toggleMemberGroup = (groupId: string) => {
+    setSelectedMemberGroups((prev) =>
+      prev.includes(groupId)
+        ? prev.filter((id) => id !== groupId)
+        : [...prev, groupId]
+    );
+  };
+
+  const toggleRoleGroup = (groupId: string) => {
+    setSelectedRoleGroups((prev) =>
+      prev.includes(groupId)
+        ? prev.filter((id) => id !== groupId)
+        : [...prev, groupId]
+    );
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-lg max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
+        <h3 className="text-xl font-bold text-gray-900 mb-2">グループ設定</h3>
+        <p className="text-sm text-gray-600 mb-4">
+          「{event.event_name}」に参加可能なグループを設定します
+        </p>
+
+        {loading ? (
+          <div className="text-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto"></div>
+            <p className="mt-2 text-gray-600 text-sm">読み込み中...</p>
+          </div>
+        ) : (
+          <>
+            {/* メンバーグループ選択 */}
+            <div className="mb-6">
+              <h4 className="text-sm font-semibold text-gray-700 mb-2">
+                メンバーグループ
+              </h4>
+              <p className="text-xs text-gray-500 mb-2">
+                選択したグループに所属するメンバーのみが対象になります（未選択の場合は全メンバー）
+              </p>
+              {memberGroups.length === 0 ? (
+                <p className="text-sm text-gray-500 py-2">
+                  メンバーグループがありません
+                </p>
+              ) : (
+                <div className="space-y-2 max-h-40 overflow-y-auto border border-gray-200 rounded-md p-2">
+                  {memberGroups.map((group) => (
+                    <label
+                      key={group.group_id}
+                      className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedMemberGroups.includes(group.group_id)}
+                        onChange={() => toggleMemberGroup(group.group_id)}
+                        className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                      />
+                      <span
+                        className="w-3 h-3 rounded-full"
+                        style={{ backgroundColor: group.color || '#6B7280' }}
+                      />
+                      <span className="text-sm text-gray-900">{group.name}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* ロールグループ選択 */}
+            <div className="mb-6">
+              <h4 className="text-sm font-semibold text-gray-700 mb-2">
+                ロールグループ
+              </h4>
+              <p className="text-xs text-gray-500 mb-2">
+                選択したロールグループに属するロールを持つメンバーのみが対象になります（未選択の場合は全ロール）
+              </p>
+              {roleGroups.length === 0 ? (
+                <p className="text-sm text-gray-500 py-2">
+                  ロールグループがありません
+                </p>
+              ) : (
+                <div className="space-y-2 max-h-40 overflow-y-auto border border-gray-200 rounded-md p-2">
+                  {roleGroups.map((group) => (
+                    <label
+                      key={group.group_id}
+                      className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedRoleGroups.includes(group.group_id)}
+                        onChange={() => toggleRoleGroup(group.group_id)}
+                        className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                      />
+                      <span
+                        className="w-3 h-3 rounded-full"
+                        style={{ backgroundColor: group.color || '#6B7280' }}
+                      />
+                      <span className="text-sm text-gray-900">{group.name}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* 選択状態のサマリ */}
+            <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+              <p className="text-xs text-gray-600">
+                メンバーグループ: {selectedMemberGroups.length === 0 ? '全て' : `${selectedMemberGroups.length}件選択中`}
+              </p>
+              <p className="text-xs text-gray-600">
+                ロールグループ: {selectedRoleGroups.length === 0 ? '全て' : `${selectedRoleGroups.length}件選択中`}
+              </p>
+            </div>
+
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+                <p className="text-sm text-red-800">{error}</p>
+              </div>
+            )}
+
+            <div className="flex space-x-3">
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 btn-secondary"
+                disabled={saving}
+              >
+                キャンセル
+              </button>
+              <button
+                type="button"
+                onClick={handleSave}
+                className="flex-1 btn-primary"
+                disabled={saving}
+              >
+                {saving ? '保存中...' : '保存'}
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

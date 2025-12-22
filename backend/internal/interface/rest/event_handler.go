@@ -15,25 +15,30 @@ import (
 
 // EventHandler handles event-related HTTP requests
 type EventHandler struct {
-	createEventUC           *usecase.CreateEventUsecase
-	listEventsUC            *usecase.ListEventsUsecase
-	getEventUC              *usecase.GetEventUsecase
-	updateEventUC           *usecase.UpdateEventUsecase
-	deleteEventUC           *usecase.DeleteEventUsecase
-	generateBusinessDaysUC  *usecase.GenerateBusinessDaysUsecase
+	createEventUC              *usecase.CreateEventUsecase
+	listEventsUC               *usecase.ListEventsUsecase
+	getEventUC                 *usecase.GetEventUsecase
+	updateEventUC              *usecase.UpdateEventUsecase
+	deleteEventUC              *usecase.DeleteEventUsecase
+	generateBusinessDaysUC     *usecase.GenerateBusinessDaysUsecase
+	getGroupAssignmentsUC      *usecase.GetEventGroupAssignmentsUsecase
+	updateGroupAssignmentsUC   *usecase.UpdateEventGroupAssignmentsUsecase
 }
 
 // NewEventHandler creates a new EventHandler
 func NewEventHandler(dbPool *pgxpool.Pool) *EventHandler {
 	eventRepo := db.NewEventRepository(dbPool)
 	businessDayRepo := db.NewEventBusinessDayRepository(dbPool)
+	groupAssignRepo := db.NewEventGroupAssignmentRepository(dbPool)
 	return &EventHandler{
-		createEventUC:          usecase.NewCreateEventUsecase(eventRepo, businessDayRepo),
-		listEventsUC:           usecase.NewListEventsUsecase(eventRepo),
-		getEventUC:             usecase.NewGetEventUsecase(eventRepo),
-		updateEventUC:          usecase.NewUpdateEventUsecase(eventRepo),
-		deleteEventUC:          usecase.NewDeleteEventUsecase(eventRepo),
-		generateBusinessDaysUC: usecase.NewGenerateBusinessDaysUsecase(eventRepo, businessDayRepo),
+		createEventUC:            usecase.NewCreateEventUsecase(eventRepo, businessDayRepo),
+		listEventsUC:             usecase.NewListEventsUsecase(eventRepo),
+		getEventUC:               usecase.NewGetEventUsecase(eventRepo),
+		updateEventUC:            usecase.NewUpdateEventUsecase(eventRepo),
+		deleteEventUC:            usecase.NewDeleteEventUsecase(eventRepo),
+		generateBusinessDaysUC:   usecase.NewGenerateBusinessDaysUsecase(eventRepo, businessDayRepo),
+		getGroupAssignmentsUC:    usecase.NewGetEventGroupAssignmentsUsecase(eventRepo, groupAssignRepo),
+		updateGroupAssignmentsUC: usecase.NewUpdateEventGroupAssignmentsUsecase(eventRepo, groupAssignRepo),
 	}
 }
 
@@ -443,6 +448,129 @@ func (h *EventHandler) GenerateBusinessDays(w http.ResponseWriter, r *http.Reque
 		GeneratedCount: output.GeneratedCount,
 		Message:        message,
 		Event:          toEventResponse(output.Event),
+	})
+}
+
+// EventGroupAssignmentsRequest represents the request body for updating group assignments
+type EventGroupAssignmentsRequest struct {
+	MemberGroupIDs []string `json:"member_group_ids"`
+	RoleGroupIDs   []string `json:"role_group_ids"`
+}
+
+// EventGroupAssignmentsResponse represents the response for group assignments
+type EventGroupAssignmentsResponse struct {
+	MemberGroupIDs []string `json:"member_group_ids"`
+	RoleGroupIDs   []string `json:"role_group_ids"`
+}
+
+// GetGroupAssignments handles GET /api/v1/events/:event_id/groups
+func (h *EventHandler) GetGroupAssignments(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// テナントIDの取得
+	tenantID, ok := GetTenantID(ctx)
+	if !ok {
+		RespondBadRequest(w, "tenant_id is required")
+		return
+	}
+
+	// イベントIDの取得
+	eventIDStr := chi.URLParam(r, "event_id")
+	if eventIDStr == "" {
+		RespondBadRequest(w, "event_id is required")
+		return
+	}
+
+	eventID := common.EventID(eventIDStr)
+	if err := eventID.Validate(); err != nil {
+		RespondBadRequest(w, "Invalid event_id format")
+		return
+	}
+
+	// Usecaseの実行
+	input := usecase.GetEventGroupAssignmentsInput{
+		TenantID: tenantID,
+		EventID:  eventID,
+	}
+
+	output, err := h.getGroupAssignmentsUC.Execute(ctx, input)
+	if err != nil {
+		RespondDomainError(w, err)
+		return
+	}
+
+	// レスポンス
+	RespondSuccess(w, EventGroupAssignmentsResponse{
+		MemberGroupIDs: output.MemberGroupIDs,
+		RoleGroupIDs:   output.RoleGroupIDs,
+	})
+}
+
+// UpdateGroupAssignments handles PUT /api/v1/events/:event_id/groups
+func (h *EventHandler) UpdateGroupAssignments(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// テナントIDの取得
+	tenantID, ok := GetTenantID(ctx)
+	if !ok {
+		RespondBadRequest(w, "tenant_id is required")
+		return
+	}
+
+	// イベントIDの取得
+	eventIDStr := chi.URLParam(r, "event_id")
+	if eventIDStr == "" {
+		RespondBadRequest(w, "event_id is required")
+		return
+	}
+
+	eventID := common.EventID(eventIDStr)
+	if err := eventID.Validate(); err != nil {
+		RespondBadRequest(w, "Invalid event_id format")
+		return
+	}
+
+	// リクエストボディのパース
+	var req EventGroupAssignmentsRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		RespondBadRequest(w, "Invalid request body")
+		return
+	}
+
+	// グループIDの最大数制限（DoS対策）
+	if len(req.MemberGroupIDs) > 100 || len(req.RoleGroupIDs) > 100 {
+		RespondBadRequest(w, "Too many group IDs (max 100)")
+		return
+	}
+
+	// Usecaseの実行
+	input := usecase.UpdateEventGroupAssignmentsInput{
+		TenantID:       tenantID,
+		EventID:        eventID,
+		MemberGroupIDs: req.MemberGroupIDs,
+		RoleGroupIDs:   req.RoleGroupIDs,
+	}
+
+	if err := h.updateGroupAssignmentsUC.Execute(ctx, input); err != nil {
+		RespondDomainError(w, err)
+		return
+	}
+
+	// 更新後のデータを取得して返す
+	getInput := usecase.GetEventGroupAssignmentsInput{
+		TenantID: tenantID,
+		EventID:  eventID,
+	}
+
+	output, err := h.getGroupAssignmentsUC.Execute(ctx, getInput)
+	if err != nil {
+		RespondDomainError(w, err)
+		return
+	}
+
+	RespondSuccess(w, EventGroupAssignmentsResponse{
+		MemberGroupIDs: output.MemberGroupIDs,
+		RoleGroupIDs:   output.RoleGroupIDs,
 	})
 }
 
