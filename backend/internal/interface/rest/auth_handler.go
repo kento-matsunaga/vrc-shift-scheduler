@@ -47,11 +47,11 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	// バリデーション
 	if req.Email == "" {
-		RespondError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "email is required", nil)
+		RespondError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "メールアドレスを入力してください", nil)
 		return
 	}
 	if req.Password == "" {
-		RespondError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "password is required", nil)
+		RespondError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "パスワードを入力してください", nil)
 		return
 	}
 
@@ -64,9 +64,9 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		// エラーコード変換
 		switch {
 		case errors.Is(err, appAuth.ErrInvalidCredentials):
-			RespondError(w, http.StatusUnauthorized, "ERR_UNAUTHORIZED", "Invalid email or password", nil)
+			RespondError(w, http.StatusUnauthorized, "ERR_UNAUTHORIZED", "メールアドレスまたはパスワードが正しくありません", nil)
 		case errors.Is(err, appAuth.ErrAccountDisabled):
-			RespondError(w, http.StatusForbidden, "ERR_FORBIDDEN", "Account is disabled", nil)
+			RespondError(w, http.StatusForbidden, "ERR_FORBIDDEN", "このアカウントは無効化されています", nil)
 		default:
 			RespondInternalError(w)
 		}
