@@ -1,18 +1,21 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { getMembers, createMember, updateMember, getRecentAttendance, deleteMember, bulkImportMembers, type BulkImportMemberInput } from '../lib/api/memberApi';
 import { getActualAttendance } from '../lib/api/actualAttendanceApi';
 import { listRoles, type Role } from '../lib/api/roleApi';
+import { getMemberGroups, type MemberGroup } from '../lib/api/memberGroupApi';
 import type { Member, RecentAttendanceResponse } from '../types/api';
 import { ApiClientError } from '../lib/apiClient';
 
 export default function Members() {
   const [members, setMembers] = useState<Member[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
+  const [memberGroups, setMemberGroups] = useState<MemberGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // フィルター（複数選択）
   const [filterRoleIds, setFilterRoleIds] = useState<string[]>([]);
+  const [filterGroupIds, setFilterGroupIds] = useState<string[]>([]);
 
   // 新規登録・編集フォーム
   const [showForm, setShowForm] = useState(false);
@@ -39,12 +42,14 @@ export default function Members() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [membersResponse, rolesData] = await Promise.all([
+      const [membersResponse, rolesData, groupsData] = await Promise.all([
         getMembers(),
         listRoles(),
+        getMemberGroups(),
       ]);
       setMembers(membersResponse.members || []);
       setRoles(rolesData || []);
+      setMemberGroups(groupsData.groups || []);
       setError(null);
     } catch (err) {
       console.error('Failed to fetch data:', err);
@@ -58,10 +63,37 @@ export default function Members() {
     fetchData();
   }, []);
 
-  // フィルター後のメンバー（選択したロールのいずれかを持つメンバーを表示）
-  const filteredMembers = filterRoleIds.length > 0
-    ? members.filter((m) => m.role_ids?.some((roleId) => filterRoleIds.includes(roleId)))
-    : members;
+  // 選択されたグループに属するメンバーIDの集合を計算
+  const allowedMemberIdsByGroup = useMemo(() => {
+    if (filterGroupIds.length === 0) return null;
+    const memberIds = new Set<string>();
+    for (const groupId of filterGroupIds) {
+      const group = memberGroups.find((g) => g.group_id === groupId);
+      if (group?.member_ids) {
+        for (const memberId of group.member_ids) {
+          memberIds.add(memberId);
+        }
+      }
+    }
+    return memberIds;
+  }, [filterGroupIds, memberGroups]);
+
+  // フィルター後のメンバー（グループとロールの両方でフィルター）
+  const filteredMembers = useMemo(() => {
+    let result = members;
+
+    // グループフィルター
+    if (allowedMemberIdsByGroup) {
+      result = result.filter((m) => allowedMemberIdsByGroup.has(m.member_id));
+    }
+
+    // ロールフィルター
+    if (filterRoleIds.length > 0) {
+      result = result.filter((m) => m.role_ids?.some((roleId) => filterRoleIds.includes(roleId)));
+    }
+
+    return result;
+  }, [members, allowedMemberIdsByGroup, filterRoleIds]);
 
   // 本出席データを取得
   const fetchActualAttendance = async () => {
@@ -235,62 +267,122 @@ export default function Members() {
         </div>
       )}
 
-      {/* ロールフィルター（複数選択） */}
-      {roles.length > 0 && (
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-2">
-            <label className="block text-sm font-medium text-gray-700">
-              ロールでフィルター
-            </label>
-            {filterRoleIds.length > 0 && (
-              <button
-                onClick={() => setFilterRoleIds([])}
-                className="text-xs text-indigo-600 hover:text-indigo-800"
-              >
-                クリア
-              </button>
-            )}
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {roles.map((role) => {
-              const isSelected = filterRoleIds.includes(role.role_id);
-              return (
+      {/* フィルターセクション */}
+      <div className="mb-6 space-y-4">
+        {/* グループフィルター */}
+        {memberGroups.length > 0 && (
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium text-gray-700">
+                グループでフィルター
+              </label>
+              {filterGroupIds.length > 0 && (
                 <button
-                  key={role.role_id}
-                  onClick={() => {
-                    if (isSelected) {
-                      setFilterRoleIds(filterRoleIds.filter((id) => id !== role.role_id));
-                    } else {
-                      setFilterRoleIds([...filterRoleIds, role.role_id]);
-                    }
-                  }}
-                  className={`inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
-                    isSelected
-                      ? 'ring-2 ring-offset-1 ring-indigo-500'
-                      : 'opacity-60 hover:opacity-100'
-                  }`}
-                  style={{
-                    backgroundColor: role.color || '#6B7280',
-                    color: 'white',
-                  }}
+                  onClick={() => setFilterGroupIds([])}
+                  className="text-xs text-indigo-600 hover:text-indigo-800"
                 >
-                  {role.name}
-                  {isSelected && (
-                    <svg className="w-4 h-4 ml-1" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
-                  )}
+                  クリア
                 </button>
-              );
-            })}
+              )}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {memberGroups.map((group) => {
+                const isSelected = filterGroupIds.includes(group.group_id);
+                return (
+                  <button
+                    key={group.group_id}
+                    onClick={() => {
+                      if (isSelected) {
+                        setFilterGroupIds(filterGroupIds.filter((id) => id !== group.group_id));
+                      } else {
+                        setFilterGroupIds([...filterGroupIds, group.group_id]);
+                      }
+                    }}
+                    className={`inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
+                      isSelected
+                        ? 'ring-2 ring-offset-1 ring-indigo-500'
+                        : 'opacity-60 hover:opacity-100'
+                    }`}
+                    style={{
+                      backgroundColor: group.color || '#6B7280',
+                      color: 'white',
+                    }}
+                  >
+                    {group.name}
+                    {isSelected && (
+                      <svg className="w-4 h-4 ml-1" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-          {filterRoleIds.length > 0 && (
-            <p className="text-xs text-gray-500 mt-2">
-              {filterRoleIds.length}個のロールでフィルター中（{filteredMembers.length}人表示）
-            </p>
-          )}
-        </div>
-      )}
+        )}
+
+        {/* ロールフィルター */}
+        {roles.length > 0 && (
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium text-gray-700">
+                ロールでフィルター
+              </label>
+              {filterRoleIds.length > 0 && (
+                <button
+                  onClick={() => setFilterRoleIds([])}
+                  className="text-xs text-indigo-600 hover:text-indigo-800"
+                >
+                  クリア
+                </button>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {roles.map((role) => {
+                const isSelected = filterRoleIds.includes(role.role_id);
+                return (
+                  <button
+                    key={role.role_id}
+                    onClick={() => {
+                      if (isSelected) {
+                        setFilterRoleIds(filterRoleIds.filter((id) => id !== role.role_id));
+                      } else {
+                        setFilterRoleIds([...filterRoleIds, role.role_id]);
+                      }
+                    }}
+                    className={`inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
+                      isSelected
+                        ? 'ring-2 ring-offset-1 ring-indigo-500'
+                        : 'opacity-60 hover:opacity-100'
+                    }`}
+                    style={{
+                      backgroundColor: role.color || '#6B7280',
+                      color: 'white',
+                    }}
+                  >
+                    {role.name}
+                    {isSelected && (
+                      <svg className="w-4 h-4 ml-1" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* フィルター状態の表示 */}
+        {(filterGroupIds.length > 0 || filterRoleIds.length > 0) && (
+          <p className="text-xs text-gray-500">
+            {filterGroupIds.length > 0 && `${filterGroupIds.length}個のグループ`}
+            {filterGroupIds.length > 0 && filterRoleIds.length > 0 && ' + '}
+            {filterRoleIds.length > 0 && `${filterRoleIds.length}個のロール`}
+            {` でフィルター中（${filteredMembers.length}人表示）`}
+          </p>
+        )}
+      </div>
 
       {/* メンバー一覧 */}
       {filteredMembers.length === 0 ? (
@@ -391,6 +483,7 @@ export default function Members() {
           data={actualAttendanceData}
           loading={loadingActualAttendance}
           onClose={() => setShowActualAttendanceModal(false)}
+          filteredMemberIds={allowedMemberIdsByGroup}
         />
       )}
 
@@ -400,6 +493,7 @@ export default function Members() {
           data={attendanceConfirmationData}
           loading={loadingAttendanceConfirmation}
           onClose={() => setShowAttendanceConfirmationModal(false)}
+          filteredMemberIds={allowedMemberIdsByGroup}
         />
       )}
 
@@ -540,11 +634,19 @@ function ActualAttendanceModal({
   data,
   loading,
   onClose,
+  filteredMemberIds,
 }: {
   data: RecentAttendanceResponse | null;
   loading: boolean;
   onClose: () => void;
+  filteredMemberIds: Set<string> | null;
 }) {
+  // フィルタリング適用
+  const displayedAttendances = useMemo(() => {
+    if (!data?.member_attendances) return [];
+    if (!filteredMemberIds) return data.member_attendances;
+    return data.member_attendances.filter((ma) => filteredMemberIds.has(ma.member_id));
+  }, [data?.member_attendances, filteredMemberIds]);
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-lg max-w-6xl w-full p-6 max-h-[90vh] overflow-y-auto">
@@ -568,7 +670,7 @@ function ActualAttendanceModal({
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
             <p className="mt-4 text-gray-600">読み込み中...</p>
           </div>
-        ) : data && data.target_dates && data.target_dates.length > 0 ? (
+        ) : data && data.target_dates && data.target_dates.length > 0 && displayedAttendances.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="min-w-full text-xs border-collapse border border-gray-300">
               <thead>
@@ -587,7 +689,7 @@ function ActualAttendanceModal({
                 </tr>
               </thead>
               <tbody>
-                {(data.member_attendances || []).map((memberAtt) => (
+                {displayedAttendances.map((memberAtt) => (
                   <tr key={memberAtt.member_id} className="hover:bg-gray-50">
                     <td className="border border-gray-300 px-2 py-1 font-medium sticky left-0 bg-white z-10">
                       {memberAtt.member_name}
@@ -612,11 +714,12 @@ function ActualAttendanceModal({
             </table>
             <p className="text-xs text-gray-500 mt-2">
               ○: シフト割り当てあり、×: シフト割り当てなし
+              {filteredMemberIds && ` （${displayedAttendances.length}人表示中）`}
             </p>
           </div>
         ) : (
           <div className="text-center py-12 text-gray-500">
-            本出席データがありません
+            {filteredMemberIds ? '選択したグループのメンバーのデータがありません' : '本出席データがありません'}
           </div>
         )}
       </div>
@@ -629,11 +732,19 @@ function AttendanceConfirmationModal({
   data,
   loading,
   onClose,
+  filteredMemberIds,
 }: {
   data: RecentAttendanceResponse | null;
   loading: boolean;
   onClose: () => void;
+  filteredMemberIds: Set<string> | null;
 }) {
+  // フィルタリング適用
+  const displayedAttendances = useMemo(() => {
+    if (!data?.member_attendances) return [];
+    if (!filteredMemberIds) return data.member_attendances;
+    return data.member_attendances.filter((ma) => filteredMemberIds.has(ma.member_id));
+  }, [data?.member_attendances, filteredMemberIds]);
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-lg max-w-6xl w-full p-6 max-h-[90vh] overflow-y-auto">
@@ -657,7 +768,7 @@ function AttendanceConfirmationModal({
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
             <p className="mt-4 text-gray-600">読み込み中...</p>
           </div>
-        ) : data && data.target_dates && data.target_dates.length > 0 ? (
+        ) : data && data.target_dates && data.target_dates.length > 0 && displayedAttendances.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="min-w-full text-xs border-collapse border border-gray-300">
               <thead>
@@ -676,7 +787,7 @@ function AttendanceConfirmationModal({
                 </tr>
               </thead>
               <tbody>
-                {(data.member_attendances || []).map((memberAtt) => (
+                {displayedAttendances.map((memberAtt) => (
                   <tr key={memberAtt.member_id} className="hover:bg-gray-50">
                     <td className="border border-gray-300 px-2 py-1 font-medium sticky left-0 bg-white z-10">
                       {memberAtt.member_name}
@@ -704,11 +815,12 @@ function AttendanceConfirmationModal({
             </table>
             <p className="text-xs text-gray-500 mt-2">
               ○: 参加予定、×: 不参加、-: 未回答
+              {filteredMemberIds && ` （${displayedAttendances.length}人表示中）`}
             </p>
           </div>
         ) : (
           <div className="text-center py-12 text-gray-500">
-            出欠確認データがありません
+            {filteredMemberIds ? '選択したグループのメンバーのデータがありません' : '出欠確認データがありません'}
           </div>
         )}
       </div>
