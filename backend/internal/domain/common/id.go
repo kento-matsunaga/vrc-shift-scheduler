@@ -436,3 +436,53 @@ func ParseShiftSlotTemplateItemID(s string) (ShiftSlotTemplateItemID, error) {
 	}
 	return ShiftSlotTemplateItemID(s), nil
 }
+
+// MemberGroupID represents a member group identifier
+type MemberGroupID string
+
+func NewMemberGroupID() MemberGroupID {
+	return MemberGroupID(NewULID())
+}
+
+func (id MemberGroupID) String() string {
+	return string(id)
+}
+
+func (id MemberGroupID) Validate() error {
+	if id == "" {
+		return NewValidationError("group_id is required", nil)
+	}
+	return ValidateULID(string(id))
+}
+
+func ParseMemberGroupID(s string) (MemberGroupID, error) {
+	if err := ValidateULID(s); err != nil {
+		return "", err
+	}
+	return MemberGroupID(s), nil
+}
+
+// RoleGroupID represents a role group identifier
+type RoleGroupID string
+
+func NewRoleGroupID() RoleGroupID {
+	return RoleGroupID(NewULID())
+}
+
+func (id RoleGroupID) String() string {
+	return string(id)
+}
+
+func (id RoleGroupID) Validate() error {
+	if id == "" {
+		return NewValidationError("group_id is required", nil)
+	}
+	return ValidateULID(string(id))
+}
+
+func ParseRoleGroupID(s string) (RoleGroupID, error) {
+	if err := ValidateULID(s); err != nil {
+		return "", err
+	}
+	return RoleGroupID(s), nil
+}

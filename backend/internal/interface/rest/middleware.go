@@ -23,6 +23,8 @@ const (
 	ContextKeyAdminID ContextKey = "admin_id"
 	// ContextKeyRole is the context key for admin role (JWT認証時)
 	ContextKeyRole ContextKey = "role"
+	// ContextKeyAllowedMemberIDs is the context key for allowed member IDs filter (map[string]struct{})
+	ContextKeyAllowedMemberIDs ContextKey = "allowed_member_ids"
 )
 
 // Logger is a middleware that logs HTTP requests

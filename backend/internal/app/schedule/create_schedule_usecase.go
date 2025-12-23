@@ -56,6 +56,25 @@ func (u *CreateScheduleUsecase) Execute(ctx context.Context, input CreateSchedul
 		return nil, err
 	}
 
+	// Save group assignments if specified
+	if len(input.GroupIDs) > 0 {
+		var assignments []*schedule.ScheduleGroupAssignment
+		for _, groupIDStr := range input.GroupIDs {
+			groupID, err := common.ParseMemberGroupID(groupIDStr)
+			if err != nil {
+				return nil, err
+			}
+			assignment, err := schedule.NewScheduleGroupAssignment(now, scheduleID, groupID)
+			if err != nil {
+				return nil, err
+			}
+			assignments = append(assignments, assignment)
+		}
+		if err := u.repo.SaveGroupAssignments(ctx, scheduleID, assignments); err != nil {
+			return nil, err
+		}
+	}
+
 	// Build output
 	candidateDTOs := make([]CandidateDTO, len(candidates))
 	for i, c := range candidates {

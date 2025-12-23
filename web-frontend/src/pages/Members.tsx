@@ -1,25 +1,26 @@
-import { useState, useEffect } from 'react';
-import { getMembers, createMember, updateMember, getRecentAttendance, deleteMember } from '../lib/api/memberApi';
+import { useState, useEffect, useMemo } from 'react';
+import { getMembers, createMember, updateMember, getRecentAttendance, deleteMember, bulkImportMembers, type BulkImportMemberInput } from '../lib/api/memberApi';
 import { getActualAttendance } from '../lib/api/actualAttendanceApi';
 import { listRoles, type Role } from '../lib/api/roleApi';
+import { getMemberGroups, type MemberGroup } from '../lib/api/memberGroupApi';
 import type { Member, RecentAttendanceResponse } from '../types/api';
 import { ApiClientError } from '../lib/apiClient';
 
 export default function Members() {
   const [members, setMembers] = useState<Member[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
+  const [memberGroups, setMemberGroups] = useState<MemberGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // フィルター（複数選択）
   const [filterRoleIds, setFilterRoleIds] = useState<string[]>([]);
+  const [filterGroupIds, setFilterGroupIds] = useState<string[]>([]);
 
   // 新規登録・編集フォーム
   const [showForm, setShowForm] = useState(false);
   const [editingMember, setEditingMember] = useState<Member | null>(null);
   const [displayName, setDisplayName] = useState('');
-  const [discordUserId, setDiscordUserId] = useState('');
-  const [email, setEmail] = useState('');
   const [isActive, setIsActive] = useState(true);
   const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
@@ -34,16 +35,21 @@ export default function Members() {
   const [attendanceConfirmationData, setAttendanceConfirmationData] = useState<RecentAttendanceResponse | null>(null);
   const [loadingAttendanceConfirmation, setLoadingAttendanceConfirmation] = useState(false);
 
+  // 一括登録モーダル
+  const [showBulkImportModal, setShowBulkImportModal] = useState(false);
+
   // データ取得
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [membersResponse, rolesData] = await Promise.all([
+      const [membersResponse, rolesData, groupsData] = await Promise.all([
         getMembers(),
         listRoles(),
+        getMemberGroups(),
       ]);
       setMembers(membersResponse.members || []);
       setRoles(rolesData || []);
+      setMemberGroups(groupsData.groups || []);
       setError(null);
     } catch (err) {
       console.error('Failed to fetch data:', err);
@@ -57,10 +63,37 @@ export default function Members() {
     fetchData();
   }, []);
 
-  // フィルター後のメンバー（選択したロールのいずれかを持つメンバーを表示）
-  const filteredMembers = filterRoleIds.length > 0
-    ? members.filter((m) => m.role_ids?.some((roleId) => filterRoleIds.includes(roleId)))
-    : members;
+  // 選択されたグループに属するメンバーIDの集合を計算
+  const allowedMemberIdsByGroup = useMemo(() => {
+    if (filterGroupIds.length === 0) return null;
+    const memberIds = new Set<string>();
+    for (const groupId of filterGroupIds) {
+      const group = memberGroups.find((g) => g.group_id === groupId);
+      if (group?.member_ids) {
+        for (const memberId of group.member_ids) {
+          memberIds.add(memberId);
+        }
+      }
+    }
+    return memberIds;
+  }, [filterGroupIds, memberGroups]);
+
+  // フィルター後のメンバー（グループとロールの両方でフィルター）
+  const filteredMembers = useMemo(() => {
+    let result = members;
+
+    // グループフィルター
+    if (allowedMemberIdsByGroup) {
+      result = result.filter((m) => allowedMemberIdsByGroup.has(m.member_id));
+    }
+
+    // ロールフィルター
+    if (filterRoleIds.length > 0) {
+      result = result.filter((m) => m.role_ids?.some((roleId) => filterRoleIds.includes(roleId)));
+    }
+
+    return result;
+  }, [members, allowedMemberIdsByGroup, filterRoleIds]);
 
   // 本出席データを取得
   const fetchActualAttendance = async () => {
@@ -106,12 +139,15 @@ export default function Members() {
     }
   };
 
+  // 一括登録成功時
+  const handleBulkImportSuccess = () => {
+    fetchData();
+  };
+
   // 新規登録フォームを開く
   const handleOpenCreateForm = () => {
     setEditingMember(null);
     setDisplayName('');
-    setDiscordUserId('');
-    setEmail('');
     setIsActive(true);
     setSelectedRoleIds([]);
     setShowForm(true);
@@ -121,8 +157,6 @@ export default function Members() {
   const handleOpenEditForm = (member: Member) => {
     setEditingMember(member);
     setDisplayName(member.display_name);
-    setDiscordUserId(member.discord_user_id || '');
-    setEmail(member.email || '');
     setIsActive(member.is_active);
     setSelectedRoleIds(member.role_ids || []);
     setShowForm(true);
@@ -143,8 +177,6 @@ export default function Members() {
         // 更新
         await updateMember(editingMember.member_id, {
           display_name: displayName,
-          discord_user_id: discordUserId,
-          email: email,
           is_active: isActive,
           role_ids: selectedRoleIds,
         });
@@ -152,8 +184,6 @@ export default function Members() {
         // 新規作成
         await createMember({
           display_name: displayName,
-          discord_user_id: discordUserId,
-          email: email,
         });
       }
 
@@ -222,6 +252,9 @@ export default function Members() {
           <button onClick={handleOpenAttendanceConfirmation} className="btn-secondary text-sm">
             出欠確認を見る
           </button>
+          <button onClick={() => setShowBulkImportModal(true)} className="btn-secondary">
+            一括登録
+          </button>
           <button onClick={handleOpenCreateForm} className="btn-primary">
             ＋ メンバーを追加
           </button>
@@ -234,62 +267,122 @@ export default function Members() {
         </div>
       )}
 
-      {/* ロールフィルター（複数選択） */}
-      {roles.length > 0 && (
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-2">
-            <label className="block text-sm font-medium text-gray-700">
-              ロールでフィルター
-            </label>
-            {filterRoleIds.length > 0 && (
-              <button
-                onClick={() => setFilterRoleIds([])}
-                className="text-xs text-indigo-600 hover:text-indigo-800"
-              >
-                クリア
-              </button>
-            )}
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {roles.map((role) => {
-              const isSelected = filterRoleIds.includes(role.role_id);
-              return (
+      {/* フィルターセクション */}
+      <div className="mb-6 space-y-4">
+        {/* グループフィルター */}
+        {memberGroups.length > 0 && (
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium text-gray-700">
+                グループでフィルター
+              </label>
+              {filterGroupIds.length > 0 && (
                 <button
-                  key={role.role_id}
-                  onClick={() => {
-                    if (isSelected) {
-                      setFilterRoleIds(filterRoleIds.filter((id) => id !== role.role_id));
-                    } else {
-                      setFilterRoleIds([...filterRoleIds, role.role_id]);
-                    }
-                  }}
-                  className={`inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
-                    isSelected
-                      ? 'ring-2 ring-offset-1 ring-indigo-500'
-                      : 'opacity-60 hover:opacity-100'
-                  }`}
-                  style={{
-                    backgroundColor: role.color || '#6B7280',
-                    color: 'white',
-                  }}
+                  onClick={() => setFilterGroupIds([])}
+                  className="text-xs text-indigo-600 hover:text-indigo-800"
                 >
-                  {role.name}
-                  {isSelected && (
-                    <svg className="w-4 h-4 ml-1" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
-                  )}
+                  クリア
                 </button>
-              );
-            })}
+              )}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {memberGroups.map((group) => {
+                const isSelected = filterGroupIds.includes(group.group_id);
+                return (
+                  <button
+                    key={group.group_id}
+                    onClick={() => {
+                      if (isSelected) {
+                        setFilterGroupIds(filterGroupIds.filter((id) => id !== group.group_id));
+                      } else {
+                        setFilterGroupIds([...filterGroupIds, group.group_id]);
+                      }
+                    }}
+                    className={`inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
+                      isSelected
+                        ? 'ring-2 ring-offset-1 ring-indigo-500'
+                        : 'opacity-60 hover:opacity-100'
+                    }`}
+                    style={{
+                      backgroundColor: group.color || '#6B7280',
+                      color: 'white',
+                    }}
+                  >
+                    {group.name}
+                    {isSelected && (
+                      <svg className="w-4 h-4 ml-1" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-          {filterRoleIds.length > 0 && (
-            <p className="text-xs text-gray-500 mt-2">
-              {filterRoleIds.length}個のロールでフィルター中（{filteredMembers.length}人表示）
-            </p>
-          )}
-        </div>
-      )}
+        )}
+
+        {/* ロールフィルター */}
+        {roles.length > 0 && (
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium text-gray-700">
+                ロールでフィルター
+              </label>
+              {filterRoleIds.length > 0 && (
+                <button
+                  onClick={() => setFilterRoleIds([])}
+                  className="text-xs text-indigo-600 hover:text-indigo-800"
+                >
+                  クリア
+                </button>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {roles.map((role) => {
+                const isSelected = filterRoleIds.includes(role.role_id);
+                return (
+                  <button
+                    key={role.role_id}
+                    onClick={() => {
+                      if (isSelected) {
+                        setFilterRoleIds(filterRoleIds.filter((id) => id !== role.role_id));
+                      } else {
+                        setFilterRoleIds([...filterRoleIds, role.role_id]);
+                      }
+                    }}
+                    className={`inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
+                      isSelected
+                        ? 'ring-2 ring-offset-1 ring-indigo-500'
+                        : 'opacity-60 hover:opacity-100'
+                    }`}
+                    style={{
+                      backgroundColor: role.color || '#6B7280',
+                      color: 'white',
+                    }}
+                  >
+                    {role.name}
+                    {isSelected && (
+                      <svg className="w-4 h-4 ml-1" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* フィルター状態の表示 */}
+        {(filterGroupIds.length > 0 || filterRoleIds.length > 0) && (
+          <p className="text-xs text-gray-500">
+            {filterGroupIds.length > 0 && `${filterGroupIds.length}個のグループ`}
+            {filterGroupIds.length > 0 && filterRoleIds.length > 0 && ' + '}
+            {filterRoleIds.length > 0 && `${filterRoleIds.length}個のロール`}
+            {` でフィルター中（${filteredMembers.length}人表示）`}
+          </p>
+        )}
+      </div>
 
       {/* メンバー一覧 */}
       {filteredMembers.length === 0 ? (
@@ -310,8 +403,6 @@ export default function Members() {
               <tr className="border-b border-gray-200">
                 <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">名前</th>
                 <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">ロール</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Discord ID</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Email</th>
                 <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">ステータス</th>
                 <th className="px-4 py-3 text-right text-sm font-semibold text-gray-900">操作</th>
               </tr>
@@ -337,10 +428,6 @@ export default function Members() {
                       )}
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-600">
-                    {member.discord_user_id || '-'}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-600">{member.email || '-'}</td>
                   <td className="px-4 py-3 text-sm">
                     <span
                       className={`inline-flex px-2 py-1 text-xs font-semibold rounded ${
@@ -380,10 +467,6 @@ export default function Members() {
           roles={roles}
           displayName={displayName}
           setDisplayName={setDisplayName}
-          discordUserId={discordUserId}
-          setDiscordUserId={setDiscordUserId}
-          email={email}
-          setEmail={setEmail}
           isActive={isActive}
           setIsActive={setIsActive}
           selectedRoleIds={selectedRoleIds}
@@ -400,6 +483,7 @@ export default function Members() {
           data={actualAttendanceData}
           loading={loadingActualAttendance}
           onClose={() => setShowActualAttendanceModal(false)}
+          filteredMemberIds={allowedMemberIdsByGroup}
         />
       )}
 
@@ -409,6 +493,16 @@ export default function Members() {
           data={attendanceConfirmationData}
           loading={loadingAttendanceConfirmation}
           onClose={() => setShowAttendanceConfirmationModal(false)}
+          filteredMemberIds={allowedMemberIdsByGroup}
+        />
+      )}
+
+      {/* 一括登録モーダル */}
+      {showBulkImportModal && (
+        <BulkImportModal
+          roles={roles}
+          onClose={() => setShowBulkImportModal(false)}
+          onSuccess={handleBulkImportSuccess}
         />
       )}
     </div>
@@ -421,10 +515,6 @@ function MemberFormModal({
   roles,
   displayName,
   setDisplayName,
-  discordUserId,
-  setDiscordUserId,
-  email,
-  setEmail,
   isActive,
   setIsActive,
   selectedRoleIds,
@@ -437,10 +527,6 @@ function MemberFormModal({
   roles: Role[];
   displayName: string;
   setDisplayName: (v: string) => void;
-  discordUserId: string;
-  setDiscordUserId: (v: string) => void;
-  email: string;
-  setEmail: (v: string) => void;
   isActive: boolean;
   setIsActive: (v: boolean) => void;
   selectedRoleIds: string[];
@@ -477,30 +563,6 @@ function MemberFormModal({
               required
               disabled={submitting}
               autoFocus
-            />
-          </div>
-
-          <div className="mb-4">
-            <label className="label">Discord User ID</label>
-            <input
-              type="text"
-              value={discordUserId}
-              onChange={(e) => setDiscordUserId(e.target.value)}
-              className="input-field"
-              disabled={submitting}
-              placeholder="オプション"
-            />
-          </div>
-
-          <div className="mb-4">
-            <label className="label">Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="input-field"
-              disabled={submitting}
-              placeholder="オプション"
             />
           </div>
 
@@ -572,11 +634,19 @@ function ActualAttendanceModal({
   data,
   loading,
   onClose,
+  filteredMemberIds,
 }: {
   data: RecentAttendanceResponse | null;
   loading: boolean;
   onClose: () => void;
+  filteredMemberIds: Set<string> | null;
 }) {
+  // フィルタリング適用
+  const displayedAttendances = useMemo(() => {
+    if (!data?.member_attendances) return [];
+    if (!filteredMemberIds) return data.member_attendances;
+    return data.member_attendances.filter((ma) => filteredMemberIds.has(ma.member_id));
+  }, [data?.member_attendances, filteredMemberIds]);
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-lg max-w-6xl w-full p-6 max-h-[90vh] overflow-y-auto">
@@ -600,7 +670,7 @@ function ActualAttendanceModal({
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
             <p className="mt-4 text-gray-600">読み込み中...</p>
           </div>
-        ) : data && data.target_dates && data.target_dates.length > 0 ? (
+        ) : data && data.target_dates && data.target_dates.length > 0 && displayedAttendances.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="min-w-full text-xs border-collapse border border-gray-300">
               <thead>
@@ -619,7 +689,7 @@ function ActualAttendanceModal({
                 </tr>
               </thead>
               <tbody>
-                {(data.member_attendances || []).map((memberAtt) => (
+                {displayedAttendances.map((memberAtt) => (
                   <tr key={memberAtt.member_id} className="hover:bg-gray-50">
                     <td className="border border-gray-300 px-2 py-1 font-medium sticky left-0 bg-white z-10">
                       {memberAtt.member_name}
@@ -644,11 +714,12 @@ function ActualAttendanceModal({
             </table>
             <p className="text-xs text-gray-500 mt-2">
               ○: シフト割り当てあり、×: シフト割り当てなし
+              {filteredMemberIds && ` （${displayedAttendances.length}人表示中）`}
             </p>
           </div>
         ) : (
           <div className="text-center py-12 text-gray-500">
-            本出席データがありません
+            {filteredMemberIds ? '選択したグループのメンバーのデータがありません' : '本出席データがありません'}
           </div>
         )}
       </div>
@@ -661,11 +732,19 @@ function AttendanceConfirmationModal({
   data,
   loading,
   onClose,
+  filteredMemberIds,
 }: {
   data: RecentAttendanceResponse | null;
   loading: boolean;
   onClose: () => void;
+  filteredMemberIds: Set<string> | null;
 }) {
+  // フィルタリング適用
+  const displayedAttendances = useMemo(() => {
+    if (!data?.member_attendances) return [];
+    if (!filteredMemberIds) return data.member_attendances;
+    return data.member_attendances.filter((ma) => filteredMemberIds.has(ma.member_id));
+  }, [data?.member_attendances, filteredMemberIds]);
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-lg max-w-6xl w-full p-6 max-h-[90vh] overflow-y-auto">
@@ -689,7 +768,7 @@ function AttendanceConfirmationModal({
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
             <p className="mt-4 text-gray-600">読み込み中...</p>
           </div>
-        ) : data && data.target_dates && data.target_dates.length > 0 ? (
+        ) : data && data.target_dates && data.target_dates.length > 0 && displayedAttendances.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="min-w-full text-xs border-collapse border border-gray-300">
               <thead>
@@ -708,7 +787,7 @@ function AttendanceConfirmationModal({
                 </tr>
               </thead>
               <tbody>
-                {(data.member_attendances || []).map((memberAtt) => (
+                {displayedAttendances.map((memberAtt) => (
                   <tr key={memberAtt.member_id} className="hover:bg-gray-50">
                     <td className="border border-gray-300 px-2 py-1 font-medium sticky left-0 bg-white z-10">
                       {memberAtt.member_name}
@@ -736,11 +815,12 @@ function AttendanceConfirmationModal({
             </table>
             <p className="text-xs text-gray-500 mt-2">
               ○: 参加予定、×: 不参加、-: 未回答
+              {filteredMemberIds && ` （${displayedAttendances.length}人表示中）`}
             </p>
           </div>
         ) : (
           <div className="text-center py-12 text-gray-500">
-            出欠確認データがありません
+            {filteredMemberIds ? '選択したグループのメンバーのデータがありません' : '出欠確認データがありません'}
           </div>
         )}
       </div>
@@ -748,4 +828,254 @@ function AttendanceConfirmationModal({
   );
 }
 
+// 一括登録用のメンバーデータ
+interface BulkMemberData {
+  displayName: string;
+  roleIds: string[];
+}
 
+// 一括登録モーダル
+function BulkImportModal({
+  roles,
+  onClose,
+  onSuccess,
+}: {
+  roles: Role[];
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [step, setStep] = useState<1 | 2>(1);
+  const [text, setText] = useState('');
+  const [membersData, setMembersData] = useState<BulkMemberData[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  // Step 1: テキストから名前を解析
+  const parseNames = () => {
+    const lines = text
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
+
+    if (lines.length === 0) {
+      setError('メンバー名を入力してください');
+      return;
+    }
+
+    if (lines.length > 100) {
+      setError('一度に登録できるのは100名までです');
+      return;
+    }
+
+    setMembersData(lines.map((name) => ({ displayName: name, roleIds: [] })));
+    setError('');
+    setStep(2);
+  };
+
+  // Step 2: ロール選択を更新
+  const toggleRole = (index: number, roleId: string) => {
+    setMembersData((prev) =>
+      prev.map((m, i) => {
+        if (i !== index) return m;
+        const newRoleIds = m.roleIds.includes(roleId)
+          ? m.roleIds.filter((id) => id !== roleId)
+          : [...m.roleIds, roleId];
+        return { ...m, roleIds: newRoleIds };
+      })
+    );
+  };
+
+  // 全員に同じロールを適用
+  const applyRoleToAll = (roleId: string, checked: boolean) => {
+    setMembersData((prev) =>
+      prev.map((m) => ({
+        ...m,
+        roleIds: checked
+          ? [...new Set([...m.roleIds, roleId])]
+          : m.roleIds.filter((id) => id !== roleId),
+      }))
+    );
+  };
+
+  // 登録実行
+  const handleSubmit = async () => {
+    setLoading(true);
+    setError('');
+
+    try {
+      const members: BulkImportMemberInput[] = membersData.map((m) => ({
+        display_name: m.displayName,
+        role_ids: m.roleIds.length > 0 ? m.roleIds : undefined,
+      }));
+
+      const result = await bulkImportMembers(members);
+
+      if (result.failed_count > 0) {
+        const failedNames = result.results
+          .filter((r) => !r.success)
+          .map((r) => `${r.display_name}: ${r.error}`)
+          .join('\n');
+        setError(`${result.success_count}名を登録しました。\n失敗: ${result.failed_count}名\n${failedNames}`);
+      }
+
+      if (result.success_count > 0) {
+        onSuccess();
+      }
+
+      if (result.failed_count === 0) {
+        onClose();
+      }
+    } catch (err) {
+      if (err instanceof ApiClientError) {
+        setError(err.getUserMessage());
+      } else {
+        setError('一括登録に失敗しました');
+      }
+      console.error('Bulk import failed:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const lineCount = text.split('\n').filter((l) => l.trim()).length;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-lg max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
+        <h3 className="text-xl font-bold text-gray-900 mb-4">
+          メンバー一括登録 {step === 2 && `(${membersData.length}名)`}
+        </h3>
+
+        {step === 1 && (
+          <>
+            <div className="mb-4">
+              <label htmlFor="bulk-names" className="label">
+                メンバー名 <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                id="bulk-names"
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                className="input-field h-40 font-mono text-sm"
+                autoFocus
+                placeholder="1行に1名ずつ入力&#10;例:&#10;山田太郎&#10;佐藤花子&#10;鈴木一郎"
+              />
+              <p className="text-sm text-gray-500 mt-1">
+                {lineCount > 0 ? `${lineCount}名` : '1行に1名ずつ入力（最大100名）'}
+              </p>
+            </div>
+
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+                <p className="text-sm text-red-800 whitespace-pre-wrap">{error}</p>
+              </div>
+            )}
+
+            <div className="flex space-x-3">
+              <button type="button" onClick={onClose} className="flex-1 btn-secondary">
+                キャンセル
+              </button>
+              <button
+                type="button"
+                onClick={parseNames}
+                className="flex-1 btn-primary"
+                disabled={lineCount === 0}
+              >
+                次へ：ロール設定
+              </button>
+            </div>
+          </>
+        )}
+
+        {step === 2 && (
+          <>
+            {roles.length > 0 && (
+              <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+                <p className="text-sm font-medium text-gray-700 mb-2">全員に適用</p>
+                <div className="flex flex-wrap gap-2">
+                  {roles.map((role) => (
+                    <label
+                      key={role.role_id}
+                      className="inline-flex items-center px-2 py-1 rounded text-xs font-medium cursor-pointer border-2 border-transparent hover:border-gray-300"
+                      style={{ backgroundColor: role.color || '#6B7280', color: 'white' }}
+                    >
+                      <input
+                        type="checkbox"
+                        className="sr-only"
+                        onChange={(e) => applyRoleToAll(role.role_id, e.target.checked)}
+                      />
+                      {role.name}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="mb-4 border border-gray-200 rounded-lg overflow-hidden">
+              <table className="min-w-full text-sm">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-2 text-left font-medium text-gray-700">名前</th>
+                    <th className="px-4 py-2 text-left font-medium text-gray-700">ロール</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200 max-h-64 overflow-y-auto">
+                  {membersData.map((member, index) => (
+                    <tr key={index} className="hover:bg-gray-50">
+                      <td className="px-4 py-2 font-medium text-gray-900">{member.displayName}</td>
+                      <td className="px-4 py-2">
+                        <div className="flex flex-wrap gap-1">
+                          {roles.map((role) => {
+                            const isSelected = member.roleIds.includes(role.role_id);
+                            return (
+                              <button
+                                key={role.role_id}
+                                type="button"
+                                onClick={() => toggleRole(index, role.role_id)}
+                                className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium transition-opacity ${
+                                  isSelected ? 'opacity-100' : 'opacity-40'
+                                }`}
+                                style={{ backgroundColor: role.color || '#6B7280', color: 'white' }}
+                              >
+                                {role.name}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+                <p className="text-sm text-red-800 whitespace-pre-wrap">{error}</p>
+              </div>
+            )}
+
+            <div className="flex space-x-3">
+              <button
+                type="button"
+                onClick={() => setStep(1)}
+                className="flex-1 btn-secondary"
+                disabled={loading}
+              >
+                戻る
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmit}
+                className="flex-1 btn-primary"
+                disabled={loading}
+              >
+                {loading ? '登録中...' : `${membersData.length}名を登録`}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}

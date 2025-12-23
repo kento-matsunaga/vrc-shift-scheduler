@@ -32,3 +32,26 @@ type EventRepository interface {
 	ExistsByName(ctx context.Context, tenantID common.TenantID, eventName string) (bool, error)
 }
 
+// EventGroupAssignmentRepository defines the interface for event group assignment persistence
+type EventGroupAssignmentRepository interface {
+	// SaveGroupAssignments saves member group assignments for an event
+	// Replaces all existing assignments with the new ones
+	SaveGroupAssignments(ctx context.Context, eventID common.EventID, groupIDs []common.MemberGroupID) error
+
+	// FindGroupAssignmentsByEventID returns all group assignments for an event
+	FindGroupAssignmentsByEventID(ctx context.Context, eventID common.EventID) ([]*EventGroupAssignment, error)
+
+	// DeleteGroupAssignments deletes all group assignments for an event
+	DeleteGroupAssignments(ctx context.Context, eventID common.EventID) error
+
+	// SaveRoleGroupAssignments saves role group assignments for an event
+	// Replaces all existing assignments with the new ones
+	SaveRoleGroupAssignments(ctx context.Context, eventID common.EventID, roleGroupIDs []common.RoleGroupID) error
+
+	// FindRoleGroupAssignmentsByEventID returns all role group assignments for an event
+	FindRoleGroupAssignmentsByEventID(ctx context.Context, eventID common.EventID) ([]*EventRoleGroupAssignment, error)
+
+	// DeleteRoleGroupAssignments deletes all role group assignments for an event
+	DeleteRoleGroupAssignments(ctx context.Context, eventID common.EventID) error
+}
+

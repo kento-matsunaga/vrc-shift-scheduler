@@ -117,6 +117,7 @@ type CreateScheduleRequest struct {
 	EventID     *string              `json:"event_id"`
 	Candidates  []CandidateRequest   `json:"candidates"`
 	Deadline    *time.Time           `json:"deadline"`
+	GroupIDs    []string             `json:"group_ids"` // optional: target group IDs
 }
 
 type CandidateRequest struct {
@@ -176,6 +177,7 @@ func (h *ScheduleHandler) CreateSchedule(w http.ResponseWriter, r *http.Request)
 		EventID:     req.EventID,
 		Candidates:  candidates,
 		Deadline:    req.Deadline,
+		GroupIDs:    req.GroupIDs,
 	}
 
 	output, err := h.createScheduleUsecase.Execute(ctx, input)
@@ -219,6 +221,7 @@ type GetScheduleResponse struct {
 	Deadline           *time.Time          `json:"deadline"`
 	DecidedCandidateID *string             `json:"decided_candidate_id"`
 	Candidates         []CandidateResponse `json:"candidates"`
+	GroupIDs           []string            `json:"group_ids,omitempty"`
 	CreatedAt          time.Time           `json:"created_at"`
 	UpdatedAt          time.Time           `json:"updated_at"`
 }
@@ -288,6 +291,7 @@ func (h *ScheduleHandler) GetSchedule(w http.ResponseWriter, r *http.Request) {
 		Deadline:           output.Deadline,
 		DecidedCandidateID: output.DecidedCandidateID,
 		Candidates:         candidates,
+		GroupIDs:           output.GroupIDs,
 		CreatedAt:          output.CreatedAt,
 		UpdatedAt:          output.UpdatedAt,
 	}
@@ -539,6 +543,7 @@ func (h *ScheduleHandler) GetScheduleByToken(w http.ResponseWriter, r *http.Requ
 		Deadline:           output.Deadline,
 		DecidedCandidateID: output.DecidedCandidateID,
 		Candidates:         candidates,
+		GroupIDs:           output.GroupIDs,
 		CreatedAt:          output.CreatedAt,
 		UpdatedAt:          output.UpdatedAt,
 	}

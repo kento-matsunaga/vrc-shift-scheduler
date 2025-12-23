@@ -76,7 +76,27 @@ func (u *CreateCollectionUsecase) Execute(ctx context.Context, input CreateColle
 		}
 	}
 
-	// 6. Return output DTO
+	// 6. Save group assignments if provided
+	if len(input.GroupIDs) > 0 {
+		var assignments []*attendance.CollectionGroupAssignment
+		for _, groupIDStr := range input.GroupIDs {
+			groupID, err := common.ParseMemberGroupID(groupIDStr)
+			if err != nil {
+				return nil, err
+			}
+			assignment, err := attendance.NewCollectionGroupAssignment(now, collection.CollectionID(), groupID)
+			if err != nil {
+				return nil, err
+			}
+			assignments = append(assignments, assignment)
+		}
+
+		if err := u.repo.SaveGroupAssignments(ctx, collection.CollectionID(), assignments); err != nil {
+			return nil, err
+		}
+	}
+
+	// 7. Return output DTO
 	return &CreateCollectionOutput{
 		CollectionID: collection.CollectionID().String(),
 		TenantID:     collection.TenantID().String(),

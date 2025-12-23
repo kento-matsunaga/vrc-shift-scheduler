@@ -56,7 +56,19 @@ func (u *GetCollectionByTokenUsecase) Execute(ctx context.Context, input GetColl
 		})
 	}
 
-	// 4. Return output DTO
+	// 4. Find group assignments
+	groupAssignments, err := u.repo.FindGroupAssignmentsByCollectionID(ctx, collection.CollectionID())
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert group assignments to string array
+	var groupIDs []string
+	for _, ga := range groupAssignments {
+		groupIDs = append(groupIDs, ga.GroupID().String())
+	}
+
+	// 5. Return output DTO
 	return &GetCollectionOutput{
 		CollectionID: collection.CollectionID().String(),
 		TenantID:     collection.TenantID().String(),
@@ -68,6 +80,7 @@ func (u *GetCollectionByTokenUsecase) Execute(ctx context.Context, input GetColl
 		PublicToken:  collection.PublicToken().String(),
 		Status:       collection.Status().String(),
 		Deadline:     collection.Deadline(),
+		GroupIDs:     groupIDs,
 		CreatedAt:    collection.CreatedAt(),
 		UpdatedAt:    collection.UpdatedAt(),
 	}, nil

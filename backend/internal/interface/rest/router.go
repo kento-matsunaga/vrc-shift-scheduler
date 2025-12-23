@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/app/auth"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/application/usecase"
@@ -98,6 +99,10 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			// Event配下の営業日生成
 			r.Post("/{event_id}/generate-business-days", eventHandler.GenerateBusinessDays)
 
+			// Event配下のグループ割り当て
+			r.Get("/{event_id}/groups", eventHandler.GetGroupAssignments)
+			r.Put("/{event_id}/groups", eventHandler.UpdateGroupAssignments)
+
 			// Event配下のShiftTemplate
 			r.Post("/{event_id}/templates", shiftTemplateHandler.CreateTemplate)
 			r.Get("/{event_id}/templates", shiftTemplateHandler.ListTemplates)
@@ -124,6 +129,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		// Member API
 		r.Route("/members", func(r chi.Router) {
 			r.Post("/", memberHandler.CreateMember)
+			r.Post("/bulk-import", memberHandler.BulkImportMembers)
 			r.Get("/", memberHandler.GetMembers)
 			r.Get("/recent-attendance", memberHandler.GetRecentAttendance)
 			r.Get("/{member_id}", memberHandler.GetMemberDetail)
@@ -138,6 +144,28 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			r.Get("/{role_id}", roleHandler.GetRole)
 			r.Put("/{role_id}", roleHandler.UpdateRole)
 			r.Delete("/{role_id}", roleHandler.DeleteRole)
+		})
+
+		// Member Group API
+		memberGroupHandler := NewMemberGroupHandler(dbPool)
+		r.Route("/member-groups", func(r chi.Router) {
+			r.Post("/", memberGroupHandler.CreateGroup)
+			r.Get("/", memberGroupHandler.ListGroups)
+			r.Get("/{group_id}", memberGroupHandler.GetGroup)
+			r.Put("/{group_id}", memberGroupHandler.UpdateGroup)
+			r.Delete("/{group_id}", memberGroupHandler.DeleteGroup)
+			r.Put("/{group_id}/members", memberGroupHandler.AssignMembers)
+		})
+
+		// Role Group API
+		roleGroupHandler := NewRoleGroupHandler(dbPool)
+		r.Route("/role-groups", func(r chi.Router) {
+			r.Post("/", roleGroupHandler.CreateGroup)
+			r.Get("/", roleGroupHandler.ListGroups)
+			r.Get("/{group_id}", roleGroupHandler.GetGroup)
+			r.Put("/{group_id}", roleGroupHandler.UpdateGroup)
+			r.Delete("/{group_id}", roleGroupHandler.DeleteGroup)
+			r.Put("/{group_id}/roles", roleGroupHandler.AssignRoles)
 		})
 
 		// Actual Attendance API（本出席 - 実際のシフト割り当て実績）
@@ -263,16 +291,49 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 
 	// 公開ページ用メンバー一覧API（認証不要）
 	// NOTE: MVPでは簡易実装としてテナントIDを指定してメンバー一覧を取得可能
+	// group_ids パラメータで対象グループを指定可能（カンマ区切り）
 	r.Get("/api/v1/public/members", func(w http.ResponseWriter, r *http.Request) {
 		tenantID := r.URL.Query().Get("tenant_id")
 		if tenantID == "" {
 			RespondBadRequest(w, "tenant_id is required")
 			return
 		}
+
+		// group_ids パラメータの取得（カンマ区切り）
+		groupIDsParam := r.URL.Query().Get("group_ids")
+		var allowedMemberIDs map[string]struct{}
+		if groupIDsParam != "" {
+			groupIDStrs := strings.Split(groupIDsParam, ",")
+			memberGroupRepo := db.NewMemberGroupRepository(dbPool)
+			allowedMemberIDs = make(map[string]struct{})
+
+			// 各グループからメンバーIDを取得
+			for _, gidStr := range groupIDStrs {
+				gidStr = strings.TrimSpace(gidStr)
+				if gidStr == "" {
+					continue
+				}
+				gid, err := common.ParseMemberGroupID(gidStr)
+				if err != nil {
+					continue
+				}
+				memberIDs, err := memberGroupRepo.FindMemberIDsByGroupID(r.Context(), gid)
+				if err != nil {
+					continue
+				}
+				for _, mid := range memberIDs {
+					allowedMemberIDs[mid.String()] = struct{}{}
+				}
+			}
+		}
+
 		// memberHandler を使用
 		memberHandler := NewMemberHandler(dbPool)
-		// Contextにテナント情報を設定
+		// Contextにテナント情報とフィルター用メンバーIDを設定
 		ctx := context.WithValue(r.Context(), ContextKeyTenantID, common.TenantID(tenantID))
+		if allowedMemberIDs != nil {
+			ctx = context.WithValue(ctx, ContextKeyAllowedMemberIDs, allowedMemberIDs)
+		}
 		r = r.WithContext(ctx)
 		memberHandler.GetMembers(w, r)
 	})

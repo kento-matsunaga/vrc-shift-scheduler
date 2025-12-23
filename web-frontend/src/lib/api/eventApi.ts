@@ -74,3 +74,30 @@ export async function generateBusinessDays(eventId: string): Promise<GenerateBus
   return res.data;
 }
 
+/**
+ * イベントグループ割り当ての型
+ */
+export interface EventGroupAssignments {
+  member_group_ids: string[];
+  role_group_ids: string[];
+}
+
+/**
+ * イベントのグループ割り当て取得
+ */
+export async function getEventGroupAssignments(eventId: string): Promise<EventGroupAssignments> {
+  const res = await apiClient.get<ApiResponse<EventGroupAssignments>>(`/api/v1/events/${eventId}/groups`);
+  return res.data;
+}
+
+/**
+ * イベントのグループ割り当て更新
+ */
+export async function updateEventGroupAssignments(
+  eventId: string,
+  data: EventGroupAssignments
+): Promise<EventGroupAssignments> {
+  const res = await apiClient.put<ApiResponse<EventGroupAssignments>>(`/api/v1/events/${eventId}/groups`, data);
+  return res.data;
+}
+

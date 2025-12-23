@@ -395,3 +395,90 @@ func (r *ScheduleRepository) scanSchedule(
 	return schedule.ReconstructDateSchedule(scheduleID, tenantID, title, description, eventID, publicToken, status,
 		deadlinePtr, decidedCandidateID, candidates, createdAt, updatedAt, deletedAtPtr)
 }
+
+// SaveGroupAssignments saves group assignments for a schedule (deletes existing ones first)
+func (r *ScheduleRepository) SaveGroupAssignments(ctx context.Context, scheduleID common.ScheduleID, assignments []*schedule.ScheduleGroupAssignment) error {
+	executor := GetTx(ctx, r.pool)
+
+	// 既存のグループ割り当てを削除
+	deleteQuery := `DELETE FROM date_schedule_group_assignments WHERE schedule_id = $1`
+	_, err := executor.Exec(ctx, deleteQuery, scheduleID.String())
+	if err != nil {
+		return fmt.Errorf("failed to delete old group assignments: %w", err)
+	}
+
+	// 新しいグループ割り当てを挿入
+	if len(assignments) == 0 {
+		return nil
+	}
+
+	insertQuery := `
+		INSERT INTO date_schedule_group_assignments (
+			schedule_id, group_id, created_at
+		) VALUES ($1, $2, $3)
+	`
+
+	for _, a := range assignments {
+		_, err := executor.Exec(ctx, insertQuery,
+			a.ScheduleID().String(),
+			a.GroupID().String(),
+			a.CreatedAt(),
+		)
+		if err != nil {
+			return fmt.Errorf("failed to save group assignment: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// FindGroupAssignmentsByScheduleID finds all group assignments for a schedule
+func (r *ScheduleRepository) FindGroupAssignmentsByScheduleID(ctx context.Context, scheduleID common.ScheduleID) ([]*schedule.ScheduleGroupAssignment, error) {
+	query := `
+		SELECT schedule_id, group_id, created_at
+		FROM date_schedule_group_assignments
+		WHERE schedule_id = $1
+		ORDER BY created_at
+	`
+
+	executor := GetTx(ctx, r.pool)
+	rows, err := executor.Query(ctx, query, scheduleID.String())
+	if err != nil {
+		return nil, fmt.Errorf("failed to query group assignments: %w", err)
+	}
+	defer rows.Close()
+
+	var assignments []*schedule.ScheduleGroupAssignment
+	for rows.Next() {
+		var scheduleIDStr, groupIDStr string
+		var createdAt time.Time
+
+		err := rows.Scan(&scheduleIDStr, &groupIDStr, &createdAt)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan group assignment: %w", err)
+		}
+
+		parsedScheduleID, err := common.ParseScheduleID(scheduleIDStr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse schedule_id: %w", err)
+		}
+
+		groupID, err := common.ParseMemberGroupID(groupIDStr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse group_id: %w", err)
+		}
+
+		assignment, err := schedule.ReconstructScheduleGroupAssignment(parsedScheduleID, groupID, createdAt)
+		if err != nil {
+			return nil, fmt.Errorf("failed to reconstruct group assignment: %w", err)
+		}
+
+		assignments = append(assignments, assignment)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration error: %w", err)
+	}
+
+	return assignments, nil
+}

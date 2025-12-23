@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { getShiftSlotDetail, getMembers, confirmAssignment, getRecentAttendance, getActualAttendance, getBusinessDayDetail, getAssignments, cancelAssignment } from '../lib/api';
 import { listRoles, type Role } from '../lib/api/roleApi';
+import { getMemberGroups, type MemberGroup } from '../lib/api/memberGroupApi';
+import { getRoleGroups, type RoleGroup } from '../lib/api/roleGroupApi';
+import { getEventGroupAssignments, type EventGroupAssignments } from '../lib/api/eventApi';
 import type { ShiftSlot, Member, RecentAttendanceResponse } from '../types/api';
 import { ApiClientError } from '../lib/apiClient';
 
@@ -12,8 +15,12 @@ export default function AssignShift() {
   const [businessDay, setBusinessDay] = useState<any | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
+  const [memberGroups, setMemberGroups] = useState<MemberGroup[]>([]);
+  const [roleGroups, setRoleGroups] = useState<RoleGroup[]>([]);
+  const [eventGroupAssignments, setEventGroupAssignments] = useState<EventGroupAssignments | null>(null);
   const [actualAttendance, setActualAttendance] = useState<RecentAttendanceResponse | null>(null);
   const [todayAttendance, setTodayAttendance] = useState<string[]>([]);
+  const [todayAttendingMemberIds, setTodayAttendingMemberIds] = useState<string[]>([]);
   const [existingAssignmentIds, setExistingAssignmentIds] = useState<string[]>([]);
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
   const [note, setNote] = useState('');
@@ -25,6 +32,8 @@ export default function AssignShift() {
   // ロールフィルター（表用とメンバー選択用で別々に管理）
   const [tableFilterRoleIds, setTableFilterRoleIds] = useState<string[]>([]);
   const [memberFilterRoleIds, setMemberFilterRoleIds] = useState<string[]>([]);
+  // 参加回答者のみ表示フィルター
+  const [showOnlyAttending, setShowOnlyAttending] = useState(false);
 
   // ロールのカラーを取得
   const getRoleColor = (roleId: string) => {
@@ -44,21 +53,95 @@ export default function AssignShift() {
     return member?.role_ids || [];
   };
 
-  // フィルタリングされたメンバー一覧（メンバー選択用）
-  const filteredMembers = memberFilterRoleIds.length > 0
-    ? members.filter((m) => m.role_ids?.some((roleId) => memberFilterRoleIds.includes(roleId)))
+  // イベントのグループ設定に基づいて許可されたメンバーIDリストを取得
+  const getAllowedMemberIds = (): string[] | null => {
+    if (!eventGroupAssignments || eventGroupAssignments.member_group_ids.length === 0) {
+      return null; // グループ設定がなければ全員許可
+    }
+    const allowedIds = new Set<string>();
+    for (const groupId of eventGroupAssignments.member_group_ids) {
+      const group = memberGroups.find((g) => g.group_id === groupId);
+      if (group?.member_ids) {
+        group.member_ids.forEach((id) => allowedIds.add(id));
+      }
+    }
+    return Array.from(allowedIds);
+  };
+
+  // イベントのグループ設定に基づいて許可されたロールIDリストを取得
+  const getAllowedRoleIds = (): string[] | null => {
+    if (!eventGroupAssignments || eventGroupAssignments.role_group_ids.length === 0) {
+      return null; // グループ設定がなければ全ロール許可
+    }
+    const allowedIds = new Set<string>();
+    for (const groupId of eventGroupAssignments.role_group_ids) {
+      const group = roleGroups.find((g) => g.group_id === groupId);
+      if (group?.role_ids) {
+        group.role_ids.forEach((id) => allowedIds.add(id));
+      }
+    }
+    return Array.from(allowedIds);
+  };
+
+  // 許可されたメンバー一覧
+  const allowedMemberIds = getAllowedMemberIds();
+  const allowedMembers = allowedMemberIds
+    ? members.filter((m) => allowedMemberIds.includes(m.member_id))
     : members;
+
+  // 許可されたロール一覧
+  const allowedRoleIds = getAllowedRoleIds();
+  const allowedRoles = allowedRoleIds
+    ? roles.filter((r) => allowedRoleIds.includes(r.role_id))
+    : roles;
+
+  // フィルタリングされたメンバー一覧（メンバー選択用）
+  const filteredMembers = allowedMembers.filter((m) => {
+    // ロールフィルター（許可されたロールのみ）
+    if (memberFilterRoleIds.length > 0) {
+      const memberAllowedRoleIds = allowedRoleIds
+        ? m.role_ids?.filter((rid) => allowedRoleIds.includes(rid)) || []
+        : m.role_ids || [];
+      if (!memberAllowedRoleIds.some((roleId) => memberFilterRoleIds.includes(roleId))) {
+        return false;
+      }
+    }
+    // 参加回答者フィルター
+    if (showOnlyAttending && todayAttendingMemberIds.length > 0) {
+      if (!todayAttendingMemberIds.includes(m.member_id)) {
+        return false;
+      }
+    }
+    return true;
+  });
 
   // フィルタリングされた本出席データ（表用）
   const filteredActualAttendance = actualAttendance
     ? {
         ...actualAttendance,
-        member_attendances: tableFilterRoleIds.length > 0
-          ? actualAttendance.member_attendances.filter((memberAtt) => {
-              const memberRoleIds = getMemberRoleIds(memberAtt.member_id);
-              return memberRoleIds.some((roleId) => tableFilterRoleIds.includes(roleId));
-            })
-          : actualAttendance.member_attendances,
+        member_attendances: actualAttendance.member_attendances.filter((memberAtt) => {
+          // グループフィルター（イベントに割り当てられたメンバーグループのみ）
+          if (allowedMemberIds && !allowedMemberIds.includes(memberAtt.member_id)) {
+            return false;
+          }
+          // ロールフィルター（許可されたロールのみ）
+          if (tableFilterRoleIds.length > 0) {
+            const memberRoleIds = getMemberRoleIds(memberAtt.member_id);
+            const memberAllowedRoleIds = allowedRoleIds
+              ? memberRoleIds.filter((rid) => allowedRoleIds.includes(rid))
+              : memberRoleIds;
+            if (!memberAllowedRoleIds.some((roleId) => tableFilterRoleIds.includes(roleId))) {
+              return false;
+            }
+          }
+          // 参加回答者フィルター
+          if (showOnlyAttending && todayAttendingMemberIds.length > 0) {
+            if (!todayAttendingMemberIds.includes(memberAtt.member_id)) {
+              return false;
+            }
+          }
+          return true;
+        }),
       }
     : null;
 
@@ -76,10 +159,12 @@ export default function AssignShift() {
       const shiftSlotData = await getShiftSlotDetail(slotId);
       setShiftSlot(shiftSlotData);
 
-      const [businessDayData, membersData, rolesData, recentAttendanceData, actualAttendanceData, existingAssignments] = await Promise.all([
+      const [businessDayData, membersData, rolesData, memberGroupsData, roleGroupsData, recentAttendanceData, actualAttendanceData, existingAssignments] = await Promise.all([
         getBusinessDayDetail(shiftSlotData.business_day_id),
         getMembers({ is_active: true }),
         listRoles(),
+        getMemberGroups(),
+        getRoleGroups(),
         getRecentAttendance({ limit: 30 }),
         getActualAttendance({ limit: 30 }),
         getAssignments({ slot_id: slotId, assignment_status: 'confirmed' }),
@@ -88,7 +173,21 @@ export default function AssignShift() {
       setBusinessDay(businessDayData);
       setMembers(membersData.members || []);
       setRoles(rolesData || []);
+      setMemberGroups(memberGroupsData.groups || []);
+      setRoleGroups(roleGroupsData.groups || []);
       setActualAttendance(actualAttendanceData);
+
+      // イベントのグループ割り当てを取得
+      let groupAssignments: EventGroupAssignments | null = null;
+      if (businessDayData.event_id) {
+        try {
+          groupAssignments = await getEventGroupAssignments(businessDayData.event_id);
+          setEventGroupAssignments(groupAssignments);
+        } catch (err) {
+          console.warn('Failed to load event group assignments:', err);
+          // グループ割り当てがなくても続行
+        }
+      }
 
       // 既存の割り当てを初期選択状態にする
       const assignments = existingAssignments.assignments || [];
@@ -97,22 +196,48 @@ export default function AssignShift() {
       setSelectedMemberIds(assignedMemberIds);
       setExistingAssignmentIds(assignmentIds);
 
+      // イベントのグループ設定に基づいて許可されたメンバーIDを計算
+      let allowedMemberIdsForAttendance: string[] | null = null;
+      if (groupAssignments && groupAssignments.member_group_ids.length > 0) {
+        const allowedIds = new Set<string>();
+        for (const groupId of groupAssignments.member_group_ids) {
+          const group = memberGroupsData.groups?.find((g) => g.group_id === groupId);
+          if (group?.member_ids) {
+            group.member_ids.forEach((id) => allowedIds.add(id));
+          }
+        }
+        allowedMemberIdsForAttendance = Array.from(allowedIds);
+      }
+
       // この営業日と同じ日付の出欠確認データを集計（参加予定者のみ）
+      // 同じ日付の複数のtarget_dateをすべて集計する
       const targetDateStr = businessDayData.target_date.split('T')[0]; // YYYY-MM-DD
-      const matchingTargetDate = recentAttendanceData.target_dates.find((td) => {
+      const matchingTargetDates = recentAttendanceData.target_dates.filter((td) => {
         const tdStr = td.target_date.split('T')[0];
         return tdStr === targetDateStr;
       });
 
-      if (matchingTargetDate) {
-        const attendingMembers: string[] = [];
-        recentAttendanceData.member_attendances.forEach((memberAtt) => {
-          const response = memberAtt.attendance_map[matchingTargetDate.target_date_id];
-          if (response === 'attending') {
-            attendingMembers.push(memberAtt.member_name);
+      if (matchingTargetDates.length > 0) {
+        const attendingMemberNamesSet = new Set<string>();
+        const attendingMemberIdSet = new Set<string>();
+        // グループ設定がある場合は許可されたメンバーのみをフィルター
+        const filteredMemberAttendances = allowedMemberIdsForAttendance
+          ? recentAttendanceData.member_attendances.filter((ma) => allowedMemberIdsForAttendance!.includes(ma.member_id))
+          : recentAttendanceData.member_attendances;
+
+        filteredMemberAttendances.forEach((memberAtt) => {
+          // 複数のtarget_dateをチェックし、いずれかで"attending"なら参加予定
+          for (const matchingTargetDate of matchingTargetDates) {
+            const response = memberAtt.attendance_map[matchingTargetDate.target_date_id];
+            if (response === 'attending') {
+              attendingMemberNamesSet.add(memberAtt.member_name);
+              attendingMemberIdSet.add(memberAtt.member_id);
+              break; // 1つでも参加なら追加してループ終了
+            }
           }
         });
-        setTodayAttendance(attendingMembers);
+        setTodayAttendance(Array.from(attendingMemberNamesSet));
+        setTodayAttendingMemberIds(Array.from(attendingMemberIdSet));
       }
     } catch (err) {
       if (err instanceof ApiClientError) {
@@ -248,9 +373,31 @@ export default function AssignShift() {
         {/* この日の参加予定メンバー */}
         {businessDay && todayAttendance.length > 0 && (
           <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-            <h3 className="font-bold text-gray-900 mb-2">
-              {new Date(businessDay.target_date).toLocaleDateString('ja-JP')} の参加予定メンバー
-            </h3>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="font-bold text-gray-900">
+                {new Date(businessDay.target_date).toLocaleDateString('ja-JP')} の参加予定メンバー
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowOnlyAttending(!showOnlyAttending)}
+                className={`inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
+                  showOnlyAttending
+                    ? 'bg-green-600 text-white ring-2 ring-green-600 ring-offset-2'
+                    : 'bg-white text-green-700 border border-green-300 hover:bg-green-50'
+                }`}
+              >
+                {showOnlyAttending ? (
+                  <>
+                    <svg className="w-4 h-4 mr-1.5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                    参加者のみ表示中
+                  </>
+                ) : (
+                  '参加者のみ表示'
+                )}
+              </button>
+            </div>
             <p className="text-sm text-green-700 mb-2">出欠確認で「参加」と回答したメンバー ({todayAttendance.length}人)</p>
             <div className="flex flex-wrap gap-2">
               {todayAttendance.map((name, idx) => (
@@ -270,7 +417,7 @@ export default function AssignShift() {
             </div>
 
             {/* ロールフィルター（表用） */}
-            {roles.length > 0 && (
+            {allowedRoles.length > 0 && (
               <div className="mb-3">
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-xs text-gray-600">ロールでフィルター</span>
@@ -284,7 +431,7 @@ export default function AssignShift() {
                   )}
                 </div>
                 <div className="flex flex-wrap gap-1">
-                  {roles.map((role) => {
+                  {allowedRoles.map((role) => {
                     const isSelected = tableFilterRoleIds.includes(role.role_id);
                     return (
                       <button
@@ -347,7 +494,9 @@ export default function AssignShift() {
                       <td className="border border-gray-300 px-2 py-1 font-medium sticky left-0 bg-white z-10">
                         <div className="flex items-center gap-1">
                           <span>{memberAtt.member_name}</span>
-                          {getMemberRoleIds(memberAtt.member_id).map((roleId) => (
+                          {getMemberRoleIds(memberAtt.member_id)
+                            .filter((roleId) => !allowedRoleIds || allowedRoleIds.includes(roleId))
+                            .map((roleId) => (
                             <span
                               key={roleId}
                               className="inline-block w-2 h-2 rounded-full"
@@ -400,7 +549,7 @@ export default function AssignShift() {
               </label>
 
               {/* ロールフィルター（メンバー選択用） */}
-              {roles.length > 0 && (
+              {allowedRoles.length > 0 && (
                 <div className="mb-3">
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-xs text-gray-600">ロールでフィルター</span>
@@ -415,7 +564,7 @@ export default function AssignShift() {
                     )}
                   </div>
                   <div className="flex flex-wrap gap-1">
-                    {roles.map((role) => {
+                    {allowedRoles.map((role) => {
                       const isSelected = memberFilterRoleIds.includes(role.role_id);
                       return (
                         <button
@@ -483,7 +632,9 @@ export default function AssignShift() {
                           <span className="text-sm text-gray-900">{member.display_name}</span>
                           {member.role_ids && member.role_ids.length > 0 && (
                             <div className="flex gap-1">
-                              {member.role_ids.map((roleId) => (
+                              {member.role_ids
+                                .filter((roleId) => !allowedRoleIds || allowedRoleIds.includes(roleId))
+                                .map((roleId) => (
                                 <span
                                   key={roleId}
                                   className="inline-block w-2 h-2 rounded-full"

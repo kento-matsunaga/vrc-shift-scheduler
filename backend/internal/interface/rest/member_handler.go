@@ -22,6 +22,7 @@ type MemberHandler struct {
 	deleteMemberUC             *usecase.DeleteMemberUsecase
 	updateMemberUsecase        *appMember.UpdateMemberUsecase
 	getRecentAttendanceUsecase *appMember.GetRecentAttendanceUsecase
+	bulkImportMembersUC        *usecase.BulkImportMembersUsecase
 }
 
 // NewMemberHandler creates a new MemberHandler
@@ -37,6 +38,7 @@ func NewMemberHandler(dbPool *pgxpool.Pool) *MemberHandler {
 		deleteMemberUC:             usecase.NewDeleteMemberUsecase(memberRepo),
 		updateMemberUsecase:        appMember.NewUpdateMemberUsecase(memberRepo, memberRoleRepo),
 		getRecentAttendanceUsecase: appMember.NewGetRecentAttendanceUsecase(memberRepo, attendanceRepo),
+		bulkImportMembersUC:        usecase.NewBulkImportMembersUsecase(memberRepo, memberRoleRepo),
 	}
 }
 
@@ -234,9 +236,24 @@ func (h *MemberHandler) GetMembers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// コンテキストから許可されたメンバーIDを取得（公開API用フィルター）
+	var allowedMemberIDs map[string]struct{}
+	if val := ctx.Value(ContextKeyAllowedMemberIDs); val != nil {
+		allowedMemberIDs = val.(map[string]struct{})
+	}
+
 	// レスポンス構築
 	memberResponses := make([]MemberResponse, 0, len(membersWithRoles))
 	for _, mwr := range membersWithRoles {
+		memberIDStr := mwr.Member.MemberID().String()
+
+		// グループフィルタが設定されている場合、許可されたメンバーのみを返す
+		if allowedMemberIDs != nil {
+			if _, ok := allowedMemberIDs[memberIDStr]; !ok {
+				continue
+			}
+		}
+
 		// RoleIDをstringスライスに変換
 		roleIDStrs := make([]string, len(mwr.RoleIDs))
 		for i, roleID := range mwr.RoleIDs {
@@ -244,7 +261,7 @@ func (h *MemberHandler) GetMembers(w http.ResponseWriter, r *http.Request) {
 		}
 
 		memberResponses = append(memberResponses, MemberResponse{
-			MemberID:      mwr.Member.MemberID().String(),
+			MemberID:      memberIDStr,
 			TenantID:      mwr.Member.TenantID().String(),
 			DisplayName:   mwr.Member.DisplayName(),
 			DiscordUserID: mwr.Member.DiscordUserID(),
@@ -394,5 +411,72 @@ func (h *MemberHandler) DeleteMember(w http.ResponseWriter, r *http.Request) {
 
 	// 成功レスポンス（No Content）
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// BulkImportMembersRequest represents the request body for bulk importing members
+type BulkImportMembersRequest struct {
+	Members []BulkImportMemberRequest `json:"members"`
+}
+
+// BulkImportMemberRequest represents a single member in bulk import request
+type BulkImportMemberRequest struct {
+	DisplayName string   `json:"display_name"`
+	RoleIDs     []string `json:"role_ids,omitempty"`
+}
+
+// BulkImportMembers handles POST /api/v1/members/bulk-import
+func (h *MemberHandler) BulkImportMembers(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// テナントIDの取得
+	tenantID, ok := getTenantIDFromContext(ctx)
+	if !ok {
+		writeError(w, http.StatusForbidden, "ERR_FORBIDDEN", "Tenant ID is required", nil)
+		return
+	}
+
+	// リクエストボディのパース
+	var req BulkImportMembersRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "Invalid request body", nil)
+		return
+	}
+
+	// バリデーション
+	if len(req.Members) == 0 {
+		writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "members array is required and must not be empty", nil)
+		return
+	}
+
+	// 上限チェック（DoS対策）
+	if len(req.Members) > 100 {
+		writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "Maximum 100 members can be imported at once", nil)
+		return
+	}
+
+	// Usecaseの入力を構築
+	memberInputs := make([]usecase.BulkImportMemberInput, len(req.Members))
+	for i, m := range req.Members {
+		memberInputs[i] = usecase.BulkImportMemberInput{
+			DisplayName: m.DisplayName,
+			RoleIDs:     m.RoleIDs,
+		}
+	}
+
+	input := usecase.BulkImportMembersInput{
+		TenantID: tenantID,
+		Members:  memberInputs,
+	}
+
+	// Usecaseの実行
+	output, err := h.bulkImportMembersUC.Execute(ctx, input)
+	if err != nil {
+		log.Printf("BulkImportMembers error: %+v", err)
+		writeError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to import members", nil)
+		return
+	}
+
+	// レスポンス
+	writeSuccess(w, http.StatusOK, output)
 }
 

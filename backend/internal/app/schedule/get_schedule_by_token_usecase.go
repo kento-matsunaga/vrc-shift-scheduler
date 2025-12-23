@@ -46,7 +46,17 @@ func (u *GetScheduleByTokenUsecase) Execute(ctx context.Context, input GetSchedu
 		return nil, err
 	}
 
-	// 4. Convert to output
+	// 4. Get group assignments
+	groupAssignments, err := u.repo.FindGroupAssignmentsByScheduleID(ctx, sched.ScheduleID())
+	if err != nil {
+		return nil, err
+	}
+	groupIDs := make([]string, len(groupAssignments))
+	for i, ga := range groupAssignments {
+		groupIDs[i] = ga.GroupID().String()
+	}
+
+	// 5. Convert to output
 	candidateOutputs := make([]CandidateDTO, len(candidates))
 	for i, c := range candidates {
 		candidateOutputs[i] = CandidateDTO{
@@ -80,6 +90,7 @@ func (u *GetScheduleByTokenUsecase) Execute(ctx context.Context, input GetSchedu
 		Deadline:           sched.Deadline(),
 		DecidedCandidateID: decidedCandidateID,
 		Candidates:         candidateOutputs,
+		GroupIDs:           groupIDs,
 		CreatedAt:          sched.CreatedAt(),
 		UpdatedAt:          sched.UpdatedAt(),
 	}, nil
