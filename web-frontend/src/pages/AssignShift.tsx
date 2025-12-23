@@ -210,29 +210,34 @@ export default function AssignShift() {
       }
 
       // この営業日と同じ日付の出欠確認データを集計（参加予定者のみ）
+      // 同じ日付の複数のtarget_dateをすべて集計する
       const targetDateStr = businessDayData.target_date.split('T')[0]; // YYYY-MM-DD
-      const matchingTargetDate = recentAttendanceData.target_dates.find((td) => {
+      const matchingTargetDates = recentAttendanceData.target_dates.filter((td) => {
         const tdStr = td.target_date.split('T')[0];
         return tdStr === targetDateStr;
       });
 
-      if (matchingTargetDate) {
-        const attendingMemberNames: string[] = [];
-        const attendingMemberIdList: string[] = [];
+      if (matchingTargetDates.length > 0) {
+        const attendingMemberNamesSet = new Set<string>();
+        const attendingMemberIdSet = new Set<string>();
         // グループ設定がある場合は許可されたメンバーのみをフィルター
         const filteredMemberAttendances = allowedMemberIdsForAttendance
           ? recentAttendanceData.member_attendances.filter((ma) => allowedMemberIdsForAttendance!.includes(ma.member_id))
           : recentAttendanceData.member_attendances;
 
         filteredMemberAttendances.forEach((memberAtt) => {
-          const response = memberAtt.attendance_map[matchingTargetDate.target_date_id];
-          if (response === 'attending') {
-            attendingMemberNames.push(memberAtt.member_name);
-            attendingMemberIdList.push(memberAtt.member_id);
+          // 複数のtarget_dateをチェックし、いずれかで"attending"なら参加予定
+          for (const matchingTargetDate of matchingTargetDates) {
+            const response = memberAtt.attendance_map[matchingTargetDate.target_date_id];
+            if (response === 'attending') {
+              attendingMemberNamesSet.add(memberAtt.member_name);
+              attendingMemberIdSet.add(memberAtt.member_id);
+              break; // 1つでも参加なら追加してループ終了
+            }
           }
         });
-        setTodayAttendance(attendingMemberNames);
-        setTodayAttendingMemberIds(attendingMemberIdList);
+        setTodayAttendance(Array.from(attendingMemberNamesSet));
+        setTodayAttendingMemberIds(Array.from(attendingMemberIdSet));
       }
     } catch (err) {
       if (err instanceof ApiClientError) {
