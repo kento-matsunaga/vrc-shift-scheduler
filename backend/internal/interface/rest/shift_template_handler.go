@@ -10,9 +10,7 @@ import (
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/event"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/shift"
-	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/db"
 	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // ShiftTemplateHandler handles shift template-related HTTP requests
@@ -25,19 +23,22 @@ type ShiftTemplateHandler struct {
 	saveBusinessDayAsTemplateUC *appshift.SaveBusinessDayAsTemplateUsecase
 }
 
-// NewShiftTemplateHandler creates a new ShiftTemplateHandler
-func NewShiftTemplateHandler(dbPool *pgxpool.Pool) *ShiftTemplateHandler {
-	templateRepo := db.NewShiftSlotTemplateRepository(dbPool)
-	slotRepo := db.NewShiftSlotRepository(dbPool)
-	businessDayRepo := db.NewEventBusinessDayRepository(dbPool)
-
+// NewShiftTemplateHandler creates a new ShiftTemplateHandler with injected usecases
+func NewShiftTemplateHandler(
+	createTemplateUC *appshift.CreateShiftTemplateUsecase,
+	listTemplatesUC *appshift.ListShiftTemplatesUsecase,
+	getTemplateUC *appshift.GetShiftTemplateUsecase,
+	updateTemplateUC *appshift.UpdateShiftTemplateUsecase,
+	deleteTemplateUC *appshift.DeleteShiftTemplateUsecase,
+	saveBusinessDayAsTemplateUC *appshift.SaveBusinessDayAsTemplateUsecase,
+) *ShiftTemplateHandler {
 	return &ShiftTemplateHandler{
-		createTemplateUC:        appshift.NewCreateShiftTemplateUsecase(templateRepo),
-		listTemplatesUC:         appshift.NewListShiftTemplatesUsecase(templateRepo),
-		getTemplateUC:           appshift.NewGetShiftTemplateUsecase(templateRepo),
-		updateTemplateUC:        appshift.NewUpdateShiftTemplateUsecase(templateRepo),
-		deleteTemplateUC:        appshift.NewDeleteShiftTemplateUsecase(templateRepo),
-		saveBusinessDayAsTemplateUC: appshift.NewSaveBusinessDayAsTemplateUsecase(templateRepo, businessDayRepo, slotRepo),
+		createTemplateUC:            createTemplateUC,
+		listTemplatesUC:             listTemplatesUC,
+		getTemplateUC:               getTemplateUC,
+		updateTemplateUC:            updateTemplateUC,
+		deleteTemplateUC:            deleteTemplateUC,
+		saveBusinessDayAsTemplateUC: saveBusinessDayAsTemplateUC,
 	}
 }
 

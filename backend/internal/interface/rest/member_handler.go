@@ -8,9 +8,7 @@ import (
 
 	appmember "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/member"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
-	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/db"
 	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // MemberHandler handles member-related HTTP requests
@@ -24,20 +22,24 @@ type MemberHandler struct {
 	bulkImportMembersUC        *appmember.BulkImportMembersUsecase
 }
 
-// NewMemberHandler creates a new MemberHandler
-func NewMemberHandler(dbPool *pgxpool.Pool) *MemberHandler {
-	memberRepo := db.NewMemberRepository(dbPool)
-	memberRoleRepo := db.NewMemberRoleRepository(dbPool)
-	attendanceRepo := db.NewAttendanceRepository(dbPool)
-
+// NewMemberHandler creates a new MemberHandler with injected usecases
+func NewMemberHandler(
+	createMemberUC *appmember.CreateMemberUsecase,
+	listMembersUC *appmember.ListMembersUsecase,
+	getMemberUC *appmember.GetMemberUsecase,
+	deleteMemberUC *appmember.DeleteMemberUsecase,
+	updateMemberUC *appmember.UpdateMemberUsecase,
+	getRecentAttendanceUC *appmember.GetRecentAttendanceUsecase,
+	bulkImportMembersUC *appmember.BulkImportMembersUsecase,
+) *MemberHandler {
 	return &MemberHandler{
-		createMemberUC:             appmember.NewCreateMemberUsecase(memberRepo),
-		listMembersUC:              appmember.NewListMembersUsecase(memberRepo, memberRoleRepo),
-		getMemberUC:                appmember.NewGetMemberUsecase(memberRepo, memberRoleRepo),
-		deleteMemberUC:             appmember.NewDeleteMemberUsecase(memberRepo),
-		updateMemberUsecase:        appmember.NewUpdateMemberUsecase(memberRepo, memberRoleRepo),
-		getRecentAttendanceUsecase: appmember.NewGetRecentAttendanceUsecase(memberRepo, attendanceRepo),
-		bulkImportMembersUC:        appmember.NewBulkImportMembersUsecase(memberRepo, memberRoleRepo),
+		createMemberUC:             createMemberUC,
+		listMembersUC:              listMembersUC,
+		getMemberUC:                getMemberUC,
+		deleteMemberUC:             deleteMemberUC,
+		updateMemberUsecase:        updateMemberUC,
+		getRecentAttendanceUsecase: getRecentAttendanceUC,
+		bulkImportMembersUC:        bulkImportMembersUC,
 	}
 }
 

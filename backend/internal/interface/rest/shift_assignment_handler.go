@@ -9,9 +9,7 @@ import (
 	appshift "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/shift"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/shift"
-	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/db"
 	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // ShiftAssignmentHandler handles shift assignment-related HTTP requests
@@ -22,18 +20,18 @@ type ShiftAssignmentHandler struct {
 	cancelAssignmentUC      *appshift.CancelAssignmentUsecase
 }
 
-// NewShiftAssignmentHandler creates a new ShiftAssignmentHandler
-func NewShiftAssignmentHandler(dbPool *pgxpool.Pool) *ShiftAssignmentHandler {
-	slotRepo := db.NewShiftSlotRepository(dbPool)
-	assignmentRepo := db.NewShiftAssignmentRepository(dbPool)
-	memberRepo := db.NewMemberRepository(dbPool)
-	businessDayRepo := db.NewEventBusinessDayRepository(dbPool)
-
+// NewShiftAssignmentHandler creates a new ShiftAssignmentHandler with injected usecases
+func NewShiftAssignmentHandler(
+	confirmAssignmentUC *appshift.ConfirmManualAssignmentUsecase,
+	getAssignmentsUC *appshift.GetAssignmentsUsecase,
+	getAssignmentDetailUC *appshift.GetAssignmentDetailUsecase,
+	cancelAssignmentUC *appshift.CancelAssignmentUsecase,
+) *ShiftAssignmentHandler {
 	return &ShiftAssignmentHandler{
-		confirmAssignmentUC:   appshift.NewConfirmManualAssignmentUsecase(slotRepo, assignmentRepo, memberRepo),
-		getAssignmentsUC:      appshift.NewGetAssignmentsUsecase(assignmentRepo, memberRepo, slotRepo, businessDayRepo),
-		getAssignmentDetailUC: appshift.NewGetAssignmentDetailUsecase(assignmentRepo, memberRepo, slotRepo, businessDayRepo),
-		cancelAssignmentUC:    appshift.NewCancelAssignmentUsecase(assignmentRepo),
+		confirmAssignmentUC:   confirmAssignmentUC,
+		getAssignmentsUC:      getAssignmentsUC,
+		getAssignmentDetailUC: getAssignmentDetailUC,
+		cancelAssignmentUC:    cancelAssignmentUC,
 	}
 }
 

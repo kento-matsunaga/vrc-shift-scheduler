@@ -8,9 +8,7 @@ import (
 	appevent "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/event"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/event"
-	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/db"
 	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // BusinessDayHandler handles business day-related HTTP requests
@@ -21,18 +19,18 @@ type BusinessDayHandler struct {
 	applyTemplateUC     *appevent.ApplyTemplateUsecase
 }
 
-// NewBusinessDayHandler creates a new BusinessDayHandler
-func NewBusinessDayHandler(dbPool *pgxpool.Pool) *BusinessDayHandler {
-	businessDayRepo := db.NewEventBusinessDayRepository(dbPool)
-	eventRepo := db.NewEventRepository(dbPool)
-	slotRepo := db.NewShiftSlotRepository(dbPool)
-	templateRepo := db.NewShiftSlotTemplateRepository(dbPool)
-
+// NewBusinessDayHandler creates a new BusinessDayHandler with injected usecases
+func NewBusinessDayHandler(
+	createBusinessDayUC *appevent.CreateBusinessDayUsecase,
+	listBusinessDaysUC *appevent.ListBusinessDaysUsecase,
+	getBusinessDayUC *appevent.GetBusinessDayUsecase,
+	applyTemplateUC *appevent.ApplyTemplateUsecase,
+) *BusinessDayHandler {
 	return &BusinessDayHandler{
-		createBusinessDayUC: appevent.NewCreateBusinessDayUsecase(businessDayRepo, eventRepo, templateRepo, slotRepo),
-		listBusinessDaysUC:  appevent.NewListBusinessDaysUsecase(businessDayRepo),
-		getBusinessDayUC:    appevent.NewGetBusinessDayUsecase(businessDayRepo),
-		applyTemplateUC:     appevent.NewApplyTemplateUsecase(businessDayRepo, templateRepo, slotRepo),
+		createBusinessDayUC: createBusinessDayUC,
+		listBusinessDaysUC:  listBusinessDaysUC,
+		getBusinessDayUC:    getBusinessDayUC,
+		applyTemplateUC:     applyTemplateUC,
 	}
 }
 

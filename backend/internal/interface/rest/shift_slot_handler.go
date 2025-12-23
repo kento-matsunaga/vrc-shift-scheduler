@@ -8,9 +8,7 @@ import (
 	appshift "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/shift"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/event"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/shift"
-	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/db"
 	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // ShiftSlotHandler handles shift slot-related HTTP requests
@@ -20,16 +18,16 @@ type ShiftSlotHandler struct {
 	getShiftSlotUC    *appshift.GetShiftSlotUsecase
 }
 
-// NewShiftSlotHandler creates a new ShiftSlotHandler
-func NewShiftSlotHandler(dbPool *pgxpool.Pool) *ShiftSlotHandler {
-	slotRepo := db.NewShiftSlotRepository(dbPool)
-	businessDayRepo := db.NewEventBusinessDayRepository(dbPool)
-	assignmentRepo := db.NewShiftAssignmentRepository(dbPool)
-
+// NewShiftSlotHandler creates a new ShiftSlotHandler with injected usecases
+func NewShiftSlotHandler(
+	createShiftSlotUC *appshift.CreateShiftSlotUsecase,
+	listShiftSlotsUC *appshift.ListShiftSlotsUsecase,
+	getShiftSlotUC *appshift.GetShiftSlotUsecase,
+) *ShiftSlotHandler {
 	return &ShiftSlotHandler{
-		createShiftSlotUC: appshift.NewCreateShiftSlotUsecase(slotRepo, businessDayRepo),
-		listShiftSlotsUC:  appshift.NewListShiftSlotsUsecase(slotRepo, assignmentRepo),
-		getShiftSlotUC:    appshift.NewGetShiftSlotUsecase(slotRepo, assignmentRepo),
+		createShiftSlotUC: createShiftSlotUC,
+		listShiftSlotsUC:  listShiftSlotsUC,
+		getShiftSlotUC:    getShiftSlotUC,
 	}
 }
 
