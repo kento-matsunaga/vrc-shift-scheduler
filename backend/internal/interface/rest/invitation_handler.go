@@ -66,11 +66,11 @@ func (h *InvitationHandler) InviteAdmin(w http.ResponseWriter, r *http.Request) 
 	}
 
 	if req.Email == "" {
-		RespondError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "email is required", nil)
+		RespondError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "メールアドレスを入力してください", nil)
 		return
 	}
 	if req.Role == "" {
-		RespondError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "role is required", nil)
+		RespondError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "権限を選択してください", nil)
 		return
 	}
 
@@ -124,11 +124,11 @@ func (h *InvitationHandler) AcceptInvitation(w http.ResponseWriter, r *http.Requ
 	}
 
 	if req.DisplayName == "" {
-		RespondError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "display_name is required", nil)
+		RespondError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "表示名を入力してください", nil)
 		return
 	}
 	if req.Password == "" {
-		RespondError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "password is required", nil)
+		RespondError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "パスワードを入力してください", nil)
 		return
 	}
 
@@ -140,9 +140,9 @@ func (h *InvitationHandler) AcceptInvitation(w http.ResponseWriter, r *http.Requ
 	if err != nil {
 		switch {
 		case errors.Is(err, appAuth.ErrInvalidInvitation):
-			RespondError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "Invalid or expired invitation", nil)
+			RespondError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "招待が無効または期限切れです", nil)
 		case errors.Is(err, appAuth.ErrEmailAlreadyExists):
-			RespondError(w, http.StatusConflict, "ERR_CONFLICT", "Email already exists", nil)
+			RespondError(w, http.StatusConflict, "ERR_CONFLICT", "このメールアドレスは既に登録されています", nil)
 		default:
 			RespondDomainError(w, err)
 		}

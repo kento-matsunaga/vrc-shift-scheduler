@@ -87,7 +87,7 @@ func (h *TenantHandler) UpdateCurrentTenant(w http.ResponseWriter, r *http.Reque
 
 	// バリデーション
 	if req.TenantName == "" {
-		RespondBadRequest(w, "tenant_name is required")
+		RespondBadRequest(w, "テナント名を入力してください")
 		return
 	}
 
