@@ -52,6 +52,7 @@ type CreateCollectionRequest struct {
 	TargetID    string     `json:"target_id"`    // optional
 	TargetDates []string   `json:"target_dates"` // ISO 8601 format array
 	Deadline    *time.Time `json:"deadline"`     // optional
+	GroupIDs    []string   `json:"group_ids"`    // optional: target group IDs
 }
 
 // TargetDateResponse represents a target date in API responses
@@ -73,6 +74,7 @@ type CollectionResponse struct {
 	PublicToken  string                `json:"public_token"`
 	Status       string                `json:"status"`
 	Deadline     *time.Time            `json:"deadline,omitempty"`
+	GroupIDs     []string              `json:"group_ids,omitempty"`    // Target group IDs
 	CreatedAt    time.Time             `json:"created_at"`
 	UpdatedAt    time.Time             `json:"updated_at"`
 }
@@ -161,6 +163,7 @@ func (h *AttendanceHandler) CreateCollection(w http.ResponseWriter, r *http.Requ
 		TargetID:    req.TargetID,
 		TargetDates: targetDates,
 		Deadline:    req.Deadline,
+		GroupIDs:    req.GroupIDs,
 	})
 	if err != nil {
 		RespondDomainError(w, err)
@@ -236,6 +239,7 @@ func (h *AttendanceHandler) GetCollection(w http.ResponseWriter, r *http.Request
 			PublicToken:  output.PublicToken,
 			Status:       output.Status,
 			Deadline:     output.Deadline,
+			GroupIDs:     output.GroupIDs,
 			CreatedAt:    output.CreatedAt,
 			UpdatedAt:    output.UpdatedAt,
 		},
@@ -382,6 +386,7 @@ func (h *AttendanceHandler) GetCollectionByToken(w http.ResponseWriter, r *http.
 			PublicToken:  output.PublicToken,
 			Status:       output.Status,
 			Deadline:     output.Deadline,
+			GroupIDs:     output.GroupIDs,
 			CreatedAt:    output.CreatedAt,
 			UpdatedAt:    output.UpdatedAt,
 		},

@@ -236,9 +236,24 @@ func (h *MemberHandler) GetMembers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// コンテキストから許可されたメンバーIDを取得（公開API用フィルター）
+	var allowedMemberIDs map[string]struct{}
+	if val := ctx.Value(ContextKeyAllowedMemberIDs); val != nil {
+		allowedMemberIDs = val.(map[string]struct{})
+	}
+
 	// レスポンス構築
 	memberResponses := make([]MemberResponse, 0, len(membersWithRoles))
 	for _, mwr := range membersWithRoles {
+		memberIDStr := mwr.Member.MemberID().String()
+
+		// グループフィルタが設定されている場合、許可されたメンバーのみを返す
+		if allowedMemberIDs != nil {
+			if _, ok := allowedMemberIDs[memberIDStr]; !ok {
+				continue
+			}
+		}
+
 		// RoleIDをstringスライスに変換
 		roleIDStrs := make([]string, len(mwr.RoleIDs))
 		for i, roleID := range mwr.RoleIDs {
@@ -246,7 +261,7 @@ func (h *MemberHandler) GetMembers(w http.ResponseWriter, r *http.Request) {
 		}
 
 		memberResponses = append(memberResponses, MemberResponse{
-			MemberID:      mwr.Member.MemberID().String(),
+			MemberID:      memberIDStr,
 			TenantID:      mwr.Member.TenantID().String(),
 			DisplayName:   mwr.Member.DisplayName(),
 			DiscordUserID: mwr.Member.DiscordUserID(),

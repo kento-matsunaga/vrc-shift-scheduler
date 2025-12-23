@@ -178,9 +178,10 @@ export default function AssignShift() {
       setActualAttendance(actualAttendanceData);
 
       // イベントのグループ割り当てを取得
+      let groupAssignments: EventGroupAssignments | null = null;
       if (businessDayData.event_id) {
         try {
-          const groupAssignments = await getEventGroupAssignments(businessDayData.event_id);
+          groupAssignments = await getEventGroupAssignments(businessDayData.event_id);
           setEventGroupAssignments(groupAssignments);
         } catch (err) {
           console.warn('Failed to load event group assignments:', err);
@@ -195,25 +196,48 @@ export default function AssignShift() {
       setSelectedMemberIds(assignedMemberIds);
       setExistingAssignmentIds(assignmentIds);
 
+      // イベントのグループ設定に基づいて許可されたメンバーIDを計算
+      let allowedMemberIdsForAttendance: string[] | null = null;
+      if (groupAssignments && groupAssignments.member_group_ids.length > 0) {
+        const allowedIds = new Set<string>();
+        for (const groupId of groupAssignments.member_group_ids) {
+          const group = memberGroupsData.groups?.find((g) => g.group_id === groupId);
+          if (group?.member_ids) {
+            group.member_ids.forEach((id) => allowedIds.add(id));
+          }
+        }
+        allowedMemberIdsForAttendance = Array.from(allowedIds);
+      }
+
       // この営業日と同じ日付の出欠確認データを集計（参加予定者のみ）
+      // 同じ日付の複数のtarget_dateをすべて集計する
       const targetDateStr = businessDayData.target_date.split('T')[0]; // YYYY-MM-DD
-      const matchingTargetDate = recentAttendanceData.target_dates.find((td) => {
+      const matchingTargetDates = recentAttendanceData.target_dates.filter((td) => {
         const tdStr = td.target_date.split('T')[0];
         return tdStr === targetDateStr;
       });
 
-      if (matchingTargetDate) {
-        const attendingMemberNames: string[] = [];
-        const attendingMemberIdList: string[] = [];
-        recentAttendanceData.member_attendances.forEach((memberAtt) => {
-          const response = memberAtt.attendance_map[matchingTargetDate.target_date_id];
-          if (response === 'attending') {
-            attendingMemberNames.push(memberAtt.member_name);
-            attendingMemberIdList.push(memberAtt.member_id);
+      if (matchingTargetDates.length > 0) {
+        const attendingMemberNamesSet = new Set<string>();
+        const attendingMemberIdSet = new Set<string>();
+        // グループ設定がある場合は許可されたメンバーのみをフィルター
+        const filteredMemberAttendances = allowedMemberIdsForAttendance
+          ? recentAttendanceData.member_attendances.filter((ma) => allowedMemberIdsForAttendance!.includes(ma.member_id))
+          : recentAttendanceData.member_attendances;
+
+        filteredMemberAttendances.forEach((memberAtt) => {
+          // 複数のtarget_dateをチェックし、いずれかで"attending"なら参加予定
+          for (const matchingTargetDate of matchingTargetDates) {
+            const response = memberAtt.attendance_map[matchingTargetDate.target_date_id];
+            if (response === 'attending') {
+              attendingMemberNamesSet.add(memberAtt.member_name);
+              attendingMemberIdSet.add(memberAtt.member_id);
+              break; // 1つでも参加なら追加してループ終了
+            }
           }
         });
-        setTodayAttendance(attendingMemberNames);
-        setTodayAttendingMemberIds(attendingMemberIdList);
+        setTodayAttendance(Array.from(attendingMemberNamesSet));
+        setTodayAttendingMemberIds(Array.from(attendingMemberIdSet));
       }
     } catch (err) {
       if (err instanceof ApiClientError) {

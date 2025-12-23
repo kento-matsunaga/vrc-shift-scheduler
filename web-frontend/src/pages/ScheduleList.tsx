@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { listSchedules, createSchedule, type Schedule } from '../lib/api/scheduleApi';
+import { getMemberGroups, type MemberGroup } from '../lib/api/memberGroupApi';
 
 export default function ScheduleList() {
   const navigate = useNavigate();
@@ -17,10 +18,22 @@ export default function ScheduleList() {
   const [publicUrl, setPublicUrl] = useState('');
   const [copied, setCopied] = useState(false);
   const [submittedCandidatesCount, setSubmittedCandidatesCount] = useState(0);
+  const [memberGroups, setMemberGroups] = useState<MemberGroup[]>([]);
+  const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
 
   useEffect(() => {
     loadSchedules();
+    loadMemberGroups();
   }, []);
+
+  const loadMemberGroups = async () => {
+    try {
+      const data = await getMemberGroups();
+      setMemberGroups(data.groups || []);
+    } catch (err) {
+      console.error('Failed to load member groups:', err);
+    }
+  };
 
   const loadSchedules = async () => {
     try {
@@ -49,6 +62,14 @@ export default function ScheduleList() {
     const newDates = [...candidateDates];
     newDates[index] = value;
     setCandidateDates(newDates);
+  };
+
+  const toggleGroupSelection = (groupId: string) => {
+    setSelectedGroupIds((prev) =>
+      prev.includes(groupId)
+        ? prev.filter((id) => id !== groupId)
+        : [...prev, groupId]
+    );
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -80,6 +101,7 @@ export default function ScheduleList() {
           date: new Date(d).toISOString(),
         })),
         deadline: deadline ? new Date(deadline).toISOString() : undefined,
+        group_ids: selectedGroupIds.length > 0 ? selectedGroupIds : undefined,
       });
 
       // 公開URLを生成
@@ -93,6 +115,7 @@ export default function ScheduleList() {
       setDescription('');
       setDeadline('');
       setCandidateDates(['', '', '']);
+      setSelectedGroupIds([]);
       setShowCreateForm(false);
 
       // 一覧を再読み込み
@@ -242,6 +265,44 @@ export default function ScheduleList() {
                 disabled={submitting}
               />
             </div>
+
+            {memberGroups.length > 0 && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  対象メンバーグループ（任意）
+                </label>
+                <p className="text-xs text-gray-500 mb-2">
+                  選択すると、そのグループに属するメンバーのみが回答可能になります
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {memberGroups.map((group) => (
+                    <button
+                      key={group.group_id}
+                      type="button"
+                      onClick={() => toggleGroupSelection(group.group_id)}
+                      disabled={submitting}
+                      className={`px-3 py-1.5 rounded-full text-sm font-medium transition ${
+                        selectedGroupIds.includes(group.group_id)
+                          ? 'bg-indigo-600 text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                      style={
+                        selectedGroupIds.includes(group.group_id) && group.color
+                          ? { backgroundColor: group.color }
+                          : undefined
+                      }
+                    >
+                      {group.name}
+                    </button>
+                  ))}
+                </div>
+                {selectedGroupIds.length > 0 && (
+                  <p className="mt-2 text-xs text-indigo-600">
+                    {selectedGroupIds.length}個のグループを選択中
+                  </p>
+                )}
+              </div>
+            )}
 
             {error && (
               <div className="bg-red-50 border border-red-200 rounded-md p-3">

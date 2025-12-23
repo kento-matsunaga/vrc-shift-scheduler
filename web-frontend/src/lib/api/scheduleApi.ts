@@ -18,6 +18,7 @@ export interface CreateScheduleRequest {
   description: string;
   candidates: CandidateDate[];
   deadline?: string; // ISO 8601 format
+  group_ids?: string[]; // optional: target member group IDs
 }
 
 /**
@@ -36,6 +37,7 @@ export interface Schedule {
   candidate_count?: number;
   response_count?: number;
   candidates?: CandidateDate[];
+  group_ids?: string[]; // 対象グループIDs
   created_at: string;
   updated_at?: string;
 }

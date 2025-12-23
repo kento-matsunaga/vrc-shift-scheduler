@@ -41,6 +41,16 @@ func (u *GetScheduleUsecase) Execute(ctx context.Context, input GetScheduleInput
 		}
 	}
 
+	// Fetch group assignments
+	groupAssignments, err := u.repo.FindGroupAssignmentsByScheduleID(ctx, scheduleID)
+	if err != nil {
+		return nil, err
+	}
+	groupIDs := make([]string, len(groupAssignments))
+	for i, ga := range groupAssignments {
+		groupIDs[i] = ga.GroupID().String()
+	}
+
 	var eventIDStr *string
 	if sch.EventID() != nil {
 		str := sch.EventID().String()
@@ -64,6 +74,7 @@ func (u *GetScheduleUsecase) Execute(ctx context.Context, input GetScheduleInput
 		Deadline:           sch.Deadline(),
 		DecidedCandidateID: decidedCandidateIDStr,
 		Candidates:         candidateDTOs,
+		GroupIDs:           groupIDs,
 		CreatedAt:          sch.CreatedAt(),
 		UpdatedAt:          sch.UpdatedAt(),
 	}, nil

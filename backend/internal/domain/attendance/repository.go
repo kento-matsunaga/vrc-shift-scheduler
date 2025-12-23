@@ -36,4 +36,10 @@ type AttendanceCollectionRepository interface {
 
 	// FindTargetDatesByCollectionID は collection の対象日一覧を取得する
 	FindTargetDatesByCollectionID(ctx context.Context, collectionID common.CollectionID) ([]*TargetDate, error)
+
+	// SaveGroupAssignments はグループ割り当てを保存する（既存のものを全て削除してから保存）
+	SaveGroupAssignments(ctx context.Context, collectionID common.CollectionID, assignments []*CollectionGroupAssignment) error
+
+	// FindGroupAssignmentsByCollectionID は collection のグループ割り当て一覧を取得する
+	FindGroupAssignmentsByCollectionID(ctx context.Context, collectionID common.CollectionID) ([]*CollectionGroupAssignment, error)
 }
