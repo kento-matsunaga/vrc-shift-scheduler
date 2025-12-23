@@ -6,7 +6,12 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/services"
 )
+
+// Compile-time interface compliance check
+var _ services.TokenIssuer = (*JWTManager)(nil)
 
 // JWTClaims represents the claims in a JWT token
 type JWTClaims struct {
@@ -16,17 +21,12 @@ type JWTClaims struct {
 	jwt.RegisteredClaims
 }
 
-// TokenIssuer is an interface for issuing JWT tokens
-type TokenIssuer interface {
-	Issue(adminID, tenantID, role string) (token string, expiresAt time.Time, err error)
-}
-
 // TokenVerifier is an interface for verifying JWT tokens
 type TokenVerifier interface {
 	Verify(token string) (*JWTClaims, error)
 }
 
-// JWTManager implements both TokenIssuer and TokenVerifier
+// JWTManager implements services.TokenIssuer and TokenVerifier
 type JWTManager struct {
 	secretKey      []byte
 	expirationTime time.Duration

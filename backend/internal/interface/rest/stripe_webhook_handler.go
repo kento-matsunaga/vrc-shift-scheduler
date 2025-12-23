@@ -13,18 +13,18 @@ import (
 	"strings"
 	"time"
 
-	"github.com/erenoa/vrc-shift-scheduler/backend/internal/application/usecase"
+	apppayment "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/payment"
 )
 
 // StripeWebhookHandler handles Stripe webhook events
 type StripeWebhookHandler struct {
-	usecase       *usecase.StripeWebhookUsecase
+	usecase       *apppayment.StripeWebhookUsecase
 	webhookSecret string
 	enabled       bool
 }
 
 // NewStripeWebhookHandler creates a new StripeWebhookHandler
-func NewStripeWebhookHandler(uc *usecase.StripeWebhookUsecase) *StripeWebhookHandler {
+func NewStripeWebhookHandler(uc *apppayment.StripeWebhookUsecase) *StripeWebhookHandler {
 	secret := os.Getenv("STRIPE_WEBHOOK_SECRET")
 	enabled := secret != ""
 
@@ -75,7 +75,7 @@ func (h *StripeWebhookHandler) HandleWebhook(w http.ResponseWriter, r *http.Requ
 	}
 
 	// Parse event
-	var event usecase.StripeEvent
+	var event apppayment.StripeEvent
 	if err := json.Unmarshal(body, &event); err != nil {
 		log.Printf("[ERROR] Failed to parse Stripe event: %v", err)
 		RespondBadRequest(w, "Invalid event format")

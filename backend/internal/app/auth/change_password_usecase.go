@@ -6,7 +6,7 @@ import (
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/auth"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
-	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/security"
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/services"
 )
 
 // ChangePasswordInput represents the input for changing password
@@ -20,13 +20,13 @@ type ChangePasswordInput struct {
 // ChangePasswordUsecase handles the password change use case
 type ChangePasswordUsecase struct {
 	adminRepo      auth.AdminRepository
-	passwordHasher security.PasswordHasher
+	passwordHasher services.PasswordHasher
 }
 
 // NewChangePasswordUsecase creates a new ChangePasswordUsecase
 func NewChangePasswordUsecase(
 	adminRepo auth.AdminRepository,
-	passwordHasher security.PasswordHasher,
+	passwordHasher services.PasswordHasher,
 ) *ChangePasswordUsecase {
 	return &ChangePasswordUsecase{
 		adminRepo:      adminRepo,

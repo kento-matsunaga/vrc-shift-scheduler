@@ -6,8 +6,12 @@ import (
 	"os"
 	"strings"
 
+	appaudit "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/audit"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/app/auth"
-	"github.com/erenoa/vrc-shift-scheduler/backend/internal/application/usecase"
+	appevent "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/event"
+	applicense "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/license"
+	apppayment "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/payment"
+	apptenant "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/tenant"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/db"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/security"
@@ -64,8 +68,20 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		// 課金状態に基づくアクセス制御
 		r.Use(BillingGuard(billingGuardDeps))
 
-		// ハンドラの初期化
-		eventHandler := NewEventHandler(dbPool)
+		// EventHandler dependencies
+		eventRepo := db.NewEventRepository(dbPool)
+		businessDayRepo := db.NewEventBusinessDayRepository(dbPool)
+		groupAssignRepo := db.NewEventGroupAssignmentRepository(dbPool)
+		eventHandler := NewEventHandler(
+			appevent.NewCreateEventUsecase(eventRepo, businessDayRepo),
+			appevent.NewListEventsUsecase(eventRepo),
+			appevent.NewGetEventUsecase(eventRepo),
+			appevent.NewUpdateEventUsecase(eventRepo),
+			appevent.NewDeleteEventUsecase(eventRepo),
+			appevent.NewGenerateBusinessDaysUsecase(eventRepo, businessDayRepo),
+			appevent.NewGetEventGroupAssignmentsUsecase(eventRepo, groupAssignRepo),
+			appevent.NewUpdateEventGroupAssignmentsUsecase(eventRepo, groupAssignRepo),
+		)
 		businessDayHandler := NewBusinessDayHandler(dbPool)
 		memberHandler := NewMemberHandler(dbPool)
 		roleHandler := NewRoleHandler(dbPool)
@@ -74,8 +90,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		shiftAssignmentHandler := NewShiftAssignmentHandler(dbPool)
 		attendanceHandler := NewAttendanceHandler(dbPool)
 
-		// Repositories for actual attendance
-		businessDayRepo := db.NewEventBusinessDayRepository(dbPool)
+		// Repositories for actual attendance (reusing businessDayRepo from EventHandler)
 		memberRepo := db.NewMemberRepository(dbPool)
 		assignmentRepo := db.NewShiftAssignmentRepository(dbPool)
 		actualAttendanceHandler := NewActualAttendanceHandler(businessDayRepo, memberRepo, assignmentRepo)
@@ -238,18 +253,18 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		licenseKeyRepo := db.NewLicenseKeyRepository(dbPool)
 		billingAuditLogRepo := db.NewBillingAuditLogRepository(dbPool)
 
-		adminLicenseKeyUsecase := usecase.NewAdminLicenseKeyUsecase(
+		adminLicenseKeyUsecase := applicense.NewAdminLicenseKeyUsecase(
 			txManager,
 			licenseKeyRepo,
 			billingAuditLogRepo,
 		)
-		adminTenantUsecase := usecase.NewAdminTenantUsecase(
+		adminTenantUsecase := apptenant.NewAdminTenantUsecase(
 			txManager,
 			tenantRepo,
 			entitlementRepo,
 			billingAuditLogRepo,
 		)
-		adminAuditLogUsecase := usecase.NewAdminAuditLogUsecase(
+		adminAuditLogUsecase := appaudit.NewAdminAuditLogUsecase(
 			billingAuditLogRepo,
 		)
 		adminBillingHandler := NewAdminBillingHandler(
@@ -346,7 +361,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		billingAuditLogRepo := db.NewBillingAuditLogRepository(dbPool)
 		claimRateLimiter := DefaultClaimRateLimiter()
 
-		claimUsecase := usecase.NewLicenseClaimUsecase(
+		claimUsecase := applicense.NewLicenseClaimUsecase(
 			txManager,
 			tenantRepo,
 			adminRepo,
@@ -368,7 +383,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		webhookEventRepo := db.NewWebhookEventRepository(dbPool)
 		billingAuditLogRepo := db.NewBillingAuditLogRepository(dbPool)
 
-		stripeWebhookUsecase := usecase.NewStripeWebhookUsecase(
+		stripeWebhookUsecase := apppayment.NewStripeWebhookUsecase(
 			txManager,
 			tenantRepo,
 			subscriptionRepo,

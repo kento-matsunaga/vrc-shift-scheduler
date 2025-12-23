@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/erenoa/vrc-shift-scheduler/backend/internal/application/usecase"
+	appevent "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/event"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/event"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/db"
@@ -15,10 +15,10 @@ import (
 
 // BusinessDayHandler handles business day-related HTTP requests
 type BusinessDayHandler struct {
-	createBusinessDayUC *usecase.CreateBusinessDayUsecase
-	listBusinessDaysUC  *usecase.ListBusinessDaysUsecase
-	getBusinessDayUC    *usecase.GetBusinessDayUsecase
-	applyTemplateUC     *usecase.ApplyTemplateUsecase
+	createBusinessDayUC *appevent.CreateBusinessDayUsecase
+	listBusinessDaysUC  *appevent.ListBusinessDaysUsecase
+	getBusinessDayUC    *appevent.GetBusinessDayUsecase
+	applyTemplateUC     *appevent.ApplyTemplateUsecase
 }
 
 // NewBusinessDayHandler creates a new BusinessDayHandler
@@ -29,10 +29,10 @@ func NewBusinessDayHandler(dbPool *pgxpool.Pool) *BusinessDayHandler {
 	templateRepo := db.NewShiftSlotTemplateRepository(dbPool)
 
 	return &BusinessDayHandler{
-		createBusinessDayUC: usecase.NewCreateBusinessDayUsecase(businessDayRepo, eventRepo, templateRepo, slotRepo),
-		listBusinessDaysUC:  usecase.NewListBusinessDaysUsecase(businessDayRepo),
-		getBusinessDayUC:    usecase.NewGetBusinessDayUsecase(businessDayRepo),
-		applyTemplateUC:     usecase.NewApplyTemplateUsecase(businessDayRepo, templateRepo, slotRepo),
+		createBusinessDayUC: appevent.NewCreateBusinessDayUsecase(businessDayRepo, eventRepo, templateRepo, slotRepo),
+		listBusinessDaysUC:  appevent.NewListBusinessDaysUsecase(businessDayRepo),
+		getBusinessDayUC:    appevent.NewGetBusinessDayUsecase(businessDayRepo),
+		applyTemplateUC:     appevent.NewApplyTemplateUsecase(businessDayRepo, templateRepo, slotRepo),
 	}
 }
 
@@ -127,7 +127,7 @@ func (h *BusinessDayHandler) CreateBusinessDay(w http.ResponseWriter, r *http.Re
 	}
 
 	// Usecaseの実行
-	input := usecase.CreateBusinessDayInput{
+	input := appevent.CreateBusinessDayInput{
 		TenantID:       tenantID,
 		EventID:        eventID,
 		TargetDate:     targetDate,
@@ -194,7 +194,7 @@ func (h *BusinessDayHandler) ListBusinessDays(w http.ResponseWriter, r *http.Req
 	}
 
 	// Usecaseの実行
-	input := usecase.ListBusinessDaysInput{
+	input := appevent.ListBusinessDaysInput{
 		TenantID:  tenantID,
 		EventID:   eventID,
 		StartDate: startDate,
@@ -244,7 +244,7 @@ func (h *BusinessDayHandler) GetBusinessDay(w http.ResponseWriter, r *http.Reque
 	}
 
 	// Usecaseの実行
-	input := usecase.GetBusinessDayInput{
+	input := appevent.GetBusinessDayInput{
 		TenantID:      tenantID,
 		BusinessDayID: businessDayID,
 	}
@@ -324,7 +324,7 @@ func (h *BusinessDayHandler) ApplyTemplate(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Usecaseの実行
-	input := usecase.ApplyTemplateInput{
+	input := appevent.ApplyTemplateInput{
 		TenantID:      tenantID,
 		BusinessDayID: businessDayID,
 		TemplateID:    templateID,

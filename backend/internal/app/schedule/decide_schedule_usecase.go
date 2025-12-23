@@ -5,15 +5,15 @@ import (
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/schedule"
-	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/clock"
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/services"
 )
 
 type DecideScheduleUsecase struct {
 	repo  schedule.DateScheduleRepository
-	clock clock.Clock
+	clock services.Clock
 }
 
-func NewDecideScheduleUsecase(repo schedule.DateScheduleRepository, clk clock.Clock) *DecideScheduleUsecase {
+func NewDecideScheduleUsecase(repo schedule.DateScheduleRepository, clk services.Clock) *DecideScheduleUsecase {
 	return &DecideScheduleUsecase{repo: repo, clock: clk}
 }
 

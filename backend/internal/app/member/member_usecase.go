@@ -1,4 +1,4 @@
-package usecase
+package member
 
 import (
 	"context"

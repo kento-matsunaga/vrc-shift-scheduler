@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/erenoa/vrc-shift-scheduler/backend/internal/application/usecase"
+	appactual "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/actual_attendance"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/event"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/member"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/shift"
@@ -12,7 +12,7 @@ import (
 
 // ActualAttendanceHandler handles actual attendance-related HTTP requests
 type ActualAttendanceHandler struct {
-	getRecentActualAttendanceUC *usecase.GetRecentActualAttendanceUsecase
+	getRecentActualAttendanceUC *appactual.GetRecentActualAttendanceUsecase
 }
 
 // NewActualAttendanceHandler creates a new ActualAttendanceHandler
@@ -22,7 +22,7 @@ func NewActualAttendanceHandler(
 	assignmentRepo shift.ShiftAssignmentRepository,
 ) *ActualAttendanceHandler {
 	return &ActualAttendanceHandler{
-		getRecentActualAttendanceUC: usecase.NewGetRecentActualAttendanceUsecase(
+		getRecentActualAttendanceUC: appactual.NewGetRecentActualAttendanceUsecase(
 			businessDayRepo,
 			memberRepo,
 			assignmentRepo,
@@ -55,7 +55,7 @@ func (h *ActualAttendanceHandler) GetRecentActualAttendance(w http.ResponseWrite
 	}
 
 	// Execute usecase
-	input := usecase.GetRecentActualAttendanceInput{
+	input := appactual.GetRecentActualAttendanceInput{
 		TenantID: tenantID,
 		Limit:    limit,
 	}

@@ -1,4 +1,4 @@
-package usecase
+package event
 
 import (
 	"context"
@@ -7,14 +7,6 @@ import (
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/event"
 )
-
-// EventRepository defines the interface for event persistence
-type EventRepository interface {
-	Save(ctx context.Context, event *event.Event) error
-	FindByID(ctx context.Context, tenantID common.TenantID, eventID common.EventID) (*event.Event, error)
-	FindByTenantID(ctx context.Context, tenantID common.TenantID) ([]*event.Event, error)
-	ExistsByName(ctx context.Context, tenantID common.TenantID, eventName string) (bool, error)
-}
 
 // CreateEventInput represents the input for creating an event
 type CreateEventInput struct {
@@ -31,12 +23,12 @@ type CreateEventInput struct {
 
 // CreateEventUsecase handles the event creation use case
 type CreateEventUsecase struct {
-	eventRepo       EventRepository
-	businessDayRepo EventBusinessDayRepository
+	eventRepo       event.EventRepository
+	businessDayRepo event.EventBusinessDayRepository
 }
 
 // NewCreateEventUsecase creates a new CreateEventUsecase
-func NewCreateEventUsecase(eventRepo EventRepository, businessDayRepo EventBusinessDayRepository) *CreateEventUsecase {
+func NewCreateEventUsecase(eventRepo event.EventRepository, businessDayRepo event.EventBusinessDayRepository) *CreateEventUsecase {
 	return &CreateEventUsecase{
 		eventRepo:       eventRepo,
 		businessDayRepo: businessDayRepo,
@@ -174,11 +166,11 @@ type ListEventsInput struct {
 
 // ListEventsUsecase handles the event listing use case
 type ListEventsUsecase struct {
-	eventRepo EventRepository
+	eventRepo event.EventRepository
 }
 
 // NewListEventsUsecase creates a new ListEventsUsecase
-func NewListEventsUsecase(eventRepo EventRepository) *ListEventsUsecase {
+func NewListEventsUsecase(eventRepo event.EventRepository) *ListEventsUsecase {
 	return &ListEventsUsecase{
 		eventRepo: eventRepo,
 	}
@@ -202,11 +194,11 @@ type GetEventInput struct {
 
 // GetEventUsecase handles the event retrieval use case
 type GetEventUsecase struct {
-	eventRepo EventRepository
+	eventRepo event.EventRepository
 }
 
 // NewGetEventUsecase creates a new GetEventUsecase
-func NewGetEventUsecase(eventRepo EventRepository) *GetEventUsecase {
+func NewGetEventUsecase(eventRepo event.EventRepository) *GetEventUsecase {
 	return &GetEventUsecase{
 		eventRepo: eventRepo,
 	}
@@ -236,12 +228,12 @@ type GenerateBusinessDaysOutput struct {
 
 // GenerateBusinessDaysUsecase handles generating business days for recurring events
 type GenerateBusinessDaysUsecase struct {
-	eventRepo       EventRepository
-	businessDayRepo EventBusinessDayRepository
+	eventRepo       event.EventRepository
+	businessDayRepo event.EventBusinessDayRepository
 }
 
 // NewGenerateBusinessDaysUsecase creates a new GenerateBusinessDaysUsecase
-func NewGenerateBusinessDaysUsecase(eventRepo EventRepository, businessDayRepo EventBusinessDayRepository) *GenerateBusinessDaysUsecase {
+func NewGenerateBusinessDaysUsecase(eventRepo event.EventRepository, businessDayRepo event.EventBusinessDayRepository) *GenerateBusinessDaysUsecase {
 	return &GenerateBusinessDaysUsecase{
 		eventRepo:       eventRepo,
 		businessDayRepo: businessDayRepo,
@@ -282,11 +274,11 @@ type UpdateEventInput struct {
 
 // UpdateEventUsecase handles the event update use case
 type UpdateEventUsecase struct {
-	eventRepo EventRepository
+	eventRepo event.EventRepository
 }
 
 // NewUpdateEventUsecase creates a new UpdateEventUsecase
-func NewUpdateEventUsecase(eventRepo EventRepository) *UpdateEventUsecase {
+func NewUpdateEventUsecase(eventRepo event.EventRepository) *UpdateEventUsecase {
 	return &UpdateEventUsecase{
 		eventRepo: eventRepo,
 	}
@@ -321,11 +313,11 @@ type DeleteEventInput struct {
 
 // DeleteEventUsecase handles the event deletion use case
 type DeleteEventUsecase struct {
-	eventRepo EventRepository
+	eventRepo event.EventRepository
 }
 
 // NewDeleteEventUsecase creates a new DeleteEventUsecase
-func NewDeleteEventUsecase(eventRepo EventRepository) *DeleteEventUsecase {
+func NewDeleteEventUsecase(eventRepo event.EventRepository) *DeleteEventUsecase {
 	return &DeleteEventUsecase{
 		eventRepo: eventRepo,
 	}

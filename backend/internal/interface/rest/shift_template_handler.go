@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/erenoa/vrc-shift-scheduler/backend/internal/application/usecase"
+	appshift "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/shift"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/event"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/shift"
@@ -17,12 +17,12 @@ import (
 
 // ShiftTemplateHandler handles shift template-related HTTP requests
 type ShiftTemplateHandler struct {
-	createTemplateUC        *usecase.CreateShiftTemplateUsecase
-	listTemplatesUC         *usecase.ListShiftTemplatesUsecase
-	getTemplateUC           *usecase.GetShiftTemplateUsecase
-	updateTemplateUC        *usecase.UpdateShiftTemplateUsecase
-	deleteTemplateUC        *usecase.DeleteShiftTemplateUsecase
-	saveBusinessDayAsTemplateUC *usecase.SaveBusinessDayAsTemplateUsecase
+	createTemplateUC        *appshift.CreateShiftTemplateUsecase
+	listTemplatesUC         *appshift.ListShiftTemplatesUsecase
+	getTemplateUC           *appshift.GetShiftTemplateUsecase
+	updateTemplateUC        *appshift.UpdateShiftTemplateUsecase
+	deleteTemplateUC        *appshift.DeleteShiftTemplateUsecase
+	saveBusinessDayAsTemplateUC *appshift.SaveBusinessDayAsTemplateUsecase
 }
 
 // NewShiftTemplateHandler creates a new ShiftTemplateHandler
@@ -32,12 +32,12 @@ func NewShiftTemplateHandler(dbPool *pgxpool.Pool) *ShiftTemplateHandler {
 	businessDayRepo := db.NewEventBusinessDayRepository(dbPool)
 
 	return &ShiftTemplateHandler{
-		createTemplateUC:        usecase.NewCreateShiftTemplateUsecase(templateRepo),
-		listTemplatesUC:         usecase.NewListShiftTemplatesUsecase(templateRepo),
-		getTemplateUC:           usecase.NewGetShiftTemplateUsecase(templateRepo),
-		updateTemplateUC:        usecase.NewUpdateShiftTemplateUsecase(templateRepo),
-		deleteTemplateUC:        usecase.NewDeleteShiftTemplateUsecase(templateRepo),
-		saveBusinessDayAsTemplateUC: usecase.NewSaveBusinessDayAsTemplateUsecase(templateRepo, businessDayRepo, slotRepo),
+		createTemplateUC:        appshift.NewCreateShiftTemplateUsecase(templateRepo),
+		listTemplatesUC:         appshift.NewListShiftTemplatesUsecase(templateRepo),
+		getTemplateUC:           appshift.NewGetShiftTemplateUsecase(templateRepo),
+		updateTemplateUC:        appshift.NewUpdateShiftTemplateUsecase(templateRepo),
+		deleteTemplateUC:        appshift.NewDeleteShiftTemplateUsecase(templateRepo),
+		saveBusinessDayAsTemplateUC: appshift.NewSaveBusinessDayAsTemplateUsecase(templateRepo, businessDayRepo, slotRepo),
 	}
 }
 
@@ -139,7 +139,7 @@ func (h *ShiftTemplateHandler) CreateTemplate(w http.ResponseWriter, r *http.Req
 	}
 
 	// Parse template items
-	var items []usecase.TemplateItemInput
+	var items []appshift.TemplateItemInput
 	for _, itemReq := range req.Items {
 		positionID, err := shift.ParsePositionID(itemReq.PositionID)
 		if err != nil {
@@ -159,7 +159,7 @@ func (h *ShiftTemplateHandler) CreateTemplate(w http.ResponseWriter, r *http.Req
 			return
 		}
 
-		items = append(items, usecase.TemplateItemInput{
+		items = append(items, appshift.TemplateItemInput{
 			PositionID:    positionID,
 			SlotName:      itemReq.SlotName,
 			InstanceName:  itemReq.InstanceName,
@@ -171,7 +171,7 @@ func (h *ShiftTemplateHandler) CreateTemplate(w http.ResponseWriter, r *http.Req
 	}
 
 	// Execute usecase
-	input := usecase.CreateShiftTemplateInput{
+	input := appshift.CreateShiftTemplateInput{
 		TenantID:     tenantID,
 		EventID:      eventID,
 		TemplateName: req.TemplateName,
@@ -217,7 +217,7 @@ func (h *ShiftTemplateHandler) ListTemplates(w http.ResponseWriter, r *http.Requ
 	}
 
 	// Execute usecase
-	input := usecase.ListShiftTemplatesInput{
+	input := appshift.ListShiftTemplatesInput{
 		TenantID: tenantID,
 		EventID:  eventID,
 	}
@@ -265,7 +265,7 @@ func (h *ShiftTemplateHandler) GetTemplate(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Execute usecase
-	input := usecase.GetShiftTemplateInput{
+	input := appshift.GetShiftTemplateInput{
 		TenantID:   tenantID,
 		TemplateID: templateID,
 	}
@@ -323,7 +323,7 @@ func (h *ShiftTemplateHandler) UpdateTemplate(w http.ResponseWriter, r *http.Req
 	}
 
 	// Parse template items
-	var items []usecase.TemplateItemInput
+	var items []appshift.TemplateItemInput
 	for _, itemReq := range req.Items {
 		positionID, err := shift.ParsePositionID(itemReq.PositionID)
 		if err != nil {
@@ -343,7 +343,7 @@ func (h *ShiftTemplateHandler) UpdateTemplate(w http.ResponseWriter, r *http.Req
 			return
 		}
 
-		items = append(items, usecase.TemplateItemInput{
+		items = append(items, appshift.TemplateItemInput{
 			PositionID:    positionID,
 			SlotName:      itemReq.SlotName,
 			InstanceName:  itemReq.InstanceName,
@@ -355,7 +355,7 @@ func (h *ShiftTemplateHandler) UpdateTemplate(w http.ResponseWriter, r *http.Req
 	}
 
 	// Execute usecase
-	input := usecase.UpdateShiftTemplateInput{
+	input := appshift.UpdateShiftTemplateInput{
 		TenantID:     tenantID,
 		TemplateID:   templateID,
 		TemplateName: req.TemplateName,
@@ -400,7 +400,7 @@ func (h *ShiftTemplateHandler) DeleteTemplate(w http.ResponseWriter, r *http.Req
 	}
 
 	// Execute usecase
-	input := usecase.DeleteShiftTemplateInput{
+	input := appshift.DeleteShiftTemplateInput{
 		TenantID:   tenantID,
 		TemplateID: templateID,
 	}
@@ -453,7 +453,7 @@ func (h *ShiftTemplateHandler) SaveBusinessDayAsTemplate(w http.ResponseWriter, 
 	}
 
 	// Execute usecase
-	input := usecase.SaveBusinessDayAsTemplateInput{
+	input := appshift.SaveBusinessDayAsTemplateInput{
 		TenantID:      tenantID,
 		BusinessDayID: businessDayID,
 		TemplateName:  req.TemplateName,

@@ -6,22 +6,21 @@ import (
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/attendance"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
-	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/clock"
-	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/db"
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/services"
 )
 
 // SubmitResponseUsecase handles submitting an attendance response
 type SubmitResponseUsecase struct {
 	repo      attendance.AttendanceCollectionRepository
-	txManager db.TxManager
-	clock     clock.Clock
+	txManager services.TxManager
+	clock     services.Clock
 }
 
 // NewSubmitResponseUsecase creates a new SubmitResponseUsecase
 func NewSubmitResponseUsecase(
 	repo attendance.AttendanceCollectionRepository,
-	txManager db.TxManager,
-	clock clock.Clock,
+	txManager services.TxManager,
+	clock services.Clock,
 ) *SubmitResponseUsecase {
 	return &SubmitResponseUsecase{
 		repo:      repo,

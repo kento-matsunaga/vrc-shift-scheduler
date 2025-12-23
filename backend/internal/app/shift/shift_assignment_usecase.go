@@ -1,4 +1,4 @@
-package usecase
+package shift
 
 import (
 	"context"
@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/event"
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/member"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/shift"
 )
 
@@ -21,16 +23,16 @@ type ConfirmManualAssignmentInput struct {
 
 // ConfirmManualAssignmentUsecase handles manual shift assignment confirmation
 type ConfirmManualAssignmentUsecase struct {
-	slotRepo       ShiftSlotRepository
-	assignmentRepo ShiftAssignmentRepository
-	memberRepo     MemberRepository
+	slotRepo       shift.ShiftSlotRepository
+	assignmentRepo shift.ShiftAssignmentRepository
+	memberRepo     member.MemberRepository
 }
 
 // NewConfirmManualAssignmentUsecase creates a new ConfirmManualAssignmentUsecase
 func NewConfirmManualAssignmentUsecase(
-	slotRepo ShiftSlotRepository,
-	assignmentRepo ShiftAssignmentRepository,
-	memberRepo MemberRepository,
+	slotRepo shift.ShiftSlotRepository,
+	assignmentRepo shift.ShiftAssignmentRepository,
+	memberRepo member.MemberRepository,
 ) *ConfirmManualAssignmentUsecase {
 	return &ConfirmManualAssignmentUsecase{
 		slotRepo:       slotRepo,
@@ -139,18 +141,18 @@ type AssignmentWithDetails struct {
 
 // GetAssignmentsUsecase handles getting shift assignments
 type GetAssignmentsUsecase struct {
-	assignmentRepo  ShiftAssignmentRepository
-	memberRepo      MemberRepository
-	slotRepo        ShiftSlotRepository
-	businessDayRepo EventBusinessDayRepository
+	assignmentRepo  shift.ShiftAssignmentRepository
+	memberRepo      member.MemberRepository
+	slotRepo        shift.ShiftSlotRepository
+	businessDayRepo event.EventBusinessDayRepository
 }
 
 // NewGetAssignmentsUsecase creates a new GetAssignmentsUsecase
 func NewGetAssignmentsUsecase(
-	assignmentRepo ShiftAssignmentRepository,
-	memberRepo MemberRepository,
-	slotRepo ShiftSlotRepository,
-	businessDayRepo EventBusinessDayRepository,
+	assignmentRepo shift.ShiftAssignmentRepository,
+	memberRepo member.MemberRepository,
+	slotRepo shift.ShiftSlotRepository,
+	businessDayRepo event.EventBusinessDayRepository,
 ) *GetAssignmentsUsecase {
 	return &GetAssignmentsUsecase{
 		assignmentRepo:  assignmentRepo,
@@ -253,18 +255,18 @@ type GetAssignmentDetailInput struct {
 
 // GetAssignmentDetailUsecase handles getting a shift assignment detail
 type GetAssignmentDetailUsecase struct {
-	assignmentRepo  ShiftAssignmentRepository
-	memberRepo      MemberRepository
-	slotRepo        ShiftSlotRepository
-	businessDayRepo EventBusinessDayRepository
+	assignmentRepo  shift.ShiftAssignmentRepository
+	memberRepo      member.MemberRepository
+	slotRepo        shift.ShiftSlotRepository
+	businessDayRepo event.EventBusinessDayRepository
 }
 
 // NewGetAssignmentDetailUsecase creates a new GetAssignmentDetailUsecase
 func NewGetAssignmentDetailUsecase(
-	assignmentRepo ShiftAssignmentRepository,
-	memberRepo MemberRepository,
-	slotRepo ShiftSlotRepository,
-	businessDayRepo EventBusinessDayRepository,
+	assignmentRepo shift.ShiftAssignmentRepository,
+	memberRepo member.MemberRepository,
+	slotRepo shift.ShiftSlotRepository,
+	businessDayRepo event.EventBusinessDayRepository,
 ) *GetAssignmentDetailUsecase {
 	return &GetAssignmentDetailUsecase{
 		assignmentRepo:  assignmentRepo,
@@ -321,11 +323,11 @@ type CancelAssignmentInput struct {
 
 // CancelAssignmentUsecase handles canceling a shift assignment
 type CancelAssignmentUsecase struct {
-	assignmentRepo ShiftAssignmentRepository
+	assignmentRepo shift.ShiftAssignmentRepository
 }
 
 // NewCancelAssignmentUsecase creates a new CancelAssignmentUsecase
-func NewCancelAssignmentUsecase(assignmentRepo ShiftAssignmentRepository) *CancelAssignmentUsecase {
+func NewCancelAssignmentUsecase(assignmentRepo shift.ShiftAssignmentRepository) *CancelAssignmentUsecase {
 	return &CancelAssignmentUsecase{
 		assignmentRepo: assignmentRepo,
 	}
