@@ -7,8 +7,6 @@ import (
 
 	apptenant "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/tenant"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/tenant"
-	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/db"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // TenantHandler handles tenant-related HTTP requests
@@ -17,12 +15,14 @@ type TenantHandler struct {
 	updateTenantUC *apptenant.UpdateTenantUsecase
 }
 
-// NewTenantHandler creates a new TenantHandler
-func NewTenantHandler(dbPool *pgxpool.Pool) *TenantHandler {
-	tenantRepo := db.NewTenantRepository(dbPool)
+// NewTenantHandler creates a new TenantHandler with injected usecases
+func NewTenantHandler(
+	getTenantUC *apptenant.GetTenantUsecase,
+	updateTenantUC *apptenant.UpdateTenantUsecase,
+) *TenantHandler {
 	return &TenantHandler{
-		getTenantUC:    apptenant.NewGetTenantUsecase(tenantRepo),
-		updateTenantUC: apptenant.NewUpdateTenantUsecase(tenantRepo),
+		getTenantUC:    getTenantUC,
+		updateTenantUC: updateTenantUC,
 	}
 }
 

@@ -6,12 +6,8 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	appAuth "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/auth"
-	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/clock"
-	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/db"
-	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/security"
 )
 
 // InvitationHandler handles invitation-related HTTP requests
@@ -20,16 +16,14 @@ type InvitationHandler struct {
 	acceptInvitationUsecase *appAuth.AcceptInvitationUsecase
 }
 
-// NewInvitationHandler creates a new InvitationHandler
-func NewInvitationHandler(pool *pgxpool.Pool) *InvitationHandler {
-	adminRepo := db.NewAdminRepository(pool)
-	invitationRepo := db.NewInvitationRepository(pool)
-	systemClock := &clock.RealClock{}
-	passwordHasher := security.NewBcryptHasher()
-
+// NewInvitationHandler creates a new InvitationHandler with injected usecases
+func NewInvitationHandler(
+	inviteAdminUC *appAuth.InviteAdminUsecase,
+	acceptInvitationUC *appAuth.AcceptInvitationUsecase,
+) *InvitationHandler {
 	return &InvitationHandler{
-		inviteAdminUsecase:      appAuth.NewInviteAdminUsecase(adminRepo, invitationRepo, systemClock),
-		acceptInvitationUsecase: appAuth.NewAcceptInvitationUsecase(adminRepo, invitationRepo, passwordHasher, systemClock),
+		inviteAdminUsecase:      inviteAdminUC,
+		acceptInvitationUsecase: acceptInvitationUC,
 	}
 }
 

@@ -6,9 +6,7 @@ import (
 	"net/http"
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/app/member_group"
-	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/db"
 	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // MemberGroupHandler handles member group-related HTTP requests
@@ -21,17 +19,22 @@ type MemberGroupHandler struct {
 	assignMembersUsecase *member_group.AssignMembersUsecase
 }
 
-// NewMemberGroupHandler creates a new MemberGroupHandler
-func NewMemberGroupHandler(dbPool *pgxpool.Pool) *MemberGroupHandler {
-	groupRepo := db.NewMemberGroupRepository(dbPool)
-
+// NewMemberGroupHandler creates a new MemberGroupHandler with injected usecases
+func NewMemberGroupHandler(
+	createGroupUC *member_group.CreateGroupUsecase,
+	updateGroupUC *member_group.UpdateGroupUsecase,
+	getGroupUC *member_group.GetGroupUsecase,
+	listGroupsUC *member_group.ListGroupsUsecase,
+	deleteGroupUC *member_group.DeleteGroupUsecase,
+	assignMembersUC *member_group.AssignMembersUsecase,
+) *MemberGroupHandler {
 	return &MemberGroupHandler{
-		createGroupUsecase:  member_group.NewCreateGroupUsecase(groupRepo),
-		updateGroupUsecase:  member_group.NewUpdateGroupUsecase(groupRepo),
-		getGroupUsecase:     member_group.NewGetGroupUsecase(groupRepo),
-		listGroupsUsecase:   member_group.NewListGroupsUsecase(groupRepo),
-		deleteGroupUsecase:  member_group.NewDeleteGroupUsecase(groupRepo),
-		assignMembersUsecase: member_group.NewAssignMembersUsecase(groupRepo),
+		createGroupUsecase:   createGroupUC,
+		updateGroupUsecase:   updateGroupUC,
+		getGroupUsecase:      getGroupUC,
+		listGroupsUsecase:    listGroupsUC,
+		deleteGroupUsecase:   deleteGroupUC,
+		assignMembersUsecase: assignMembersUC,
 	}
 }
 

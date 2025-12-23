@@ -6,9 +6,7 @@ import (
 	"net/http"
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/app/role_group"
-	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/db"
 	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // RoleGroupHandler handles role group-related HTTP requests
@@ -21,17 +19,22 @@ type RoleGroupHandler struct {
 	assignRolesUsecase  *role_group.AssignRolesUsecase
 }
 
-// NewRoleGroupHandler creates a new RoleGroupHandler
-func NewRoleGroupHandler(dbPool *pgxpool.Pool) *RoleGroupHandler {
-	groupRepo := db.NewRoleGroupRepository(dbPool)
-
+// NewRoleGroupHandler creates a new RoleGroupHandler with injected usecases
+func NewRoleGroupHandler(
+	createGroupUC *role_group.CreateGroupUsecase,
+	updateGroupUC *role_group.UpdateGroupUsecase,
+	getGroupUC *role_group.GetGroupUsecase,
+	listGroupsUC *role_group.ListGroupsUsecase,
+	deleteGroupUC *role_group.DeleteGroupUsecase,
+	assignRolesUC *role_group.AssignRolesUsecase,
+) *RoleGroupHandler {
 	return &RoleGroupHandler{
-		createGroupUsecase:  role_group.NewCreateGroupUsecase(groupRepo),
-		updateGroupUsecase:  role_group.NewUpdateGroupUsecase(groupRepo),
-		getGroupUsecase:     role_group.NewGetGroupUsecase(groupRepo),
-		listGroupsUsecase:   role_group.NewListGroupsUsecase(groupRepo),
-		deleteGroupUsecase:  role_group.NewDeleteGroupUsecase(groupRepo),
-		assignRolesUsecase:  role_group.NewAssignRolesUsecase(groupRepo),
+		createGroupUsecase: createGroupUC,
+		updateGroupUsecase: updateGroupUC,
+		getGroupUsecase:    getGroupUC,
+		listGroupsUsecase:  listGroupsUC,
+		deleteGroupUsecase: deleteGroupUC,
+		assignRolesUsecase: assignRolesUC,
 	}
 }
 

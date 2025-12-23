@@ -6,9 +6,7 @@ import (
 	"net/http"
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/app/role"
-	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/db"
 	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // RoleHandler handles role-related HTTP requests
@@ -20,16 +18,20 @@ type RoleHandler struct {
 	deleteRoleUsecase *role.DeleteRoleUsecase
 }
 
-// NewRoleHandler creates a new RoleHandler
-func NewRoleHandler(dbPool *pgxpool.Pool) *RoleHandler {
-	roleRepo := db.NewRoleRepository(dbPool)
-
+// NewRoleHandler creates a new RoleHandler with injected usecases
+func NewRoleHandler(
+	createRoleUC *role.CreateRoleUsecase,
+	updateRoleUC *role.UpdateRoleUsecase,
+	getRoleUC *role.GetRoleUsecase,
+	listRolesUC *role.ListRolesUsecase,
+	deleteRoleUC *role.DeleteRoleUsecase,
+) *RoleHandler {
 	return &RoleHandler{
-		createRoleUsecase: role.NewCreateRoleUsecase(roleRepo),
-		updateRoleUsecase: role.NewUpdateRoleUsecase(roleRepo),
-		getRoleUsecase:    role.NewGetRoleUsecase(roleRepo),
-		listRolesUsecase:  role.NewListRolesUsecase(roleRepo),
-		deleteRoleUsecase: role.NewDeleteRoleUsecase(roleRepo),
+		createRoleUsecase: createRoleUC,
+		updateRoleUsecase: updateRoleUC,
+		getRoleUsecase:    getRoleUC,
+		listRolesUsecase:  listRolesUC,
+		deleteRoleUsecase: deleteRoleUC,
 	}
 }
 
