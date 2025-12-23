@@ -29,4 +29,10 @@ type DateScheduleRepository interface {
 
 	// FindCandidatesByScheduleID は schedule の候補日一覧を取得する
 	FindCandidatesByScheduleID(ctx context.Context, scheduleID common.ScheduleID) ([]*CandidateDate, error)
+
+	// SaveGroupAssignments はグループ割り当てを保存する（既存のものを全て削除してから保存）
+	SaveGroupAssignments(ctx context.Context, scheduleID common.ScheduleID, assignments []*ScheduleGroupAssignment) error
+
+	// FindGroupAssignmentsByScheduleID は schedule のグループ割り当て一覧を取得する
+	FindGroupAssignmentsByScheduleID(ctx context.Context, scheduleID common.ScheduleID) ([]*ScheduleGroupAssignment, error)
 }

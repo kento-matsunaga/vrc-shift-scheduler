@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { getSchedule, getScheduleResponses, type Schedule, type ScheduleResponse } from '../lib/api/scheduleApi';
 import { getMembers } from '../lib/api';
+import { getMemberGroups, getMemberGroupDetail, type MemberGroup } from '../lib/api/memberGroupApi';
 import type { Member } from '../types/api';
 
 interface Candidate {
@@ -16,6 +17,7 @@ export default function ScheduleDetail() {
   const [schedule, setSchedule] = useState<Schedule | null>(null);
   const [responses, setResponses] = useState<ScheduleResponse[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
+  const [appliedGroups, setAppliedGroups] = useState<MemberGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [publicUrl, setPublicUrl] = useState('');
@@ -32,15 +34,43 @@ export default function ScheduleDetail() {
 
     try {
       setLoading(true);
-      const [scheduleData, responsesData, membersData] = await Promise.all([
+      const [scheduleData, responsesData, membersData, allGroups] = await Promise.all([
         getSchedule(scheduleId),
         getScheduleResponses(scheduleId),
         getMembers({ is_active: true }),
+        getMemberGroups(),
       ]);
 
       setSchedule(scheduleData);
       setResponses(responsesData || []);
-      setMembers(membersData.members || []);
+
+      // グループIDが設定されている場合、そのグループに属するメンバーのみを表示
+      const groupIds = scheduleData.group_ids || [];
+      if (groupIds.length > 0) {
+        // 適用グループ情報を取得
+        const groups = (allGroups.groups || []).filter((g: MemberGroup) => groupIds.includes(g.group_id));
+        setAppliedGroups(groups);
+
+        // グループに属するメンバーIDを集める
+        const allowedMemberIds = new Set<string>();
+        for (const groupId of groupIds) {
+          try {
+            const groupDetail = await getMemberGroupDetail(groupId);
+            (groupDetail.member_ids || []).forEach((memberId: string) => allowedMemberIds.add(memberId));
+          } catch (e) {
+            console.error('Failed to fetch group members:', e);
+          }
+        }
+
+        // フィルタリング
+        const filteredMembers = (membersData.members || []).filter((m: Member) =>
+          allowedMemberIds.has(m.member_id)
+        );
+        setMembers(filteredMembers);
+      } else {
+        setAppliedGroups([]);
+        setMembers(membersData.members || []);
+      }
 
       const baseUrl = window.location.origin;
       const url = `${baseUrl}/p/schedule/${scheduleData.public_token}`;
@@ -191,6 +221,27 @@ export default function ScheduleDetail() {
             </div>
           )}
         </div>
+
+        {/* 対象グループ */}
+        {appliedGroups.length > 0 && (
+          <div className="pt-4 border-t border-gray-200 mb-4">
+            <h3 className="text-sm font-semibold text-gray-900 mb-2">対象グループ</h3>
+            <div className="flex flex-wrap gap-2">
+              {appliedGroups.map((group) => (
+                <span
+                  key={group.group_id}
+                  className="px-3 py-1 rounded-full text-sm font-medium text-white"
+                  style={{ backgroundColor: group.color || '#6366f1' }}
+                >
+                  {group.name}
+                </span>
+              ))}
+            </div>
+            <p className="text-xs text-gray-500 mt-2">
+              上記グループに属するメンバーのみが回答対象です
+            </p>
+          </div>
+        )}
 
         {/* 公開URL */}
         <div className="pt-4 border-t border-gray-200">

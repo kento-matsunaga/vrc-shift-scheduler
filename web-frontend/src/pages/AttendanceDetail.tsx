@@ -8,6 +8,7 @@ import {
   type AttendanceResponse,
 } from '../lib/api/attendanceApi';
 import { getMembers } from '../lib/api';
+import { getMemberGroups, getMemberGroupDetail, type MemberGroup } from '../lib/api/memberGroupApi';
 import type { Member } from '../types/api';
 
 export default function AttendanceDetail() {
@@ -17,6 +18,7 @@ export default function AttendanceDetail() {
   const [collection, setCollection] = useState<AttendanceCollectionType | null>(null);
   const [responses, setResponses] = useState<AttendanceResponse[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
+  const [appliedGroups, setAppliedGroups] = useState<MemberGroup[]>([]);
   const [closing, setClosing] = useState(false);
   const [publicUrl, setPublicUrl] = useState('');
   const [copied, setCopied] = useState(false);
@@ -31,14 +33,42 @@ export default function AttendanceDetail() {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const [collectionData, responsesData, membersData] = await Promise.all([
+        const [collectionData, responsesData, membersData, allGroups] = await Promise.all([
           getAttendanceCollection(collectionId),
           getAttendanceResponses(collectionId),
           getMembers({ is_active: true }),
+          getMemberGroups(),
         ]);
         setCollection(collectionData);
         setResponses(responsesData || []);
-        setMembers(membersData.members || []);
+
+        // グループIDが設定されている場合、そのグループに属するメンバーのみを表示
+        const groupIds = collectionData.group_ids || [];
+        if (groupIds.length > 0) {
+          // 適用グループ情報を取得
+          const groups = (allGroups.groups || []).filter((g: MemberGroup) => groupIds.includes(g.group_id));
+          setAppliedGroups(groups);
+
+          // グループに属するメンバーIDを集める
+          const allowedMemberIds = new Set<string>();
+          for (const groupId of groupIds) {
+            try {
+              const groupDetail = await getMemberGroupDetail(groupId);
+              (groupDetail.member_ids || []).forEach((memberId: string) => allowedMemberIds.add(memberId));
+            } catch (e) {
+              console.error('Failed to fetch group members:', e);
+            }
+          }
+
+          // フィルタリング
+          const filteredMembers = (membersData.members || []).filter((m: Member) =>
+            allowedMemberIds.has(m.member_id)
+          );
+          setMembers(filteredMembers);
+        } else {
+          setAppliedGroups([]);
+          setMembers(membersData.members || []);
+        }
 
         const baseUrl = window.location.origin;
         const url = `${baseUrl}/p/attendance/${collectionData.public_token}`;
@@ -214,6 +244,27 @@ export default function AttendanceDetail() {
             </div>
           )}
         </div>
+
+        {/* 対象グループ */}
+        {appliedGroups.length > 0 && (
+          <div className="pt-4 border-t border-gray-200 mb-4">
+            <h3 className="text-sm font-semibold text-gray-900 mb-2">対象グループ</h3>
+            <div className="flex flex-wrap gap-2">
+              {appliedGroups.map((group) => (
+                <span
+                  key={group.group_id}
+                  className="px-3 py-1 rounded-full text-sm font-medium text-white"
+                  style={{ backgroundColor: group.color || '#6366f1' }}
+                >
+                  {group.name}
+                </span>
+              ))}
+            </div>
+            <p className="text-xs text-gray-500 mt-2">
+              上記グループに属するメンバーのみが回答対象です
+            </p>
+          </div>
+        )}
 
         {/* 公開URL */}
         <div className="pt-4 border-t border-gray-200">

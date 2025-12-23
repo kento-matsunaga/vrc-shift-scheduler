@@ -631,3 +631,90 @@ func (r *AttendanceRepository) FindTargetDatesByCollectionID(ctx context.Context
 
 	return targetDates, nil
 }
+
+// SaveGroupAssignments saves group assignments for a collection (deletes existing ones first)
+func (r *AttendanceRepository) SaveGroupAssignments(ctx context.Context, collectionID common.CollectionID, assignments []*attendance.CollectionGroupAssignment) error {
+	executor := GetTx(ctx, r.pool)
+
+	// 既存のグループ割り当てを削除
+	deleteQuery := `DELETE FROM attendance_collection_group_assignments WHERE collection_id = $1`
+	_, err := executor.Exec(ctx, deleteQuery, collectionID.String())
+	if err != nil {
+		return fmt.Errorf("failed to delete old group assignments: %w", err)
+	}
+
+	// 新しいグループ割り当てを挿入
+	if len(assignments) == 0 {
+		return nil
+	}
+
+	insertQuery := `
+		INSERT INTO attendance_collection_group_assignments (
+			collection_id, group_id, created_at
+		) VALUES ($1, $2, $3)
+	`
+
+	for _, a := range assignments {
+		_, err := executor.Exec(ctx, insertQuery,
+			a.CollectionID().String(),
+			a.GroupID().String(),
+			a.CreatedAt(),
+		)
+		if err != nil {
+			return fmt.Errorf("failed to save group assignment: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// FindGroupAssignmentsByCollectionID finds all group assignments for a collection
+func (r *AttendanceRepository) FindGroupAssignmentsByCollectionID(ctx context.Context, collectionID common.CollectionID) ([]*attendance.CollectionGroupAssignment, error) {
+	query := `
+		SELECT collection_id, group_id, created_at
+		FROM attendance_collection_group_assignments
+		WHERE collection_id = $1
+		ORDER BY created_at
+	`
+
+	executor := GetTx(ctx, r.pool)
+	rows, err := executor.Query(ctx, query, collectionID.String())
+	if err != nil {
+		return nil, fmt.Errorf("failed to query group assignments: %w", err)
+	}
+	defer rows.Close()
+
+	var assignments []*attendance.CollectionGroupAssignment
+	for rows.Next() {
+		var collectionIDStr, groupIDStr string
+		var createdAt time.Time
+
+		err := rows.Scan(&collectionIDStr, &groupIDStr, &createdAt)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan group assignment: %w", err)
+		}
+
+		parsedCollectionID, err := common.ParseCollectionID(collectionIDStr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse collection_id: %w", err)
+		}
+
+		groupID, err := common.ParseMemberGroupID(groupIDStr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse group_id: %w", err)
+		}
+
+		assignment, err := attendance.ReconstructCollectionGroupAssignment(parsedCollectionID, groupID, createdAt)
+		if err != nil {
+			return nil, fmt.Errorf("failed to reconstruct group assignment: %w", err)
+		}
+
+		assignments = append(assignments, assignment)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration error: %w", err)
+	}
+
+	return assignments, nil
+}

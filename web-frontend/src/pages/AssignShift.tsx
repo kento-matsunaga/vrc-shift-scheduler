@@ -178,9 +178,10 @@ export default function AssignShift() {
       setActualAttendance(actualAttendanceData);
 
       // イベントのグループ割り当てを取得
+      let groupAssignments: EventGroupAssignments | null = null;
       if (businessDayData.event_id) {
         try {
-          const groupAssignments = await getEventGroupAssignments(businessDayData.event_id);
+          groupAssignments = await getEventGroupAssignments(businessDayData.event_id);
           setEventGroupAssignments(groupAssignments);
         } catch (err) {
           console.warn('Failed to load event group assignments:', err);
@@ -195,6 +196,19 @@ export default function AssignShift() {
       setSelectedMemberIds(assignedMemberIds);
       setExistingAssignmentIds(assignmentIds);
 
+      // イベントのグループ設定に基づいて許可されたメンバーIDを計算
+      let allowedMemberIdsForAttendance: string[] | null = null;
+      if (groupAssignments && groupAssignments.member_group_ids.length > 0) {
+        const allowedIds = new Set<string>();
+        for (const groupId of groupAssignments.member_group_ids) {
+          const group = memberGroupsData.groups?.find((g) => g.group_id === groupId);
+          if (group?.member_ids) {
+            group.member_ids.forEach((id) => allowedIds.add(id));
+          }
+        }
+        allowedMemberIdsForAttendance = Array.from(allowedIds);
+      }
+
       // この営業日と同じ日付の出欠確認データを集計（参加予定者のみ）
       const targetDateStr = businessDayData.target_date.split('T')[0]; // YYYY-MM-DD
       const matchingTargetDate = recentAttendanceData.target_dates.find((td) => {
@@ -205,7 +219,12 @@ export default function AssignShift() {
       if (matchingTargetDate) {
         const attendingMemberNames: string[] = [];
         const attendingMemberIdList: string[] = [];
-        recentAttendanceData.member_attendances.forEach((memberAtt) => {
+        // グループ設定がある場合は許可されたメンバーのみをフィルター
+        const filteredMemberAttendances = allowedMemberIdsForAttendance
+          ? recentAttendanceData.member_attendances.filter((ma) => allowedMemberIdsForAttendance!.includes(ma.member_id))
+          : recentAttendanceData.member_attendances;
+
+        filteredMemberAttendances.forEach((memberAtt) => {
           const response = memberAtt.attendance_map[matchingTargetDate.target_date_id];
           if (response === 'attending') {
             attendingMemberNames.push(memberAtt.member_name);

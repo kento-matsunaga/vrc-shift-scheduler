@@ -41,9 +41,9 @@ export default function ScheduleResponse() {
         console.log('Tenant ID from schedule:', scheduleData.tenant_id);
         setSchedule(scheduleData);
 
-        // メンバー一覧を取得
+        // メンバー一覧を取得（グループでフィルタリング）
         console.log('Fetching members for tenant:', scheduleData.tenant_id);
-        const membersData = await getMembers(scheduleData.tenant_id);
+        const membersData = await getMembers(scheduleData.tenant_id, scheduleData.group_ids);
         console.log('Members API response:', membersData);
         console.log('Members data:', membersData.data);
         console.log('Members array:', membersData.data?.members);

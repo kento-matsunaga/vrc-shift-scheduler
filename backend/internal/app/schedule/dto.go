@@ -11,12 +11,13 @@ type CandidateInput struct {
 
 // CreateScheduleInput represents the input for creating a schedule
 type CreateScheduleInput struct {
-	TenantID   string // from JWT context (管理API)
-	Title      string
+	TenantID    string // from JWT context (管理API)
+	Title       string
 	Description string
-	EventID    *string // optional
-	Candidates []CandidateInput
-	Deadline   *time.Time
+	EventID     *string // optional
+	Candidates  []CandidateInput
+	Deadline    *time.Time
+	GroupIDs    []string // optional: target group IDs
 }
 
 // CreateScheduleOutput represents the output for creating a schedule
@@ -109,6 +110,7 @@ type GetScheduleOutput struct {
 	Deadline           *time.Time       `json:"deadline,omitempty"`
 	DecidedCandidateID *string          `json:"decided_candidate_id,omitempty"`
 	Candidates         []CandidateDTO   `json:"candidates"`
+	GroupIDs           []string         `json:"group_ids,omitempty"`
 	CreatedAt          time.Time        `json:"created_at"`
 	UpdatedAt          time.Time        `json:"updated_at"`
 }
