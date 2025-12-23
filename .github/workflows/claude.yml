@@ -11,19 +11,72 @@ on:
     types: [submitted]
 
 jobs:
-  claude:
+  # @claude review コマンド専用
+  claude-review:
     if: |
-      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
-      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
-      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
-      (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
+      github.actor != 'claude[bot]' && (
+        (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude review')) ||
+        (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude review'))
+      )
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: read
-      issues: read
-      id-token: write
-      actions: read # Required for Claude to read CI results on PRs
+      pull-requests: write
+      issues: write
+      actions: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Read Review Instructions
+        id: review-instructions
+        run: |
+          if [ -f ".github/CLAUDE_REVIEW.md" ]; then
+            echo "instructions<<EOF" >> $GITHUB_OUTPUT
+            cat .github/CLAUDE_REVIEW.md >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run Claude Review
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            この PR をレビューしてください。
+
+            ${{ steps.review-instructions.outputs.instructions }}
+          allowed_tools: |
+            mcp__github__create_pull_request_review
+            mcp__github__get_file_contents
+            mcp__github__get_pull_request
+            mcp__github__get_pull_request_diff
+            mcp__github__get_pull_request_files
+            mcp__github__list_pull_request_commits
+            mcp__github__add_issue_comment
+            Read
+            Glob
+            Grep
+          timeout_minutes: 60
+
+  # 通常の @claude コマンド (review 以外)
+  claude-general:
+    if: |
+      github.actor != 'claude[bot]' && (
+        (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude') && !contains(github.event.comment.body, '@claude review')) ||
+        (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude') && !contains(github.event.comment.body, '@claude review')) ||
+        (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
+        (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
+      )
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      actions: read
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -31,20 +84,24 @@ jobs:
           fetch-depth: 1
 
       - name: Run Claude Code
-        id: claude
         uses: anthropics/claude-code-action@v1
         with:
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-
-          # This is an optional setting that allows Claude to read CI results on PRs
-          additional_permissions: |
-            actions: read
-
-          # Optional: Give a custom prompt to Claude. If this is not specified, Claude will perform the instructions specified in the comment that tagged it.
-          # prompt: 'Update the pull request description to include a summary of changes.'
-
-          # Optional: Add claude_args to customize behavior and configuration
-          # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
-          # or https://code.claude.com/docs/en/cli-reference for available options
-          # claude_args: '--allowed-tools Bash(gh pr:*)'
-
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          allowed_tools: |
+            mcp__github__create_pull_request_review
+            mcp__github__get_file_contents
+            mcp__github__get_pull_request
+            mcp__github__get_pull_request_diff
+            mcp__github__get_pull_request_files
+            mcp__github__list_pull_request_commits
+            mcp__github__add_issue_comment
+            mcp__github__create_or_update_file
+            mcp__github__create_branch
+            mcp__github__create_pull_request
+            Read
+            Write
+            Edit
+            Glob
+            Grep
+            Bash
+          timeout_minutes: 60
