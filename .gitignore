@@ -78,3 +78,7 @@ coverage/
 # ===========================
 LOCAL_DEPLOY_GUIDE.md
 
+# Analysis files (contains customer data)
+*.xlsx
+Citoron.xlsx
+
