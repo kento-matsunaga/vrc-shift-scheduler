@@ -248,7 +248,7 @@ export default function Settings() {
 
   return (
     <div className="max-w-4xl mx-auto">
-      <h2 className="text-2xl font-bold text-gray-900 mb-6">基本設定</h2>
+      <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-6">基本設定</h2>
 
       {error && !deleteTarget && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
