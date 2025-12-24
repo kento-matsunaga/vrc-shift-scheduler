@@ -356,6 +356,12 @@ func TestLicenseKeyRepository_ListWithPagination(t *testing.T) {
 	repo := db.NewLicenseKeyRepository(pool)
 	ctx := context.Background()
 
+	// テスト前にテーブルをクリア
+	_, err := pool.Exec(ctx, "DELETE FROM license_keys")
+	if err != nil {
+		t.Fatalf("Failed to clean up license_keys table: %v", err)
+	}
+
 	// テスト用のキーを追加
 	now := time.Now()
 	for i := 0; i < 10; i++ {

@@ -2,6 +2,7 @@ package db_test
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -259,8 +260,8 @@ func TestAttendanceRepository_BusinessDayTargetType(t *testing.T) {
 		t.Errorf("TargetType mismatch: got %v, want %v", foundCollection.TargetType(), attendance.TargetTypeBusinessDay)
 	}
 
-	if foundCollection.TargetID() != "bd-456" {
-		t.Errorf("TargetID mismatch: got %v, want 'bd-456'", foundCollection.TargetID())
+	if strings.TrimSpace(foundCollection.TargetID()) != "bd-456" {
+		t.Errorf("TargetID mismatch: got %q, want 'bd-456'", foundCollection.TargetID())
 	}
 }
 

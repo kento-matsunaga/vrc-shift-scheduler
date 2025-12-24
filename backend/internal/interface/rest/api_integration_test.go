@@ -12,6 +12,7 @@ import (
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/interface/rest"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // setupTestRouter creates a test router with a test database connection
@@ -239,8 +240,12 @@ func TestLogin_Success(t *testing.T) {
 	// テスト用のテナントと管理者を作成
 	tenantID := common.NewTenantID()
 	createTestTenant(t, pool, tenantID)
-	// bcrypt hash of "password123"
-	passwordHash := "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZRGdjGj/n3.E8y6iYAXxIz8p7qmOy"
+	// bcrypt hash of "password123" - generated dynamically
+	hash, err := bcrypt.GenerateFromPassword([]byte("password123"), bcrypt.DefaultCost)
+	if err != nil {
+		t.Fatalf("Failed to generate bcrypt hash: %v", err)
+	}
+	passwordHash := string(hash)
 	createTestAdmin(t, pool, tenantID, "login-test@example.com", passwordHash)
 
 	// リクエストボディの作成
@@ -302,7 +307,12 @@ func TestLogin_InvalidCredentials(t *testing.T) {
 	// テスト用のテナントと管理者を作成
 	tenantID := common.NewTenantID()
 	createTestTenant(t, pool, tenantID)
-	passwordHash := "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZRGdjGj/n3.E8y6iYAXxIz8p7qmOy"
+	// Generate proper bcrypt hash for "password123"
+	hash, err := bcrypt.GenerateFromPassword([]byte("password123"), bcrypt.DefaultCost)
+	if err != nil {
+		t.Fatalf("Failed to generate bcrypt hash: %v", err)
+	}
+	passwordHash := string(hash)
 	createTestAdmin(t, pool, tenantID, "invalid-login@example.com", passwordHash)
 
 	// 間違ったパスワードでログイン
