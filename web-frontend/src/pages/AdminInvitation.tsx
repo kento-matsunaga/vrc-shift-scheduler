@@ -101,7 +101,7 @@ export default function AdminInvitation() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="newadmin@example.com"
-              className="w-full px-4 py-3 border border-gray-300 rounded-md text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+              className="w-full px-4 py-3 border border-gray-300 rounded-md text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition"
               disabled={loading}
               autoFocus
             />
@@ -115,7 +115,7 @@ export default function AdminInvitation() {
               id="role"
               value={role}
               onChange={(e) => setRole(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-md text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+              className="w-full px-4 py-3 border border-gray-300 rounded-md text-gray-900 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition"
               disabled={loading}
             >
               <option value="admin">管理者 (Admin)</option>
@@ -150,7 +150,7 @@ export default function AdminInvitation() {
 
           <button
             type="submit"
-            className="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white font-medium rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+            className="w-full py-3 px-4 bg-accent hover:bg-accent-dark disabled:bg-accent/70 text-white font-medium rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2"
             disabled={loading || !email.trim() || !role}
           >
             {loading ? (

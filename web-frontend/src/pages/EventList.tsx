@@ -171,7 +171,7 @@ export default function EventList() {
   if (loading) {
     return (
       <div className="text-center py-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent mx-auto"></div>
         <p className="mt-4 text-gray-600">読み込み中...</p>
       </div>
     );
@@ -223,7 +223,7 @@ export default function EventList() {
                 <span
                   className={`inline-block px-2 py-1 text-xs font-semibold rounded ${
                     event.event_type === 'normal'
-                      ? 'bg-indigo-100 text-indigo-800'
+                      ? 'bg-accent/10 text-accent-dark'
                       : 'bg-purple-100 text-purple-800'
                   }`}
                 >
@@ -247,7 +247,7 @@ export default function EventList() {
                       value={editingName}
                       onChange={(e) => setEditingName(e.target.value)}
                       onKeyDown={(e) => handleEditKeyDown(event.event_id, e)}
-                      className="flex-1 px-2 py-1 text-lg font-bold border border-indigo-300 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="flex-1 px-2 py-1 text-lg font-bold border border-accent/50 rounded focus:outline-none focus:ring-2 focus:ring-accent"
                       disabled={savingEventId === event.event_id}
                     />
                     <button
@@ -279,7 +279,7 @@ export default function EventList() {
                   </h3>
                   <button
                     onClick={(e) => handleStartEdit(event, e)}
-                    className="p-1 text-gray-400 hover:text-indigo-600 transition-colors"
+                    className="p-1 text-gray-400 hover:text-accent transition-colors"
                     title="イベント名を編集"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -545,8 +545,8 @@ function CreateEventModal({
                 </div>
               </div>
 
-              <div className="mb-4 p-3 bg-indigo-50 border border-indigo-200 rounded-lg">
-                <p className="text-sm text-indigo-800">
+              <div className="mb-4 p-3 bg-accent/10 border border-accent/30 rounded-lg">
+                <p className="text-sm text-accent-dark">
                   定期イベントを作成後、「営業日を自動生成」ボタンで今月〜来月の営業日をまとめて作成できます。
                 </p>
               </div>
@@ -690,7 +690,7 @@ function EventGroupModal({
 
         {loading ? (
           <div className="text-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto"></div>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent mx-auto"></div>
             <p className="mt-2 text-gray-600 text-sm">読み込み中...</p>
           </div>
         ) : (
@@ -718,7 +718,7 @@ function EventGroupModal({
                         type="checkbox"
                         checked={selectedMemberGroups.includes(group.group_id)}
                         onChange={() => toggleMemberGroup(group.group_id)}
-                        className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                        className="w-4 h-4 text-accent border-gray-300 rounded focus:ring-accent"
                       />
                       <span
                         className="w-3 h-3 rounded-full"
@@ -754,7 +754,7 @@ function EventGroupModal({
                         type="checkbox"
                         checked={selectedRoleGroups.includes(group.group_id)}
                         onChange={() => toggleRoleGroup(group.group_id)}
-                        className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                        className="w-4 h-4 text-accent border-gray-300 rounded focus:ring-accent"
                       />
                       <span
                         className="w-3 h-3 rounded-full"

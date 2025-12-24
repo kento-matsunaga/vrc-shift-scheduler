@@ -146,7 +146,7 @@ export default function TemplateForm() {
   if (loadingData) {
     return (
       <div className="text-center py-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent mx-auto"></div>
         <p className="mt-4 text-gray-600">読み込み中...</p>
       </div>
     );
@@ -212,7 +212,7 @@ export default function TemplateForm() {
               type="button"
               onClick={addItem}
               disabled={loading}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm flex items-center"
+              className="bg-accent hover:bg-accent-dark text-white px-4 py-2 rounded-lg text-sm flex items-center"
             >
               <svg
                 className="w-5 h-5 mr-1"
@@ -238,7 +238,7 @@ export default function TemplateForm() {
                 type="button"
                 onClick={addItem}
                 disabled={loading}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm"
+                className="bg-accent hover:bg-accent-dark text-white px-4 py-2 rounded-lg text-sm"
               >
                 最初のシフト枠を追加
               </button>
@@ -358,7 +358,7 @@ export default function TemplateForm() {
           <button
             type="submit"
             disabled={loading || items.length === 0}
-            className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 bg-accent hover:bg-accent-dark text-white px-6 py-3 rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? '保存中...' : isEditMode ? '更新する' : '作成する'}
           </button>

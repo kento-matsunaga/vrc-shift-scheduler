@@ -21,7 +21,7 @@ export default function Layout() {
   const linkClass = (path: string) =>
     `flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
       location.pathname.startsWith(path)
-        ? 'bg-indigo-100 text-indigo-700'
+        ? 'bg-accent/10 text-accent-dark border-l-4 border-accent'
         : 'text-gray-700 hover:bg-gray-100'
     }`;
 
@@ -33,9 +33,9 @@ export default function Layout() {
       {/* サイドバー */}
       <aside className="w-56 bg-white shadow-md flex flex-col fixed h-full">
         {/* ロゴ */}
-        <div className="p-4 border-b">
-          <h1 className="text-lg font-bold text-indigo-900">VRC Shift Scheduler</h1>
-          <span className="inline-block mt-1 bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded text-xs font-medium">
+        <div className="p-4 border-b border-gray-200 bg-vrc-dark">
+          <h1 className="text-lg font-bold text-white">VRC Shift Scheduler</h1>
+          <span className="inline-block mt-1 bg-accent text-white px-2 py-0.5 rounded text-xs font-medium">
             {adminRole === 'owner' ? 'オーナー' : 'マネージャー'}
           </span>
         </div>
@@ -58,7 +58,7 @@ export default function Layout() {
               onClick={() => setShowGroupSubmenu(!showGroupSubmenu)}
               className={`w-full flex items-center justify-between px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
                 isGroupActive
-                  ? 'bg-indigo-100 text-indigo-700'
+                  ? 'bg-accent/10 text-accent-dark border-l-4 border-accent'
                   : 'text-gray-700 hover:bg-gray-100'
               }`}
             >
@@ -78,7 +78,7 @@ export default function Layout() {
                   to="/role-groups"
                   className={`block px-4 py-2 text-sm rounded-lg transition-colors ${
                     location.pathname.startsWith('/role-groups')
-                      ? 'bg-indigo-50 text-indigo-700'
+                      ? 'bg-accent/10 text-accent-dark'
                       : 'text-gray-600 hover:bg-gray-50'
                   }`}
                 >
@@ -88,7 +88,7 @@ export default function Layout() {
                   to="/groups"
                   className={`block px-4 py-2 text-sm rounded-lg transition-colors ${
                     location.pathname.startsWith('/groups')
-                      ? 'bg-indigo-50 text-indigo-700'
+                      ? 'bg-accent/10 text-accent-dark'
                       : 'text-gray-600 hover:bg-gray-50'
                   }`}
                 >

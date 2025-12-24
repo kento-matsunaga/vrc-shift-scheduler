@@ -105,7 +105,7 @@ export default function BusinessDayList() {
   if (loading) {
     return (
       <div className="text-center py-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent mx-auto"></div>
         <p className="mt-4 text-gray-600">読み込み中...</p>
       </div>
     );
@@ -215,7 +215,7 @@ export default function BusinessDayList() {
                 <select
                   value={selectedMonth}
                   onChange={(e) => setSelectedMonth(e.target.value)}
-                  className="flex-1 px-4 py-2 text-center text-lg font-bold text-gray-900 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="flex-1 px-4 py-2 text-center text-lg font-bold text-gray-900 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-accent"
                 >
                   {sortedKeys.map((monthKey) => {
                     const [y, m] = monthKey.split('-');
@@ -469,11 +469,11 @@ function CreateBusinessDayModal({
             </div>
           </div>
 
-          <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3 mb-4">
-            <p className="text-xs text-indigo-800">
+          <div className="bg-accent/10 border border-accent/30 rounded-lg p-3 mb-4">
+            <p className="text-xs text-accent-dark">
               💡 深夜営業の場合、終了時刻が開始時刻より前でもOKです（例: 21:30-02:00）
             </p>
-            <p className="text-xs text-indigo-800 mt-1">
+            <p className="text-xs text-accent-dark mt-1">
               📋 手動で追加した営業日は「特別営業」として登録されます
             </p>
           </div>
@@ -575,14 +575,14 @@ function CreateBusinessDayModal({
                           return (
                             <tr
                               key={candidate.candidate_id}
-                              className={isSelected ? 'bg-indigo-50' : 'hover:bg-gray-50'}
+                              className={isSelected ? 'bg-accent/10' : 'hover:bg-gray-50'}
                               onClick={() => setTargetDate(candidateDateStr)}
                               style={{ cursor: 'pointer' }}
                             >
                               <td className="px-3 py-2">
                                 <div className="flex items-center gap-2">
-                                  {isSelected && <span className="text-indigo-600">→</span>}
-                                  <span className={isSelected ? 'font-semibold text-indigo-900' : ''}>
+                                  {isSelected && <span className="text-accent">→</span>}
+                                  <span className={isSelected ? 'font-semibold text-accent-dark' : ''}>
                                     {new Date(candidate.date).toLocaleDateString('ja-JP', {
                                       month: '2-digit',
                                       day: '2-digit',

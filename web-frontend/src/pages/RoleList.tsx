@@ -61,7 +61,7 @@ export default function RoleList() {
   if (loading) {
     return (
       <div className="text-center py-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent mx-auto"></div>
         <p className="mt-4 text-gray-600">読み込み中...</p>
       </div>
     );
@@ -109,7 +109,7 @@ export default function RoleList() {
                 <div className="flex gap-2">
                   <button
                     onClick={() => setEditingRole(role)}
-                    className="text-indigo-600 hover:text-indigo-800 text-sm"
+                    className="text-accent hover:text-accent-dark text-sm"
                   >
                     編集
                   </button>
