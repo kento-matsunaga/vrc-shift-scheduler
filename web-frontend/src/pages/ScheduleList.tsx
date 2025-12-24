@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { listSchedules, createSchedule, type Schedule } from '../lib/api/scheduleApi';
 import { getMemberGroups, type MemberGroup } from '../lib/api/memberGroupApi';
+import { MobileCard, CardHeader, CardField } from '../components/MobileCard';
 
 export default function ScheduleList() {
   const navigate = useNavigate();
@@ -166,16 +167,16 @@ export default function ScheduleList() {
 
   return (
     <div className="max-w-6xl mx-auto">
-      <div className="mb-6 flex justify-between items-center">
+      <div className="mb-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">日程調整</h1>
-          <p className="text-sm text-gray-600 mt-1">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">日程調整</h1>
+          <p className="text-xs sm:text-sm text-gray-600 mt-1">
             複数の候補日から、メンバーが参加可能な日程を回答してもらいましょう
           </p>
         </div>
         <button
           onClick={() => setShowCreateForm(!showCreateForm)}
-          className="px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent-dark transition-colors font-medium"
+          className="px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent-dark transition-colors font-medium text-sm sm:text-base w-full sm:w-auto"
         >
           {showCreateForm ? 'キャンセル' : '+ 新規作成'}
         </button>
@@ -365,7 +366,51 @@ export default function ScheduleList() {
         </div>
       )}
 
-      <div className="bg-white rounded-lg shadow overflow-hidden">
+      {/* モバイル用カードビュー */}
+      <div className="md:hidden space-y-3">
+        {schedules.length === 0 ? (
+          <div className="bg-white rounded-lg shadow p-8 text-center text-gray-500">
+            日程調整がまだありません。新規作成してください。
+          </div>
+        ) : (
+          schedules.map((schedule) => (
+            <MobileCard
+              key={schedule.schedule_id}
+              onClick={() => navigate(`/schedules/${schedule.schedule_id}`)}
+            >
+              <CardHeader
+                title={schedule.title}
+                subtitle={schedule.description || undefined}
+                badge={getStatusBadge(schedule.status)}
+              />
+              <div className="space-y-1">
+                <CardField label="候補日数" value={`${schedule.candidate_count || 0}件`} />
+                <CardField label="回答数" value={`${schedule.response_count || 0}人`} />
+                <CardField
+                  label="締切"
+                  value={
+                    schedule.deadline
+                      ? new Date(schedule.deadline).toLocaleString('ja-JP', {
+                          month: '2-digit',
+                          day: '2-digit',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })
+                      : '-'
+                  }
+                />
+                <CardField
+                  label="作成日"
+                  value={new Date(schedule.created_at).toLocaleDateString('ja-JP')}
+                />
+              </div>
+            </MobileCard>
+          ))
+        )}
+      </div>
+
+      {/* デスクトップ用テーブルビュー */}
+      <div className="hidden md:block bg-white rounded-lg shadow overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">

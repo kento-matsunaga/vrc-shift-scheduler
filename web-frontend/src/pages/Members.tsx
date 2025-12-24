@@ -5,6 +5,7 @@ import { listRoles, type Role } from '../lib/api/roleApi';
 import { getMemberGroups, type MemberGroup } from '../lib/api/memberGroupApi';
 import type { Member, RecentAttendanceResponse } from '../types/api';
 import { ApiClientError } from '../lib/apiClient';
+import { MobileCard, CardHeader, CardField, CardActions } from '../components/MobileCard';
 
 export default function Members() {
   const [members, setMembers] = useState<Member[]>([]);
@@ -243,20 +244,20 @@ export default function Members() {
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">メンバー管理</h2>
-        <div className="flex gap-3">
-          <button onClick={handleOpenActualAttendance} className="btn-secondary text-sm">
-            本出席を見る
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
+        <h2 className="text-xl sm:text-2xl font-bold text-gray-900">メンバー管理</h2>
+        <div className="flex flex-wrap gap-2 sm:gap-3">
+          <button onClick={handleOpenActualAttendance} className="btn-secondary text-xs sm:text-sm flex-1 sm:flex-none">
+            本出席
           </button>
-          <button onClick={handleOpenAttendanceConfirmation} className="btn-secondary text-sm">
-            出欠確認を見る
+          <button onClick={handleOpenAttendanceConfirmation} className="btn-secondary text-xs sm:text-sm flex-1 sm:flex-none">
+            出欠確認
           </button>
-          <button onClick={() => setShowBulkImportModal(true)} className="btn-secondary">
+          <button onClick={() => setShowBulkImportModal(true)} className="btn-secondary text-xs sm:text-sm">
             一括登録
           </button>
-          <button onClick={handleOpenCreateForm} className="btn-primary">
-            ＋ メンバーを追加
+          <button onClick={handleOpenCreateForm} className="btn-primary text-xs sm:text-sm">
+            ＋ 追加
           </button>
         </div>
       </div>
@@ -397,40 +398,16 @@ export default function Members() {
           )}
         </div>
       ) : (
-        <div className="card overflow-x-auto">
-          <table className="min-w-full">
-            <thead>
-              <tr className="border-b border-gray-200">
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">名前</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">ロール</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">ステータス</th>
-                <th className="px-4 py-3 text-right text-sm font-semibold text-gray-900">操作</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {filteredMembers.map((member) => (
-                <tr key={member.member_id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 text-sm text-gray-900">{member.display_name}</td>
-                  <td className="px-4 py-3 text-sm">
-                    <div className="flex flex-wrap gap-1">
-                      {member.role_ids && member.role_ids.length > 0 ? (
-                        member.role_ids.map((roleId) => (
-                          <span
-                            key={roleId}
-                            className="inline-flex items-center px-2 py-1 rounded text-xs font-medium text-white"
-                            style={{ backgroundColor: getRoleColor(roleId) }}
-                          >
-                            {getRoleName(roleId)}
-                          </span>
-                        ))
-                      ) : (
-                        <span className="text-gray-400">なし</span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-sm">
+        <>
+          {/* モバイル用カードビュー */}
+          <div className="md:hidden space-y-3">
+            {filteredMembers.map((member) => (
+              <MobileCard key={member.member_id}>
+                <CardHeader
+                  title={member.display_name}
+                  badge={
                     <span
-                      className={`inline-flex px-2 py-1 text-xs font-semibold rounded ${
+                      className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded ${
                         member.is_active
                           ? 'bg-green-100 text-green-800'
                           : 'bg-gray-100 text-gray-800'
@@ -438,26 +415,109 @@ export default function Members() {
                     >
                       {member.is_active ? 'アクティブ' : '非アクティブ'}
                     </span>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-right space-x-3">
-                    <button
-                      onClick={() => handleOpenEditForm(member)}
-                      className="text-accent hover:text-accent-dark font-medium"
-                    >
-                      編集
-                    </button>
-                    <button
-                      onClick={() => handleDeleteMember(member)}
-                      className="text-red-600 hover:text-red-800 font-medium"
-                    >
-                      削除
-                    </button>
-                  </td>
+                  }
+                />
+                <CardField
+                  label="ロール"
+                  value={
+                    member.role_ids && member.role_ids.length > 0 ? (
+                      <div className="flex flex-wrap gap-1 justify-end">
+                        {member.role_ids.map((roleId) => (
+                          <span
+                            key={roleId}
+                            className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium text-white"
+                            style={{ backgroundColor: getRoleColor(roleId) }}
+                          >
+                            {getRoleName(roleId)}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-gray-400">なし</span>
+                    )
+                  }
+                />
+                <CardActions>
+                  <button
+                    onClick={() => handleOpenEditForm(member)}
+                    className="flex-1 px-3 py-1.5 text-sm text-accent hover:bg-accent/10 rounded font-medium"
+                  >
+                    編集
+                  </button>
+                  <button
+                    onClick={() => handleDeleteMember(member)}
+                    className="flex-1 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 rounded font-medium"
+                  >
+                    削除
+                  </button>
+                </CardActions>
+              </MobileCard>
+            ))}
+          </div>
+
+          {/* デスクトップ用テーブルビュー */}
+          <div className="hidden md:block card overflow-x-auto">
+            <table className="min-w-full">
+              <thead>
+                <tr className="border-b border-gray-200">
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">名前</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">ロール</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">ステータス</th>
+                  <th className="px-4 py-3 text-right text-sm font-semibold text-gray-900">操作</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {filteredMembers.map((member) => (
+                  <tr key={member.member_id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 text-sm text-gray-900">{member.display_name}</td>
+                    <td className="px-4 py-3 text-sm">
+                      <div className="flex flex-wrap gap-1">
+                        {member.role_ids && member.role_ids.length > 0 ? (
+                          member.role_ids.map((roleId) => (
+                            <span
+                              key={roleId}
+                              className="inline-flex items-center px-2 py-1 rounded text-xs font-medium text-white"
+                              style={{ backgroundColor: getRoleColor(roleId) }}
+                            >
+                              {getRoleName(roleId)}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-gray-400">なし</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      <span
+                        className={`inline-flex px-2 py-1 text-xs font-semibold rounded ${
+                          member.is_active
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-gray-100 text-gray-800'
+                        }`}
+                      >
+                        {member.is_active ? 'アクティブ' : '非アクティブ'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-right space-x-3">
+                      <button
+                        onClick={() => handleOpenEditForm(member)}
+                        className="text-accent hover:text-accent-dark font-medium"
+                      >
+                        編集
+                      </button>
+                      <button
+                        onClick={() => handleDeleteMember(member)}
+                        className="text-red-600 hover:text-red-800 font-medium"
+                      >
+                        削除
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
 
       {/* メンバー登録・編集フォーム */}
