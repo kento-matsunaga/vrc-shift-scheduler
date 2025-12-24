@@ -1,4 +1,4 @@
-package usecase
+package event
 
 import (
 	"context"
@@ -8,22 +8,6 @@ import (
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/event"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/shift"
 )
-
-// EventBusinessDayRepository defines the interface for business day persistence
-type EventBusinessDayRepository interface {
-	Save(ctx context.Context, businessDay *event.EventBusinessDay) error
-	FindByID(ctx context.Context, tenantID common.TenantID, businessDayID event.BusinessDayID) (*event.EventBusinessDay, error)
-	FindByEventID(ctx context.Context, tenantID common.TenantID, eventID common.EventID) ([]*event.EventBusinessDay, error)
-	FindByEventIDAndDateRange(ctx context.Context, tenantID common.TenantID, eventID common.EventID, startDate, endDate time.Time) ([]*event.EventBusinessDay, error)
-	ExistsByEventIDAndDate(ctx context.Context, tenantID common.TenantID, eventID common.EventID, targetDate, startTime time.Time) (bool, error)
-}
-
-// ShiftSlotRepository defines the interface for shift slot persistence
-type ShiftSlotRepository interface {
-	Save(ctx context.Context, shiftSlot *shift.ShiftSlot) error
-	FindByID(ctx context.Context, tenantID common.TenantID, slotID shift.SlotID) (*shift.ShiftSlot, error)
-	FindByBusinessDayID(ctx context.Context, tenantID common.TenantID, businessDayID event.BusinessDayID) ([]*shift.ShiftSlot, error)
-}
 
 // CreateBusinessDayInput represents the input for creating a business day
 type CreateBusinessDayInput struct {
@@ -38,18 +22,18 @@ type CreateBusinessDayInput struct {
 
 // CreateBusinessDayUsecase handles the business day creation use case
 type CreateBusinessDayUsecase struct {
-	businessDayRepo EventBusinessDayRepository
-	eventRepo       EventRepository
-	templateRepo    ShiftSlotTemplateRepository
-	slotRepo        ShiftSlotRepository
+	businessDayRepo event.EventBusinessDayRepository
+	eventRepo       event.EventRepository
+	templateRepo    shift.ShiftSlotTemplateRepository
+	slotRepo        shift.ShiftSlotRepository
 }
 
 // NewCreateBusinessDayUsecase creates a new CreateBusinessDayUsecase
 func NewCreateBusinessDayUsecase(
-	businessDayRepo EventBusinessDayRepository,
-	eventRepo EventRepository,
-	templateRepo ShiftSlotTemplateRepository,
-	slotRepo ShiftSlotRepository,
+	businessDayRepo event.EventBusinessDayRepository,
+	eventRepo event.EventRepository,
+	templateRepo shift.ShiftSlotTemplateRepository,
+	slotRepo shift.ShiftSlotRepository,
 ) *CreateBusinessDayUsecase {
 	return &CreateBusinessDayUsecase{
 		businessDayRepo: businessDayRepo,
@@ -174,11 +158,11 @@ type ListBusinessDaysInput struct {
 
 // ListBusinessDaysUsecase handles the business day listing use case
 type ListBusinessDaysUsecase struct {
-	businessDayRepo EventBusinessDayRepository
+	businessDayRepo event.EventBusinessDayRepository
 }
 
 // NewListBusinessDaysUsecase creates a new ListBusinessDaysUsecase
-func NewListBusinessDaysUsecase(businessDayRepo EventBusinessDayRepository) *ListBusinessDaysUsecase {
+func NewListBusinessDaysUsecase(businessDayRepo event.EventBusinessDayRepository) *ListBusinessDaysUsecase {
 	return &ListBusinessDaysUsecase{
 		businessDayRepo: businessDayRepo,
 	}
@@ -212,11 +196,11 @@ type GetBusinessDayInput struct {
 
 // GetBusinessDayUsecase handles the business day retrieval use case
 type GetBusinessDayUsecase struct {
-	businessDayRepo EventBusinessDayRepository
+	businessDayRepo event.EventBusinessDayRepository
 }
 
 // NewGetBusinessDayUsecase creates a new GetBusinessDayUsecase
-func NewGetBusinessDayUsecase(businessDayRepo EventBusinessDayRepository) *GetBusinessDayUsecase {
+func NewGetBusinessDayUsecase(businessDayRepo event.EventBusinessDayRepository) *GetBusinessDayUsecase {
 	return &GetBusinessDayUsecase{
 		businessDayRepo: businessDayRepo,
 	}
@@ -241,16 +225,16 @@ type ApplyTemplateInput struct {
 
 // ApplyTemplateUsecase handles applying a template to an existing business day
 type ApplyTemplateUsecase struct {
-	businessDayRepo EventBusinessDayRepository
-	templateRepo    ShiftSlotTemplateRepository
-	slotRepo        ShiftSlotRepository
+	businessDayRepo event.EventBusinessDayRepository
+	templateRepo    shift.ShiftSlotTemplateRepository
+	slotRepo        shift.ShiftSlotRepository
 }
 
 // NewApplyTemplateUsecase creates a new ApplyTemplateUsecase
 func NewApplyTemplateUsecase(
-	businessDayRepo EventBusinessDayRepository,
-	templateRepo ShiftSlotTemplateRepository,
-	slotRepo ShiftSlotRepository,
+	businessDayRepo event.EventBusinessDayRepository,
+	templateRepo shift.ShiftSlotTemplateRepository,
+	slotRepo shift.ShiftSlotRepository,
 ) *ApplyTemplateUsecase {
 	return &ApplyTemplateUsecase{
 		businessDayRepo: businessDayRepo,

@@ -6,18 +6,18 @@ import (
 	"strings"
 	"time"
 
-	"github.com/erenoa/vrc-shift-scheduler/backend/internal/application/usecase"
+	applicense "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/license"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
 )
 
 // LicenseClaimHandler handles license claim requests
 type LicenseClaimHandler struct {
-	claimUsecase *usecase.LicenseClaimUsecase
+	claimUsecase *applicense.LicenseClaimUsecase
 	rateLimiter  *RateLimiter
 }
 
 // NewLicenseClaimHandler creates a new LicenseClaimHandler
-func NewLicenseClaimHandler(claimUsecase *usecase.LicenseClaimUsecase, rateLimiter *RateLimiter) *LicenseClaimHandler {
+func NewLicenseClaimHandler(claimUsecase *applicense.LicenseClaimUsecase, rateLimiter *RateLimiter) *LicenseClaimHandler {
 	return &LicenseClaimHandler{
 		claimUsecase: claimUsecase,
 		rateLimiter:  rateLimiter,
@@ -72,7 +72,7 @@ func (h *LicenseClaimHandler) Claim(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Execute claim usecase
-	input := usecase.LicenseClaimInput{
+	input := applicense.LicenseClaimInput{
 		Email:       req.Email,
 		Password:    req.Password,
 		DisplayName: req.DisplayName,

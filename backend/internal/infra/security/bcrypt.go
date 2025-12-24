@@ -1,14 +1,15 @@
 package security
 
-import "golang.org/x/crypto/bcrypt"
+import (
+	"golang.org/x/crypto/bcrypt"
 
-// PasswordHasher is an interface for hashing and comparing passwords
-type PasswordHasher interface {
-	Hash(password string) (string, error)
-	Compare(hash, password string) error
-}
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/services"
+)
 
-// BcryptHasher is a bcrypt implementation of PasswordHasher
+// Compile-time interface compliance check
+var _ services.PasswordHasher = (*BcryptHasher)(nil)
+
+// BcryptHasher is a bcrypt implementation of services.PasswordHasher
 type BcryptHasher struct {
 	cost int
 }

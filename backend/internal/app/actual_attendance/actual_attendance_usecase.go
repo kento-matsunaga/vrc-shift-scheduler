@@ -1,4 +1,4 @@
-package usecase
+package actual_attendance
 
 import (
 	"context"

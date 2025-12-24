@@ -6,7 +6,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/erenoa/vrc-shift-scheduler/backend/internal/application/usecase"
+	appaudit "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/audit"
+	applicense "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/license"
+	apptenant "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/tenant"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/billing"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/tenant"
@@ -15,16 +17,16 @@ import (
 
 // AdminBillingHandler handles admin billing endpoints
 type AdminBillingHandler struct {
-	licenseKeyUsecase *usecase.AdminLicenseKeyUsecase
-	tenantUsecase     *usecase.AdminTenantUsecase
-	auditLogUsecase   *usecase.AdminAuditLogUsecase
+	licenseKeyUsecase *applicense.AdminLicenseKeyUsecase
+	tenantUsecase     *apptenant.AdminTenantUsecase
+	auditLogUsecase   *appaudit.AdminAuditLogUsecase
 }
 
 // NewAdminBillingHandler creates a new AdminBillingHandler
 func NewAdminBillingHandler(
-	licenseKeyUsecase *usecase.AdminLicenseKeyUsecase,
-	tenantUsecase *usecase.AdminTenantUsecase,
-	auditLogUsecase *usecase.AdminAuditLogUsecase,
+	licenseKeyUsecase *applicense.AdminLicenseKeyUsecase,
+	tenantUsecase *apptenant.AdminTenantUsecase,
+	auditLogUsecase *appaudit.AdminAuditLogUsecase,
 ) *AdminBillingHandler {
 	return &AdminBillingHandler{
 		licenseKeyUsecase: licenseKeyUsecase,
@@ -68,7 +70,7 @@ func (h *AdminBillingHandler) GenerateLicenseKeys(w http.ResponseWriter, r *http
 		req.Count = 1
 	}
 
-	input := usecase.GenerateLicenseKeyInput{
+	input := applicense.GenerateLicenseKeyInput{
 		Count:     req.Count,
 		ExpiresAt: req.ExpiresAt,
 		Memo:      req.Memo,
@@ -135,7 +137,7 @@ func (h *AdminBillingHandler) ListLicenseKeys(w http.ResponseWriter, r *http.Req
 		}
 	}
 
-	input := usecase.LicenseKeyListInput{
+	input := applicense.LicenseKeyListInput{
 		Status: status,
 		Limit:  limit,
 		Offset: offset,
@@ -202,7 +204,7 @@ func (h *AdminBillingHandler) UpdateLicenseKey(w http.ResponseWriter, r *http.Re
 
 	switch req.Action {
 	case "revoke":
-		input := usecase.RevokeLicenseKeyInput{
+		input := applicense.RevokeLicenseKeyInput{
 			KeyID:   keyID,
 			AdminID: adminID,
 		}
@@ -257,7 +259,7 @@ func (h *AdminBillingHandler) ListTenants(w http.ResponseWriter, r *http.Request
 		}
 	}
 
-	input := usecase.TenantListInput{
+	input := apptenant.TenantListInput{
 		Status: status,
 		Limit:  limit,
 		Offset: offset,
@@ -380,7 +382,7 @@ func (h *AdminBillingHandler) UpdateTenantStatus(w http.ResponseWriter, r *http.
 		return
 	}
 
-	input := usecase.UpdateTenantStatusInput{
+	input := apptenant.UpdateTenantStatusInput{
 		TenantID:   tenantID,
 		Status:     status,
 		GraceUntil: req.GraceUntil,
@@ -433,7 +435,7 @@ func (h *AdminBillingHandler) ListAuditLogs(w http.ResponseWriter, r *http.Reque
 		}
 	}
 
-	input := usecase.AuditLogListInput{
+	input := appaudit.AuditLogListInput{
 		Action: action,
 		Limit:  limit,
 		Offset: offset,

@@ -6,9 +6,6 @@ import (
 	"net/http"
 
 	appAuth "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/auth"
-	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/db"
-	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/security"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // AdminHandler handles admin-related HTTP requests
@@ -16,12 +13,12 @@ type AdminHandler struct {
 	changePasswordUsecase *appAuth.ChangePasswordUsecase
 }
 
-// NewAdminHandler creates a new AdminHandler
-func NewAdminHandler(dbPool *pgxpool.Pool) *AdminHandler {
-	adminRepo := db.NewAdminRepository(dbPool)
-	passwordHasher := security.NewBcryptHasher()
+// NewAdminHandler creates a new AdminHandler with injected usecases
+func NewAdminHandler(
+	changePasswordUC *appAuth.ChangePasswordUsecase,
+) *AdminHandler {
 	return &AdminHandler{
-		changePasswordUsecase: appAuth.NewChangePasswordUsecase(adminRepo, passwordHasher),
+		changePasswordUsecase: changePasswordUC,
 	}
 }
 

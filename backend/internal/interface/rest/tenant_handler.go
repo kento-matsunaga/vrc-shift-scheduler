@@ -5,24 +5,24 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/erenoa/vrc-shift-scheduler/backend/internal/application/usecase"
+	apptenant "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/tenant"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/tenant"
-	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/db"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // TenantHandler handles tenant-related HTTP requests
 type TenantHandler struct {
-	getTenantUC    *usecase.GetTenantUsecase
-	updateTenantUC *usecase.UpdateTenantUsecase
+	getTenantUC    *apptenant.GetTenantUsecase
+	updateTenantUC *apptenant.UpdateTenantUsecase
 }
 
-// NewTenantHandler creates a new TenantHandler
-func NewTenantHandler(dbPool *pgxpool.Pool) *TenantHandler {
-	tenantRepo := db.NewTenantRepository(dbPool)
+// NewTenantHandler creates a new TenantHandler with injected usecases
+func NewTenantHandler(
+	getTenantUC *apptenant.GetTenantUsecase,
+	updateTenantUC *apptenant.UpdateTenantUsecase,
+) *TenantHandler {
 	return &TenantHandler{
-		getTenantUC:    usecase.NewGetTenantUsecase(tenantRepo),
-		updateTenantUC: usecase.NewUpdateTenantUsecase(tenantRepo),
+		getTenantUC:    getTenantUC,
+		updateTenantUC: updateTenantUC,
 	}
 }
 
@@ -53,7 +53,7 @@ func (h *TenantHandler) GetCurrentTenant(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Usecaseの実行
-	input := usecase.GetTenantInput{
+	input := apptenant.GetTenantInput{
 		TenantID: tenantID,
 	}
 
@@ -92,7 +92,7 @@ func (h *TenantHandler) UpdateCurrentTenant(w http.ResponseWriter, r *http.Reque
 	}
 
 	// Usecaseの実行
-	input := usecase.UpdateTenantInput{
+	input := apptenant.UpdateTenantInput{
 		TenantID:   tenantID,
 		TenantName: req.TenantName,
 	}

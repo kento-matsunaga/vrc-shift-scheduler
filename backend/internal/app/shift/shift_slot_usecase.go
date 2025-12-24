@@ -1,4 +1,4 @@
-package usecase
+package shift
 
 import (
 	"context"
@@ -8,16 +8,6 @@ import (
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/event"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/shift"
 )
-
-// ShiftAssignmentRepository defines the interface for shift assignment persistence
-type ShiftAssignmentRepository interface {
-	Save(ctx context.Context, assignment *shift.ShiftAssignment) error
-	CountConfirmedBySlotID(ctx context.Context, tenantID common.TenantID, slotID shift.SlotID) (int, error)
-	FindByID(ctx context.Context, tenantID common.TenantID, assignmentID shift.AssignmentID) (*shift.ShiftAssignment, error)
-	FindByMemberID(ctx context.Context, tenantID common.TenantID, memberID common.MemberID) ([]*shift.ShiftAssignment, error)
-	FindBySlotID(ctx context.Context, tenantID common.TenantID, slotID shift.SlotID) ([]*shift.ShiftAssignment, error)
-	Delete(ctx context.Context, tenantID common.TenantID, assignmentID shift.AssignmentID) error
-}
 
 // CreateShiftSlotInput represents the input for creating a shift slot
 type CreateShiftSlotInput struct {
@@ -34,14 +24,14 @@ type CreateShiftSlotInput struct {
 
 // CreateShiftSlotUsecase handles the shift slot creation use case
 type CreateShiftSlotUsecase struct {
-	slotRepo        ShiftSlotRepository
-	businessDayRepo EventBusinessDayRepository
+	slotRepo        shift.ShiftSlotRepository
+	businessDayRepo event.EventBusinessDayRepository
 }
 
 // NewCreateShiftSlotUsecase creates a new CreateShiftSlotUsecase
 func NewCreateShiftSlotUsecase(
-	slotRepo ShiftSlotRepository,
-	businessDayRepo EventBusinessDayRepository,
+	slotRepo shift.ShiftSlotRepository,
+	businessDayRepo event.EventBusinessDayRepository,
 ) *CreateShiftSlotUsecase {
 	return &CreateShiftSlotUsecase{
 		slotRepo:        slotRepo,
@@ -96,14 +86,14 @@ type ShiftSlotWithAssignmentCount struct {
 
 // ListShiftSlotsUsecase handles the shift slot listing use case
 type ListShiftSlotsUsecase struct {
-	slotRepo       ShiftSlotRepository
-	assignmentRepo ShiftAssignmentRepository
+	slotRepo       shift.ShiftSlotRepository
+	assignmentRepo shift.ShiftAssignmentRepository
 }
 
 // NewListShiftSlotsUsecase creates a new ListShiftSlotsUsecase
 func NewListShiftSlotsUsecase(
-	slotRepo ShiftSlotRepository,
-	assignmentRepo ShiftAssignmentRepository,
+	slotRepo shift.ShiftSlotRepository,
+	assignmentRepo shift.ShiftAssignmentRepository,
 ) *ListShiftSlotsUsecase {
 	return &ListShiftSlotsUsecase{
 		slotRepo:       slotRepo,
@@ -144,14 +134,14 @@ type GetShiftSlotInput struct {
 
 // GetShiftSlotUsecase handles the shift slot retrieval use case
 type GetShiftSlotUsecase struct {
-	slotRepo       ShiftSlotRepository
-	assignmentRepo ShiftAssignmentRepository
+	slotRepo       shift.ShiftSlotRepository
+	assignmentRepo shift.ShiftAssignmentRepository
 }
 
 // NewGetShiftSlotUsecase creates a new GetShiftSlotUsecase
 func NewGetShiftSlotUsecase(
-	slotRepo ShiftSlotRepository,
-	assignmentRepo ShiftAssignmentRepository,
+	slotRepo shift.ShiftSlotRepository,
+	assignmentRepo shift.ShiftAssignmentRepository,
 ) *GetShiftSlotUsecase {
 	return &GetShiftSlotUsecase{
 		slotRepo:       slotRepo,

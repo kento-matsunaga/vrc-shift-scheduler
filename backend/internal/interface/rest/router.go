@@ -6,9 +6,21 @@ import (
 	"os"
 	"strings"
 
+	appattendance "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/attendance"
+	appaudit "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/audit"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/app/auth"
-	"github.com/erenoa/vrc-shift-scheduler/backend/internal/application/usecase"
+	appevent "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/event"
+	applicense "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/license"
+	appmember "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/member"
+	appmembergroup "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/member_group"
+	apppayment "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/payment"
+	approle "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/role"
+	approlegroup "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/role_group"
+	appschedule "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/schedule"
+	appshift "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/shift"
+	apptenant "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/tenant"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/clock"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/db"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/security"
 	"github.com/go-chi/chi/v5"
@@ -40,8 +52,15 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 	loginUsecase := auth.NewLoginUsecase(adminRepo, passwordHasher, jwtManager)
 	authHandler := NewAuthHandler(loginUsecase)
 
+	// InvitationHandler dependencies
+	invitationRepo := db.NewInvitationRepository(dbPool)
+	invitationClock := &clock.RealClock{}
+	invitationHandler := NewInvitationHandler(
+		auth.NewInviteAdminUsecase(adminRepo, invitationRepo, invitationClock),
+		auth.NewAcceptInvitationUsecase(adminRepo, invitationRepo, passwordHasher, invitationClock),
+	)
+
 	// 招待受理（認証不要）
-	invitationHandler := NewInvitationHandler(dbPool)
 	r.Post("/api/v1/invitations/accept/{token}", invitationHandler.AcceptInvitation)
 
 	// 認証不要ルート
@@ -64,23 +83,107 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		// 課金状態に基づくアクセス制御
 		r.Use(BillingGuard(billingGuardDeps))
 
-		// ハンドラの初期化
-		eventHandler := NewEventHandler(dbPool)
-		businessDayHandler := NewBusinessDayHandler(dbPool)
-		memberHandler := NewMemberHandler(dbPool)
-		roleHandler := NewRoleHandler(dbPool)
-		shiftSlotHandler := NewShiftSlotHandler(dbPool)
-		shiftTemplateHandler := NewShiftTemplateHandler(dbPool)
-		shiftAssignmentHandler := NewShiftAssignmentHandler(dbPool)
-		attendanceHandler := NewAttendanceHandler(dbPool)
-
-		// Repositories for actual attendance
+		// EventHandler dependencies
+		eventRepo := db.NewEventRepository(dbPool)
 		businessDayRepo := db.NewEventBusinessDayRepository(dbPool)
+		groupAssignRepo := db.NewEventGroupAssignmentRepository(dbPool)
+		eventHandler := NewEventHandler(
+			appevent.NewCreateEventUsecase(eventRepo, businessDayRepo),
+			appevent.NewListEventsUsecase(eventRepo),
+			appevent.NewGetEventUsecase(eventRepo),
+			appevent.NewUpdateEventUsecase(eventRepo),
+			appevent.NewDeleteEventUsecase(eventRepo),
+			appevent.NewGenerateBusinessDaysUsecase(eventRepo, businessDayRepo),
+			appevent.NewGetEventGroupAssignmentsUsecase(eventRepo, groupAssignRepo),
+			appevent.NewUpdateEventGroupAssignmentsUsecase(eventRepo, groupAssignRepo),
+		)
+
+		// BusinessDayHandler dependencies
+		slotRepo := db.NewShiftSlotRepository(dbPool)
+		templateRepo := db.NewShiftSlotTemplateRepository(dbPool)
+		businessDayHandler := NewBusinessDayHandler(
+			appevent.NewCreateBusinessDayUsecase(businessDayRepo, eventRepo, templateRepo, slotRepo),
+			appevent.NewListBusinessDaysUsecase(businessDayRepo),
+			appevent.NewGetBusinessDayUsecase(businessDayRepo),
+			appevent.NewApplyTemplateUsecase(businessDayRepo, templateRepo, slotRepo),
+		)
+
+		// MemberHandler dependencies
 		memberRepo := db.NewMemberRepository(dbPool)
+		memberRoleRepo := db.NewMemberRoleRepository(dbPool)
+		attendanceRepo := db.NewAttendanceRepository(dbPool)
+		memberHandler := NewMemberHandler(
+			appmember.NewCreateMemberUsecase(memberRepo),
+			appmember.NewListMembersUsecase(memberRepo, memberRoleRepo),
+			appmember.NewGetMemberUsecase(memberRepo, memberRoleRepo),
+			appmember.NewDeleteMemberUsecase(memberRepo),
+			appmember.NewUpdateMemberUsecase(memberRepo, memberRoleRepo),
+			appmember.NewGetRecentAttendanceUsecase(memberRepo, attendanceRepo),
+			appmember.NewBulkImportMembersUsecase(memberRepo, memberRoleRepo),
+		)
+
+		// RoleHandler dependencies
+		roleRepo := db.NewRoleRepository(dbPool)
+		roleHandler := NewRoleHandler(
+			approle.NewCreateRoleUsecase(roleRepo),
+			approle.NewUpdateRoleUsecase(roleRepo),
+			approle.NewGetRoleUsecase(roleRepo),
+			approle.NewListRolesUsecase(roleRepo),
+			approle.NewDeleteRoleUsecase(roleRepo),
+		)
+
+		// ShiftSlotHandler dependencies (reusing slotRepo, businessDayRepo)
 		assignmentRepo := db.NewShiftAssignmentRepository(dbPool)
+		shiftSlotHandler := NewShiftSlotHandler(
+			appshift.NewCreateShiftSlotUsecase(slotRepo, businessDayRepo),
+			appshift.NewListShiftSlotsUsecase(slotRepo, assignmentRepo),
+			appshift.NewGetShiftSlotUsecase(slotRepo, assignmentRepo),
+		)
+
+		// ShiftTemplateHandler dependencies (reusing templateRepo, slotRepo, businessDayRepo)
+		shiftTemplateHandler := NewShiftTemplateHandler(
+			appshift.NewCreateShiftTemplateUsecase(templateRepo),
+			appshift.NewListShiftTemplatesUsecase(templateRepo),
+			appshift.NewGetShiftTemplateUsecase(templateRepo),
+			appshift.NewUpdateShiftTemplateUsecase(templateRepo),
+			appshift.NewDeleteShiftTemplateUsecase(templateRepo),
+			appshift.NewSaveBusinessDayAsTemplateUsecase(templateRepo, businessDayRepo, slotRepo),
+		)
+
+		// ShiftAssignmentHandler dependencies (reusing slotRepo, assignmentRepo, memberRepo, businessDayRepo)
+		shiftAssignmentHandler := NewShiftAssignmentHandler(
+			appshift.NewConfirmManualAssignmentUsecase(slotRepo, assignmentRepo, memberRepo),
+			appshift.NewGetAssignmentsUsecase(assignmentRepo, memberRepo, slotRepo, businessDayRepo),
+			appshift.NewGetAssignmentDetailUsecase(assignmentRepo, memberRepo, slotRepo, businessDayRepo),
+			appshift.NewCancelAssignmentUsecase(assignmentRepo),
+		)
+
+		// AttendanceHandler dependencies (reusing attendanceRepo, memberRepo)
+		systemClock := &clock.RealClock{}
+		txManager := db.NewPgxTxManager(dbPool)
+		attendanceHandler := NewAttendanceHandler(
+			appattendance.NewCreateCollectionUsecase(attendanceRepo, systemClock),
+			appattendance.NewSubmitResponseUsecase(attendanceRepo, txManager, systemClock),
+			appattendance.NewCloseCollectionUsecase(attendanceRepo, systemClock),
+			appattendance.NewGetCollectionUsecase(attendanceRepo),
+			appattendance.NewGetCollectionByTokenUsecase(attendanceRepo),
+			appattendance.NewGetResponsesUsecase(attendanceRepo, memberRepo),
+			appattendance.NewListCollectionsUsecase(attendanceRepo),
+		)
+
+		// ActualAttendanceHandler dependencies (reusing memberRepo, businessDayRepo, assignmentRepo)
 		actualAttendanceHandler := NewActualAttendanceHandler(businessDayRepo, memberRepo, assignmentRepo)
-		tenantHandler := NewTenantHandler(dbPool)
-		adminHandler := NewAdminHandler(dbPool)
+
+		// TenantHandler dependencies (reusing tenantRepo from billing guard)
+		tenantHandler := NewTenantHandler(
+			apptenant.NewGetTenantUsecase(tenantRepo),
+			apptenant.NewUpdateTenantUsecase(tenantRepo),
+		)
+
+		// AdminHandler dependencies (reusing adminRepo and passwordHasher from auth setup)
+		adminHandler := NewAdminHandler(
+			auth.NewChangePasswordUsecase(adminRepo, passwordHasher),
+		)
 
 		// Event API
 		r.Route("/events", func(r chi.Router) {
@@ -146,8 +249,16 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			r.Delete("/{role_id}", roleHandler.DeleteRole)
 		})
 
-		// Member Group API
-		memberGroupHandler := NewMemberGroupHandler(dbPool)
+		// MemberGroupHandler dependencies
+		memberGroupRepo := db.NewMemberGroupRepository(dbPool)
+		memberGroupHandler := NewMemberGroupHandler(
+			appmembergroup.NewCreateGroupUsecase(memberGroupRepo),
+			appmembergroup.NewUpdateGroupUsecase(memberGroupRepo),
+			appmembergroup.NewGetGroupUsecase(memberGroupRepo),
+			appmembergroup.NewListGroupsUsecase(memberGroupRepo),
+			appmembergroup.NewDeleteGroupUsecase(memberGroupRepo),
+			appmembergroup.NewAssignMembersUsecase(memberGroupRepo),
+		)
 		r.Route("/member-groups", func(r chi.Router) {
 			r.Post("/", memberGroupHandler.CreateGroup)
 			r.Get("/", memberGroupHandler.ListGroups)
@@ -157,8 +268,16 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			r.Put("/{group_id}/members", memberGroupHandler.AssignMembers)
 		})
 
-		// Role Group API
-		roleGroupHandler := NewRoleGroupHandler(dbPool)
+		// RoleGroupHandler dependencies
+		roleGroupRepo := db.NewRoleGroupRepository(dbPool)
+		roleGroupHandler := NewRoleGroupHandler(
+			approlegroup.NewCreateGroupUsecase(roleGroupRepo),
+			approlegroup.NewUpdateGroupUsecase(roleGroupRepo),
+			approlegroup.NewGetGroupUsecase(roleGroupRepo),
+			approlegroup.NewListGroupsUsecase(roleGroupRepo),
+			approlegroup.NewDeleteGroupUsecase(roleGroupRepo),
+			approlegroup.NewAssignRolesUsecase(roleGroupRepo),
+		)
 		r.Route("/role-groups", func(r chi.Router) {
 			r.Post("/", roleGroupHandler.CreateGroup)
 			r.Get("/", roleGroupHandler.ListGroups)
@@ -196,7 +315,17 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		})
 
 		// Schedule API（管理用）
-		scheduleHandler := NewScheduleHandler(dbPool)
+		scheduleRepo := db.NewScheduleRepository(dbPool)
+		scheduleHandler := NewScheduleHandler(
+			appschedule.NewCreateScheduleUsecase(scheduleRepo, systemClock),
+			appschedule.NewSubmitResponseUsecase(scheduleRepo, txManager, systemClock),
+			appschedule.NewDecideScheduleUsecase(scheduleRepo, systemClock),
+			appschedule.NewCloseScheduleUsecase(scheduleRepo, systemClock),
+			appschedule.NewGetScheduleUsecase(scheduleRepo),
+			appschedule.NewGetScheduleByTokenUsecase(scheduleRepo),
+			appschedule.NewGetResponsesUsecase(scheduleRepo),
+			appschedule.NewListSchedulesUsecase(scheduleRepo),
+		)
 		r.Route("/schedules", func(r chi.Router) {
 			r.Get("/", scheduleHandler.ListSchedules)
 			r.Post("/", scheduleHandler.CreateSchedule)
@@ -238,18 +367,18 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		licenseKeyRepo := db.NewLicenseKeyRepository(dbPool)
 		billingAuditLogRepo := db.NewBillingAuditLogRepository(dbPool)
 
-		adminLicenseKeyUsecase := usecase.NewAdminLicenseKeyUsecase(
+		adminLicenseKeyUsecase := applicense.NewAdminLicenseKeyUsecase(
 			txManager,
 			licenseKeyRepo,
 			billingAuditLogRepo,
 		)
-		adminTenantUsecase := usecase.NewAdminTenantUsecase(
+		adminTenantUsecase := apptenant.NewAdminTenantUsecase(
 			txManager,
 			tenantRepo,
 			entitlementRepo,
 			billingAuditLogRepo,
 		)
-		adminAuditLogUsecase := usecase.NewAdminAuditLogUsecase(
+		adminAuditLogUsecase := appaudit.NewAdminAuditLogUsecase(
 			billingAuditLogRepo,
 		)
 		adminBillingHandler := NewAdminBillingHandler(
@@ -277,21 +406,58 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 	})
 
 	// Public API（認証不要）
+	// Shared dependencies for public handlers
+	publicClock := &clock.RealClock{}
+	publicTxManager := db.NewPgxTxManager(dbPool)
+
 	r.Route("/api/v1/public/attendance", func(r chi.Router) {
-		attendanceHandler := NewAttendanceHandler(dbPool)
-		r.Get("/{token}", attendanceHandler.GetCollectionByToken)
-		r.Post("/{token}/responses", attendanceHandler.SubmitResponse)
+		publicAttendanceRepoForHandler := db.NewAttendanceRepository(dbPool)
+		publicMemberRepoForAttendance := db.NewMemberRepository(dbPool)
+		publicAttendanceHandler := NewAttendanceHandler(
+			appattendance.NewCreateCollectionUsecase(publicAttendanceRepoForHandler, publicClock),
+			appattendance.NewSubmitResponseUsecase(publicAttendanceRepoForHandler, publicTxManager, publicClock),
+			appattendance.NewCloseCollectionUsecase(publicAttendanceRepoForHandler, publicClock),
+			appattendance.NewGetCollectionUsecase(publicAttendanceRepoForHandler),
+			appattendance.NewGetCollectionByTokenUsecase(publicAttendanceRepoForHandler),
+			appattendance.NewGetResponsesUsecase(publicAttendanceRepoForHandler, publicMemberRepoForAttendance),
+			appattendance.NewListCollectionsUsecase(publicAttendanceRepoForHandler),
+		)
+		r.Get("/{token}", publicAttendanceHandler.GetCollectionByToken)
+		r.Post("/{token}/responses", publicAttendanceHandler.SubmitResponse)
 	})
 
 	r.Route("/api/v1/public/schedules", func(r chi.Router) {
-		scheduleHandler := NewScheduleHandler(dbPool)
-		r.Get("/{token}", scheduleHandler.GetScheduleByToken)
-		r.Post("/{token}/responses", scheduleHandler.SubmitResponse)
+		publicScheduleRepo := db.NewScheduleRepository(dbPool)
+		publicScheduleHandler := NewScheduleHandler(
+			appschedule.NewCreateScheduleUsecase(publicScheduleRepo, publicClock),
+			appschedule.NewSubmitResponseUsecase(publicScheduleRepo, publicTxManager, publicClock),
+			appschedule.NewDecideScheduleUsecase(publicScheduleRepo, publicClock),
+			appschedule.NewCloseScheduleUsecase(publicScheduleRepo, publicClock),
+			appschedule.NewGetScheduleUsecase(publicScheduleRepo),
+			appschedule.NewGetScheduleByTokenUsecase(publicScheduleRepo),
+			appschedule.NewGetResponsesUsecase(publicScheduleRepo),
+			appschedule.NewListSchedulesUsecase(publicScheduleRepo),
+		)
+		r.Get("/{token}", publicScheduleHandler.GetScheduleByToken)
+		r.Post("/{token}/responses", publicScheduleHandler.SubmitResponse)
 	})
 
 	// 公開ページ用メンバー一覧API（認証不要）
 	// NOTE: MVPでは簡易実装としてテナントIDを指定してメンバー一覧を取得可能
 	// group_ids パラメータで対象グループを指定可能（カンマ区切り）
+	publicMemberRepo := db.NewMemberRepository(dbPool)
+	publicMemberRoleRepo := db.NewMemberRoleRepository(dbPool)
+	publicAttendanceRepo := db.NewAttendanceRepository(dbPool)
+	publicMemberGroupRepo := db.NewMemberGroupRepository(dbPool)
+	publicMemberHandler := NewMemberHandler(
+		appmember.NewCreateMemberUsecase(publicMemberRepo),
+		appmember.NewListMembersUsecase(publicMemberRepo, publicMemberRoleRepo),
+		appmember.NewGetMemberUsecase(publicMemberRepo, publicMemberRoleRepo),
+		appmember.NewDeleteMemberUsecase(publicMemberRepo),
+		appmember.NewUpdateMemberUsecase(publicMemberRepo, publicMemberRoleRepo),
+		appmember.NewGetRecentAttendanceUsecase(publicMemberRepo, publicAttendanceRepo),
+		appmember.NewBulkImportMembersUsecase(publicMemberRepo, publicMemberRoleRepo),
+	)
 	r.Get("/api/v1/public/members", func(w http.ResponseWriter, r *http.Request) {
 		tenantID := r.URL.Query().Get("tenant_id")
 		if tenantID == "" {
@@ -304,7 +470,6 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		var allowedMemberIDs map[string]struct{}
 		if groupIDsParam != "" {
 			groupIDStrs := strings.Split(groupIDsParam, ",")
-			memberGroupRepo := db.NewMemberGroupRepository(dbPool)
 			allowedMemberIDs = make(map[string]struct{})
 
 			// 各グループからメンバーIDを取得
@@ -317,7 +482,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 				if err != nil {
 					continue
 				}
-				memberIDs, err := memberGroupRepo.FindMemberIDsByGroupID(r.Context(), gid)
+				memberIDs, err := publicMemberGroupRepo.FindMemberIDsByGroupID(r.Context(), gid)
 				if err != nil {
 					continue
 				}
@@ -327,15 +492,13 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			}
 		}
 
-		// memberHandler を使用
-		memberHandler := NewMemberHandler(dbPool)
 		// Contextにテナント情報とフィルター用メンバーIDを設定
 		ctx := context.WithValue(r.Context(), ContextKeyTenantID, common.TenantID(tenantID))
 		if allowedMemberIDs != nil {
 			ctx = context.WithValue(ctx, ContextKeyAllowedMemberIDs, allowedMemberIDs)
 		}
 		r = r.WithContext(ctx)
-		memberHandler.GetMembers(w, r)
+		publicMemberHandler.GetMembers(w, r)
 	})
 
 	// License Claim API（認証不要、レート制限あり）
@@ -346,7 +509,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		billingAuditLogRepo := db.NewBillingAuditLogRepository(dbPool)
 		claimRateLimiter := DefaultClaimRateLimiter()
 
-		claimUsecase := usecase.NewLicenseClaimUsecase(
+		claimUsecase := applicense.NewLicenseClaimUsecase(
 			txManager,
 			tenantRepo,
 			adminRepo,
@@ -368,7 +531,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		webhookEventRepo := db.NewWebhookEventRepository(dbPool)
 		billingAuditLogRepo := db.NewBillingAuditLogRepository(dbPool)
 
-		stripeWebhookUsecase := usecase.NewStripeWebhookUsecase(
+		stripeWebhookUsecase := apppayment.NewStripeWebhookUsecase(
 			txManager,
 			tenantRepo,
 			subscriptionRepo,

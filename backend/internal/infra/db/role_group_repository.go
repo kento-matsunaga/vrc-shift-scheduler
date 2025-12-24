@@ -235,7 +235,7 @@ func (r *roleGroupRepository) SetGroupRoles(ctx context.Context, groupID common.
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	// Delete existing assignments
 	_, err = tx.Exec(ctx, `DELETE FROM role_group_assignments WHERE group_id = $1`, groupID.String())

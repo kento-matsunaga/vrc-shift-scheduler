@@ -1,4 +1,5 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import AdminLogin from './pages/AdminLogin';
 import AdminInvitation from './pages/AdminInvitation';
 import AcceptInvitation from './pages/AcceptInvitation';
@@ -55,7 +56,13 @@ function isAuthenticated(): boolean {
 }
 
 function App() {
-  const isLoggedIn = isAuthenticated();
+  const location = useLocation();
+  const [isLoggedIn, setIsLoggedIn] = useState(isAuthenticated());
+
+  // ルート変更時に認証状態を再チェック
+  useEffect(() => {
+    setIsLoggedIn(isAuthenticated());
+  }, [location.pathname]);
 
   return (
     <Routes>

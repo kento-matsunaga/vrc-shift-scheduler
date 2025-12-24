@@ -9,10 +9,17 @@ import (
 	"github.com/oklog/ulid/v2"
 )
 
-// ULID generates a new ULID (Universally Unique Lexicographically Sortable Identifier)
-func NewULID() string {
+// NewULIDWithTime generates a new ULID using the provided time.
+// This is the preferred function for testability.
+func NewULIDWithTime(t time.Time) string {
 	entropy := ulid.Monotonic(rand.Reader, 0)
-	return ulid.MustNew(ulid.Timestamp(time.Now()), entropy).String()
+	return ulid.MustNew(ulid.Timestamp(t), entropy).String()
+}
+
+// NewULID generates a new ULID using the current time.
+// Deprecated: Use NewULIDWithTime for better testability. This function will be removed in a future version.
+func NewULID() string {
+	return NewULIDWithTime(time.Now())
 }
 
 // ValidateULID validates if a string is a valid ULID
@@ -30,6 +37,13 @@ func ValidateULID(id string) error {
 // TenantID represents a tenant identifier
 type TenantID string
 
+// NewTenantIDWithTime creates a new TenantID using the provided time.
+func NewTenantIDWithTime(t time.Time) TenantID {
+	return TenantID(NewULIDWithTime(t))
+}
+
+// NewTenantID creates a new TenantID using the current time.
+// Deprecated: Use NewTenantIDWithTime for better testability.
 func NewTenantID() TenantID {
 	return TenantID(NewULID())
 }
@@ -55,6 +69,13 @@ func ParseTenantID(s string) (TenantID, error) {
 // EventID represents an event identifier
 type EventID string
 
+// NewEventIDWithTime creates a new EventID using the provided time.
+func NewEventIDWithTime(t time.Time) EventID {
+	return EventID(NewULIDWithTime(t))
+}
+
+// NewEventID creates a new EventID using the current time.
+// Deprecated: Use NewEventIDWithTime for better testability.
 func NewEventID() EventID {
 	return EventID(NewULID())
 }
@@ -80,6 +101,13 @@ func ParseEventID(s string) (EventID, error) {
 // MemberID represents a member identifier
 type MemberID string
 
+// NewMemberIDWithTime creates a new MemberID using the provided time.
+func NewMemberIDWithTime(t time.Time) MemberID {
+	return MemberID(NewULIDWithTime(t))
+}
+
+// NewMemberID creates a new MemberID using the current time.
+// Deprecated: Use NewMemberIDWithTime for better testability.
 func NewMemberID() MemberID {
 	return MemberID(NewULID())
 }
@@ -105,6 +133,13 @@ func ParseMemberID(s string) (MemberID, error) {
 // PositionID represents a position identifier
 type PositionID string
 
+// NewPositionIDWithTime creates a new PositionID using the provided time.
+func NewPositionIDWithTime(t time.Time) PositionID {
+	return PositionID(NewULIDWithTime(t))
+}
+
+// NewPositionID creates a new PositionID using the current time.
+// Deprecated: Use NewPositionIDWithTime for better testability.
 func NewPositionID() PositionID {
 	return PositionID(NewULID())
 }
@@ -130,6 +165,13 @@ func ParsePositionID(s string) (PositionID, error) {
 // BusinessDayID represents a business day identifier
 type BusinessDayID string
 
+// NewBusinessDayIDWithTime creates a new BusinessDayID using the provided time.
+func NewBusinessDayIDWithTime(t time.Time) BusinessDayID {
+	return BusinessDayID(NewULIDWithTime(t))
+}
+
+// NewBusinessDayID creates a new BusinessDayID using the current time.
+// Deprecated: Use NewBusinessDayIDWithTime for better testability.
 func NewBusinessDayID() BusinessDayID {
 	return BusinessDayID(NewULID())
 }
@@ -155,6 +197,13 @@ func ParseBusinessDayID(s string) (BusinessDayID, error) {
 // AssignmentID represents a shift assignment identifier
 type AssignmentID string
 
+// NewAssignmentIDWithTime creates a new AssignmentID using the provided time.
+func NewAssignmentIDWithTime(t time.Time) AssignmentID {
+	return AssignmentID(NewULIDWithTime(t))
+}
+
+// NewAssignmentID creates a new AssignmentID using the current time.
+// Deprecated: Use NewAssignmentIDWithTime for better testability.
 func NewAssignmentID() AssignmentID {
 	return AssignmentID(NewULID())
 }
@@ -221,6 +270,13 @@ func ParsePublicToken(s string) (PublicToken, error) {
 // AdminID represents an admin identifier
 type AdminID string
 
+// NewAdminIDWithTime creates a new AdminID using the provided time.
+func NewAdminIDWithTime(t time.Time) AdminID {
+	return AdminID(NewULIDWithTime(t))
+}
+
+// NewAdminID creates a new AdminID using the current time.
+// Deprecated: Use NewAdminIDWithTime for better testability.
 func NewAdminID() AdminID {
 	return AdminID(NewULID())
 }
@@ -246,6 +302,13 @@ func ParseAdminID(s string) (AdminID, error) {
 // CollectionID represents an attendance collection identifier
 type CollectionID string
 
+// NewCollectionIDWithTime creates a new CollectionID using the provided time.
+func NewCollectionIDWithTime(t time.Time) CollectionID {
+	return CollectionID(NewULIDWithTime(t))
+}
+
+// NewCollectionID creates a new CollectionID using the current time.
+// Deprecated: Use NewCollectionIDWithTime for better testability.
 func NewCollectionID() CollectionID {
 	return CollectionID(NewULID())
 }
@@ -271,6 +334,13 @@ func ParseCollectionID(s string) (CollectionID, error) {
 // ResponseID represents an attendance response identifier
 type ResponseID string
 
+// NewResponseIDWithTime creates a new ResponseID using the provided time.
+func NewResponseIDWithTime(t time.Time) ResponseID {
+	return ResponseID(NewULIDWithTime(t))
+}
+
+// NewResponseID creates a new ResponseID using the current time.
+// Deprecated: Use NewResponseIDWithTime for better testability.
 func NewResponseID() ResponseID {
 	return ResponseID(NewULID())
 }
@@ -296,6 +366,13 @@ func ParseResponseID(s string) (ResponseID, error) {
 // ScheduleID represents a date schedule identifier
 type ScheduleID string
 
+// NewScheduleIDWithTime creates a new ScheduleID using the provided time.
+func NewScheduleIDWithTime(t time.Time) ScheduleID {
+	return ScheduleID(NewULIDWithTime(t))
+}
+
+// NewScheduleID creates a new ScheduleID using the current time.
+// Deprecated: Use NewScheduleIDWithTime for better testability.
 func NewScheduleID() ScheduleID {
 	return ScheduleID(NewULID())
 }
@@ -321,6 +398,13 @@ func ParseScheduleID(s string) (ScheduleID, error) {
 // CandidateID represents a schedule candidate identifier
 type CandidateID string
 
+// NewCandidateIDWithTime creates a new CandidateID using the provided time.
+func NewCandidateIDWithTime(t time.Time) CandidateID {
+	return CandidateID(NewULIDWithTime(t))
+}
+
+// NewCandidateID creates a new CandidateID using the current time.
+// Deprecated: Use NewCandidateIDWithTime for better testability.
 func NewCandidateID() CandidateID {
 	return CandidateID(NewULID())
 }
@@ -346,6 +430,13 @@ func ParseCandidateID(s string) (CandidateID, error) {
 // TargetDateID represents an attendance target date identifier
 type TargetDateID string
 
+// NewTargetDateIDWithTime creates a new TargetDateID using the provided time.
+func NewTargetDateIDWithTime(t time.Time) TargetDateID {
+	return TargetDateID(NewULIDWithTime(t))
+}
+
+// NewTargetDateID creates a new TargetDateID using the current time.
+// Deprecated: Use NewTargetDateIDWithTime for better testability.
 func NewTargetDateID() TargetDateID {
 	return TargetDateID(NewULID())
 }
@@ -368,6 +459,13 @@ func ParseTargetDateID(s string) (TargetDateID, error) {
 // RoleID represents a role identifier
 type RoleID string
 
+// NewRoleIDWithTime creates a new RoleID using the provided time.
+func NewRoleIDWithTime(t time.Time) RoleID {
+	return RoleID(NewULIDWithTime(t))
+}
+
+// NewRoleID creates a new RoleID using the current time.
+// Deprecated: Use NewRoleIDWithTime for better testability.
 func NewRoleID() RoleID {
 	return RoleID(NewULID())
 }
@@ -390,6 +488,13 @@ func ParseRoleID(s string) (RoleID, error) {
 // ShiftSlotTemplateID represents a shift slot template identifier
 type ShiftSlotTemplateID string
 
+// NewShiftSlotTemplateIDWithTime creates a new ShiftSlotTemplateID using the provided time.
+func NewShiftSlotTemplateIDWithTime(t time.Time) ShiftSlotTemplateID {
+	return ShiftSlotTemplateID(NewULIDWithTime(t))
+}
+
+// NewShiftSlotTemplateID creates a new ShiftSlotTemplateID using the current time.
+// Deprecated: Use NewShiftSlotTemplateIDWithTime for better testability.
 func NewShiftSlotTemplateID() ShiftSlotTemplateID {
 	return ShiftSlotTemplateID(NewULID())
 }
@@ -415,6 +520,13 @@ func ParseShiftSlotTemplateID(s string) (ShiftSlotTemplateID, error) {
 // ShiftSlotTemplateItemID represents a shift slot template item identifier
 type ShiftSlotTemplateItemID string
 
+// NewShiftSlotTemplateItemIDWithTime creates a new ShiftSlotTemplateItemID using the provided time.
+func NewShiftSlotTemplateItemIDWithTime(t time.Time) ShiftSlotTemplateItemID {
+	return ShiftSlotTemplateItemID(NewULIDWithTime(t))
+}
+
+// NewShiftSlotTemplateItemID creates a new ShiftSlotTemplateItemID using the current time.
+// Deprecated: Use NewShiftSlotTemplateItemIDWithTime for better testability.
 func NewShiftSlotTemplateItemID() ShiftSlotTemplateItemID {
 	return ShiftSlotTemplateItemID(NewULID())
 }
@@ -440,6 +552,13 @@ func ParseShiftSlotTemplateItemID(s string) (ShiftSlotTemplateItemID, error) {
 // MemberGroupID represents a member group identifier
 type MemberGroupID string
 
+// NewMemberGroupIDWithTime creates a new MemberGroupID using the provided time.
+func NewMemberGroupIDWithTime(t time.Time) MemberGroupID {
+	return MemberGroupID(NewULIDWithTime(t))
+}
+
+// NewMemberGroupID creates a new MemberGroupID using the current time.
+// Deprecated: Use NewMemberGroupIDWithTime for better testability.
 func NewMemberGroupID() MemberGroupID {
 	return MemberGroupID(NewULID())
 }
@@ -465,6 +584,13 @@ func ParseMemberGroupID(s string) (MemberGroupID, error) {
 // RoleGroupID represents a role group identifier
 type RoleGroupID string
 
+// NewRoleGroupIDWithTime creates a new RoleGroupID using the provided time.
+func NewRoleGroupIDWithTime(t time.Time) RoleGroupID {
+	return RoleGroupID(NewULIDWithTime(t))
+}
+
+// NewRoleGroupID creates a new RoleGroupID using the current time.
+// Deprecated: Use NewRoleGroupIDWithTime for better testability.
 func NewRoleGroupID() RoleGroupID {
 	return RoleGroupID(NewULID())
 }

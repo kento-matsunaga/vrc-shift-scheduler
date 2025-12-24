@@ -1,4 +1,4 @@
-package usecase
+package payment
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/billing"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/services"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/tenant"
 )
 
@@ -43,7 +44,7 @@ type StripeSubscription struct {
 
 // StripeWebhookUsecase handles Stripe webhook events
 type StripeWebhookUsecase struct {
-	txManager            TxManager
+	txManager            services.TxManager
 	tenantRepo           tenant.TenantRepository
 	subscriptionRepo     billing.SubscriptionRepository
 	entitlementRepo      billing.EntitlementRepository
@@ -54,7 +55,7 @@ type StripeWebhookUsecase struct {
 
 // NewStripeWebhookUsecase creates a new StripeWebhookUsecase
 func NewStripeWebhookUsecase(
-	txManager TxManager,
+	txManager services.TxManager,
 	tenantRepo tenant.TenantRepository,
 	subscriptionRepo billing.SubscriptionRepository,
 	entitlementRepo billing.EntitlementRepository,
@@ -304,4 +305,9 @@ func (uc *StripeWebhookUsecase) handleSubscriptionDeleted(ctx context.Context, n
 		}
 		return uc.auditLogRepo.Save(txCtx, auditLog)
 	})
+}
+
+// strPtr returns a pointer to the given string
+func strPtr(s string) *string {
+	return &s
 }

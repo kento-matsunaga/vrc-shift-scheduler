@@ -1,4 +1,4 @@
-package usecase
+package tenant
 
 import (
 	"context"
@@ -7,12 +7,13 @@ import (
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/billing"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/services"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/tenant"
 )
 
 // AdminTenantUsecase handles admin operations for tenants
 type AdminTenantUsecase struct {
-	txManager       TxManager
+	txManager       services.TxManager
 	tenantRepo      tenant.TenantRepository
 	entitlementRepo billing.EntitlementRepository
 	auditLogRepo    billing.BillingAuditLogRepository
@@ -20,7 +21,7 @@ type AdminTenantUsecase struct {
 
 // NewAdminTenantUsecase creates a new AdminTenantUsecase
 func NewAdminTenantUsecase(
-	txManager TxManager,
+	txManager services.TxManager,
 	tenantRepo tenant.TenantRepository,
 	entitlementRepo billing.EntitlementRepository,
 	auditLogRepo billing.BillingAuditLogRepository,
@@ -208,4 +209,9 @@ func (uc *AdminTenantUsecase) UpdateStatus(ctx context.Context, input UpdateTena
 		}
 		return uc.auditLogRepo.Save(txCtx, auditLog)
 	})
+}
+
+// strPtr returns a pointer to the given string
+func strPtr(s string) *string {
+	return &s
 }

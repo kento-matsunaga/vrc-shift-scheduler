@@ -8,10 +8,7 @@ import (
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/app/attendance"
 	domainAttendance "github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/attendance"
-	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/clock"
-	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/db"
 	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // AttendanceHandler handles attendance-related HTTP requests
@@ -25,22 +22,24 @@ type AttendanceHandler struct {
 	listCollectionsUsecase        *attendance.ListCollectionsUsecase
 }
 
-// NewAttendanceHandler creates a new AttendanceHandler
-func NewAttendanceHandler(dbPool *pgxpool.Pool) *AttendanceHandler {
-	// Repository, Clock, TxManagerの初期化
-	repo := db.NewAttendanceRepository(dbPool)
-	memberRepo := db.NewMemberRepository(dbPool)
-	clk := &clock.RealClock{}
-	txManager := db.NewPgxTxManager(dbPool)
-
+// NewAttendanceHandler creates a new AttendanceHandler with injected usecases
+func NewAttendanceHandler(
+	createCollectionUC *attendance.CreateCollectionUsecase,
+	submitResponseUC *attendance.SubmitResponseUsecase,
+	closeCollectionUC *attendance.CloseCollectionUsecase,
+	getCollectionUC *attendance.GetCollectionUsecase,
+	getCollectionByTokenUC *attendance.GetCollectionByTokenUsecase,
+	getResponsesUC *attendance.GetResponsesUsecase,
+	listCollectionsUC *attendance.ListCollectionsUsecase,
+) *AttendanceHandler {
 	return &AttendanceHandler{
-		createCollectionUsecase:       attendance.NewCreateCollectionUsecase(repo, clk),
-		submitResponseUsecase:         attendance.NewSubmitResponseUsecase(repo, txManager, clk),
-		closeCollectionUsecase:        attendance.NewCloseCollectionUsecase(repo, clk),
-		getCollectionUsecase:          attendance.NewGetCollectionUsecase(repo),
-		getCollectionByTokenUsecase:   attendance.NewGetCollectionByTokenUsecase(repo),
-		getResponsesUsecase:           attendance.NewGetResponsesUsecase(repo, memberRepo),
-		listCollectionsUsecase:        attendance.NewListCollectionsUsecase(repo),
+		createCollectionUsecase:       createCollectionUC,
+		submitResponseUsecase:         submitResponseUC,
+		closeCollectionUsecase:        closeCollectionUC,
+		getCollectionUsecase:          getCollectionUC,
+		getCollectionByTokenUsecase:   getCollectionByTokenUC,
+		getResponsesUsecase:           getResponsesUC,
+		listCollectionsUsecase:        listCollectionsUC,
 	}
 }
 

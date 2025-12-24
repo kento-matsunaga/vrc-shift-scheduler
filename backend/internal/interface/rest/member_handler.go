@@ -6,39 +6,40 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/erenoa/vrc-shift-scheduler/backend/internal/application/usecase"
+	appmember "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/member"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
-	appMember "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/member"
-	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/db"
 	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // MemberHandler handles member-related HTTP requests
 type MemberHandler struct {
-	createMemberUC             *usecase.CreateMemberUsecase
-	listMembersUC              *usecase.ListMembersUsecase
-	getMemberUC                *usecase.GetMemberUsecase
-	deleteMemberUC             *usecase.DeleteMemberUsecase
-	updateMemberUsecase        *appMember.UpdateMemberUsecase
-	getRecentAttendanceUsecase *appMember.GetRecentAttendanceUsecase
-	bulkImportMembersUC        *usecase.BulkImportMembersUsecase
+	createMemberUC             *appmember.CreateMemberUsecase
+	listMembersUC              *appmember.ListMembersUsecase
+	getMemberUC                *appmember.GetMemberUsecase
+	deleteMemberUC             *appmember.DeleteMemberUsecase
+	updateMemberUsecase        *appmember.UpdateMemberUsecase
+	getRecentAttendanceUsecase *appmember.GetRecentAttendanceUsecase
+	bulkImportMembersUC        *appmember.BulkImportMembersUsecase
 }
 
-// NewMemberHandler creates a new MemberHandler
-func NewMemberHandler(dbPool *pgxpool.Pool) *MemberHandler {
-	memberRepo := db.NewMemberRepository(dbPool)
-	memberRoleRepo := db.NewMemberRoleRepository(dbPool)
-	attendanceRepo := db.NewAttendanceRepository(dbPool)
-
+// NewMemberHandler creates a new MemberHandler with injected usecases
+func NewMemberHandler(
+	createMemberUC *appmember.CreateMemberUsecase,
+	listMembersUC *appmember.ListMembersUsecase,
+	getMemberUC *appmember.GetMemberUsecase,
+	deleteMemberUC *appmember.DeleteMemberUsecase,
+	updateMemberUC *appmember.UpdateMemberUsecase,
+	getRecentAttendanceUC *appmember.GetRecentAttendanceUsecase,
+	bulkImportMembersUC *appmember.BulkImportMembersUsecase,
+) *MemberHandler {
 	return &MemberHandler{
-		createMemberUC:             usecase.NewCreateMemberUsecase(memberRepo),
-		listMembersUC:              usecase.NewListMembersUsecase(memberRepo, memberRoleRepo),
-		getMemberUC:                usecase.NewGetMemberUsecase(memberRepo, memberRoleRepo),
-		deleteMemberUC:             usecase.NewDeleteMemberUsecase(memberRepo),
-		updateMemberUsecase:        appMember.NewUpdateMemberUsecase(memberRepo, memberRoleRepo),
-		getRecentAttendanceUsecase: appMember.NewGetRecentAttendanceUsecase(memberRepo, attendanceRepo),
-		bulkImportMembersUC:        usecase.NewBulkImportMembersUsecase(memberRepo, memberRoleRepo),
+		createMemberUC:             createMemberUC,
+		listMembersUC:              listMembersUC,
+		getMemberUC:                getMemberUC,
+		deleteMemberUC:             deleteMemberUC,
+		updateMemberUsecase:        updateMemberUC,
+		getRecentAttendanceUsecase: getRecentAttendanceUC,
+		bulkImportMembersUC:        bulkImportMembersUC,
 	}
 }
 
@@ -101,7 +102,7 @@ func (h *MemberHandler) CreateMember(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Usecaseの実行
-	input := usecase.CreateMemberInput{
+	input := appmember.CreateMemberInput{
 		TenantID:      tenantID,
 		DisplayName:   req.DisplayName,
 		DiscordUserID: req.DiscordUserID,
@@ -167,7 +168,7 @@ func (h *MemberHandler) UpdateMember(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Usecase実行
-	input := appMember.UpdateMemberInput{
+	input := appmember.UpdateMemberInput{
 		TenantID:      tenantID.String(),
 		MemberID:      memberID,
 		DisplayName:   req.DisplayName,
@@ -225,7 +226,7 @@ func (h *MemberHandler) GetMembers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Usecaseの実行
-	input := usecase.ListMembersInput{
+	input := appmember.ListMembersInput{
 		TenantID: tenantID,
 		IsActive: isActive,
 	}
@@ -304,7 +305,7 @@ func (h *MemberHandler) GetMemberDetail(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Usecaseの実行
-	input := usecase.GetMemberInput{
+	input := appmember.GetMemberInput{
 		TenantID: tenantID,
 		MemberID: memberID,
 	}
@@ -360,7 +361,7 @@ func (h *MemberHandler) GetRecentAttendance(w http.ResponseWriter, r *http.Reque
 	}
 
 	// Usecaseの実行
-	output, err := h.getRecentAttendanceUsecase.Execute(ctx, appMember.GetRecentAttendanceInput{
+	output, err := h.getRecentAttendanceUsecase.Execute(ctx, appmember.GetRecentAttendanceInput{
 		TenantID: tenantID.String(),
 		Limit:    limit,
 	})
@@ -399,7 +400,7 @@ func (h *MemberHandler) DeleteMember(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Usecaseの実行
-	input := usecase.DeleteMemberInput{
+	input := appmember.DeleteMemberInput{
 		TenantID: tenantID,
 		MemberID: memberID,
 	}
@@ -455,15 +456,15 @@ func (h *MemberHandler) BulkImportMembers(w http.ResponseWriter, r *http.Request
 	}
 
 	// Usecaseの入力を構築
-	memberInputs := make([]usecase.BulkImportMemberInput, len(req.Members))
+	memberInputs := make([]appmember.BulkImportMemberInput, len(req.Members))
 	for i, m := range req.Members {
-		memberInputs[i] = usecase.BulkImportMemberInput{
+		memberInputs[i] = appmember.BulkImportMemberInput{
 			DisplayName: m.DisplayName,
 			RoleIDs:     m.RoleIDs,
 		}
 	}
 
-	input := usecase.BulkImportMembersInput{
+	input := appmember.BulkImportMembersInput{
 		TenantID: tenantID,
 		Members:  memberInputs,
 	}

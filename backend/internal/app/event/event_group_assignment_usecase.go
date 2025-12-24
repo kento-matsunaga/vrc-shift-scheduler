@@ -1,4 +1,4 @@
-package usecase
+package event
 
 import (
 	"context"
@@ -6,16 +6,6 @@ import (
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/event"
 )
-
-// EventGroupAssignmentRepository defines the interface for event group assignment persistence
-type EventGroupAssignmentRepository interface {
-	SaveGroupAssignments(ctx context.Context, eventID common.EventID, groupIDs []common.MemberGroupID) error
-	FindGroupAssignmentsByEventID(ctx context.Context, eventID common.EventID) ([]*event.EventGroupAssignment, error)
-	DeleteGroupAssignments(ctx context.Context, eventID common.EventID) error
-	SaveRoleGroupAssignments(ctx context.Context, eventID common.EventID, roleGroupIDs []common.RoleGroupID) error
-	FindRoleGroupAssignmentsByEventID(ctx context.Context, eventID common.EventID) ([]*event.EventRoleGroupAssignment, error)
-	DeleteRoleGroupAssignments(ctx context.Context, eventID common.EventID) error
-}
 
 // GetEventGroupAssignmentsInput represents the input for getting event group assignments
 type GetEventGroupAssignmentsInput struct {
@@ -31,14 +21,14 @@ type GetEventGroupAssignmentsOutput struct {
 
 // GetEventGroupAssignmentsUsecase handles getting group assignments for an event
 type GetEventGroupAssignmentsUsecase struct {
-	eventRepo       EventRepository
-	groupAssignRepo EventGroupAssignmentRepository
+	eventRepo       event.EventRepository
+	groupAssignRepo event.EventGroupAssignmentRepository
 }
 
 // NewGetEventGroupAssignmentsUsecase creates a new GetEventGroupAssignmentsUsecase
 func NewGetEventGroupAssignmentsUsecase(
-	eventRepo EventRepository,
-	groupAssignRepo EventGroupAssignmentRepository,
+	eventRepo event.EventRepository,
+	groupAssignRepo event.EventGroupAssignmentRepository,
 ) *GetEventGroupAssignmentsUsecase {
 	return &GetEventGroupAssignmentsUsecase{
 		eventRepo:       eventRepo,
@@ -93,14 +83,14 @@ type UpdateEventGroupAssignmentsInput struct {
 
 // UpdateEventGroupAssignmentsUsecase handles updating group assignments for an event
 type UpdateEventGroupAssignmentsUsecase struct {
-	eventRepo       EventRepository
-	groupAssignRepo EventGroupAssignmentRepository
+	eventRepo       event.EventRepository
+	groupAssignRepo event.EventGroupAssignmentRepository
 }
 
 // NewUpdateEventGroupAssignmentsUsecase creates a new UpdateEventGroupAssignmentsUsecase
 func NewUpdateEventGroupAssignmentsUsecase(
-	eventRepo EventRepository,
-	groupAssignRepo EventGroupAssignmentRepository,
+	eventRepo event.EventRepository,
+	groupAssignRepo event.EventGroupAssignmentRepository,
 ) *UpdateEventGroupAssignmentsUsecase {
 	return &UpdateEventGroupAssignmentsUsecase{
 		eventRepo:       eventRepo,

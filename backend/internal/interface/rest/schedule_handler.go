@@ -7,13 +7,10 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/app/schedule"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
 	schedDomain "github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/schedule"
-	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/clock"
-	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/db"
 )
 
 type ScheduleHandler struct {
@@ -27,20 +24,26 @@ type ScheduleHandler struct {
 	listSchedulesUsecase        *schedule.ListSchedulesUsecase
 }
 
-func NewScheduleHandler(pool *pgxpool.Pool) *ScheduleHandler {
-	scheduleRepo := db.NewScheduleRepository(pool)
-	txManager := db.NewPgxTxManager(pool)
-	systemClock := &clock.RealClock{}
-
+// NewScheduleHandler creates a new ScheduleHandler with injected usecases
+func NewScheduleHandler(
+	createScheduleUC *schedule.CreateScheduleUsecase,
+	submitResponseUC *schedule.SubmitResponseUsecase,
+	decideScheduleUC *schedule.DecideScheduleUsecase,
+	closeScheduleUC *schedule.CloseScheduleUsecase,
+	getScheduleUC *schedule.GetScheduleUsecase,
+	getScheduleByTokenUC *schedule.GetScheduleByTokenUsecase,
+	getResponsesUC *schedule.GetResponsesUsecase,
+	listSchedulesUC *schedule.ListSchedulesUsecase,
+) *ScheduleHandler {
 	return &ScheduleHandler{
-		createScheduleUsecase:       schedule.NewCreateScheduleUsecase(scheduleRepo, systemClock),
-		submitResponseUsecase:       schedule.NewSubmitResponseUsecase(scheduleRepo, txManager, systemClock),
-		decideScheduleUsecase:       schedule.NewDecideScheduleUsecase(scheduleRepo, systemClock),
-		closeScheduleUsecase:        schedule.NewCloseScheduleUsecase(scheduleRepo, systemClock),
-		getScheduleUsecase:          schedule.NewGetScheduleUsecase(scheduleRepo),
-		getScheduleByTokenUsecase:   schedule.NewGetScheduleByTokenUsecase(scheduleRepo),
-		getResponsesUsecase:         schedule.NewGetResponsesUsecase(scheduleRepo),
-		listSchedulesUsecase:        schedule.NewListSchedulesUsecase(scheduleRepo),
+		createScheduleUsecase:       createScheduleUC,
+		submitResponseUsecase:       submitResponseUC,
+		decideScheduleUsecase:       decideScheduleUC,
+		closeScheduleUsecase:        closeScheduleUC,
+		getScheduleUsecase:          getScheduleUC,
+		getScheduleByTokenUsecase:   getScheduleByTokenUC,
+		getResponsesUsecase:         getResponsesUC,
+		listSchedulesUsecase:        listSchedulesUC,
 	}
 }
 

@@ -4,8 +4,7 @@ import (
 	"context"
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/auth"
-	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/clock"
-	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/security"
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/services"
 )
 
 // AcceptInvitationInput represents the input for accepting an invitation
@@ -27,16 +26,16 @@ type AcceptInvitationOutput struct {
 type AcceptInvitationUsecase struct {
 	adminRepo      auth.AdminRepository
 	invitationRepo auth.InvitationRepository
-	passwordHasher security.PasswordHasher
-	clock          clock.Clock
+	passwordHasher services.PasswordHasher
+	clock          services.Clock
 }
 
 // NewAcceptInvitationUsecase creates a new AcceptInvitationUsecase
 func NewAcceptInvitationUsecase(
 	adminRepo auth.AdminRepository,
 	invitationRepo auth.InvitationRepository,
-	passwordHasher security.PasswordHasher,
-	clk clock.Clock,
+	passwordHasher services.PasswordHasher,
+	clk services.Clock,
 ) *AcceptInvitationUsecase {
 	return &AcceptInvitationUsecase{
 		adminRepo:      adminRepo,

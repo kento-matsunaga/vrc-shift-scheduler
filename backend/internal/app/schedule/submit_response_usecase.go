@@ -6,17 +6,16 @@ import (
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/schedule"
-	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/clock"
-	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/db"
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/services"
 )
 
 type SubmitResponseUsecase struct {
 	repo      schedule.DateScheduleRepository
-	txManager db.TxManager
-	clock     clock.Clock
+	txManager services.TxManager
+	clock     services.Clock
 }
 
-func NewSubmitResponseUsecase(repo schedule.DateScheduleRepository, txManager db.TxManager, clk clock.Clock) *SubmitResponseUsecase {
+func NewSubmitResponseUsecase(repo schedule.DateScheduleRepository, txManager services.TxManager, clk services.Clock) *SubmitResponseUsecase {
 	return &SubmitResponseUsecase{repo: repo, txManager: txManager, clock: clk}
 }
 

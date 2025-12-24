@@ -11,7 +11,13 @@ import (
 // LicenseKeyID represents the unique identifier for a license key
 type LicenseKeyID string
 
-// NewLicenseKeyID generates a new LicenseKeyID
+// NewLicenseKeyIDWithTime generates a new LicenseKeyID using the provided time.
+func NewLicenseKeyIDWithTime(t time.Time) LicenseKeyID {
+	return LicenseKeyID(common.NewULIDWithTime(t))
+}
+
+// NewLicenseKeyID generates a new LicenseKeyID using the current time.
+// Deprecated: Use NewLicenseKeyIDWithTime for better testability.
 func NewLicenseKeyID() LicenseKeyID {
 	return LicenseKeyID(common.NewULID())
 }
@@ -76,7 +82,7 @@ func NewLicenseKey(
 	memo string,
 ) (*LicenseKey, error) {
 	key := &LicenseKey{
-		keyID:        NewLicenseKeyID(),
+		keyID:        NewLicenseKeyIDWithTime(now),
 		keyHash:      keyHash,
 		status:       LicenseKeyStatusUnused,
 		batchID:      nil,
