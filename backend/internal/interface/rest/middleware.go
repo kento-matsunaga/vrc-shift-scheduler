@@ -199,3 +199,9 @@ func GetAdminID(ctx context.Context) (common.AdminID, bool) {
 	adminID, ok := ctx.Value(ContextKeyAdminID).(common.AdminID)
 	return adminID, ok
 }
+
+// GetRole extracts admin role from context
+func GetRole(ctx context.Context) (string, bool) {
+	role, ok := ctx.Value(ContextKeyRole).(string)
+	return role, ok
+}

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { getEvents, deleteEvent, getCurrentTenant, updateTenant, changePassword } from '../lib/api';
+import { getEvents, deleteEvent, getCurrentTenant, updateTenant, changePassword, getManagerPermissions, updateManagerPermissions } from '../lib/api';
 import type { Event } from '../types/api';
-import type { Tenant } from '../lib/api/tenantApi';
+import type { Tenant, ManagerPermissions } from '../lib/api/tenantApi';
 import { ApiClientError } from '../lib/apiClient';
 
 export default function Settings() {
@@ -28,6 +28,13 @@ export default function Settings() {
   const [confirmText, setConfirmText] = useState('');
   const [deleting, setDeleting] = useState(false);
 
+  // Manager permissions state
+  const [permissions, setPermissions] = useState<ManagerPermissions | null>(null);
+  const [savingPermissions, setSavingPermissions] = useState(false);
+  const [permissionsError, setPermissionsError] = useState('');
+  const [permissionsSuccess, setPermissionsSuccess] = useState('');
+  const isOwner = localStorage.getItem('admin_role') === 'owner';
+
   useEffect(() => {
     loadData();
   }, []);
@@ -42,6 +49,22 @@ export default function Settings() {
       setTenant(tenantData);
       setTenantName(tenantData.tenant_name);
       setEvents(eventsData.events || []);
+
+      // マネージャー権限は別途取得（失敗しても他のデータ表示に影響しない）
+      if (isOwner) {
+        try {
+          const permissionsData = await getManagerPermissions();
+          setPermissions(permissionsData);
+          setPermissionsError('');
+        } catch (permErr) {
+          console.error('Failed to load manager permissions:', permErr);
+          if (permErr instanceof ApiClientError) {
+            setPermissionsError(permErr.getUserMessage());
+          } else {
+            setPermissionsError('マネージャー権限の読み込みに失敗しました');
+          }
+        }
+      }
     } catch (err) {
       if (err instanceof ApiClientError) {
         setError(err.getUserMessage());
@@ -181,6 +204,36 @@ export default function Settings() {
       console.error('Failed to delete event:', err);
     } finally {
       setDeleting(false);
+    }
+  };
+
+  // Manager permissions handlers
+  const handlePermissionChange = (key: keyof ManagerPermissions, value: boolean) => {
+    if (!permissions) return;
+    setPermissions({ ...permissions, [key]: value });
+  };
+
+  const handleSavePermissions = async () => {
+    if (!permissions) return;
+
+    setSavingPermissions(true);
+    setPermissionsError('');
+    setPermissionsSuccess('');
+
+    try {
+      const updated = await updateManagerPermissions(permissions);
+      setPermissions(updated);
+      setPermissionsSuccess('マネージャー権限を保存しました');
+      setTimeout(() => setPermissionsSuccess(''), 3000);
+    } catch (err) {
+      if (err instanceof ApiClientError) {
+        setPermissionsError(err.getUserMessage());
+      } else {
+        setPermissionsError('マネージャー権限の保存に失敗しました');
+      }
+      console.error('Failed to save permissions:', err);
+    } finally {
+      setSavingPermissions(false);
     }
   };
 
@@ -346,6 +399,211 @@ export default function Settings() {
           </button>
         </form>
       </div>
+
+      {/* マネージャー権限設定セクション（オーナーのみ表示） */}
+      {isOwner && (permissions || permissionsError) && (
+        <div className="card mb-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <svg className="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+            </svg>
+            マネージャー権限の設定
+          </h3>
+
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+            <div className="flex items-start gap-3">
+              <svg className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <div>
+                <p className="text-sm text-blue-800">
+                  マネージャーに許可する操作を設定します。オーナーはすべての操作が可能です。
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {permissionsError && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+              <p className="text-sm text-red-800">{permissionsError}</p>
+            </div>
+          )}
+
+          {permissionsSuccess && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
+              <p className="text-sm text-green-800">{permissionsSuccess}</p>
+            </div>
+          )}
+
+          {permissions && (
+          <>
+          <div className="space-y-6">
+            {/* メンバー管理 */}
+            <div>
+              <h4 className="text-sm font-medium text-gray-700 mb-3">メンバー管理</h4>
+              <div className="space-y-2">
+                <label className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={permissions.can_add_member}
+                    onChange={(e) => handlePermissionChange('can_add_member', e.target.checked)}
+                    className="w-4 h-4 text-accent rounded border-gray-300 focus:ring-accent"
+                  />
+                  <span className="text-sm text-gray-700">メンバーの追加</span>
+                </label>
+                <label className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={permissions.can_edit_member}
+                    onChange={(e) => handlePermissionChange('can_edit_member', e.target.checked)}
+                    className="w-4 h-4 text-accent rounded border-gray-300 focus:ring-accent"
+                  />
+                  <span className="text-sm text-gray-700">メンバーの編集</span>
+                </label>
+                <label className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={permissions.can_delete_member}
+                    onChange={(e) => handlePermissionChange('can_delete_member', e.target.checked)}
+                    className="w-4 h-4 text-accent rounded border-gray-300 focus:ring-accent"
+                  />
+                  <span className="text-sm text-gray-700">メンバーの削除</span>
+                </label>
+              </div>
+            </div>
+
+            {/* イベント管理 */}
+            <div>
+              <h4 className="text-sm font-medium text-gray-700 mb-3">イベント管理</h4>
+              <div className="space-y-2">
+                <label className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={permissions.can_create_event}
+                    onChange={(e) => handlePermissionChange('can_create_event', e.target.checked)}
+                    className="w-4 h-4 text-accent rounded border-gray-300 focus:ring-accent"
+                  />
+                  <span className="text-sm text-gray-700">イベントの作成</span>
+                </label>
+                <label className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={permissions.can_edit_event}
+                    onChange={(e) => handlePermissionChange('can_edit_event', e.target.checked)}
+                    className="w-4 h-4 text-accent rounded border-gray-300 focus:ring-accent"
+                  />
+                  <span className="text-sm text-gray-700">イベントの編集</span>
+                </label>
+                <label className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={permissions.can_delete_event}
+                    onChange={(e) => handlePermissionChange('can_delete_event', e.target.checked)}
+                    className="w-4 h-4 text-accent rounded border-gray-300 focus:ring-accent"
+                  />
+                  <span className="text-sm text-gray-700">イベントの削除</span>
+                </label>
+              </div>
+            </div>
+
+            {/* シフト管理 */}
+            <div>
+              <h4 className="text-sm font-medium text-gray-700 mb-3">シフト管理</h4>
+              <div className="space-y-2">
+                <label className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={permissions.can_assign_shift}
+                    onChange={(e) => handlePermissionChange('can_assign_shift', e.target.checked)}
+                    className="w-4 h-4 text-accent rounded border-gray-300 focus:ring-accent"
+                  />
+                  <span className="text-sm text-gray-700">シフトの割り当て</span>
+                </label>
+                <label className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={permissions.can_edit_shift}
+                    onChange={(e) => handlePermissionChange('can_edit_shift', e.target.checked)}
+                    className="w-4 h-4 text-accent rounded border-gray-300 focus:ring-accent"
+                  />
+                  <span className="text-sm text-gray-700">シフトの編集</span>
+                </label>
+              </div>
+            </div>
+
+            {/* 出欠・スケジュール管理 */}
+            <div>
+              <h4 className="text-sm font-medium text-gray-700 mb-3">出欠・スケジュール管理</h4>
+              <div className="space-y-2">
+                <label className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={permissions.can_create_attendance}
+                    onChange={(e) => handlePermissionChange('can_create_attendance', e.target.checked)}
+                    className="w-4 h-4 text-accent rounded border-gray-300 focus:ring-accent"
+                  />
+                  <span className="text-sm text-gray-700">出欠確認の作成</span>
+                </label>
+                <label className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={permissions.can_create_schedule}
+                    onChange={(e) => handlePermissionChange('can_create_schedule', e.target.checked)}
+                    className="w-4 h-4 text-accent rounded border-gray-300 focus:ring-accent"
+                  />
+                  <span className="text-sm text-gray-700">日程調整の作成</span>
+                </label>
+              </div>
+            </div>
+
+            {/* 組織設定 */}
+            <div>
+              <h4 className="text-sm font-medium text-gray-700 mb-3">組織設定</h4>
+              <div className="space-y-2">
+                <label className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={permissions.can_manage_roles}
+                    onChange={(e) => handlePermissionChange('can_manage_roles', e.target.checked)}
+                    className="w-4 h-4 text-accent rounded border-gray-300 focus:ring-accent"
+                  />
+                  <span className="text-sm text-gray-700">ロールの管理</span>
+                </label>
+                <label className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={permissions.can_manage_groups}
+                    onChange={(e) => handlePermissionChange('can_manage_groups', e.target.checked)}
+                    className="w-4 h-4 text-accent rounded border-gray-300 focus:ring-accent"
+                  />
+                  <span className="text-sm text-gray-700">グループの管理</span>
+                </label>
+                <label className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={permissions.can_invite_manager}
+                    onChange={(e) => handlePermissionChange('can_invite_manager', e.target.checked)}
+                    className="w-4 h-4 text-accent rounded border-gray-300 focus:ring-accent"
+                  />
+                  <span className="text-sm text-gray-700">マネージャーの招待</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6">
+            <button
+              onClick={handleSavePermissions}
+              disabled={savingPermissions}
+              className="btn-primary"
+            >
+              {savingPermissions ? '保存中...' : '権限設定を保存'}
+            </button>
+          </div>
+          </>
+          )}
+        </div>
+      )}
 
       {/* イベント削除セクション */}
       <div className="card mb-6">
