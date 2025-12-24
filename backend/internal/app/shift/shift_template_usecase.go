@@ -1,4 +1,4 @@
-package usecase
+package shift
 
 import (
 	"context"
@@ -8,14 +8,6 @@ import (
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/event"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/shift"
 )
-
-// ShiftSlotTemplateRepository defines the interface for shift slot template persistence
-type ShiftSlotTemplateRepository interface {
-	Save(ctx context.Context, template *shift.ShiftSlotTemplate) error
-	FindByID(ctx context.Context, tenantID common.TenantID, templateID common.ShiftSlotTemplateID) (*shift.ShiftSlotTemplate, error)
-	FindByEventID(ctx context.Context, tenantID common.TenantID, eventID common.EventID) ([]*shift.ShiftSlotTemplate, error)
-	Delete(ctx context.Context, tenantID common.TenantID, templateID common.ShiftSlotTemplateID) error
-}
 
 // TemplateItemInput represents input for a template item
 type TemplateItemInput struct {
@@ -39,11 +31,11 @@ type CreateShiftTemplateInput struct {
 
 // CreateShiftTemplateUsecase handles shift template creation
 type CreateShiftTemplateUsecase struct {
-	templateRepo ShiftSlotTemplateRepository
+	templateRepo shift.ShiftSlotTemplateRepository
 }
 
 // NewCreateShiftTemplateUsecase creates a new CreateShiftTemplateUsecase
-func NewCreateShiftTemplateUsecase(templateRepo ShiftSlotTemplateRepository) *CreateShiftTemplateUsecase {
+func NewCreateShiftTemplateUsecase(templateRepo shift.ShiftSlotTemplateRepository) *CreateShiftTemplateUsecase {
 	return &CreateShiftTemplateUsecase{
 		templateRepo: templateRepo,
 	}
@@ -104,11 +96,11 @@ type ListShiftTemplatesInput struct {
 
 // ListShiftTemplatesUsecase handles shift template listing
 type ListShiftTemplatesUsecase struct {
-	templateRepo ShiftSlotTemplateRepository
+	templateRepo shift.ShiftSlotTemplateRepository
 }
 
 // NewListShiftTemplatesUsecase creates a new ListShiftTemplatesUsecase
-func NewListShiftTemplatesUsecase(templateRepo ShiftSlotTemplateRepository) *ListShiftTemplatesUsecase {
+func NewListShiftTemplatesUsecase(templateRepo shift.ShiftSlotTemplateRepository) *ListShiftTemplatesUsecase {
 	return &ListShiftTemplatesUsecase{
 		templateRepo: templateRepo,
 	}
@@ -132,11 +124,11 @@ type GetShiftTemplateInput struct {
 
 // GetShiftTemplateUsecase handles shift template retrieval
 type GetShiftTemplateUsecase struct {
-	templateRepo ShiftSlotTemplateRepository
+	templateRepo shift.ShiftSlotTemplateRepository
 }
 
 // NewGetShiftTemplateUsecase creates a new GetShiftTemplateUsecase
-func NewGetShiftTemplateUsecase(templateRepo ShiftSlotTemplateRepository) *GetShiftTemplateUsecase {
+func NewGetShiftTemplateUsecase(templateRepo shift.ShiftSlotTemplateRepository) *GetShiftTemplateUsecase {
 	return &GetShiftTemplateUsecase{
 		templateRepo: templateRepo,
 	}
@@ -163,11 +155,11 @@ type UpdateShiftTemplateInput struct {
 
 // UpdateShiftTemplateUsecase handles shift template update
 type UpdateShiftTemplateUsecase struct {
-	templateRepo ShiftSlotTemplateRepository
+	templateRepo shift.ShiftSlotTemplateRepository
 }
 
 // NewUpdateShiftTemplateUsecase creates a new UpdateShiftTemplateUsecase
-func NewUpdateShiftTemplateUsecase(templateRepo ShiftSlotTemplateRepository) *UpdateShiftTemplateUsecase {
+func NewUpdateShiftTemplateUsecase(templateRepo shift.ShiftSlotTemplateRepository) *UpdateShiftTemplateUsecase {
 	return &UpdateShiftTemplateUsecase{
 		templateRepo: templateRepo,
 	}
@@ -222,11 +214,11 @@ type DeleteShiftTemplateInput struct {
 
 // DeleteShiftTemplateUsecase handles shift template deletion
 type DeleteShiftTemplateUsecase struct {
-	templateRepo ShiftSlotTemplateRepository
+	templateRepo shift.ShiftSlotTemplateRepository
 }
 
 // NewDeleteShiftTemplateUsecase creates a new DeleteShiftTemplateUsecase
-func NewDeleteShiftTemplateUsecase(templateRepo ShiftSlotTemplateRepository) *DeleteShiftTemplateUsecase {
+func NewDeleteShiftTemplateUsecase(templateRepo shift.ShiftSlotTemplateRepository) *DeleteShiftTemplateUsecase {
 	return &DeleteShiftTemplateUsecase{
 		templateRepo: templateRepo,
 	}
@@ -252,16 +244,16 @@ type SaveBusinessDayAsTemplateInput struct {
 
 // SaveBusinessDayAsTemplateUsecase handles saving a business day as a template
 type SaveBusinessDayAsTemplateUsecase struct {
-	templateRepo    ShiftSlotTemplateRepository
-	businessDayRepo EventBusinessDayRepository
-	slotRepo        ShiftSlotRepository
+	templateRepo    shift.ShiftSlotTemplateRepository
+	businessDayRepo event.EventBusinessDayRepository
+	slotRepo        shift.ShiftSlotRepository
 }
 
 // NewSaveBusinessDayAsTemplateUsecase creates a new SaveBusinessDayAsTemplateUsecase
 func NewSaveBusinessDayAsTemplateUsecase(
-	templateRepo ShiftSlotTemplateRepository,
-	businessDayRepo EventBusinessDayRepository,
-	slotRepo ShiftSlotRepository,
+	templateRepo shift.ShiftSlotTemplateRepository,
+	businessDayRepo event.EventBusinessDayRepository,
+	slotRepo shift.ShiftSlotRepository,
 ) *SaveBusinessDayAsTemplateUsecase {
 	return &SaveBusinessDayAsTemplateUsecase{
 		templateRepo:    templateRepo,

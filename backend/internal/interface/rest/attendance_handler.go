@@ -8,10 +8,7 @@ import (
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/app/attendance"
 	domainAttendance "github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/attendance"
-	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/clock"
-	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/db"
 	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // AttendanceHandler handles attendance-related HTTP requests
@@ -25,22 +22,24 @@ type AttendanceHandler struct {
 	listCollectionsUsecase        *attendance.ListCollectionsUsecase
 }
 
-// NewAttendanceHandler creates a new AttendanceHandler
-func NewAttendanceHandler(dbPool *pgxpool.Pool) *AttendanceHandler {
-	// Repository, Clock, TxManagerの初期化
-	repo := db.NewAttendanceRepository(dbPool)
-	memberRepo := db.NewMemberRepository(dbPool)
-	clk := &clock.RealClock{}
-	txManager := db.NewPgxTxManager(dbPool)
-
+// NewAttendanceHandler creates a new AttendanceHandler with injected usecases
+func NewAttendanceHandler(
+	createCollectionUC *attendance.CreateCollectionUsecase,
+	submitResponseUC *attendance.SubmitResponseUsecase,
+	closeCollectionUC *attendance.CloseCollectionUsecase,
+	getCollectionUC *attendance.GetCollectionUsecase,
+	getCollectionByTokenUC *attendance.GetCollectionByTokenUsecase,
+	getResponsesUC *attendance.GetResponsesUsecase,
+	listCollectionsUC *attendance.ListCollectionsUsecase,
+) *AttendanceHandler {
 	return &AttendanceHandler{
-		createCollectionUsecase:       attendance.NewCreateCollectionUsecase(repo, clk),
-		submitResponseUsecase:         attendance.NewSubmitResponseUsecase(repo, txManager, clk),
-		closeCollectionUsecase:        attendance.NewCloseCollectionUsecase(repo, clk),
-		getCollectionUsecase:          attendance.NewGetCollectionUsecase(repo),
-		getCollectionByTokenUsecase:   attendance.NewGetCollectionByTokenUsecase(repo),
-		getResponsesUsecase:           attendance.NewGetResponsesUsecase(repo, memberRepo),
-		listCollectionsUsecase:        attendance.NewListCollectionsUsecase(repo),
+		createCollectionUsecase:       createCollectionUC,
+		submitResponseUsecase:         submitResponseUC,
+		closeCollectionUsecase:        closeCollectionUC,
+		getCollectionUsecase:          getCollectionUC,
+		getCollectionByTokenUsecase:   getCollectionByTokenUC,
+		getResponsesUsecase:           getResponsesUC,
+		listCollectionsUsecase:        listCollectionsUC,
 	}
 }
 
@@ -135,11 +134,11 @@ func (h *AttendanceHandler) CreateCollection(w http.ResponseWriter, r *http.Requ
 
 	// バリデーション
 	if req.Title == "" {
-		RespondBadRequest(w, "title is required")
+		RespondBadRequest(w, "タイトルを入力してください")
 		return
 	}
 	if req.TargetType == "" {
-		RespondBadRequest(w, "target_type is required")
+		RespondBadRequest(w, "対象タイプを選択してください")
 		return
 	}
 
@@ -148,7 +147,7 @@ func (h *AttendanceHandler) CreateCollection(w http.ResponseWriter, r *http.Requ
 	for _, dateStr := range req.TargetDates {
 		parsedDate, err := time.Parse(time.RFC3339, dateStr)
 		if err != nil {
-			RespondBadRequest(w, "invalid target_date format: "+dateStr)
+			RespondBadRequest(w, "対象日の形式が正しくありません: "+dateStr)
 			return
 		}
 		targetDates = append(targetDates, parsedDate)
@@ -350,7 +349,7 @@ func (h *AttendanceHandler) GetCollectionByToken(w http.ResponseWriter, r *http.
 	// URLパラメータからtokenを取得
 	token := chi.URLParam(r, "token")
 	if token == "" {
-		RespondNotFound(w, "Collection not found")
+		RespondNotFound(w, "出欠確認が見つかりません")
 		return
 	}
 
@@ -359,7 +358,7 @@ func (h *AttendanceHandler) GetCollectionByToken(w http.ResponseWriter, r *http.
 		PublicToken: token,
 	})
 	if err != nil {
-		RespondNotFound(w, "Collection not found") // トークンエラー → 404（詳細は返さない）
+		RespondNotFound(w, "出欠確認が見つかりません") // トークンエラー → 404（詳細は返さない）
 		return
 	}
 
@@ -401,7 +400,7 @@ func (h *AttendanceHandler) SubmitResponse(w http.ResponseWriter, r *http.Reques
 	// URLパラメータからtokenを取得
 	token := chi.URLParam(r, "token")
 	if token == "" {
-		RespondNotFound(w, "Collection not found") // トークンエラー → 404
+		RespondNotFound(w, "出欠確認が見つかりません") // トークンエラー → 404
 		return
 	}
 
@@ -414,15 +413,15 @@ func (h *AttendanceHandler) SubmitResponse(w http.ResponseWriter, r *http.Reques
 
 	// バリデーション
 	if req.MemberID == "" {
-		RespondBadRequest(w, "member_id is required")
+		RespondBadRequest(w, "メンバーを選択してください")
 		return
 	}
 	if req.TargetDateID == "" {
-		RespondBadRequest(w, "target_date_id is required")
+		RespondBadRequest(w, "対象日を選択してください")
 		return
 	}
 	if req.Response == "" {
-		RespondBadRequest(w, "response is required")
+		RespondBadRequest(w, "回答を選択してください")
 		return
 	}
 
@@ -438,13 +437,13 @@ func (h *AttendanceHandler) SubmitResponse(w http.ResponseWriter, r *http.Reques
 		// エラーハンドリング（トークンエラー → 404, メンバーエラー → 400）
 		switch {
 		case errors.Is(err, attendance.ErrCollectionNotFound):
-			RespondNotFound(w, "Collection not found") // トークンエラー → 404（詳細は返さない）
+			RespondNotFound(w, "出欠確認が見つかりません") // トークンエラー → 404（詳細は返さない）
 		case errors.Is(err, attendance.ErrMemberNotAllowed):
-			RespondBadRequest(w, "Member not allowed") // メンバーエラー → 400（詳細は返さない）
+			RespondBadRequest(w, "このメンバーは回答できません") // メンバーエラー → 400（詳細は返さない）
 		case errors.Is(err, domainAttendance.ErrCollectionClosed):
-			RespondConflict(w, "Collection is closed")
+			RespondConflict(w, "この出欠確認は締め切られています")
 		case errors.Is(err, domainAttendance.ErrDeadlinePassed):
-			RespondConflict(w, "Deadline has passed")
+			RespondConflict(w, "回答期限が過ぎています")
 		default:
 			RespondDomainError(w, err)
 		}

@@ -6,7 +6,7 @@ import (
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/auth"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
-	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/clock"
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/services"
 )
 
 // InviteAdminInput represents the input for inviting an admin
@@ -29,14 +29,14 @@ type InviteAdminOutput struct {
 type InviteAdminUsecase struct {
 	adminRepo      auth.AdminRepository
 	invitationRepo auth.InvitationRepository
-	clock          clock.Clock
+	clock          services.Clock
 }
 
 // NewInviteAdminUsecase creates a new InviteAdminUsecase
 func NewInviteAdminUsecase(
 	adminRepo auth.AdminRepository,
 	invitationRepo auth.InvitationRepository,
-	clk clock.Clock,
+	clk services.Clock,
 ) *InviteAdminUsecase {
 	return &InviteAdminUsecase{
 		adminRepo:      adminRepo,

@@ -5,40 +5,44 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/erenoa/vrc-shift-scheduler/backend/internal/application/usecase"
+	appevent "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/event"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/event"
-	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/db"
 	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // EventHandler handles event-related HTTP requests
 type EventHandler struct {
-	createEventUC              *usecase.CreateEventUsecase
-	listEventsUC               *usecase.ListEventsUsecase
-	getEventUC                 *usecase.GetEventUsecase
-	updateEventUC              *usecase.UpdateEventUsecase
-	deleteEventUC              *usecase.DeleteEventUsecase
-	generateBusinessDaysUC     *usecase.GenerateBusinessDaysUsecase
-	getGroupAssignmentsUC      *usecase.GetEventGroupAssignmentsUsecase
-	updateGroupAssignmentsUC   *usecase.UpdateEventGroupAssignmentsUsecase
+	createEventUC            *appevent.CreateEventUsecase
+	listEventsUC             *appevent.ListEventsUsecase
+	getEventUC               *appevent.GetEventUsecase
+	updateEventUC            *appevent.UpdateEventUsecase
+	deleteEventUC            *appevent.DeleteEventUsecase
+	generateBusinessDaysUC   *appevent.GenerateBusinessDaysUsecase
+	getGroupAssignmentsUC    *appevent.GetEventGroupAssignmentsUsecase
+	updateGroupAssignmentsUC *appevent.UpdateEventGroupAssignmentsUsecase
 }
 
-// NewEventHandler creates a new EventHandler
-func NewEventHandler(dbPool *pgxpool.Pool) *EventHandler {
-	eventRepo := db.NewEventRepository(dbPool)
-	businessDayRepo := db.NewEventBusinessDayRepository(dbPool)
-	groupAssignRepo := db.NewEventGroupAssignmentRepository(dbPool)
+// NewEventHandler creates a new EventHandler with injected usecases
+func NewEventHandler(
+	createEventUC *appevent.CreateEventUsecase,
+	listEventsUC *appevent.ListEventsUsecase,
+	getEventUC *appevent.GetEventUsecase,
+	updateEventUC *appevent.UpdateEventUsecase,
+	deleteEventUC *appevent.DeleteEventUsecase,
+	generateBusinessDaysUC *appevent.GenerateBusinessDaysUsecase,
+	getGroupAssignmentsUC *appevent.GetEventGroupAssignmentsUsecase,
+	updateGroupAssignmentsUC *appevent.UpdateEventGroupAssignmentsUsecase,
+) *EventHandler {
 	return &EventHandler{
-		createEventUC:            usecase.NewCreateEventUsecase(eventRepo, businessDayRepo),
-		listEventsUC:             usecase.NewListEventsUsecase(eventRepo),
-		getEventUC:               usecase.NewGetEventUsecase(eventRepo),
-		updateEventUC:            usecase.NewUpdateEventUsecase(eventRepo),
-		deleteEventUC:            usecase.NewDeleteEventUsecase(eventRepo),
-		generateBusinessDaysUC:   usecase.NewGenerateBusinessDaysUsecase(eventRepo, businessDayRepo),
-		getGroupAssignmentsUC:    usecase.NewGetEventGroupAssignmentsUsecase(eventRepo, groupAssignRepo),
-		updateGroupAssignmentsUC: usecase.NewUpdateEventGroupAssignmentsUsecase(eventRepo, groupAssignRepo),
+		createEventUC:            createEventUC,
+		listEventsUC:             listEventsUC,
+		getEventUC:               getEventUC,
+		updateEventUC:            updateEventUC,
+		deleteEventUC:            deleteEventUC,
+		generateBusinessDaysUC:   generateBusinessDaysUC,
+		getGroupAssignmentsUC:    getGroupAssignmentsUC,
+		updateGroupAssignmentsUC: updateGroupAssignmentsUC,
 	}
 }
 
@@ -164,7 +168,7 @@ func (h *EventHandler) CreateEvent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Usecaseの実行
-	input := usecase.CreateEventInput{
+	input := appevent.CreateEventInput{
 		TenantID:            tenantID,
 		EventName:           req.EventName,
 		EventType:           eventType,
@@ -198,7 +202,7 @@ func (h *EventHandler) ListEvents(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Usecaseの実行
-	input := usecase.ListEventsInput{
+	input := appevent.ListEventsInput{
 		TenantID: tenantID,
 	}
 
@@ -245,7 +249,7 @@ func (h *EventHandler) GetEvent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Usecaseの実行
-	input := usecase.GetEventInput{
+	input := appevent.GetEventInput{
 		TenantID: tenantID,
 		EventID:  eventID,
 	}
@@ -304,7 +308,7 @@ func (h *EventHandler) UpdateEvent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Usecaseの実行
-	input := usecase.UpdateEventInput{
+	input := appevent.UpdateEventInput{
 		TenantID:  tenantID,
 		EventID:   eventID,
 		EventName: req.EventName,
@@ -345,7 +349,7 @@ func (h *EventHandler) DeleteEvent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Usecaseの実行
-	input := usecase.DeleteEventInput{
+	input := appevent.DeleteEventInput{
 		TenantID: tenantID,
 		EventID:  eventID,
 	}
@@ -426,7 +430,7 @@ func (h *EventHandler) GenerateBusinessDays(w http.ResponseWriter, r *http.Reque
 	}
 
 	// Usecaseの実行
-	input := usecase.GenerateBusinessDaysInput{
+	input := appevent.GenerateBusinessDaysInput{
 		TenantID: tenantID,
 		EventID:  eventID,
 	}
@@ -488,7 +492,7 @@ func (h *EventHandler) GetGroupAssignments(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Usecaseの実行
-	input := usecase.GetEventGroupAssignmentsInput{
+	input := appevent.GetEventGroupAssignmentsInput{
 		TenantID: tenantID,
 		EventID:  eventID,
 	}
@@ -544,7 +548,7 @@ func (h *EventHandler) UpdateGroupAssignments(w http.ResponseWriter, r *http.Req
 	}
 
 	// Usecaseの実行
-	input := usecase.UpdateEventGroupAssignmentsInput{
+	input := appevent.UpdateEventGroupAssignmentsInput{
 		TenantID:       tenantID,
 		EventID:        eventID,
 		MemberGroupIDs: req.MemberGroupIDs,
@@ -557,7 +561,7 @@ func (h *EventHandler) UpdateGroupAssignments(w http.ResponseWriter, r *http.Req
 	}
 
 	// 更新後のデータを取得して返す
-	getInput := usecase.GetEventGroupAssignmentsInput{
+	getInput := appevent.GetEventGroupAssignmentsInput{
 		TenantID: tenantID,
 		EventID:  eventID,
 	}

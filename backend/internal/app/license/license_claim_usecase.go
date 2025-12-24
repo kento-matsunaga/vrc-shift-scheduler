@@ -1,4 +1,4 @@
-package usecase
+package license
 
 import (
 	"context"
@@ -79,12 +79,12 @@ func (uc *LicenseClaimUsecase) Execute(ctx context.Context, input LicenseClaimIn
 
 	// Validate license key format
 	if !billing.ValidateLicenseKeyFormat(input.LicenseKey) {
-		return nil, common.NewValidationError("Invalid license key format", nil)
+		return nil, common.NewValidationError("ライセンスキーの形式が正しくありません", nil)
 	}
 
 	// Validate email
 	if input.Email == "" {
-		return nil, common.NewValidationError("Email is required", nil)
+		return nil, common.NewValidationError("メールアドレスを入力してください", nil)
 	}
 
 	// Validate password complexity
@@ -94,12 +94,12 @@ func (uc *LicenseClaimUsecase) Execute(ctx context.Context, input LicenseClaimIn
 
 	// Validate display name
 	if input.DisplayName == "" {
-		return nil, common.NewValidationError("Display name is required", nil)
+		return nil, common.NewValidationError("表示名を入力してください", nil)
 	}
 
 	// Validate tenant name
 	if input.TenantName == "" {
-		return nil, common.NewValidationError("Tenant name is required", nil)
+		return nil, common.NewValidationError("テナント名を入力してください", nil)
 	}
 
 	// Normalize and hash the license key
@@ -116,16 +116,16 @@ func (uc *LicenseClaimUsecase) Execute(ctx context.Context, input LicenseClaimIn
 			return err
 		}
 		if licenseKey == nil {
-			return common.NewValidationError("Invalid license key", nil)
+			return common.NewValidationError("ライセンスキーが見つかりません", nil)
 		}
 
 		// 2. Verify the key is unused
 		if !licenseKey.IsUnused() {
 			if licenseKey.IsUsed() {
-				return common.NewValidationError("License key has already been used", nil)
+				return common.NewValidationError("このライセンスキーは既に使用されています", nil)
 			}
 			if licenseKey.IsRevoked() {
-				return common.NewValidationError("License key has been revoked", nil)
+				return common.NewValidationError("このライセンスキーは無効化されています", nil)
 			}
 		}
 
@@ -261,11 +261,11 @@ func strPtr(s string) *string {
 // validatePasswordComplexity checks password meets security requirements
 func validatePasswordComplexity(password string) error {
 	if len(password) < 8 {
-		return common.NewValidationError("Password must be at least 8 characters", nil)
+		return common.NewValidationError("パスワードは8文字以上で入力してください", nil)
 	}
 
 	if len(password) > 128 {
-		return common.NewValidationError("Password must be 128 characters or less", nil)
+		return common.NewValidationError("パスワードは128文字以内で入力してください", nil)
 	}
 
 	var hasUpper, hasLower, hasDigit bool
@@ -281,13 +281,13 @@ func validatePasswordComplexity(password string) error {
 	}
 
 	if !hasUpper {
-		return common.NewValidationError("Password must contain at least one uppercase letter", nil)
+		return common.NewValidationError("パスワードには大文字を1文字以上含めてください", nil)
 	}
 	if !hasLower {
-		return common.NewValidationError("Password must contain at least one lowercase letter", nil)
+		return common.NewValidationError("パスワードには小文字を1文字以上含めてください", nil)
 	}
 	if !hasDigit {
-		return common.NewValidationError("Password must contain at least one number", nil)
+		return common.NewValidationError("パスワードには数字を1文字以上含めてください", nil)
 	}
 
 	return nil

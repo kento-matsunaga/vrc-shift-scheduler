@@ -4,21 +4,21 @@ import (
 	"context"
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/auth"
-	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/security"
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/services"
 )
 
 // LoginUsecase handles the login use case
 type LoginUsecase struct {
 	adminRepo      auth.AdminRepository
-	passwordHasher security.PasswordHasher
-	tokenIssuer    security.TokenIssuer
+	passwordHasher services.PasswordHasher
+	tokenIssuer    services.TokenIssuer
 }
 
 // NewLoginUsecase creates a new LoginUsecase
 func NewLoginUsecase(
 	adminRepo auth.AdminRepository,
-	passwordHasher security.PasswordHasher,
-	tokenIssuer security.TokenIssuer,
+	passwordHasher services.PasswordHasher,
+	tokenIssuer services.TokenIssuer,
 ) *LoginUsecase {
 	return &LoginUsecase{
 		adminRepo:      adminRepo,
@@ -62,6 +62,7 @@ func (u *LoginUsecase) Execute(ctx context.Context, input LoginInput) (*LoginOut
 		Token:     token,
 		AdminID:   admin.AdminID().String(),
 		TenantID:  admin.TenantID().String(), // TenantIDは返す（フロント用）
+		Email:     admin.Email(),
 		Role:      admin.Role().String(),
 		ExpiresAt: expiresAt,
 	}, nil

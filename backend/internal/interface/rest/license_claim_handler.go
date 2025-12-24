@@ -6,18 +6,18 @@ import (
 	"strings"
 	"time"
 
-	"github.com/erenoa/vrc-shift-scheduler/backend/internal/application/usecase"
+	applicense "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/license"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
 )
 
 // LicenseClaimHandler handles license claim requests
 type LicenseClaimHandler struct {
-	claimUsecase *usecase.LicenseClaimUsecase
+	claimUsecase *applicense.LicenseClaimUsecase
 	rateLimiter  *RateLimiter
 }
 
 // NewLicenseClaimHandler creates a new LicenseClaimHandler
-func NewLicenseClaimHandler(claimUsecase *usecase.LicenseClaimUsecase, rateLimiter *RateLimiter) *LicenseClaimHandler {
+func NewLicenseClaimHandler(claimUsecase *applicense.LicenseClaimUsecase, rateLimiter *RateLimiter) *LicenseClaimHandler {
 	return &LicenseClaimHandler{
 		claimUsecase: claimUsecase,
 		rateLimiter:  rateLimiter,
@@ -53,7 +53,7 @@ func (h *LicenseClaimHandler) Claim(w http.ResponseWriter, r *http.Request) {
 		// Delay response to slow down attackers
 		time.Sleep(1 * time.Second)
 		RespondError(w, http.StatusTooManyRequests, "ERR_RATE_LIMITED",
-			"Too many requests. Please try again later.", nil)
+			"リクエストが多すぎます。しばらくしてから再度お試しください。", nil)
 		return
 	}
 
@@ -67,12 +67,12 @@ func (h *LicenseClaimHandler) Claim(w http.ResponseWriter, r *http.Request) {
 	// Validate required fields
 	if req.Email == "" || req.Password == "" || req.DisplayName == "" ||
 		req.TenantName == "" || req.LicenseKey == "" {
-		RespondBadRequest(w, "All fields are required")
+		RespondBadRequest(w, "すべての項目を入力してください")
 		return
 	}
 
 	// Execute claim usecase
-	input := usecase.LicenseClaimInput{
+	input := applicense.LicenseClaimInput{
 		Email:       req.Email,
 		Password:    req.Password,
 		DisplayName: req.DisplayName,
@@ -104,7 +104,7 @@ func (h *LicenseClaimHandler) Claim(w http.ResponseWriter, r *http.Request) {
 		TenantName:  output.TenantName,
 		DisplayName: output.DisplayName,
 		Email:       output.Email,
-		Message:     "License claimed successfully. Please log in to continue.",
+		Message:     "登録が完了しました。ログインしてご利用ください。",
 	}
 
 	RespondJSON(w, http.StatusCreated, map[string]interface{}{

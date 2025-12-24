@@ -29,6 +29,12 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     -o /app/bin/migrate \
     ./cmd/migrate/main.go
 
+# シードコマンドもビルド
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+    -ldflags="-w -s" \
+    -o /app/bin/seed \
+    ./cmd/seed/main.go
+
 # ========== Runtime Stage ==========
 FROM alpine:latest
 
@@ -41,6 +47,10 @@ WORKDIR /app
 # ビルド成果物をコピー
 COPY --from=builder /app/bin/server /app/server
 COPY --from=builder /app/bin/migrate /app/migrate
+COPY --from=builder /app/bin/seed /app/seed
+
+# マイグレーションファイルをコピー
+COPY --from=builder /app/internal/infra/db/migrations /app/internal/infra/db/migrations
 
 # 環境変数のデフォルト値を設定
 ENV PORT=8080

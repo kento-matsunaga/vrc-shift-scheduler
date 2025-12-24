@@ -2,17 +2,29 @@ package event
 
 import (
 	"testing"
+	"time"
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
 )
 
+// Helper function to create a test event with minimal required params
+func createTestEvent(t *testing.T, tenantID common.TenantID, eventName string, eventType EventType, description string) *Event {
+	now := time.Now()
+	event, err := NewEvent(now, tenantID, eventName, eventType, description, RecurrenceTypeNone, nil, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("createTestEvent() failed: %v", err)
+	}
+	return event
+}
+
 func TestNewEvent_Success(t *testing.T) {
+	now := time.Now()
 	tenantID := common.NewTenantID()
 	eventName := "週末VRChat集会"
 	eventType := EventTypeNormal
 	description := "毎週末に開催するVRChat集会イベント"
 
-	event, err := NewEvent(tenantID, eventName, eventType, description)
+	event, err := NewEvent(now, tenantID, eventName, eventType, description, RecurrenceTypeNone, nil, nil, nil, nil)
 
 	if err != nil {
 		t.Fatalf("NewEvent() should succeed, but got error: %v", err)
@@ -63,13 +75,38 @@ func TestNewEvent_Success(t *testing.T) {
 	}
 }
 
+func TestNewEvent_SuccessWithRecurrence(t *testing.T) {
+	now := time.Now()
+	tenantID := common.NewTenantID()
+	eventName := "週末VRChat集会"
+	eventType := EventTypeNormal
+	description := "毎週土曜日に開催"
+
+	startDate := time.Date(2025, 1, 4, 0, 0, 0, 0, time.UTC) // Saturday
+	dayOfWeek := 6                                           // Saturday
+	startTime := time.Date(0, 1, 1, 20, 0, 0, 0, time.UTC)   // 20:00
+	endTime := time.Date(0, 1, 1, 23, 0, 0, 0, time.UTC)     // 23:00
+
+	event, err := NewEvent(now, tenantID, eventName, eventType, description,
+		RecurrenceTypeWeekly, &startDate, &dayOfWeek, &startTime, &endTime)
+
+	if err != nil {
+		t.Fatalf("NewEvent() should succeed, but got error: %v", err)
+	}
+
+	if event.RecurrenceType() != RecurrenceTypeWeekly {
+		t.Errorf("RecurrenceType: expected %s, got %s", RecurrenceTypeWeekly, event.RecurrenceType())
+	}
+}
+
 func TestNewEvent_ErrorWhenEventNameEmpty(t *testing.T) {
+	now := time.Now()
 	tenantID := common.NewTenantID()
 	eventName := "" // 空文字
 	eventType := EventTypeNormal
 	description := "説明"
 
-	event, err := NewEvent(tenantID, eventName, eventType, description)
+	event, err := NewEvent(now, tenantID, eventName, eventType, description, RecurrenceTypeNone, nil, nil, nil, nil)
 
 	if err == nil {
 		t.Fatal("NewEvent() should return error when event_name is empty")
@@ -81,13 +118,14 @@ func TestNewEvent_ErrorWhenEventNameEmpty(t *testing.T) {
 }
 
 func TestNewEvent_ErrorWhenEventNameTooLong(t *testing.T) {
+	now := time.Now()
 	tenantID := common.NewTenantID()
 	// 256文字の文字列（上限255を超える）
 	eventName := string(make([]byte, 256))
 	eventType := EventTypeNormal
 	description := "説明"
 
-	event, err := NewEvent(tenantID, eventName, eventType, description)
+	event, err := NewEvent(now, tenantID, eventName, eventType, description, RecurrenceTypeNone, nil, nil, nil, nil)
 
 	if err == nil {
 		t.Fatal("NewEvent() should return error when event_name is too long")
@@ -99,12 +137,13 @@ func TestNewEvent_ErrorWhenEventNameTooLong(t *testing.T) {
 }
 
 func TestNewEvent_ErrorWhenInvalidEventType(t *testing.T) {
+	now := time.Now()
 	tenantID := common.NewTenantID()
 	eventName := "テストイベント"
 	eventType := EventType("invalid") // 不正な値
 	description := "説明"
 
-	event, err := NewEvent(tenantID, eventName, eventType, description)
+	event, err := NewEvent(now, tenantID, eventName, eventType, description, RecurrenceTypeNone, nil, nil, nil, nil)
 
 	if err == nil {
 		t.Fatal("NewEvent() should return error when event_type is invalid")
@@ -116,12 +155,13 @@ func TestNewEvent_ErrorWhenInvalidEventType(t *testing.T) {
 }
 
 func TestNewEvent_ErrorWhenTenantIDEmpty(t *testing.T) {
+	now := time.Now()
 	tenantID := common.TenantID("") // 空のテナントID
 	eventName := "テストイベント"
 	eventType := EventTypeNormal
 	description := "説明"
 
-	event, err := NewEvent(tenantID, eventName, eventType, description)
+	event, err := NewEvent(now, tenantID, eventName, eventType, description, RecurrenceTypeNone, nil, nil, nil, nil)
 
 	if err == nil {
 		t.Fatal("NewEvent() should return error when tenant_id is empty")
@@ -134,7 +174,7 @@ func TestNewEvent_ErrorWhenTenantIDEmpty(t *testing.T) {
 
 func TestEvent_UpdateEventName(t *testing.T) {
 	tenantID := common.NewTenantID()
-	event, _ := NewEvent(tenantID, "元の名前", EventTypeNormal, "説明")
+	event := createTestEvent(t, tenantID, "元の名前", EventTypeNormal, "説明")
 
 	newName := "新しい名前"
 	err := event.UpdateEventName(newName)
@@ -150,7 +190,7 @@ func TestEvent_UpdateEventName(t *testing.T) {
 
 func TestEvent_UpdateEventName_ErrorWhenEmpty(t *testing.T) {
 	tenantID := common.NewTenantID()
-	event, _ := NewEvent(tenantID, "元の名前", EventTypeNormal, "説明")
+	event := createTestEvent(t, tenantID, "元の名前", EventTypeNormal, "説明")
 
 	err := event.UpdateEventName("")
 
@@ -161,7 +201,7 @@ func TestEvent_UpdateEventName_ErrorWhenEmpty(t *testing.T) {
 
 func TestEvent_ActivateDeactivate(t *testing.T) {
 	tenantID := common.NewTenantID()
-	event, _ := NewEvent(tenantID, "テストイベント", EventTypeNormal, "説明")
+	event := createTestEvent(t, tenantID, "テストイベント", EventTypeNormal, "説明")
 
 	// 初期状態はアクティブ
 	if !event.IsActive() {
@@ -183,7 +223,7 @@ func TestEvent_ActivateDeactivate(t *testing.T) {
 
 func TestEvent_Delete(t *testing.T) {
 	tenantID := common.NewTenantID()
-	event, _ := NewEvent(tenantID, "テストイベント", EventTypeNormal, "説明")
+	event := createTestEvent(t, tenantID, "テストイベント", EventTypeNormal, "説明")
 
 	// 初期状態は削除されていない
 	if event.IsDeleted() {
@@ -228,3 +268,25 @@ func TestEventType_Validate(t *testing.T) {
 	}
 }
 
+func TestRecurrenceType_Validate(t *testing.T) {
+	tests := []struct {
+		name           string
+		recurrenceType RecurrenceType
+		wantError      bool
+	}{
+		{"None type is valid", RecurrenceTypeNone, false},
+		{"Weekly type is valid", RecurrenceTypeWeekly, false},
+		{"Biweekly type is valid", RecurrenceTypeBiweekly, false},
+		{"Invalid type returns error", RecurrenceType("invalid"), true},
+		{"Empty type returns error", RecurrenceType(""), true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.recurrenceType.Validate()
+			if (err != nil) != tt.wantError {
+				t.Errorf("Validate() error = %v, wantError %v", err, tt.wantError)
+			}
+		})
+	}
+}

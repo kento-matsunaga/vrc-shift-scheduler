@@ -5,19 +5,19 @@ import (
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/attendance"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
-	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/clock"
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/services"
 )
 
 // CloseCollectionUsecase handles closing an attendance collection
 type CloseCollectionUsecase struct {
 	repo  attendance.AttendanceCollectionRepository
-	clock clock.Clock
+	clock services.Clock
 }
 
 // NewCloseCollectionUsecase creates a new CloseCollectionUsecase
 func NewCloseCollectionUsecase(
 	repo attendance.AttendanceCollectionRepository,
-	clock clock.Clock,
+	clock services.Clock,
 ) *CloseCollectionUsecase {
 	return &CloseCollectionUsecase{
 		repo:  repo,

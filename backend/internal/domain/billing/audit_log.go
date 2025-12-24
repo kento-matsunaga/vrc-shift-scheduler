@@ -9,7 +9,13 @@ import (
 // BillingAuditLogID represents the unique identifier for a billing audit log
 type BillingAuditLogID string
 
-// NewBillingAuditLogID generates a new BillingAuditLogID
+// NewBillingAuditLogIDWithTime generates a new BillingAuditLogID using the provided time.
+func NewBillingAuditLogIDWithTime(t time.Time) BillingAuditLogID {
+	return BillingAuditLogID(common.NewULIDWithTime(t))
+}
+
+// NewBillingAuditLogID generates a new BillingAuditLogID using the current time.
+// Deprecated: Use NewBillingAuditLogIDWithTime for better testability.
 func NewBillingAuditLogID() BillingAuditLogID {
 	return BillingAuditLogID(common.NewULID())
 }
@@ -93,7 +99,7 @@ func NewBillingAuditLog(
 	userAgent *string,
 ) (*BillingAuditLog, error) {
 	log := &BillingAuditLog{
-		logID:      NewBillingAuditLogID(),
+		logID:      NewBillingAuditLogIDWithTime(now),
 		actorType:  actorType,
 		actorID:    actorID,
 		action:     action,

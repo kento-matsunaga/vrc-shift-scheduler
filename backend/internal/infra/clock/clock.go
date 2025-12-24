@@ -1,12 +1,16 @@
 package clock
 
-import "time"
+import (
+	"time"
 
-// Clock is an interface for getting the current time
-// App層で使用し、Domain層には now を引数で渡す
-type Clock interface {
-	Now() time.Time
-}
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/services"
+)
+
+// Compile-time interface compliance check
+var (
+	_ services.Clock = (*RealClock)(nil)
+	_ services.Clock = (*FixedClock)(nil)
+)
 
 // RealClock is the production implementation that returns the actual current time
 type RealClock struct{}

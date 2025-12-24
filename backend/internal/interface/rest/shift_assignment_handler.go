@@ -6,34 +6,32 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/erenoa/vrc-shift-scheduler/backend/internal/application/usecase"
+	appshift "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/shift"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/shift"
-	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/db"
 	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // ShiftAssignmentHandler handles shift assignment-related HTTP requests
 type ShiftAssignmentHandler struct {
-	confirmAssignmentUC     *usecase.ConfirmManualAssignmentUsecase
-	getAssignmentsUC        *usecase.GetAssignmentsUsecase
-	getAssignmentDetailUC   *usecase.GetAssignmentDetailUsecase
-	cancelAssignmentUC      *usecase.CancelAssignmentUsecase
+	confirmAssignmentUC     *appshift.ConfirmManualAssignmentUsecase
+	getAssignmentsUC        *appshift.GetAssignmentsUsecase
+	getAssignmentDetailUC   *appshift.GetAssignmentDetailUsecase
+	cancelAssignmentUC      *appshift.CancelAssignmentUsecase
 }
 
-// NewShiftAssignmentHandler creates a new ShiftAssignmentHandler
-func NewShiftAssignmentHandler(dbPool *pgxpool.Pool) *ShiftAssignmentHandler {
-	slotRepo := db.NewShiftSlotRepository(dbPool)
-	assignmentRepo := db.NewShiftAssignmentRepository(dbPool)
-	memberRepo := db.NewMemberRepository(dbPool)
-	businessDayRepo := db.NewEventBusinessDayRepository(dbPool)
-
+// NewShiftAssignmentHandler creates a new ShiftAssignmentHandler with injected usecases
+func NewShiftAssignmentHandler(
+	confirmAssignmentUC *appshift.ConfirmManualAssignmentUsecase,
+	getAssignmentsUC *appshift.GetAssignmentsUsecase,
+	getAssignmentDetailUC *appshift.GetAssignmentDetailUsecase,
+	cancelAssignmentUC *appshift.CancelAssignmentUsecase,
+) *ShiftAssignmentHandler {
 	return &ShiftAssignmentHandler{
-		confirmAssignmentUC:   usecase.NewConfirmManualAssignmentUsecase(slotRepo, assignmentRepo, memberRepo),
-		getAssignmentsUC:      usecase.NewGetAssignmentsUsecase(assignmentRepo, memberRepo, slotRepo, businessDayRepo),
-		getAssignmentDetailUC: usecase.NewGetAssignmentDetailUsecase(assignmentRepo, memberRepo, slotRepo, businessDayRepo),
-		cancelAssignmentUC:    usecase.NewCancelAssignmentUsecase(assignmentRepo),
+		confirmAssignmentUC:   confirmAssignmentUC,
+		getAssignmentsUC:      getAssignmentsUC,
+		getAssignmentDetailUC: getAssignmentDetailUC,
+		cancelAssignmentUC:    cancelAssignmentUC,
 	}
 }
 
@@ -122,7 +120,7 @@ func (h *ShiftAssignmentHandler) ConfirmAssignment(w http.ResponseWriter, r *htt
 	}
 
 	// Execute usecase
-	input := usecase.ConfirmManualAssignmentInput{
+	input := appshift.ConfirmManualAssignmentInput{
 		TenantID: tenantID,
 		SlotID:   slotID,
 		MemberID: memberID,
@@ -152,7 +150,7 @@ func (h *ShiftAssignmentHandler) ConfirmAssignment(w http.ResponseWriter, r *htt
 	}
 
 	// Get assignment details with JOIN data
-	detailInput := usecase.GetAssignmentDetailInput{
+	detailInput := appshift.GetAssignmentDetailInput{
 		TenantID:     tenantID,
 		AssignmentID: assignment.AssignmentID(),
 	}
@@ -220,7 +218,7 @@ func (h *ShiftAssignmentHandler) GetAssignments(w http.ResponseWriter, r *http.R
 	}
 
 	// Build usecase input
-	input := usecase.GetAssignmentsInput{
+	input := appshift.GetAssignmentsInput{
 		TenantID:  tenantID,
 		Status:    statusStr,
 		StartDate: startDate,
@@ -290,7 +288,7 @@ func (h *ShiftAssignmentHandler) GetAssignmentDetail(w http.ResponseWriter, r *h
 	}
 
 	// Execute usecase
-	input := usecase.GetAssignmentDetailInput{
+	input := appshift.GetAssignmentDetailInput{
 		TenantID:     tenantID,
 		AssignmentID: assignmentID,
 	}
@@ -311,7 +309,7 @@ func (h *ShiftAssignmentHandler) GetAssignmentDetail(w http.ResponseWriter, r *h
 }
 
 // buildAssignmentResponse builds a ShiftAssignmentResponse from AssignmentWithDetails
-func buildAssignmentResponse(details *usecase.AssignmentWithDetails) ShiftAssignmentResponse {
+func buildAssignmentResponse(details *appshift.AssignmentWithDetails) ShiftAssignmentResponse {
 	var cancelledAtStr *string
 	if details.Assignment.CancelledAt() != nil {
 		s := details.Assignment.CancelledAt().Format(time.RFC3339)
@@ -364,7 +362,7 @@ func (h *ShiftAssignmentHandler) CancelAssignment(w http.ResponseWriter, r *http
 	}
 
 	// Execute usecase
-	input := usecase.CancelAssignmentInput{
+	input := appshift.CancelAssignmentInput{
 		TenantID:     tenantID,
 		AssignmentID: assignmentID,
 	}

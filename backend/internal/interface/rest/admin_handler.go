@@ -6,9 +6,6 @@ import (
 	"net/http"
 
 	appAuth "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/auth"
-	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/db"
-	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/security"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // AdminHandler handles admin-related HTTP requests
@@ -16,12 +13,12 @@ type AdminHandler struct {
 	changePasswordUsecase *appAuth.ChangePasswordUsecase
 }
 
-// NewAdminHandler creates a new AdminHandler
-func NewAdminHandler(dbPool *pgxpool.Pool) *AdminHandler {
-	adminRepo := db.NewAdminRepository(dbPool)
-	passwordHasher := security.NewBcryptHasher()
+// NewAdminHandler creates a new AdminHandler with injected usecases
+func NewAdminHandler(
+	changePasswordUC *appAuth.ChangePasswordUsecase,
+) *AdminHandler {
 	return &AdminHandler{
-		changePasswordUsecase: appAuth.NewChangePasswordUsecase(adminRepo, passwordHasher),
+		changePasswordUsecase: changePasswordUC,
 	}
 }
 
@@ -58,27 +55,27 @@ func (h *AdminHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 
 	// バリデーション
 	if req.CurrentPassword == "" {
-		RespondBadRequest(w, "current_password is required")
+		RespondBadRequest(w, "現在のパスワードを入力してください")
 		return
 	}
 	if req.NewPassword == "" {
-		RespondBadRequest(w, "new_password is required")
+		RespondBadRequest(w, "新しいパスワードを入力してください")
 		return
 	}
 	if req.ConfirmNewPassword == "" {
-		RespondBadRequest(w, "confirm_new_password is required")
+		RespondBadRequest(w, "確認用パスワードを入力してください")
 		return
 	}
 	if len(req.NewPassword) < 8 {
-		RespondBadRequest(w, "new_password must be at least 8 characters")
+		RespondBadRequest(w, "新しいパスワードは8文字以上で入力してください")
 		return
 	}
 	if req.NewPassword != req.ConfirmNewPassword {
-		RespondBadRequest(w, "new_password and confirm_new_password do not match")
+		RespondBadRequest(w, "新しいパスワードと確認用パスワードが一致しません")
 		return
 	}
 	if req.CurrentPassword == req.NewPassword {
-		RespondBadRequest(w, "new_password must be different from current_password")
+		RespondBadRequest(w, "新しいパスワードは現在のパスワードと異なる必要があります")
 		return
 	}
 
@@ -93,7 +90,7 @@ func (h *AdminHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 	if err := h.changePasswordUsecase.Execute(ctx, input); err != nil {
 		// エラーハンドリング
 		if errors.Is(err, appAuth.ErrInvalidCredentials) {
-			RespondError(w, http.StatusUnauthorized, "ERR_UNAUTHORIZED", "Current password is incorrect", nil)
+			RespondError(w, http.StatusUnauthorized, "ERR_UNAUTHORIZED", "現在のパスワードが正しくありません", nil)
 			return
 		}
 		RespondDomainError(w, err)
@@ -102,6 +99,6 @@ func (h *AdminHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 
 	// 成功レスポンス
 	RespondSuccess(w, map[string]string{
-		"message": "Password changed successfully",
+		"message": "パスワードを変更しました",
 	})
 }

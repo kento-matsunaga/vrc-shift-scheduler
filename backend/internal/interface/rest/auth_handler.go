@@ -32,6 +32,7 @@ type LoginResponse struct {
 	Token     string `json:"token"`
 	AdminID   string `json:"admin_id"`
 	TenantID  string `json:"tenant_id"`
+	Email     string `json:"email"`
 	Role      string `json:"role"`
 	ExpiresAt string `json:"expires_at"`
 }
@@ -47,11 +48,11 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	// バリデーション
 	if req.Email == "" {
-		RespondError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "email is required", nil)
+		RespondError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "メールアドレスを入力してください", nil)
 		return
 	}
 	if req.Password == "" {
-		RespondError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "password is required", nil)
+		RespondError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "パスワードを入力してください", nil)
 		return
 	}
 
@@ -64,9 +65,9 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		// エラーコード変換
 		switch {
 		case errors.Is(err, appAuth.ErrInvalidCredentials):
-			RespondError(w, http.StatusUnauthorized, "ERR_UNAUTHORIZED", "Invalid email or password", nil)
+			RespondError(w, http.StatusUnauthorized, "ERR_UNAUTHORIZED", "メールアドレスまたはパスワードが正しくありません", nil)
 		case errors.Is(err, appAuth.ErrAccountDisabled):
-			RespondError(w, http.StatusForbidden, "ERR_FORBIDDEN", "Account is disabled", nil)
+			RespondError(w, http.StatusForbidden, "ERR_FORBIDDEN", "このアカウントは無効化されています", nil)
 		default:
 			RespondInternalError(w)
 		}
@@ -79,6 +80,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 			Token:     output.Token,
 			AdminID:   output.AdminID,
 			TenantID:  output.TenantID,
+			Email:     output.Email,
 			Role:      output.Role,
 			ExpiresAt: output.ExpiresAt.Format("2006-01-02T15:04:05Z07:00"),
 		},

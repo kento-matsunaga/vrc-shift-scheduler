@@ -254,6 +254,7 @@ func createEvent(ctx context.Context, repo *db.EventRepository, tenantID common.
 	return ev.EventID(), nil
 }
 
+//nolint:unused // utility function for future use
 func createBusinessDays(ctx context.Context, repo *db.EventBusinessDayRepository, tenantID common.TenantID, eventID common.EventID, count int) ([]event.BusinessDayID, error) {
 	ids := make([]event.BusinessDayID, 0, count)
 	now := time.Now()
@@ -750,6 +751,8 @@ func getSaturdaysInMonth(year, month int) []time.Time {
 // createBusinessDaysWithHistory creates business days for both past and future
 // startOffset: negative for past days (e.g., -15 for 15 days ago)
 // endOffset: positive for future days (e.g., 7 for 7 days ahead)
+//
+//nolint:unused // utility function for future use
 func createBusinessDaysWithHistory(ctx context.Context, repo *db.EventBusinessDayRepository, tenantID common.TenantID, eventID common.EventID, startOffset, endOffset int) ([]event.BusinessDayID, []event.BusinessDayID, error) {
 	allIDs := make([]event.BusinessDayID, 0)
 	pastIDs := make([]event.BusinessDayID, 0)
@@ -815,8 +818,10 @@ func createShiftAssignments(ctx context.Context, repo *db.ShiftAssignmentReposit
 			memberID := memberIDs[memberIdx]
 
 			// ShiftAssignment エンティティを作成
+			now := time.Now()
 			var nilPlanID shift.PlanID
 			assignment, err := shift.NewShiftAssignment(
+				now,
 				tenantID,
 				nilPlanID,
 				slotID,

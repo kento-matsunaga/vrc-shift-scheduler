@@ -5,31 +5,29 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/erenoa/vrc-shift-scheduler/backend/internal/application/usecase"
+	appshift "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/shift"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/event"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/shift"
-	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/db"
 	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // ShiftSlotHandler handles shift slot-related HTTP requests
 type ShiftSlotHandler struct {
-	createShiftSlotUC *usecase.CreateShiftSlotUsecase
-	listShiftSlotsUC  *usecase.ListShiftSlotsUsecase
-	getShiftSlotUC    *usecase.GetShiftSlotUsecase
+	createShiftSlotUC *appshift.CreateShiftSlotUsecase
+	listShiftSlotsUC  *appshift.ListShiftSlotsUsecase
+	getShiftSlotUC    *appshift.GetShiftSlotUsecase
 }
 
-// NewShiftSlotHandler creates a new ShiftSlotHandler
-func NewShiftSlotHandler(dbPool *pgxpool.Pool) *ShiftSlotHandler {
-	slotRepo := db.NewShiftSlotRepository(dbPool)
-	businessDayRepo := db.NewEventBusinessDayRepository(dbPool)
-	assignmentRepo := db.NewShiftAssignmentRepository(dbPool)
-
+// NewShiftSlotHandler creates a new ShiftSlotHandler with injected usecases
+func NewShiftSlotHandler(
+	createShiftSlotUC *appshift.CreateShiftSlotUsecase,
+	listShiftSlotsUC *appshift.ListShiftSlotsUsecase,
+	getShiftSlotUC *appshift.GetShiftSlotUsecase,
+) *ShiftSlotHandler {
 	return &ShiftSlotHandler{
-		createShiftSlotUC: usecase.NewCreateShiftSlotUsecase(slotRepo, businessDayRepo),
-		listShiftSlotsUC:  usecase.NewListShiftSlotsUsecase(slotRepo, assignmentRepo),
-		getShiftSlotUC:    usecase.NewGetShiftSlotUsecase(slotRepo, assignmentRepo),
+		createShiftSlotUC: createShiftSlotUC,
+		listShiftSlotsUC:  listShiftSlotsUC,
+		getShiftSlotUC:    getShiftSlotUC,
 	}
 }
 
@@ -135,7 +133,7 @@ func (h *ShiftSlotHandler) CreateShiftSlot(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Usecaseの実行
-	input := usecase.CreateShiftSlotInput{
+	input := appshift.CreateShiftSlotInput{
 		TenantID:      tenantID,
 		BusinessDayID: businessDayID,
 		PositionID:    positionID,
@@ -198,7 +196,7 @@ func (h *ShiftSlotHandler) GetShiftSlots(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Usecaseの実行
-	input := usecase.ListShiftSlotsInput{
+	input := appshift.ListShiftSlotsInput{
 		TenantID:      tenantID,
 		BusinessDayID: businessDayID,
 	}
@@ -261,7 +259,7 @@ func (h *ShiftSlotHandler) GetShiftSlotDetail(w http.ResponseWriter, r *http.Req
 	}
 
 	// Usecaseの実行
-	input := usecase.GetShiftSlotInput{
+	input := appshift.GetShiftSlotInput{
 		TenantID: tenantID,
 		SlotID:   slotID,
 	}

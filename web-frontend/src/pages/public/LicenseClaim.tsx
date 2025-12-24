@@ -80,7 +80,7 @@ export default function LicenseClaim() {
     return (
       <div className="min-h-screen bg-gray-100 flex flex-col">
         {/* ヘッダー */}
-        <header className="bg-indigo-900 text-white shadow">
+        <header className="bg-vrc-dark text-white shadow">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
             <h1 className="text-xl font-bold">VRC Shift Scheduler</h1>
           </div>
@@ -97,7 +97,7 @@ export default function LicenseClaim() {
             </div>
             <button
               onClick={() => navigate('/login')}
-              className="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+              className="w-full py-3 px-4 bg-accent hover:bg-accent-dark text-white font-medium rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2"
             >
               ログインへ
             </button>
@@ -119,7 +119,7 @@ export default function LicenseClaim() {
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
       {/* ヘッダー */}
-      <header className="bg-indigo-900 text-white shadow">
+      <header className="bg-vrc-dark text-white shadow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <h1 className="text-xl font-bold">VRC Shift Scheduler</h1>
         </div>
@@ -150,7 +150,7 @@ export default function LicenseClaim() {
                 value={formData.license_key}
                 onChange={handleLicenseKeyChange}
                 placeholder="XXXX-XXXX-XXXX-XXXX"
-                className="w-full px-4 py-3 border border-gray-300 rounded-md text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition font-mono"
+                className="w-full px-4 py-3 border border-gray-300 rounded-md text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition font-mono"
                 disabled={isLoading}
               />
             </div>
@@ -167,7 +167,7 @@ export default function LicenseClaim() {
                 value={formData.tenant_name}
                 onChange={handleChange}
                 placeholder="VRCイベント名"
-                className="w-full px-4 py-3 border border-gray-300 rounded-md text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+                className="w-full px-4 py-3 border border-gray-300 rounded-md text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition"
                 disabled={isLoading}
               />
             </div>
@@ -184,7 +184,7 @@ export default function LicenseClaim() {
                 value={formData.display_name}
                 onChange={handleChange}
                 placeholder="管理者"
-                className="w-full px-4 py-3 border border-gray-300 rounded-md text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+                className="w-full px-4 py-3 border border-gray-300 rounded-md text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition"
                 disabled={isLoading}
               />
             </div>
@@ -202,7 +202,7 @@ export default function LicenseClaim() {
                 value={formData.email}
                 onChange={handleChange}
                 placeholder="admin@example.com"
-                className="w-full px-4 py-3 border border-gray-300 rounded-md text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+                className="w-full px-4 py-3 border border-gray-300 rounded-md text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition"
                 disabled={isLoading}
               />
             </div>
@@ -220,7 +220,7 @@ export default function LicenseClaim() {
                 value={formData.password}
                 onChange={handleChange}
                 placeholder="••••••••"
-                className="w-full px-4 py-3 border border-gray-300 rounded-md text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+                className="w-full px-4 py-3 border border-gray-300 rounded-md text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition"
                 disabled={isLoading}
               />
               <p className="mt-1 text-xs text-gray-500">8文字以上</p>
@@ -239,7 +239,7 @@ export default function LicenseClaim() {
                 value={formData.confirmPassword}
                 onChange={handleChange}
                 placeholder="••••••••"
-                className="w-full px-4 py-3 border border-gray-300 rounded-md text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+                className="w-full px-4 py-3 border border-gray-300 rounded-md text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition"
                 disabled={isLoading}
               />
             </div>
@@ -252,7 +252,7 @@ export default function LicenseClaim() {
 
             <button
               type="submit"
-              className="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white font-medium rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+              className="w-full py-3 px-4 bg-accent hover:bg-accent-dark disabled:bg-accent/70 text-white font-medium rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2"
               disabled={isLoading}
             >
               {isLoading ? (
@@ -269,7 +269,7 @@ export default function LicenseClaim() {
             </button>
 
             <div className="text-center">
-              <a href="/login" className="text-sm text-indigo-600 hover:text-indigo-500">
+              <a href="/login" className="text-sm text-accent hover:text-accent">
                 アカウントをお持ちですか？ログイン
               </a>
             </div>

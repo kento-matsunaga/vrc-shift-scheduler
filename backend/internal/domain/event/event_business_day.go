@@ -27,6 +27,13 @@ func (t OccurrenceType) Validate() error {
 // BusinessDayID represents a business day identifier
 type BusinessDayID string
 
+// NewBusinessDayIDWithTime creates a new BusinessDayID using the provided time.
+func NewBusinessDayIDWithTime(t time.Time) BusinessDayID {
+	return BusinessDayID(common.NewULIDWithTime(t))
+}
+
+// NewBusinessDayID creates a new BusinessDayID using the current time.
+// Deprecated: Use NewBusinessDayIDWithTime for better testability.
 func NewBusinessDayID() BusinessDayID {
 	return BusinessDayID(common.NewULID())
 }
@@ -81,7 +88,7 @@ func NewEventBusinessDay(
 	recurringPatternID *common.EventID,
 ) (*EventBusinessDay, error) {
 	businessDay := &EventBusinessDay{
-		businessDayID:      NewBusinessDayID(),
+		businessDayID:      NewBusinessDayIDWithTime(now),
 		tenantID:           tenantID,
 		eventID:            eventID,
 		targetDate:         truncateToDate(targetDate),
