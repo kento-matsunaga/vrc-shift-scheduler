@@ -42,16 +42,23 @@ export default function Settings() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [tenantData, eventsData, permissionsData] = await Promise.all([
+      const [tenantData, eventsData] = await Promise.all([
         getCurrentTenant(),
         getEvents({ is_active: true }),
-        isOwner ? getManagerPermissions() : Promise.resolve(null),
       ]);
       setTenant(tenantData);
       setTenantName(tenantData.tenant_name);
       setEvents(eventsData.events || []);
-      if (permissionsData) {
-        setPermissions(permissionsData);
+
+      // マネージャー権限は別途取得（失敗しても他のデータ表示に影響しない）
+      if (isOwner) {
+        try {
+          const permissionsData = await getManagerPermissions();
+          setPermissions(permissionsData);
+        } catch (permErr) {
+          console.error('Failed to load manager permissions:', permErr);
+          // 権限取得失敗時はUIを非表示にする（permissionsがnullのまま）
+        }
       }
     } catch (err) {
       if (err instanceof ApiClientError) {
