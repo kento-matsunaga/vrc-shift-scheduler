@@ -14,6 +14,7 @@ type LoginOutput struct {
 	Token     string    `json:"token"`
 	AdminID   string    `json:"admin_id"`
 	TenantID  string    `json:"tenant_id"`
+	Email     string    `json:"email"`
 	Role      string    `json:"role"`
 	ExpiresAt time.Time `json:"expires_at"`
 }

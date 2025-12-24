@@ -62,6 +62,7 @@ func (u *LoginUsecase) Execute(ctx context.Context, input LoginInput) (*LoginOut
 		Token:     token,
 		AdminID:   admin.AdminID().String(),
 		TenantID:  admin.TenantID().String(), // TenantIDは返す（フロント用）
+		Email:     admin.Email(),
 		Role:      admin.Role().String(),
 		ExpiresAt: expiresAt,
 	}, nil

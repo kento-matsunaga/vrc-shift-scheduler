@@ -32,6 +32,7 @@ type LoginResponse struct {
 	Token     string `json:"token"`
 	AdminID   string `json:"admin_id"`
 	TenantID  string `json:"tenant_id"`
+	Email     string `json:"email"`
 	Role      string `json:"role"`
 	ExpiresAt string `json:"expires_at"`
 }
@@ -79,6 +80,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 			Token:     output.Token,
 			AdminID:   output.AdminID,
 			TenantID:  output.TenantID,
+			Email:     output.Email,
 			Role:      output.Role,
 			ExpiresAt: output.ExpiresAt.Format("2006-01-02T15:04:05Z07:00"),
 		},
