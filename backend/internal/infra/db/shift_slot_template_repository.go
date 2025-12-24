@@ -28,7 +28,7 @@ func (r *ShiftSlotTemplateRepository) Save(ctx context.Context, template *shift.
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	// Save template first (upsert)
 	templateQuery := `
@@ -266,7 +266,7 @@ func (r *ShiftSlotTemplateRepository) Delete(ctx context.Context, tenantID commo
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	// Delete items first (due to foreign key constraint)
 	deleteItemsQuery := `
