@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/event"
@@ -68,11 +69,15 @@ func TestEventRepository_SaveAndFind(t *testing.T) {
 	// テスト用のテナントとイベントを作成
 	tenantID := common.NewTenantID()
 	createTestTenant(t, pool, tenantID)
+	now := time.Now()
 	testEvent, err := event.NewEvent(
+		now,
 		tenantID,
 		"週末VRChat集会",
 		event.EventTypeNormal,
 		"毎週末に開催するVRChat集会イベント",
+		event.RecurrenceTypeNone,
+		nil, nil, nil, nil,
 	)
 	if err != nil {
 		t.Fatalf("Failed to create test event: %v", err)
@@ -124,13 +129,17 @@ func TestEventRepository_FindByTenantID(t *testing.T) {
 	createTestTenant(t, pool, tenantID)
 
 	// 複数のイベントを作成
+	now := time.Now()
 	events := make([]*event.Event, 3)
 	for i := 0; i < 3; i++ {
 		e, err := event.NewEvent(
+			now,
 			tenantID,
 			fmt.Sprintf("テストイベント%d", i+1),
 			event.EventTypeNormal,
 			fmt.Sprintf("説明%d", i+1),
+			event.RecurrenceTypeNone,
+			nil, nil, nil, nil,
 		)
 		if err != nil {
 			t.Fatalf("Failed to create test event: %v", err)
@@ -164,11 +173,15 @@ func TestEventRepository_Update(t *testing.T) {
 
 	tenantID := common.NewTenantID()
 	createTestTenant(t, pool, tenantID)
+	now := time.Now()
 	testEvent, err := event.NewEvent(
+		now,
 		tenantID,
 		"元の名前",
 		event.EventTypeNormal,
 		"元の説明",
+		event.RecurrenceTypeNone,
+		nil, nil, nil, nil,
 	)
 	if err != nil {
 		t.Fatalf("Failed to create test event: %v", err)
@@ -224,7 +237,8 @@ func TestEventRepository_ExistsByName(t *testing.T) {
 	}
 
 	// イベントを作成・保存
-	testEvent, err := event.NewEvent(tenantID, eventName, event.EventTypeNormal, "説明")
+	now := time.Now()
+	testEvent, err := event.NewEvent(now, tenantID, eventName, event.EventTypeNormal, "説明", event.RecurrenceTypeNone, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Failed to create event: %v", err)
 	}
