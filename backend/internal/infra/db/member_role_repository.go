@@ -123,7 +123,7 @@ func (r *MemberRoleRepository) SetMemberRoles(ctx context.Context, memberID comm
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	// Delete existing roles
 	_, err = tx.Exec(ctx, "DELETE FROM member_roles WHERE member_id = $1", memberID.String())

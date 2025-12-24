@@ -499,7 +499,8 @@ func TestReconstructAdmin_WithDeletedAt(t *testing.T) {
 	if !admin.IsDeleted() {
 		t.Error("Admin should be marked as deleted")
 	}
-	if !admin.CanLogin() == true {
-		// Deleted admin should not be able to login
+	// Deleted admin should not be able to login
+	if admin.CanLogin() {
+		t.Error("Deleted admin should not be able to login")
 	}
 }

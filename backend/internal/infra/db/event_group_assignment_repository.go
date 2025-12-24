@@ -27,7 +27,7 @@ func (r *EventGroupAssignmentRepository) SaveGroupAssignments(ctx context.Contex
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	// Delete existing assignments
 	deleteQuery := `DELETE FROM event_group_assignments WHERE event_id = $1`
@@ -115,7 +115,7 @@ func (r *EventGroupAssignmentRepository) SaveRoleGroupAssignments(ctx context.Co
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	// Delete existing assignments
 	deleteQuery := `DELETE FROM event_role_group_assignments WHERE event_id = $1`

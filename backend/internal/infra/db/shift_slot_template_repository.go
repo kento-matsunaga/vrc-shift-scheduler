@@ -76,11 +76,8 @@ func (r *ShiftSlotTemplateRepository) Save(ctx context.Context, template *shift.
 		DELETE FROM shift_slot_template_items
 		WHERE template_id = $1
 	`
-	_, err = tx.Exec(ctx, deleteItemsQuery, template.TemplateID().String())
-	if err != nil {
-		// Ignore errors here as the template might be new
-		// return fmt.Errorf("failed to delete existing template items: %w", err)
-	}
+	// Ignore errors here as the template might be new
+	_, _ = tx.Exec(ctx, deleteItemsQuery, template.TemplateID().String())
 
 	// Save items
 	itemQuery := `

@@ -341,10 +341,9 @@ func (uc *BulkImportMembersUsecase) Execute(ctx context.Context, input BulkImpor
 			for i, rid := range memberInput.RoleIDs {
 				roleIDs[i] = common.RoleID(rid)
 			}
-			if err := uc.memberRoleRepo.SetMemberRoles(ctx, newMember.MemberID(), roleIDs); err != nil {
-				// ロール割り当て失敗でもメンバー作成は成功とする
-				// ログに記録するのみ
-			}
+			// ロール割り当て失敗でもメンバー作成は成功とする
+			// エラーは無視する
+			_ = uc.memberRoleRepo.SetMemberRoles(ctx, newMember.MemberID(), roleIDs)
 		}
 
 		result.Success = true
