@@ -47,6 +47,11 @@ jobs:
       - name: Download dependencies
         run: go mod download
 
+      - name: Run migrations
+        env:
+          DATABASE_URL: postgres://vrcshift:vrcshift@localhost:5432/vrcshift_test?sslmode=disable
+        run: go run ./cmd/migrate/main.go -action up
+
       - name: Run tests
         env:
           DATABASE_URL: postgres://vrcshift:vrcshift@localhost:5432/vrcshift_test?sslmode=disable
