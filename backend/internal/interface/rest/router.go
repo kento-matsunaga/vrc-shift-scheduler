@@ -20,6 +20,7 @@ import (
 	appshift "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/shift"
 	apptenant "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/tenant"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/tenant"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/clock"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/db"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/security"
@@ -82,6 +83,12 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		r.Use(Auth(jwtManager))
 		// 課金状態に基づくアクセス制御
 		r.Use(BillingGuard(billingGuardDeps))
+
+		// PermissionChecker for manager permission enforcement
+		managerPermissionsRepoForChecker := db.NewManagerPermissionsRepository(dbPool)
+		permissionChecker := NewPermissionChecker(
+			apptenant.NewCheckManagerPermissionUsecase(managerPermissionsRepoForChecker),
+		)
 
 		// EventHandler dependencies
 		eventRepo := db.NewEventRepository(dbPool)
@@ -187,31 +194,32 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 
 		// Event API
 		r.Route("/events", func(r chi.Router) {
-			r.Post("/", eventHandler.CreateEvent)
+			// 権限チェック付きルート
+			r.With(permissionChecker.RequirePermission(tenant.PermissionCreateEvent)).Post("/", eventHandler.CreateEvent)
 			r.Get("/", eventHandler.ListEvents)
 
 			// 単一イベントのGET/PUT/DELETE
 			r.Get("/{event_id}", eventHandler.GetEvent)
-			r.MethodFunc("PUT", "/{event_id}", eventHandler.UpdateEvent)
-			r.Delete("/{event_id}", eventHandler.DeleteEvent)
+			r.With(permissionChecker.RequirePermission(tenant.PermissionEditEvent)).Put("/{event_id}", eventHandler.UpdateEvent)
+			r.With(permissionChecker.RequirePermission(tenant.PermissionDeleteEvent)).Delete("/{event_id}", eventHandler.DeleteEvent)
 
 			// Event配下のBusinessDay
-			r.Post("/{event_id}/business-days", businessDayHandler.CreateBusinessDay)
+			r.With(permissionChecker.RequirePermission(tenant.PermissionCreateEvent)).Post("/{event_id}/business-days", businessDayHandler.CreateBusinessDay)
 			r.Get("/{event_id}/business-days", businessDayHandler.ListBusinessDays)
 
 			// Event配下の営業日生成
-			r.Post("/{event_id}/generate-business-days", eventHandler.GenerateBusinessDays)
+			r.With(permissionChecker.RequirePermission(tenant.PermissionCreateEvent)).Post("/{event_id}/generate-business-days", eventHandler.GenerateBusinessDays)
 
 			// Event配下のグループ割り当て
 			r.Get("/{event_id}/groups", eventHandler.GetGroupAssignments)
-			r.Put("/{event_id}/groups", eventHandler.UpdateGroupAssignments)
+			r.With(permissionChecker.RequirePermission(tenant.PermissionEditEvent)).Put("/{event_id}/groups", eventHandler.UpdateGroupAssignments)
 
 			// Event配下のShiftTemplate
-			r.Post("/{event_id}/templates", shiftTemplateHandler.CreateTemplate)
+			r.With(permissionChecker.RequirePermission(tenant.PermissionEditEvent)).Post("/{event_id}/templates", shiftTemplateHandler.CreateTemplate)
 			r.Get("/{event_id}/templates", shiftTemplateHandler.ListTemplates)
 			r.Get("/{event_id}/templates/{template_id}", shiftTemplateHandler.GetTemplate)
-			r.Put("/{event_id}/templates/{template_id}", shiftTemplateHandler.UpdateTemplate)
-			r.Delete("/{event_id}/templates/{template_id}", shiftTemplateHandler.DeleteTemplate)
+			r.With(permissionChecker.RequirePermission(tenant.PermissionEditEvent)).Put("/{event_id}/templates/{template_id}", shiftTemplateHandler.UpdateTemplate)
+			r.With(permissionChecker.RequirePermission(tenant.PermissionDeleteEvent)).Delete("/{event_id}/templates/{template_id}", shiftTemplateHandler.DeleteTemplate)
 		})
 
 		// BusinessDay API
@@ -219,34 +227,34 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			r.Get("/{business_day_id}", businessDayHandler.GetBusinessDay)
 
 			// BusinessDay配下のShiftSlot
-			r.Post("/{business_day_id}/shift-slots", shiftSlotHandler.CreateShiftSlot)
+			r.With(permissionChecker.RequirePermission(tenant.PermissionEditShift)).Post("/{business_day_id}/shift-slots", shiftSlotHandler.CreateShiftSlot)
 			r.Get("/{business_day_id}/shift-slots", shiftSlotHandler.GetShiftSlots)
 
 			// BusinessDayからShiftTemplateを作成
-			r.Post("/{business_day_id}/save-as-template", shiftTemplateHandler.SaveBusinessDayAsTemplate)
+			r.With(permissionChecker.RequirePermission(tenant.PermissionEditEvent)).Post("/{business_day_id}/save-as-template", shiftTemplateHandler.SaveBusinessDayAsTemplate)
 
 			// BusinessDayにShiftTemplateを適用
-			r.Post("/{business_day_id}/apply-template", businessDayHandler.ApplyTemplate)
+			r.With(permissionChecker.RequirePermission(tenant.PermissionEditEvent)).Post("/{business_day_id}/apply-template", businessDayHandler.ApplyTemplate)
 		})
 
 		// Member API
 		r.Route("/members", func(r chi.Router) {
-			r.Post("/", memberHandler.CreateMember)
-			r.Post("/bulk-import", memberHandler.BulkImportMembers)
+			r.With(permissionChecker.RequirePermission(tenant.PermissionAddMember)).Post("/", memberHandler.CreateMember)
+			r.With(permissionChecker.RequirePermission(tenant.PermissionAddMember)).Post("/bulk-import", memberHandler.BulkImportMembers)
 			r.Get("/", memberHandler.GetMembers)
 			r.Get("/recent-attendance", memberHandler.GetRecentAttendance)
 			r.Get("/{member_id}", memberHandler.GetMemberDetail)
-			r.Put("/{member_id}", memberHandler.UpdateMember)
-			r.Delete("/{member_id}", memberHandler.DeleteMember)
+			r.With(permissionChecker.RequirePermission(tenant.PermissionEditMember)).Put("/{member_id}", memberHandler.UpdateMember)
+			r.With(permissionChecker.RequirePermission(tenant.PermissionDeleteMember)).Delete("/{member_id}", memberHandler.DeleteMember)
 		})
 
 		// Role API
 		r.Route("/roles", func(r chi.Router) {
-			r.Post("/", roleHandler.CreateRole)
+			r.With(permissionChecker.RequirePermission(tenant.PermissionManageRoles)).Post("/", roleHandler.CreateRole)
 			r.Get("/", roleHandler.ListRoles)
 			r.Get("/{role_id}", roleHandler.GetRole)
-			r.Put("/{role_id}", roleHandler.UpdateRole)
-			r.Delete("/{role_id}", roleHandler.DeleteRole)
+			r.With(permissionChecker.RequirePermission(tenant.PermissionManageRoles)).Put("/{role_id}", roleHandler.UpdateRole)
+			r.With(permissionChecker.RequirePermission(tenant.PermissionManageRoles)).Delete("/{role_id}", roleHandler.DeleteRole)
 		})
 
 		// MemberGroupHandler dependencies
@@ -260,12 +268,12 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			appmembergroup.NewAssignMembersUsecase(memberGroupRepo),
 		)
 		r.Route("/member-groups", func(r chi.Router) {
-			r.Post("/", memberGroupHandler.CreateGroup)
+			r.With(permissionChecker.RequirePermission(tenant.PermissionManageGroups)).Post("/", memberGroupHandler.CreateGroup)
 			r.Get("/", memberGroupHandler.ListGroups)
 			r.Get("/{group_id}", memberGroupHandler.GetGroup)
-			r.Put("/{group_id}", memberGroupHandler.UpdateGroup)
-			r.Delete("/{group_id}", memberGroupHandler.DeleteGroup)
-			r.Put("/{group_id}/members", memberGroupHandler.AssignMembers)
+			r.With(permissionChecker.RequirePermission(tenant.PermissionManageGroups)).Put("/{group_id}", memberGroupHandler.UpdateGroup)
+			r.With(permissionChecker.RequirePermission(tenant.PermissionManageGroups)).Delete("/{group_id}", memberGroupHandler.DeleteGroup)
+			r.With(permissionChecker.RequirePermission(tenant.PermissionManageGroups)).Put("/{group_id}/members", memberGroupHandler.AssignMembers)
 		})
 
 		// RoleGroupHandler dependencies
@@ -279,12 +287,12 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			approlegroup.NewAssignRolesUsecase(roleGroupRepo),
 		)
 		r.Route("/role-groups", func(r chi.Router) {
-			r.Post("/", roleGroupHandler.CreateGroup)
+			r.With(permissionChecker.RequirePermission(tenant.PermissionManageGroups)).Post("/", roleGroupHandler.CreateGroup)
 			r.Get("/", roleGroupHandler.ListGroups)
 			r.Get("/{group_id}", roleGroupHandler.GetGroup)
-			r.Put("/{group_id}", roleGroupHandler.UpdateGroup)
-			r.Delete("/{group_id}", roleGroupHandler.DeleteGroup)
-			r.Put("/{group_id}/roles", roleGroupHandler.AssignRoles)
+			r.With(permissionChecker.RequirePermission(tenant.PermissionManageGroups)).Put("/{group_id}", roleGroupHandler.UpdateGroup)
+			r.With(permissionChecker.RequirePermission(tenant.PermissionManageGroups)).Delete("/{group_id}", roleGroupHandler.DeleteGroup)
+			r.With(permissionChecker.RequirePermission(tenant.PermissionManageGroups)).Put("/{group_id}/roles", roleGroupHandler.AssignRoles)
 		})
 
 		// Actual Attendance API（本出席 - 実際のシフト割り当て実績）
@@ -299,18 +307,18 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 
 		// ShiftAssignment API
 		r.Route("/shift-assignments", func(r chi.Router) {
-			r.Post("/", shiftAssignmentHandler.ConfirmAssignment)
+			r.With(permissionChecker.RequirePermission(tenant.PermissionAssignShift)).Post("/", shiftAssignmentHandler.ConfirmAssignment)
 			r.Get("/", shiftAssignmentHandler.GetAssignments)
 			r.Get("/{assignment_id}", shiftAssignmentHandler.GetAssignmentDetail)
-			r.Delete("/{assignment_id}", shiftAssignmentHandler.CancelAssignment)
+			r.With(permissionChecker.RequirePermission(tenant.PermissionEditShift)).Delete("/{assignment_id}", shiftAssignmentHandler.CancelAssignment)
 		})
 
 		// Attendance API（管理用）
 		r.Route("/attendance/collections", func(r chi.Router) {
 			r.Get("/", attendanceHandler.ListCollections)
-			r.Post("/", attendanceHandler.CreateCollection)
+			r.With(permissionChecker.RequirePermission(tenant.PermissionCreateAttendance)).Post("/", attendanceHandler.CreateCollection)
 			r.Get("/{collection_id}", attendanceHandler.GetCollection)
-			r.Post("/{collection_id}/close", attendanceHandler.CloseCollection)
+			r.With(permissionChecker.RequirePermission(tenant.PermissionCreateAttendance)).Post("/{collection_id}/close", attendanceHandler.CloseCollection)
 			r.Get("/{collection_id}/responses", attendanceHandler.GetResponses)
 		})
 
@@ -328,16 +336,16 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		)
 		r.Route("/schedules", func(r chi.Router) {
 			r.Get("/", scheduleHandler.ListSchedules)
-			r.Post("/", scheduleHandler.CreateSchedule)
+			r.With(permissionChecker.RequirePermission(tenant.PermissionCreateSchedule)).Post("/", scheduleHandler.CreateSchedule)
 			r.Get("/{schedule_id}", scheduleHandler.GetSchedule)
-			r.Post("/{schedule_id}/decide", scheduleHandler.DecideSchedule)
-			r.Post("/{schedule_id}/close", scheduleHandler.CloseSchedule)
+			r.With(permissionChecker.RequirePermission(tenant.PermissionCreateSchedule)).Post("/{schedule_id}/decide", scheduleHandler.DecideSchedule)
+			r.With(permissionChecker.RequirePermission(tenant.PermissionCreateSchedule)).Post("/{schedule_id}/close", scheduleHandler.CloseSchedule)
 			r.Get("/{schedule_id}/responses", scheduleHandler.GetResponses)
 		})
 
-		// Invitation API（管理者のみ）
+		// Invitation API（管理者のみ - マネージャー招待権限が必要）
 		r.Route("/invitations", func(r chi.Router) {
-			r.Post("/", invitationHandler.InviteAdmin)
+			r.With(permissionChecker.RequirePermission(tenant.PermissionInviteManager)).Post("/", invitationHandler.InviteAdmin)
 		})
 
 		// Tenant API
@@ -349,6 +357,19 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		// Admin API (テナント管理者のパスワード変更)
 		r.Route("/admins", func(r chi.Router) {
 			r.Post("/me/change-password", adminHandler.ChangePassword)
+		})
+
+		// ManagerPermissionsHandler dependencies
+		managerPermissionsRepo := db.NewManagerPermissionsRepository(dbPool)
+		managerPermissionsHandler := NewManagerPermissionsHandler(
+			apptenant.NewGetManagerPermissionsUsecase(managerPermissionsRepo),
+			apptenant.NewUpdateManagerPermissionsUsecase(managerPermissionsRepo),
+		)
+
+		// Settings API
+		r.Route("/settings", func(r chi.Router) {
+			r.Get("/manager-permissions", managerPermissionsHandler.GetManagerPermissions)
+			r.Put("/manager-permissions", managerPermissionsHandler.UpdateManagerPermissions)
 		})
 	})
 
