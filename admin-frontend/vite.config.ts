@@ -8,7 +8,9 @@ export default defineConfig({
     port: 5174,
     proxy: {
       '/api': {
-        target: 'http://localhost:8080',
+        // ローカル開発: localhost:8080
+        // Docker Compose: BACKEND_URL=http://backend:8080 を設定
+        target: process.env.BACKEND_URL || 'http://localhost:8080',
         changeOrigin: true,
       },
     },
