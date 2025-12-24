@@ -139,7 +139,7 @@ export default function AttendanceResponse() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-accent"></div>
           <p className="mt-4 text-gray-600">読み込み中...</p>
         </div>
       </div>
@@ -181,7 +181,7 @@ export default function AttendanceResponse() {
                 setResponses(initialResponses);
                 setNote('');
               }}
-              className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition"
+              className="px-4 py-2 bg-accent text-white rounded-md hover:bg-accent-dark transition"
             >
               別の回答を送信
             </button>
@@ -236,7 +236,7 @@ export default function AttendanceResponse() {
               <select
                 value={selectedMemberId}
                 onChange={(e) => setSelectedMemberId(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent"
                 required
                 disabled={collection?.status === 'closed'}
               >
@@ -310,7 +310,7 @@ export default function AttendanceResponse() {
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent"
                 placeholder="補足事項があれば入力してください"
                 disabled={collection?.status === 'closed'}
               />
@@ -319,7 +319,7 @@ export default function AttendanceResponse() {
             <button
               type="submit"
               disabled={submitting || collection?.status === 'closed' || targetDates.length === 0}
-              className="w-full px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
+              className="w-full px-4 py-2 bg-accent text-white rounded-md hover:bg-accent-dark transition disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
               {submitting ? '送信中...' : '回答を送信'}
             </button>

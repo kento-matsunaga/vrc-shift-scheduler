@@ -67,7 +67,7 @@ export default function ShiftSlotList() {
   if (loading) {
     return (
       <div className="text-center py-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent mx-auto"></div>
         <p className="mt-4 text-gray-600">読み込み中...</p>
       </div>
     );
@@ -184,7 +184,7 @@ export default function ShiftSlotList() {
                           {assignments.map((assignment) => (
                             <span
                               key={assignment.assignment_id}
-                              className="inline-block px-2 py-1 bg-indigo-100 text-indigo-800 rounded text-xs"
+                              className="inline-block px-2 py-1 bg-accent/10 text-accent-dark rounded text-xs"
                             >
                               {assignment.member_display_name || assignment.member_id}
                             </span>
@@ -480,7 +480,7 @@ function ApplyTemplateModal({
 
         {loadingTemplates ? (
           <div className="text-center py-8">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent mx-auto"></div>
             <p className="mt-4 text-gray-600">読み込み中...</p>
           </div>
         ) : (
@@ -517,17 +517,17 @@ function ApplyTemplateModal({
             </div>
 
             {selectedTemplate && (
-              <div className="mb-4 bg-indigo-50 border border-indigo-200 rounded-lg p-4">
-                <h4 className="font-semibold text-indigo-900 mb-2">
+              <div className="mb-4 bg-accent/10 border border-accent/30 rounded-lg p-4">
+                <h4 className="font-semibold text-accent-dark mb-2">
                   {selectedTemplate.template_name}
                 </h4>
                 {selectedTemplate.description && (
-                  <p className="text-sm text-indigo-800 mb-3">{selectedTemplate.description}</p>
+                  <p className="text-sm text-accent-dark mb-3">{selectedTemplate.description}</p>
                 )}
                 <div className="space-y-2">
-                  <p className="text-xs font-semibold text-indigo-900">作成されるシフト枠:</p>
+                  <p className="text-xs font-semibold text-accent-dark">作成されるシフト枠:</p>
                   {(selectedTemplate.items || []).map((item, index) => (
-                    <div key={index} className="text-xs text-indigo-800">
+                    <div key={index} className="text-xs text-accent-dark">
                       • {item.slot_name} ({item.instance_name}) - {item.start_time.substring(0, 5)}~
                       {item.end_time.substring(0, 5)} ({item.required_count}名)
                     </div>

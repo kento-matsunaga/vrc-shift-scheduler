@@ -79,7 +79,7 @@ export default function AcceptInvitation() {
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
       {/* ヘッダー */}
-      <header className="bg-indigo-900 text-white shadow">
+      <header className="bg-vrc-dark text-white shadow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <h1 className="text-xl font-bold">VRC Shift Scheduler</h1>
         </div>
@@ -108,7 +108,7 @@ export default function AcceptInvitation() {
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
                 placeholder="山田 太郎"
-                className="w-full px-4 py-3 border border-gray-300 rounded-md text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+                className="w-full px-4 py-3 border border-gray-300 rounded-md text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition"
                 disabled={loading}
                 autoFocus
               />
@@ -124,7 +124,7 @@ export default function AcceptInvitation() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="8文字以上"
-                className="w-full px-4 py-3 border border-gray-300 rounded-md text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+                className="w-full px-4 py-3 border border-gray-300 rounded-md text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition"
                 disabled={loading}
               />
             </div>
@@ -139,7 +139,7 @@ export default function AcceptInvitation() {
                 value={passwordConfirm}
                 onChange={(e) => setPasswordConfirm(e.target.value)}
                 placeholder="パスワードを再入力"
-                className="w-full px-4 py-3 border border-gray-300 rounded-md text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+                className="w-full px-4 py-3 border border-gray-300 rounded-md text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition"
                 disabled={loading}
               />
             </div>
@@ -152,7 +152,7 @@ export default function AcceptInvitation() {
 
             <button
               type="submit"
-              className="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white font-medium rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+              className="w-full py-3 px-4 bg-accent hover:bg-accent-dark disabled:bg-accent/70 text-white font-medium rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2"
               disabled={loading || !displayName.trim() || !password || !passwordConfirm}
             >
               {loading ? (

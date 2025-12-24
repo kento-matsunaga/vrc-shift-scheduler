@@ -87,7 +87,7 @@ export default function MemberGroupList() {
   if (loading) {
     return (
       <div className="text-center py-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent mx-auto"></div>
         <p className="mt-4 text-gray-600">読み込み中...</p>
       </div>
     );
@@ -141,7 +141,7 @@ export default function MemberGroupList() {
                   </button>
                   <button
                     onClick={() => setEditingGroup(group)}
-                    className="text-indigo-600 hover:text-indigo-800 text-sm"
+                    className="text-accent hover:text-accent-dark text-sm"
                   >
                     編集
                   </button>
@@ -464,7 +464,7 @@ function AssignMembersModal({
             <button
               type="button"
               onClick={selectAll}
-              className="text-xs text-indigo-600 hover:text-indigo-800"
+              className="text-xs text-accent hover:text-accent-dark"
             >
               全選択
             </button>
@@ -498,7 +498,7 @@ function AssignMembersModal({
                       checked={selectedMemberIds.includes(member.member_id)}
                       onChange={() => toggleMember(member.member_id)}
                       disabled={loading}
-                      className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                      className="w-4 h-4 text-accent border-gray-300 rounded focus:ring-accent"
                     />
                     <span className="ml-3 text-sm text-gray-900">{member.display_name}</span>
                   </label>

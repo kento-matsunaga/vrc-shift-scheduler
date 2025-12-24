@@ -62,7 +62,7 @@ export default function AdminLogin() {
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
       {/* ヘッダー */}
-      <header className="bg-indigo-900 text-white shadow">
+      <header className="bg-vrc-dark text-white shadow-soft">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <h1 className="text-xl font-bold">VRC Shift Scheduler</h1>
         </div>
@@ -70,7 +70,7 @@ export default function AdminLogin() {
 
       {/* メインコンテンツ */}
       <main className="flex-1 flex items-center justify-center p-4">
-        <div className="bg-white rounded-lg shadow-md max-w-md w-full p-8">
+        <div className="bg-white rounded-card shadow-soft max-w-md w-full p-10 border border-gray-200">
           <div className="text-center mb-8">
             <h2 className="text-2xl font-bold text-gray-900 mb-2">
               ログイン
@@ -91,7 +91,7 @@ export default function AdminLogin() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="admin@example.com"
-                className="w-full px-4 py-3 border border-gray-300 rounded-md text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 shadow-inset-input focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition"
                 disabled={loading}
                 autoFocus
               />
@@ -107,20 +107,20 @@ export default function AdminLogin() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full px-4 py-3 border border-gray-300 rounded-md text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 shadow-inset-input focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition"
                 disabled={loading}
               />
             </div>
 
             {error && (
-              <div className="bg-red-50 border border-red-200 rounded-md p-3">
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3">
                 <p className="text-sm text-red-600">{error}</p>
               </div>
             )}
 
             <button
               type="submit"
-              className="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white font-medium rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+              className="w-full py-3 px-4 bg-gradient-to-b from-accent-light to-accent-dark hover:from-accent-hover hover:to-accent disabled:from-gray-400 disabled:to-gray-500 text-white font-semibold rounded-lg border border-accent-dark shadow-inset-light transition-all focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2"
               disabled={loading || !email.trim() || !password}
             >
               {loading ? (
@@ -140,9 +140,9 @@ export default function AdminLogin() {
       </main>
 
       {/* フッター */}
-      <footer className="bg-white border-t">
+      <footer className="bg-vrc-dark shadow-footer">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <p className="text-center text-sm text-gray-500">
+          <p className="text-center text-sm text-gray-400">
             VRC Shift Scheduler
           </p>
         </div>

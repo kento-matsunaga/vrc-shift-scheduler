@@ -1,5 +1,28 @@
 @import "tailwindcss";
 
+/* カスタムテーマ変数（Tailwind 4.x用） */
+@theme {
+  /* VRC Shift Scheduler カスタムカラー */
+  --color-vrc-dark: #191919;
+  --color-vrc-dark-sub: #474747;
+  --color-vrc-dark-light: #4a4a4a;
+
+  /* アクセントカラー（VRChat風パープル系） */
+  --color-accent: #7B68EE;
+  --color-accent-light: #9B89FF;
+  --color-accent-dark: #5B48CE;
+  --color-accent-hover: #8B7AFF;
+
+  /* カスタムシャドウ */
+  --shadow-soft: 0px 0px 5px 0px rgba(0, 0, 0, 0.3);
+  --shadow-footer: 0px -3px 2px 0px rgba(0, 0, 0, 0.2);
+  --shadow-inset-light: inset 0px 0px 0px 1px rgba(255, 255, 255, 0.3);
+  --shadow-inset-input: inset 0px 1px 1px 0px rgba(0, 0, 0, 0.1);
+
+  /* カスタム角丸 */
+  --radius-card: 10px;
+}
+
 /* グローバルスタイル */
 body {
   @apply bg-gray-100 text-gray-900;
@@ -7,23 +30,84 @@ body {
 
 /* カスタムコンポーネントスタイル */
 @layer components {
+  /* プライマリボタン（グラデーション） */
   .btn-primary {
-    @apply px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors;
+    @apply px-4 py-2 text-white font-medium rounded-lg
+      bg-gradient-to-b from-accent-light to-accent-dark
+      hover:from-accent-hover hover:to-accent
+      border border-accent-dark
+      shadow-inset-light
+      transition-all;
   }
 
+  /* セカンダリボタン（シルバー系） */
   .btn-secondary {
-    @apply px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors;
+    @apply px-4 py-2 text-gray-800 font-medium rounded-lg
+      bg-gradient-to-b from-white to-gray-200
+      hover:from-gray-50 hover:to-gray-100
+      border border-gray-300
+      transition-all;
   }
 
+  /* デンジャーボタン */
+  .btn-danger {
+    @apply px-4 py-2 text-white font-medium rounded-lg
+      bg-gradient-to-b from-red-500 to-red-700
+      hover:from-red-400 hover:to-red-600
+      border border-red-700
+      shadow-inset-light
+      transition-all;
+  }
+
+  /* ダークボタン */
+  .btn-dark {
+    @apply px-4 py-2 text-white font-medium rounded-lg
+      bg-gradient-to-b from-gray-600 via-gray-700 to-gray-900
+      hover:from-gray-500 hover:to-gray-800
+      border border-gray-900
+      transition-all;
+  }
+
+  /* カード */
   .card {
-    @apply bg-white rounded-lg shadow-md p-6;
+    @apply bg-white rounded-card shadow-soft p-6 border border-gray-100;
   }
 
+  /* 入力フィールド */
   .input-field {
-    @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500;
+    @apply w-full px-3 py-2
+      border border-gray-300 rounded-lg
+      shadow-inset-input
+      focus:outline-none focus:ring-2 focus:ring-accent;
   }
 
+  /* セクションタイトル（orochi風） */
+  .section-title {
+    @apply pl-6 py-2 text-xl font-light text-white
+      bg-vrc-dark border-l-[6px] border-accent
+      mb-4;
+  }
+
+  /* ラベル */
   .label {
     @apply block text-sm font-medium text-gray-700 mb-1;
+  }
+
+  /* テーブルの行ストライプ */
+  .table-striped tbody tr:nth-child(even) {
+    @apply bg-gray-50;
+  }
+
+  /* テーブルヘッダー */
+  .table-header {
+    @apply px-4 py-3 text-left font-semibold text-gray-700
+      bg-gray-100 border-b-2 border-gray-200;
+  }
+
+  /* ソート可能ヘッダー */
+  .table-header-sortable {
+    @apply px-4 py-3 text-left font-semibold text-gray-700
+      bg-gray-100 border-b-2 border-gray-200
+      cursor-pointer hover:bg-accent/10 transition-colors;
   }
 }
