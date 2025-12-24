@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { login } from '../lib/api/authApi';
 
 export default function AdminLogin() {
@@ -7,7 +6,6 @@ export default function AdminLogin() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,8 +36,8 @@ export default function AdminLogin() {
       localStorage.setItem('tenant_id', result.tenant_id);
       localStorage.setItem('admin_role', result.role);
 
-      // 管理画面に遷移
-      navigate('/events');
+      // 管理画面に遷移（ページリロードで認証状態を再初期化）
+      window.location.href = '/events';
     } catch (err) {
       if (err instanceof Error) {
         // エラーメッセージに基づいて日本語表示
