@@ -69,13 +69,13 @@ export default function RoleList() {
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">ロール管理</h2>
-          <p className="text-sm text-gray-600 mt-1">メンバーに付与する役割・属性を管理します</p>
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900">ロール管理</h2>
+          <p className="text-xs sm:text-sm text-gray-600 mt-1">メンバーに付与する役割・属性を管理します</p>
         </div>
-        <button onClick={() => setShowCreateModal(true)} className="btn-primary">
-          ＋ ロールを追加
+        <button onClick={() => setShowCreateModal(true)} className="btn-primary text-sm sm:text-base w-full sm:w-auto">
+          ＋ ロール追加
         </button>
       </div>
 
