@@ -4,7 +4,7 @@ import { inviteAdmin } from '../lib/api/invitationApi';
 
 export default function AdminInvitation() {
   const [email, setEmail] = useState('');
-  const [role, setRole] = useState('admin');
+  const [role, setRole] = useState('manager');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
@@ -43,7 +43,7 @@ export default function AdminInvitation() {
 
       // フォームをクリア
       setEmail('');
-      setRole('admin');
+      setRole('manager');
     } catch (err) {
       if (err instanceof Error) {
         // エラーメッセージに基づいて日本語表示
@@ -118,7 +118,6 @@ export default function AdminInvitation() {
               className="w-full px-4 py-3 border border-gray-300 rounded-md text-gray-900 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition"
               disabled={loading}
             >
-              <option value="admin">管理者 (Admin)</option>
               <option value="manager">マネージャー (Manager)</option>
             </select>
           </div>
