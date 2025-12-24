@@ -8,7 +8,20 @@ import (
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/event"
 )
 
+// Helper function to create a test shift slot
+func createTestSlot(t *testing.T, tenantID common.TenantID, slotName string, startTime, endTime time.Time, requiredCount int) *ShiftSlot {
+	now := time.Now()
+	businessDayID := event.NewBusinessDayID()
+	positionID := NewPositionID()
+	slot, err := NewShiftSlot(now, tenantID, businessDayID, positionID, slotName, "", startTime, endTime, requiredCount, 0)
+	if err != nil {
+		t.Fatalf("createTestSlot() failed: %v", err)
+	}
+	return slot
+}
+
 func TestNewShiftSlot_Success(t *testing.T) {
+	now := time.Now()
 	tenantID := common.NewTenantID()
 	businessDayID := event.NewBusinessDayID()
 	positionID := NewPositionID()
@@ -20,6 +33,7 @@ func TestNewShiftSlot_Success(t *testing.T) {
 	priority := 10
 
 	slot, err := NewShiftSlot(
+		now,
 		tenantID,
 		businessDayID,
 		positionID,
@@ -76,6 +90,7 @@ func TestNewShiftSlot_Success(t *testing.T) {
 }
 
 func TestNewShiftSlot_ErrorWhenSlotNameEmpty(t *testing.T) {
+	now := time.Now()
 	tenantID := common.NewTenantID()
 	businessDayID := event.NewBusinessDayID()
 	positionID := NewPositionID()
@@ -84,6 +99,7 @@ func TestNewShiftSlot_ErrorWhenSlotNameEmpty(t *testing.T) {
 	endTime := time.Date(2000, 1, 1, 23, 0, 0, 0, time.UTC)
 
 	slot, err := NewShiftSlot(
+		now,
 		tenantID,
 		businessDayID,
 		positionID,
@@ -105,6 +121,7 @@ func TestNewShiftSlot_ErrorWhenSlotNameEmpty(t *testing.T) {
 }
 
 func TestNewShiftSlot_ErrorWhenRequiredCountZero(t *testing.T) {
+	now := time.Now()
 	tenantID := common.NewTenantID()
 	businessDayID := event.NewBusinessDayID()
 	positionID := NewPositionID()
@@ -114,6 +131,7 @@ func TestNewShiftSlot_ErrorWhenRequiredCountZero(t *testing.T) {
 	requiredCount := 0 // 0は不正
 
 	slot, err := NewShiftSlot(
+		now,
 		tenantID,
 		businessDayID,
 		positionID,
@@ -135,6 +153,7 @@ func TestNewShiftSlot_ErrorWhenRequiredCountZero(t *testing.T) {
 }
 
 func TestNewShiftSlot_ErrorWhenTenantIDEmpty(t *testing.T) {
+	now := time.Now()
 	tenantID := common.TenantID("") // 空のテナントID
 	businessDayID := event.NewBusinessDayID()
 	positionID := NewPositionID()
@@ -143,6 +162,7 @@ func TestNewShiftSlot_ErrorWhenTenantIDEmpty(t *testing.T) {
 	endTime := time.Date(2000, 1, 1, 23, 0, 0, 0, time.UTC)
 
 	slot, err := NewShiftSlot(
+		now,
 		tenantID,
 		businessDayID,
 		positionID,
@@ -165,12 +185,10 @@ func TestNewShiftSlot_ErrorWhenTenantIDEmpty(t *testing.T) {
 
 func TestShiftSlot_UpdateSlotName(t *testing.T) {
 	tenantID := common.NewTenantID()
-	businessDayID := event.NewBusinessDayID()
-	positionID := NewPositionID()
 	startTime := time.Date(2000, 1, 1, 21, 30, 0, 0, time.UTC)
 	endTime := time.Date(2000, 1, 1, 23, 0, 0, 0, time.UTC)
 
-	slot, _ := NewShiftSlot(tenantID, businessDayID, positionID, "元の名前", "", startTime, endTime, 1, 0)
+	slot := createTestSlot(t, tenantID, "元の名前", startTime, endTime, 1)
 
 	newName := "新しい名前"
 	err := slot.UpdateSlotName(newName)
@@ -186,12 +204,10 @@ func TestShiftSlot_UpdateSlotName(t *testing.T) {
 
 func TestShiftSlot_UpdateRequiredCount(t *testing.T) {
 	tenantID := common.NewTenantID()
-	businessDayID := event.NewBusinessDayID()
-	positionID := NewPositionID()
 	startTime := time.Date(2000, 1, 1, 21, 30, 0, 0, time.UTC)
 	endTime := time.Date(2000, 1, 1, 23, 0, 0, 0, time.UTC)
 
-	slot, _ := NewShiftSlot(tenantID, businessDayID, positionID, "スタッフ", "", startTime, endTime, 1, 0)
+	slot := createTestSlot(t, tenantID, "スタッフ", startTime, endTime, 1)
 
 	newCount := 5
 	err := slot.UpdateRequiredCount(newCount)
@@ -207,12 +223,10 @@ func TestShiftSlot_UpdateRequiredCount(t *testing.T) {
 
 func TestShiftSlot_UpdateRequiredCount_ErrorWhenZero(t *testing.T) {
 	tenantID := common.NewTenantID()
-	businessDayID := event.NewBusinessDayID()
-	positionID := NewPositionID()
 	startTime := time.Date(2000, 1, 1, 21, 30, 0, 0, time.UTC)
 	endTime := time.Date(2000, 1, 1, 23, 0, 0, 0, time.UTC)
 
-	slot, _ := NewShiftSlot(tenantID, businessDayID, positionID, "スタッフ", "", startTime, endTime, 1, 0)
+	slot := createTestSlot(t, tenantID, "スタッフ", startTime, endTime, 1)
 
 	err := slot.UpdateRequiredCount(0)
 
@@ -223,12 +237,10 @@ func TestShiftSlot_UpdateRequiredCount_ErrorWhenZero(t *testing.T) {
 
 func TestShiftSlot_Delete(t *testing.T) {
 	tenantID := common.NewTenantID()
-	businessDayID := event.NewBusinessDayID()
-	positionID := NewPositionID()
 	startTime := time.Date(2000, 1, 1, 21, 30, 0, 0, time.UTC)
 	endTime := time.Date(2000, 1, 1, 23, 0, 0, 0, time.UTC)
 
-	slot, _ := NewShiftSlot(tenantID, businessDayID, positionID, "スタッフ", "", startTime, endTime, 1, 0)
+	slot := createTestSlot(t, tenantID, "スタッフ", startTime, endTime, 1)
 
 	// 初期状態は削除されていない
 	if slot.IsDeleted() {
@@ -248,6 +260,7 @@ func TestShiftSlot_Delete(t *testing.T) {
 }
 
 func TestShiftSlot_IsOvernight(t *testing.T) {
+	now := time.Now()
 	tenantID := common.NewTenantID()
 	businessDayID := event.NewBusinessDayID()
 	positionID := NewPositionID()
@@ -280,7 +293,7 @@ func TestShiftSlot_IsOvernight(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			slot, _ := NewShiftSlot(tenantID, businessDayID, positionID, "スタッフ", "", tt.startTime, tt.endTime, 1, 0)
+			slot, _ := NewShiftSlot(now, tenantID, businessDayID, positionID, "スタッフ", "", tt.startTime, tt.endTime, 1, 0)
 			got := slot.IsOvernight()
 			if got != tt.want {
 				t.Errorf("IsOvernight() = %v, want %v", got, tt.want)
@@ -291,12 +304,10 @@ func TestShiftSlot_IsOvernight(t *testing.T) {
 
 func TestShiftSlot_TimeString(t *testing.T) {
 	tenantID := common.NewTenantID()
-	businessDayID := event.NewBusinessDayID()
-	positionID := NewPositionID()
 	startTime := time.Date(2000, 1, 1, 21, 30, 0, 0, time.UTC)
 	endTime := time.Date(2000, 1, 1, 23, 45, 0, 0, time.UTC)
 
-	slot, _ := NewShiftSlot(tenantID, businessDayID, positionID, "スタッフ", "", startTime, endTime, 1, 0)
+	slot := createTestSlot(t, tenantID, "スタッフ", startTime, endTime, 1)
 
 	if slot.StartTimeString() != "21:30" {
 		t.Errorf("StartTimeString() = %s, want 21:30", slot.StartTimeString())
@@ -306,4 +317,3 @@ func TestShiftSlot_TimeString(t *testing.T) {
 		t.Errorf("EndTimeString() = %s, want 23:45", slot.EndTimeString())
 	}
 }
-
