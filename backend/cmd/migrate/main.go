@@ -107,7 +107,7 @@ func loadMigrations(ctx context.Context, pool *pgxpool.Pool) ([]migration, error
 			continue
 		}
 
-		fmt.Sscanf(parts[0], "%d", &version)
+		_, _ = fmt.Sscanf(parts[0], "%d", &version)
 		lastPart := parts[len(parts)-1]
 		if strings.HasSuffix(lastPart, ".up.sql") {
 			direction = "up"
@@ -192,13 +192,13 @@ func migrateUp(ctx context.Context, pool *pgxpool.Pool, migrations []migration, 
 
 		// マイグレーションの実行
 		if _, err := tx.Exec(ctx, mig.upSQL); err != nil {
-			tx.Rollback(ctx)
+			_ = tx.Rollback(ctx)
 			return fmt.Errorf("failed to execute migration %d: %w", mig.version, err)
 		}
 
 		// バージョンの記録
 		if _, err := tx.Exec(ctx, "INSERT INTO schema_migrations (version) VALUES ($1)", mig.version); err != nil {
-			tx.Rollback(ctx)
+			_ = tx.Rollback(ctx)
 			return fmt.Errorf("failed to record migration %d: %w", mig.version, err)
 		}
 
@@ -241,13 +241,13 @@ func migrateDown(ctx context.Context, pool *pgxpool.Pool, migrations []migration
 
 		// ダウンマイグレーションの実行
 		if _, err := tx.Exec(ctx, mig.downSQL); err != nil {
-			tx.Rollback(ctx)
+			_ = tx.Rollback(ctx)
 			return fmt.Errorf("failed to rollback migration %d: %w", mig.version, err)
 		}
 
 		// バージョンの削除
 		if _, err := tx.Exec(ctx, "DELETE FROM schema_migrations WHERE version = $1", mig.version); err != nil {
-			tx.Rollback(ctx)
+			_ = tx.Rollback(ctx)
 			return fmt.Errorf("failed to delete migration record %d: %w", mig.version, err)
 		}
 

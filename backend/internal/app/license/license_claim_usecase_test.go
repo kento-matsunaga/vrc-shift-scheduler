@@ -229,9 +229,9 @@ func createTestLicenseKey(t *testing.T, status billing.LicenseKeyStatus) *billin
 
 	if status == billing.LicenseKeyStatusUsed {
 		tenantID := common.NewTenantID()
-		key.MarkAsUsed(now, tenantID)
+		_ = key.MarkAsUsed(now, tenantID)
 	} else if status == billing.LicenseKeyStatusRevoked {
-		key.Revoke(now)
+		_ = key.Revoke(now)
 	}
 
 	return key
