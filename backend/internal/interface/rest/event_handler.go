@@ -2,6 +2,7 @@ package rest
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"time"
 
@@ -437,6 +438,7 @@ func (h *EventHandler) GenerateBusinessDays(w http.ResponseWriter, r *http.Reque
 
 	output, err := h.generateBusinessDaysUC.Execute(ctx, input)
 	if err != nil {
+		log.Printf("GenerateBusinessDays error for event %s, tenant %s: %v", eventID, tenantID, err)
 		RespondDomainError(w, err)
 		return
 	}

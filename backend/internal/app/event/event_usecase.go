@@ -130,9 +130,9 @@ func (uc *CreateEventUsecase) generateBusinessDays(ctx context.Context, e *event
 		}
 
 		if !exists {
-			// 営業日を作成（普通営業 = recurring）
-			// recurring_pattern_id として event_id を使用（イベント自体が定期パターンを定義）
-			eventIDForPattern := e.EventID()
+			// 営業日を作成
+			// イベント自体の定期設定から生成する場合は special として扱う
+			// (recurring_patterns テーブルとの外部キー制約を満たすため)
 			businessDay, err := event.NewEventBusinessDay(
 				time.Now(),
 				e.TenantID(),
@@ -140,8 +140,8 @@ func (uc *CreateEventUsecase) generateBusinessDays(ctx context.Context, e *event
 				candidateDate,
 				*e.DefaultStartTime(),
 				*e.DefaultEndTime(),
-				event.OccurrenceTypeRecurring,
-				&eventIDForPattern,
+				event.OccurrenceTypeSpecial,
+				nil,
 			)
 			if err != nil {
 				return err
@@ -396,9 +396,9 @@ func (uc *GenerateBusinessDaysUsecase) generateBusinessDays(ctx context.Context,
 		}
 
 		if !exists {
-			// 営業日を作成（普通営業 = recurring）
-			// recurring_pattern_id として event_id を使用（イベント自体が定期パターンを定義）
-			eventIDForPattern := e.EventID()
+			// 営業日を作成
+			// イベント自体の定期設定から生成する場合は special として扱う
+			// (recurring_patterns テーブルとの外部キー制約を満たすため)
 			businessDay, err := event.NewEventBusinessDay(
 				time.Now(),
 				e.TenantID(),
@@ -406,8 +406,8 @@ func (uc *GenerateBusinessDaysUsecase) generateBusinessDays(ctx context.Context,
 				candidateDate,
 				*e.DefaultStartTime(),
 				*e.DefaultEndTime(),
-				event.OccurrenceTypeRecurring,
-				&eventIDForPattern,
+				event.OccurrenceTypeSpecial,
+				nil,
 			)
 			if err != nil {
 				return generatedCount, err
