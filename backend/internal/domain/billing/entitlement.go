@@ -9,7 +9,13 @@ import (
 // EntitlementID represents the unique identifier for an entitlement
 type EntitlementID string
 
-// NewEntitlementID generates a new EntitlementID
+// NewEntitlementIDWithTime generates a new EntitlementID using the provided time.
+func NewEntitlementIDWithTime(t time.Time) EntitlementID {
+	return EntitlementID(common.NewULIDWithTime(t))
+}
+
+// NewEntitlementID generates a new EntitlementID using the current time.
+// Deprecated: Use NewEntitlementIDWithTime for better testability.
 func NewEntitlementID() EntitlementID {
 	return EntitlementID(common.NewULID())
 }
@@ -69,7 +75,7 @@ func NewEntitlement(
 	endsAt *time.Time,
 ) (*Entitlement, error) {
 	entitlement := &Entitlement{
-		entitlementID: NewEntitlementID(),
+		entitlementID: NewEntitlementIDWithTime(now),
 		tenantID:      tenantID,
 		planCode:      planCode,
 		source:        source,

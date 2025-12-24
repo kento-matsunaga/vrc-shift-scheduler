@@ -10,6 +10,13 @@ import (
 // SlotID represents a shift slot identifier
 type SlotID string
 
+// NewSlotIDWithTime creates a new SlotID using the provided time.
+func NewSlotIDWithTime(t time.Time) SlotID {
+	return SlotID(common.NewULIDWithTime(t))
+}
+
+// NewSlotID creates a new SlotID using the current time.
+// Deprecated: Use NewSlotIDWithTime for better testability.
 func NewSlotID() SlotID {
 	return SlotID(common.NewULID())
 }
@@ -35,6 +42,13 @@ func ParseSlotID(s string) (SlotID, error) {
 // PositionID represents a position identifier
 type PositionID string
 
+// NewPositionIDWithTime creates a new PositionID using the provided time.
+func NewPositionIDWithTime(t time.Time) PositionID {
+	return PositionID(common.NewULIDWithTime(t))
+}
+
+// NewPositionID creates a new PositionID using the current time.
+// Deprecated: Use NewPositionIDWithTime for better testability.
 func NewPositionID() PositionID {
 	return PositionID(common.NewULID())
 }
@@ -89,7 +103,7 @@ func NewShiftSlot(
 	priority int,
 ) (*ShiftSlot, error) {
 	slot := &ShiftSlot{
-		slotID:        NewSlotID(),
+		slotID:        NewSlotIDWithTime(now),
 		tenantID:      tenantID,
 		businessDayID: businessDayID,
 		positionID:    positionID,

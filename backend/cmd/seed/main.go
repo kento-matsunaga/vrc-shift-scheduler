@@ -815,8 +815,10 @@ func createShiftAssignments(ctx context.Context, repo *db.ShiftAssignmentReposit
 			memberID := memberIDs[memberIdx]
 
 			// ShiftAssignment エンティティを作成
+			now := time.Now()
 			var nilPlanID shift.PlanID
 			assignment, err := shift.NewShiftAssignment(
+				now,
 				tenantID,
 				nilPlanID,
 				slotID,

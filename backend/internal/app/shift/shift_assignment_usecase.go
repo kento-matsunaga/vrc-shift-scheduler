@@ -83,8 +83,10 @@ func (uc *ConfirmManualAssignmentUsecase) Execute(
 	}
 
 	// 5. Create ShiftAssignment
+	now := time.Now()
 	var nilPlanID shift.PlanID // Zero value (treated as NULL)
 	assignment, err := shift.NewShiftAssignment(
+		now,
 		input.TenantID,
 		nilPlanID,
 		input.SlotID,

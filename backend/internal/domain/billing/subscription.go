@@ -9,7 +9,13 @@ import (
 // SubscriptionID represents the unique identifier for a subscription
 type SubscriptionID string
 
-// NewSubscriptionID generates a new SubscriptionID
+// NewSubscriptionIDWithTime generates a new SubscriptionID using the provided time.
+func NewSubscriptionIDWithTime(t time.Time) SubscriptionID {
+	return SubscriptionID(common.NewULIDWithTime(t))
+}
+
+// NewSubscriptionID generates a new SubscriptionID using the current time.
+// Deprecated: Use NewSubscriptionIDWithTime for better testability.
 func NewSubscriptionID() SubscriptionID {
 	return SubscriptionID(common.NewULID())
 }
@@ -77,7 +83,7 @@ func NewSubscription(
 	currentPeriodEnd *time.Time,
 ) (*Subscription, error) {
 	sub := &Subscription{
-		subscriptionID:       NewSubscriptionID(),
+		subscriptionID:       NewSubscriptionIDWithTime(now),
 		tenantID:             tenantID,
 		stripeCustomerID:     stripeCustomerID,
 		stripeSubscriptionID: stripeSubscriptionID,

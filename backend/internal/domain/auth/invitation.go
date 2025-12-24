@@ -60,7 +60,7 @@ func NewInvitation(
 
 	// ★ 招待者のテナントに自動紐付け
 	inv := &Invitation{
-		invitationID:     InvitationID(common.NewULID()),
+		invitationID:     InvitationID(common.NewULIDWithTime(now)),
 		tenantID:         createdByAdmin.TenantID(), // ★ 招待者のテナントを自動設定
 		email:            email,
 		role:             role,

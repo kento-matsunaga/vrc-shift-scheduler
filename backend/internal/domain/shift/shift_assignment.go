@@ -44,6 +44,13 @@ func (m AssignmentMethod) Validate() error {
 // AssignmentID represents a shift assignment identifier
 type AssignmentID string
 
+// NewAssignmentIDWithTime creates a new AssignmentID using the provided time.
+func NewAssignmentIDWithTime(t time.Time) AssignmentID {
+	return AssignmentID(common.NewULIDWithTime(t))
+}
+
+// NewAssignmentID creates a new AssignmentID using the current time.
+// Deprecated: Use NewAssignmentIDWithTime for better testability.
 func NewAssignmentID() AssignmentID {
 	return AssignmentID(common.NewULID())
 }
@@ -69,6 +76,13 @@ func ParseAssignmentID(s string) (AssignmentID, error) {
 // PlanID represents a shift plan identifier
 type PlanID string
 
+// NewPlanIDWithTime creates a new PlanID using the provided time.
+func NewPlanIDWithTime(t time.Time) PlanID {
+	return PlanID(common.NewULIDWithTime(t))
+}
+
+// NewPlanID creates a new PlanID using the current time.
+// Deprecated: Use NewPlanIDWithTime for better testability.
 func NewPlanID() PlanID {
 	return PlanID(common.NewULID())
 }
@@ -104,6 +118,7 @@ type ShiftAssignment struct {
 
 // NewShiftAssignment creates a new ShiftAssignment entity
 func NewShiftAssignment(
+	now time.Time,
 	tenantID common.TenantID,
 	planID PlanID,
 	slotID SlotID,
@@ -112,7 +127,7 @@ func NewShiftAssignment(
 	isOutsidePreference bool,
 ) (*ShiftAssignment, error) {
 	assignment := &ShiftAssignment{
-		assignmentID:        NewAssignmentID(),
+		assignmentID:        NewAssignmentIDWithTime(now),
 		tenantID:            tenantID,
 		planID:              planID,
 		slotID:              slotID,
@@ -120,9 +135,9 @@ func NewShiftAssignment(
 		assignmentStatus:    AssignmentStatusConfirmed,
 		assignmentMethod:    assignmentMethod,
 		isOutsidePreference: isOutsidePreference,
-		assignedAt:          time.Now(),
-		createdAt:           time.Now(),
-		updatedAt:           time.Now(),
+		assignedAt:          now,
+		createdAt:           now,
+		updatedAt:           now,
 	}
 
 	if err := assignment.validate(); err != nil {
