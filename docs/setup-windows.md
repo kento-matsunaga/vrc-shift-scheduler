@@ -300,6 +300,10 @@ docker compose exec backend /app/migrate
 docker compose exec backend /app/seed
 ```
 
+シード投入後のログイン情報：
+- **Email**: `admin1@example.com`
+- **Password**: `password123`
+
 > **注意**: 上記コマンドが動かない場合は、先に `docker compose build backend` でコンテナを再ビルドしてください。
 
 ---
