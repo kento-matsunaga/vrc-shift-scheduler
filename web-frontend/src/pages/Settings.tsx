@@ -436,6 +436,7 @@ export default function Settings() {
           )}
 
           {permissions && (
+          <>
           <div className="space-y-6">
             {/* メンバー管理 */}
             <div>
@@ -599,7 +600,7 @@ export default function Settings() {
               {savingPermissions ? '保存中...' : '権限設定を保存'}
             </button>
           </div>
-          </div>
+          </>
           )}
         </div>
       )}
