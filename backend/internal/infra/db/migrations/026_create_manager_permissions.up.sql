@@ -34,9 +34,6 @@ CREATE TABLE manager_permissions (
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
 
--- インデックス
-CREATE INDEX idx_manager_permissions_tenant ON manager_permissions(tenant_id);
-
 -- コメント
 COMMENT ON TABLE manager_permissions IS 'テナントごとのマネージャー権限設定';
 COMMENT ON COLUMN manager_permissions.can_add_member IS 'メンバー追加権限';

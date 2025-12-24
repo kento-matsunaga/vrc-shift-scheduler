@@ -2,6 +2,7 @@ package rest
 
 import (
 	"context"
+	"log"
 	"net/http"
 
 	apptenant "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/tenant"
@@ -53,6 +54,7 @@ func (pc *PermissionChecker) RequirePermission(permType tenant.PermissionType) f
 
 				hasPermission, err := pc.checkPermission(ctx, tenantID, permType)
 				if err != nil {
+					log.Printf("Permission check failed for tenant %s: %v", tenantID, err)
 					RespondInternalError(w)
 					return
 				}

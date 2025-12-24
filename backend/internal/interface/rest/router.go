@@ -84,10 +84,12 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		// 課金状態に基づくアクセス制御
 		r.Use(BillingGuard(billingGuardDeps))
 
+		// ManagerPermissions repository (shared by permission checker and handler)
+		managerPermissionsRepo := db.NewManagerPermissionsRepository(dbPool)
+
 		// PermissionChecker for manager permission enforcement
-		managerPermissionsRepoForChecker := db.NewManagerPermissionsRepository(dbPool)
 		permissionChecker := NewPermissionChecker(
-			apptenant.NewCheckManagerPermissionUsecase(managerPermissionsRepoForChecker),
+			apptenant.NewCheckManagerPermissionUsecase(managerPermissionsRepo),
 		)
 
 		// EventHandler dependencies
@@ -359,8 +361,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			r.Post("/me/change-password", adminHandler.ChangePassword)
 		})
 
-		// ManagerPermissionsHandler dependencies
-		managerPermissionsRepo := db.NewManagerPermissionsRepository(dbPool)
+		// ManagerPermissionsHandler dependencies (reusing managerPermissionsRepo)
 		managerPermissionsHandler := NewManagerPermissionsHandler(
 			apptenant.NewGetManagerPermissionsUsecase(managerPermissionsRepo),
 			apptenant.NewUpdateManagerPermissionsUsecase(managerPermissionsRepo),

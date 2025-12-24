@@ -55,9 +55,14 @@ export default function Settings() {
         try {
           const permissionsData = await getManagerPermissions();
           setPermissions(permissionsData);
+          setPermissionsError('');
         } catch (permErr) {
           console.error('Failed to load manager permissions:', permErr);
-          // 権限取得失敗時はUIを非表示にする（permissionsがnullのまま）
+          if (permErr instanceof ApiClientError) {
+            setPermissionsError(permErr.getUserMessage());
+          } else {
+            setPermissionsError('マネージャー権限の読み込みに失敗しました');
+          }
         }
       }
     } catch (err) {
@@ -396,7 +401,7 @@ export default function Settings() {
       </div>
 
       {/* マネージャー権限設定セクション（オーナーのみ表示） */}
-      {isOwner && permissions && (
+      {isOwner && (permissions || permissionsError) && (
         <div className="card mb-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
             <svg className="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -430,6 +435,7 @@ export default function Settings() {
             </div>
           )}
 
+          {permissions && (
           <div className="space-y-6">
             {/* メンバー管理 */}
             <div>
@@ -593,6 +599,8 @@ export default function Settings() {
               {savingPermissions ? '保存中...' : '権限設定を保存'}
             </button>
           </div>
+          </div>
+          )}
         </div>
       )}
 
