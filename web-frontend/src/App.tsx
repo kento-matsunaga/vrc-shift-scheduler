@@ -66,8 +66,8 @@ function App() {
 
   return (
     <Routes>
-      {/* 管理者ログイン */}
-      <Route path="/admin/login" element={<AdminLogin />} />
+      {/* 管理者ログイン（ログイン済みの場合は /events へリダイレクト） */}
+      <Route path="/admin/login" element={isLoggedIn ? <Navigate to="/events" replace /> : <AdminLogin />} />
       <Route path="/login" element={<Navigate to="/admin/login" replace />} />
 
       {/* 招待受理（認証不要） */}
