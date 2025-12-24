@@ -6,6 +6,7 @@ export default function Layout() {
   const location = useLocation();
   const adminRole = localStorage.getItem('admin_role') || '';
   const [showGroupSubmenu, setShowGroupSubmenu] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const handleLogout = () => {
     localStorage.removeItem('auth_token');
@@ -28,27 +29,58 @@ export default function Layout() {
   // グループメニューがアクティブかどうか
   const isGroupActive = location.pathname.startsWith('/groups') || location.pathname.startsWith('/role-groups');
 
+  // ナビゲーションリンクをクリックしたらサイドバーを閉じる（モバイル）
+  const handleNavClick = () => {
+    setSidebarOpen(false);
+  };
+
   return (
     <div className="min-h-screen bg-gray-100 flex">
+      {/* モバイル用オーバーレイ */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* サイドバー */}
-      <aside className="w-56 bg-white shadow-md flex flex-col fixed h-full">
+      <aside
+        className={`
+          fixed inset-y-0 left-0 z-50 w-56 bg-white shadow-md flex flex-col
+          transform transition-transform duration-300 ease-in-out
+          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+          md:translate-x-0 md:static md:z-auto
+        `}
+      >
         {/* ロゴ */}
-        <div className="p-4 border-b border-gray-200 bg-vrc-dark">
-          <h1 className="text-lg font-bold text-white">VRC Shift Scheduler</h1>
-          <span className="inline-block mt-1 bg-accent text-white px-2 py-0.5 rounded text-xs font-medium">
-            {adminRole === 'owner' ? 'オーナー' : 'マネージャー'}
-          </span>
+        <div className="p-4 border-b border-gray-200 bg-vrc-dark flex items-center justify-between">
+          <div>
+            <h1 className="text-lg font-bold text-white">VRC Shift Scheduler</h1>
+            <span className="inline-block mt-1 bg-accent text-white px-2 py-0.5 rounded text-xs font-medium">
+              {adminRole === 'owner' ? 'オーナー' : 'マネージャー'}
+            </span>
+          </div>
+          {/* モバイル用閉じるボタン */}
+          <button
+            onClick={() => setSidebarOpen(false)}
+            className="md:hidden p-1 text-white hover:bg-white/10 rounded"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
 
         {/* ナビゲーション */}
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-          <Link to="/events" className={linkClass('/events')}>
+          <Link to="/events" className={linkClass('/events')} onClick={handleNavClick}>
             イベント
           </Link>
-          <Link to="/members" className={linkClass('/members')}>
+          <Link to="/members" className={linkClass('/members')} onClick={handleNavClick}>
             メンバー
           </Link>
-          <Link to="/roles" className={linkClass('/roles')}>
+          <Link to="/roles" className={linkClass('/roles')} onClick={handleNavClick}>
             ロール
           </Link>
 
@@ -81,6 +113,7 @@ export default function Layout() {
                       ? 'bg-accent/10 text-accent-dark'
                       : 'text-gray-600 hover:bg-gray-50'
                   }`}
+                  onClick={handleNavClick}
                 >
                   ロールグループ
                 </Link>
@@ -91,6 +124,7 @@ export default function Layout() {
                       ? 'bg-accent/10 text-accent-dark'
                       : 'text-gray-600 hover:bg-gray-50'
                   }`}
+                  onClick={handleNavClick}
                 >
                   メンバーグループ
                 </Link>
@@ -98,20 +132,20 @@ export default function Layout() {
             )}
           </div>
 
-          <Link to="/attendance" className={linkClass('/attendance')}>
+          <Link to="/attendance" className={linkClass('/attendance')} onClick={handleNavClick}>
             出欠確認
           </Link>
-          <Link to="/schedules" className={linkClass('/schedules')}>
+          <Link to="/schedules" className={linkClass('/schedules')} onClick={handleNavClick}>
             日程調整
           </Link>
 
           {(adminRole === 'admin' || adminRole === 'owner') && (
-            <Link to="/admin/invite" className={linkClass('/admin/invite')}>
+            <Link to="/admin/invite" className={linkClass('/admin/invite')} onClick={handleNavClick}>
               管理者招待
             </Link>
           )}
 
-          <Link to="/settings" className={linkClass('/settings')}>
+          <Link to="/settings" className={linkClass('/settings')} onClick={handleNavClick}>
             設定
           </Link>
         </nav>
@@ -128,8 +162,24 @@ export default function Layout() {
       </aside>
 
       {/* メインコンテンツ */}
-      <div className="flex-1 ml-56">
-        <main className="p-6">
+      <div className="flex-1 md:ml-0 min-w-0">
+        {/* モバイル用ヘッダー */}
+        <header className="md:hidden sticky top-0 z-30 bg-vrc-dark shadow-md">
+          <div className="flex items-center justify-between px-4 py-3">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="p-2 text-white hover:bg-white/10 rounded-lg"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+            <h1 className="text-lg font-bold text-white">VRC Shift</h1>
+            <div className="w-10" /> {/* スペーサー */}
+          </div>
+        </header>
+
+        <main className="p-4 md:p-6">
           <Outlet />
         </main>
       </div>
