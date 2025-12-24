@@ -291,14 +291,16 @@ docker compose ps
 ### 10-1. マイグレーション
 
 ```bash
-docker compose exec backend go run ./cmd/migrate/main.go
+docker compose exec backend /app/migrate
 ```
 
 ### 10-2. シード（任意）
 
 ```bash
-docker compose exec backend go run ./cmd/seed/main.go
+docker compose exec backend /app/seed
 ```
+
+> **注意**: 上記コマンドが動かない場合は、先に `docker compose build backend` でコンテナを再ビルドしてください。
 
 ---
 
@@ -313,8 +315,15 @@ docker compose exec backend go run ./cmd/seed/main.go
 
 ### バックエンド
 
+バックエンドのテストはローカルでGoをインストールして実行します：
+
 ```bash
-docker compose exec backend go test ./...
+# Goのインストール（Ubuntu）
+sudo apt update && sudo apt install -y golang-go
+
+# backendディレクトリでテスト実行
+cd backend
+DATABASE_URL="postgres://vrcshift:vrcshift@localhost:5432/vrcshift?sslmode=disable" JWT_SECRET=test go test ./...
 ```
 
 ### フロントエンド（用意されている場合）
@@ -429,7 +438,7 @@ ssh -T git@github.com
 - [ ] `docker compose up -d --build` が成功
 - [ ] [http://localhost:5173](http://localhost:5173) が表示される
 - [ ] [http://localhost:8080/health](http://localhost:8080/health) が応答する
-- [ ] `docker compose exec backend go test ./...` が通る
+- [ ] `docker compose exec backend /app/migrate` でマイグレーションが通る
 - [ ] ブランチ作ってPR作成までできる
 
 ---
