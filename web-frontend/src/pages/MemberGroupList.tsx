@@ -95,13 +95,13 @@ export default function MemberGroupList() {
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">グループ管理</h2>
-          <p className="text-sm text-gray-600 mt-1">メンバーをグループ分けして管理します</p>
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900">グループ管理</h2>
+          <p className="text-xs sm:text-sm text-gray-600 mt-1">メンバーをグループ分けして管理します</p>
         </div>
-        <button onClick={() => setShowCreateModal(true)} className="btn-primary">
-          ＋ グループを追加
+        <button onClick={() => setShowCreateModal(true)} className="btn-primary text-sm sm:text-base w-full sm:w-auto">
+          ＋ グループ追加
         </button>
       </div>
 

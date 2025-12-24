@@ -6,6 +6,7 @@ import {
   type AttendanceCollection,
 } from '../lib/api/attendanceApi';
 import { getMemberGroups, type MemberGroup } from '../lib/api/memberGroupApi';
+import { MobileCard, CardHeader, CardField } from '../components/MobileCard';
 
 export default function AttendanceList() {
   const navigate = useNavigate();
@@ -163,16 +164,16 @@ export default function AttendanceList() {
 
   return (
     <div className="max-w-6xl mx-auto">
-      <div className="mb-6 flex justify-between items-center">
+      <div className="mb-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">出欠確認</h1>
-          <p className="text-sm text-gray-600 mt-1">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">出欠確認</h1>
+          <p className="text-xs sm:text-sm text-gray-600 mt-1">
             イベントやシフトの出欠確認を作成して、メンバーに回答してもらいましょう
           </p>
         </div>
         <button
           onClick={() => setShowCreateForm(!showCreateForm)}
-          className="px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent-dark transition-colors font-medium"
+          className="px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent-dark transition-colors font-medium text-sm sm:text-base w-full sm:w-auto"
         >
           {showCreateForm ? 'キャンセル' : '+ 新規作成'}
         </button>
@@ -362,7 +363,51 @@ export default function AttendanceList() {
         </div>
       )}
 
-      <div className="bg-white rounded-lg shadow overflow-hidden">
+      {/* モバイル用カードビュー */}
+      <div className="md:hidden space-y-3">
+        {collections.length === 0 ? (
+          <div className="bg-white rounded-lg shadow p-8 text-center text-gray-500">
+            出欠確認がまだありません。新規作成してください。
+          </div>
+        ) : (
+          collections.map((collection) => (
+            <MobileCard
+              key={collection.collection_id}
+              onClick={() => navigate(`/attendance/${collection.collection_id}`)}
+            >
+              <CardHeader
+                title={collection.title}
+                subtitle={collection.description || undefined}
+                badge={getStatusBadge(collection.status)}
+              />
+              <div className="space-y-1">
+                <CardField label="対象日数" value={`${collection.target_date_count || 0}件`} />
+                <CardField label="回答数" value={`${collection.response_count || 0}人`} />
+                <CardField
+                  label="締切"
+                  value={
+                    collection.deadline
+                      ? new Date(collection.deadline).toLocaleString('ja-JP', {
+                          month: '2-digit',
+                          day: '2-digit',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })
+                      : '-'
+                  }
+                />
+                <CardField
+                  label="作成日"
+                  value={new Date(collection.created_at).toLocaleDateString('ja-JP')}
+                />
+              </div>
+            </MobileCard>
+          ))
+        )}
+      </div>
+
+      {/* デスクトップ用テーブルビュー */}
+      <div className="hidden md:block bg-white rounded-lg shadow overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
