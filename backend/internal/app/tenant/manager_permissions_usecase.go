@@ -8,12 +8,6 @@ import (
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/tenant"
 )
 
-// ManagerPermissionsRepository defines the interface for manager permissions persistence
-type ManagerPermissionsRepository interface {
-	FindByTenantID(ctx context.Context, tenantID common.TenantID) (*tenant.ManagerPermissions, error)
-	Save(ctx context.Context, permissions *tenant.ManagerPermissions) error
-}
-
 // GetManagerPermissionsInput represents the input for getting manager permissions
 type GetManagerPermissionsInput struct {
 	TenantID common.TenantID
@@ -39,11 +33,11 @@ type GetManagerPermissionsOutput struct {
 
 // GetManagerPermissionsUsecase handles the manager permissions retrieval use case
 type GetManagerPermissionsUsecase struct {
-	permissionsRepo ManagerPermissionsRepository
+	permissionsRepo tenant.ManagerPermissionsRepository
 }
 
 // NewGetManagerPermissionsUsecase creates a new GetManagerPermissionsUsecase
-func NewGetManagerPermissionsUsecase(permissionsRepo ManagerPermissionsRepository) *GetManagerPermissionsUsecase {
+func NewGetManagerPermissionsUsecase(permissionsRepo tenant.ManagerPermissionsRepository) *GetManagerPermissionsUsecase {
 	return &GetManagerPermissionsUsecase{
 		permissionsRepo: permissionsRepo,
 	}
@@ -115,11 +109,11 @@ type UpdateManagerPermissionsInput struct {
 
 // UpdateManagerPermissionsUsecase handles the manager permissions update use case
 type UpdateManagerPermissionsUsecase struct {
-	permissionsRepo ManagerPermissionsRepository
+	permissionsRepo tenant.ManagerPermissionsRepository
 }
 
 // NewUpdateManagerPermissionsUsecase creates a new UpdateManagerPermissionsUsecase
-func NewUpdateManagerPermissionsUsecase(permissionsRepo ManagerPermissionsRepository) *UpdateManagerPermissionsUsecase {
+func NewUpdateManagerPermissionsUsecase(permissionsRepo tenant.ManagerPermissionsRepository) *UpdateManagerPermissionsUsecase {
 	return &UpdateManagerPermissionsUsecase{
 		permissionsRepo: permissionsRepo,
 	}
@@ -193,11 +187,11 @@ type CheckManagerPermissionInput struct {
 
 // CheckManagerPermissionUsecase checks if a manager has a specific permission
 type CheckManagerPermissionUsecase struct {
-	permissionsRepo ManagerPermissionsRepository
+	permissionsRepo tenant.ManagerPermissionsRepository
 }
 
 // NewCheckManagerPermissionUsecase creates a new CheckManagerPermissionUsecase
-func NewCheckManagerPermissionUsecase(permissionsRepo ManagerPermissionsRepository) *CheckManagerPermissionUsecase {
+func NewCheckManagerPermissionUsecase(permissionsRepo tenant.ManagerPermissionsRepository) *CheckManagerPermissionUsecase {
 	return &CheckManagerPermissionUsecase{
 		permissionsRepo: permissionsRepo,
 	}

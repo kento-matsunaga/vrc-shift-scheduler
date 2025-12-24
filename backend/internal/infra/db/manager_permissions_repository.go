@@ -16,6 +16,9 @@ type ManagerPermissionsRepository struct {
 	db *pgxpool.Pool
 }
 
+// Compile-time check to ensure ManagerPermissionsRepository implements tenant.ManagerPermissionsRepository
+var _ tenant.ManagerPermissionsRepository = (*ManagerPermissionsRepository)(nil)
+
 // NewManagerPermissionsRepository creates a new ManagerPermissionsRepository
 func NewManagerPermissionsRepository(db *pgxpool.Pool) *ManagerPermissionsRepository {
 	return &ManagerPermissionsRepository{db: db}
