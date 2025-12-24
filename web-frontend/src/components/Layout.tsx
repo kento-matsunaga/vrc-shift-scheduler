@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 
 export default function Layout() {
@@ -7,6 +7,27 @@ export default function Layout() {
   const adminRole = localStorage.getItem('admin_role') || '';
   const [showGroupSubmenu, setShowGroupSubmenu] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // サイドバー開閉時のbodyスクロール制御とESCキー対応
+  useEffect(() => {
+    if (sidebarOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && sidebarOpen) {
+        setSidebarOpen(false);
+      }
+    };
+    document.addEventListener('keydown', handleEscape);
+
+    return () => {
+      document.body.style.overflow = 'unset';
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [sidebarOpen]);
 
   const handleLogout = () => {
     localStorage.removeItem('auth_token');

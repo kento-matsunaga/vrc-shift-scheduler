@@ -9,12 +9,22 @@ interface MobileCardProps {
 // モバイル用カードコンポーネント
 export function MobileCard({ children, onClick, className = '' }: MobileCardProps) {
   const baseClass = 'bg-white rounded-lg shadow-sm border border-gray-200 p-4';
-  const clickableClass = onClick ? 'cursor-pointer hover:shadow-md transition-shadow' : '';
+  const clickableClass = onClick ? 'cursor-pointer hover:shadow-md transition-shadow focus:outline-none focus:ring-2 focus:ring-accent' : '';
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (onClick && (e.key === 'Enter' || e.key === ' ')) {
+      e.preventDefault();
+      onClick();
+    }
+  };
 
   return (
     <div
       className={`${baseClass} ${clickableClass} ${className}`}
       onClick={onClick}
+      onKeyDown={handleKeyDown}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
     >
       {children}
     </div>
