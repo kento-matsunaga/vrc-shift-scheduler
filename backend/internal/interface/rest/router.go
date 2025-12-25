@@ -10,6 +10,7 @@ import (
 	appaudit "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/audit"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/app/auth"
 	appevent "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/event"
+	appimport "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/import"
 	applicense "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/license"
 	appmember "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/member"
 	appmembergroup "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/member_group"
@@ -371,6 +372,21 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		r.Route("/settings", func(r chi.Router) {
 			r.Get("/manager-permissions", managerPermissionsHandler.GetManagerPermissions)
 			r.Put("/manager-permissions", managerPermissionsHandler.UpdateManagerPermissions)
+		})
+
+		// Import API（一括取り込み機能）
+		importJobRepo := db.NewImportJobRepository(dbPool)
+		importHandler := NewImportHandler(
+			appimport.NewImportMembersUsecase(importJobRepo, memberRepo),
+			appimport.NewGetImportStatusUsecase(importJobRepo),
+			appimport.NewGetImportResultUsecase(importJobRepo),
+			appimport.NewListImportJobsUsecase(importJobRepo),
+		)
+		r.Route("/imports", func(r chi.Router) {
+			r.Get("/", importHandler.ListImportJobs)
+			r.With(permissionChecker.RequirePermission(tenant.PermissionAddMember)).Post("/members", importHandler.ImportMembers)
+			r.Get("/{import_job_id}/status", importHandler.GetImportStatus)
+			r.Get("/{import_job_id}/result", importHandler.GetImportResult)
 		})
 	})
 

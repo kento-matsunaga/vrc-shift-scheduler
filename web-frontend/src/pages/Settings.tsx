@@ -3,8 +3,14 @@ import { getEvents, deleteEvent, getCurrentTenant, updateTenant, changePassword,
 import type { Event } from '../types/api';
 import type { Tenant, ManagerPermissions } from '../lib/api/tenantApi';
 import { ApiClientError } from '../lib/apiClient';
+import BulkImport from '../components/BulkImport';
+
+type SettingsTab = 'general' | 'import';
 
 export default function Settings() {
+  // Tab state
+  const [activeTab, setActiveTab] = useState<SettingsTab>('general');
+
   // Tenant state
   const [tenant, setTenant] = useState<Tenant | null>(null);
   const [editingTenantName, setEditingTenantName] = useState(false);
@@ -248,21 +254,63 @@ export default function Settings() {
 
   return (
     <div className="max-w-4xl mx-auto">
-      <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-6">基本設定</h2>
+      <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-6">設定</h2>
 
-      {error && !deleteTarget && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-          <p className="text-sm text-red-800">{error}</p>
-        </div>
-      )}
+      {/* Tab Navigation */}
+      <div className="border-b border-gray-200 mb-6">
+        <nav className="-mb-px flex space-x-8">
+          <button
+            onClick={() => setActiveTab('general')}
+            className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
+              activeTab === 'general'
+                ? 'border-accent text-accent'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            <span className="flex items-center gap-2">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              基本設定
+            </span>
+          </button>
+          <button
+            onClick={() => setActiveTab('import')}
+            className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
+              activeTab === 'import'
+                ? 'border-accent text-accent'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            <span className="flex items-center gap-2">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+              </svg>
+              一括取り込み
+            </span>
+          </button>
+        </nav>
+      </div>
 
-      {success && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
-          <p className="text-sm text-green-800">{success}</p>
-        </div>
-      )}
+      {/* Tab Content */}
+      {activeTab === 'import' ? (
+        <BulkImport />
+      ) : (
+        <>
+          {error && !deleteTarget && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+              <p className="text-sm text-red-800">{error}</p>
+            </div>
+          )}
 
-      {/* テナント情報セクション */}
+          {success && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+              <p className="text-sm text-green-800">{success}</p>
+            </div>
+          )}
+
+          {/* テナント情報セクション */}
       <div className="card mb-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
           <svg className="w-5 h-5 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -720,6 +768,8 @@ export default function Settings() {
             </div>
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   );

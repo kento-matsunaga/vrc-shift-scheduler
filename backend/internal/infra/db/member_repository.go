@@ -226,6 +226,53 @@ func (r *MemberRepository) FindByEmail(ctx context.Context, tenantID common.Tena
 	)
 }
 
+// FindByDisplayName finds a member by display name within a tenant
+func (r *MemberRepository) FindByDisplayName(ctx context.Context, tenantID common.TenantID, displayName string) (*member.Member, error) {
+	query := `
+		SELECT
+			member_id, tenant_id, display_name, discord_user_id, email,
+			is_active, created_at, updated_at, deleted_at
+		FROM members
+		WHERE tenant_id = $1 AND display_name = $2 AND deleted_at IS NULL
+	`
+
+	var (
+		memberIDStr       string
+		tenantIDStr       string
+		displayNameVal    string
+		discordUserID     sql.NullString
+		email             sql.NullString
+		isActive          bool
+		createdAt         time.Time
+		updatedAt         time.Time
+		deletedAt         sql.NullTime
+	)
+
+	err := r.db.QueryRow(ctx, query, tenantID.String(), displayName).Scan(
+		&memberIDStr,
+		&tenantIDStr,
+		&displayNameVal,
+		&discordUserID,
+		&email,
+		&isActive,
+		&createdAt,
+		&updatedAt,
+		&deletedAt,
+	)
+
+	if err == pgx.ErrNoRows {
+		return nil, nil // Not found - return nil without error
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to find member by display_name: %w", err)
+	}
+
+	return r.scanToMember(
+		memberIDStr, tenantIDStr, displayNameVal, discordUserID, email,
+		isActive, createdAt, updatedAt, deletedAt,
+	)
+}
+
 // Delete deletes a member (physical delete)
 func (r *MemberRepository) Delete(ctx context.Context, tenantID common.TenantID, memberID common.MemberID) error {
 	query := `
