@@ -17,6 +17,9 @@ type ImportJobRepository interface {
 	// FindByID finds an import job by ID
 	FindByID(ctx context.Context, id common.ImportJobID) (*ImportJob, error)
 
+	// FindByIDAndTenantID finds an import job by ID and tenant ID (for authorization)
+	FindByIDAndTenantID(ctx context.Context, id common.ImportJobID, tenantID common.TenantID) (*ImportJob, error)
+
 	// FindByTenantID finds all import jobs for a tenant
 	FindByTenantID(ctx context.Context, tenantID common.TenantID, limit, offset int) ([]*ImportJob, error)
 

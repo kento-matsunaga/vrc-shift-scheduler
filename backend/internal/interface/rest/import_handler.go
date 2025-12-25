@@ -174,7 +174,7 @@ func (h *ImportHandler) GetImportStatus(w http.ResponseWriter, r *http.Request) 
 	ctx := r.Context()
 
 	// テナントIDの取得（認可チェック用）
-	_, ok := getTenantIDFromContext(ctx)
+	tenantID, ok := getTenantIDFromContext(ctx)
 	if !ok {
 		writeError(w, http.StatusForbidden, "ERR_FORBIDDEN", "Tenant ID is required", nil)
 		return
@@ -196,6 +196,7 @@ func (h *ImportHandler) GetImportStatus(w http.ResponseWriter, r *http.Request) 
 	// Usecaseの実行
 	input := importapp.GetImportStatusInput{
 		ImportJobID: importJobID,
+		TenantID:    tenantID,
 	}
 
 	output, err := h.getImportStatusUC.Execute(ctx, input)
@@ -238,7 +239,7 @@ func (h *ImportHandler) GetImportResult(w http.ResponseWriter, r *http.Request) 
 	ctx := r.Context()
 
 	// テナントIDの取得（認可チェック用）
-	_, ok := getTenantIDFromContext(ctx)
+	tenantID, ok := getTenantIDFromContext(ctx)
 	if !ok {
 		writeError(w, http.StatusForbidden, "ERR_FORBIDDEN", "Tenant ID is required", nil)
 		return
@@ -260,6 +261,7 @@ func (h *ImportHandler) GetImportResult(w http.ResponseWriter, r *http.Request) 
 	// Usecaseの実行
 	input := importapp.GetImportResultInput{
 		ImportJobID: importJobID,
+		TenantID:    tenantID,
 	}
 
 	output, err := h.getImportResultUC.Execute(ctx, input)

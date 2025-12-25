@@ -168,6 +168,67 @@ func (r *ImportJobRepository) FindByID(ctx context.Context, id common.ImportJobI
 	)
 }
 
+// FindByIDAndTenantID finds an import job by ID and tenant ID (for authorization)
+func (r *ImportJobRepository) FindByIDAndTenantID(ctx context.Context, id common.ImportJobID, tenantID common.TenantID) (*importjob.ImportJob, error) {
+	query := `
+		SELECT
+			import_job_id, tenant_id, import_type, status, file_name,
+			total_rows, processed_rows, success_count, error_count,
+			error_details, options, started_at, completed_at, created_at, created_by
+		FROM import_jobs
+		WHERE import_job_id = $1 AND tenant_id = $2
+	`
+
+	var (
+		importJobIDStr string
+		tenantIDStr    string
+		importTypeStr  string
+		statusStr      string
+		fileName       sql.NullString
+		totalRows      int
+		processedRows  int
+		successCount   int
+		errorCount     int
+		errorDetails   []byte
+		options        []byte
+		startedAt      sql.NullTime
+		completedAt    sql.NullTime
+		createdAt      time.Time
+		createdByStr   string
+	)
+
+	err := r.db.QueryRow(ctx, query, id.String(), tenantID.String()).Scan(
+		&importJobIDStr,
+		&tenantIDStr,
+		&importTypeStr,
+		&statusStr,
+		&fileName,
+		&totalRows,
+		&processedRows,
+		&successCount,
+		&errorCount,
+		&errorDetails,
+		&options,
+		&startedAt,
+		&completedAt,
+		&createdAt,
+		&createdByStr,
+	)
+
+	if err == pgx.ErrNoRows {
+		return nil, common.NewNotFoundError("ImportJob", id.String())
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to find import job: %w", err)
+	}
+
+	return r.reconstructJob(
+		importJobIDStr, tenantIDStr, importTypeStr, statusStr, fileName.String,
+		totalRows, processedRows, successCount, errorCount,
+		errorDetails, options, startedAt, completedAt, createdAt, createdByStr,
+	)
+}
+
 // FindByTenantID finds all import jobs for a tenant
 func (r *ImportJobRepository) FindByTenantID(ctx context.Context, tenantID common.TenantID, limit, offset int) ([]*importjob.ImportJob, error) {
 	query := `

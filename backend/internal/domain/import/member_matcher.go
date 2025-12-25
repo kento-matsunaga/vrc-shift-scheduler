@@ -2,7 +2,6 @@ package importjob
 
 import (
 	"strings"
-	"unicode"
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/member"
@@ -154,9 +153,4 @@ func (m *MemberMatcher) MatchAll(names []string) []MatchResult {
 	}
 
 	return results
-}
-
-// isAlphanumeric checks if a rune is alphanumeric
-func isAlphanumeric(r rune) bool {
-	return unicode.IsLetter(r) || unicode.IsDigit(r)
 }

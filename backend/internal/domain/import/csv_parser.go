@@ -56,6 +56,22 @@ func NewCSVParser() *CSVParser {
 	return &CSVParser{}
 }
 
+// sanitizeCSVValue removes potentially dangerous prefixes to prevent CSV injection
+// These characters (=, +, -, @) can be interpreted as formulas in spreadsheet applications
+func sanitizeCSVValue(s string) string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return s
+	}
+	// Check for dangerous prefixes
+	firstChar := s[0]
+	if firstChar == '=' || firstChar == '+' || firstChar == '-' || firstChar == '@' {
+		// Prefix with a single quote to prevent formula execution
+		return "'" + s
+	}
+	return s
+}
+
 // ParseMembersCSV parses a members CSV file
 func (p *CSVParser) ParseMembersCSV(reader io.Reader) ([]MemberRow, error) {
 	csvReader := csv.NewReader(reader)
@@ -90,13 +106,13 @@ func (p *CSVParser) ParseMembersCSV(reader io.Reader) ([]MemberRow, error) {
 		}
 
 		if idx, ok := columnIndex["name"]; ok && idx < len(record) {
-			row.Name = strings.TrimSpace(record[idx])
+			row.Name = sanitizeCSVValue(record[idx])
 		}
 		if idx, ok := columnIndex["display_name"]; ok && idx < len(record) {
-			row.DisplayName = strings.TrimSpace(record[idx])
+			row.DisplayName = sanitizeCSVValue(record[idx])
 		}
 		if idx, ok := columnIndex["note"]; ok && idx < len(record) {
-			row.Note = strings.TrimSpace(record[idx])
+			row.Note = sanitizeCSVValue(record[idx])
 		}
 
 		// Use name as display_name if not provided
@@ -147,25 +163,25 @@ func (p *CSVParser) ParseActualAttendanceCSV(reader io.Reader) ([]ActualAttendan
 		}
 
 		if idx, ok := columnIndex["date"]; ok && idx < len(record) {
-			row.Date = strings.TrimSpace(record[idx])
+			row.Date = sanitizeCSVValue(record[idx])
 		}
 		if idx, ok := columnIndex["member_name"]; ok && idx < len(record) {
-			row.MemberName = strings.TrimSpace(record[idx])
+			row.MemberName = sanitizeCSVValue(record[idx])
 		}
 		if idx, ok := columnIndex["event_name"]; ok && idx < len(record) {
-			row.EventName = strings.TrimSpace(record[idx])
+			row.EventName = sanitizeCSVValue(record[idx])
 		}
 		if idx, ok := columnIndex["slot_name"]; ok && idx < len(record) {
-			row.SlotName = strings.TrimSpace(record[idx])
+			row.SlotName = sanitizeCSVValue(record[idx])
 		}
 		if idx, ok := columnIndex["start_time"]; ok && idx < len(record) {
-			row.StartTime = strings.TrimSpace(record[idx])
+			row.StartTime = sanitizeCSVValue(record[idx])
 		}
 		if idx, ok := columnIndex["end_time"]; ok && idx < len(record) {
-			row.EndTime = strings.TrimSpace(record[idx])
+			row.EndTime = sanitizeCSVValue(record[idx])
 		}
 		if idx, ok := columnIndex["note"]; ok && idx < len(record) {
-			row.Note = strings.TrimSpace(record[idx])
+			row.Note = sanitizeCSVValue(record[idx])
 		}
 
 		rows = append(rows, row)

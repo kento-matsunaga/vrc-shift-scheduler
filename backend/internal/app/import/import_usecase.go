@@ -83,8 +83,8 @@ func (uc *ImportMembersUsecase) Execute(ctx context.Context, input ImportMembers
 	reader := bytes.NewReader(input.FileData)
 	rows, err := uc.csvParser.ParseMembersCSV(reader)
 	if err != nil {
-		job.Fail(time.Now(), fmt.Sprintf("CSVパースエラー: %v", err))
-		uc.importJobRepo.Update(ctx, job)
+		_ = job.Fail(time.Now(), fmt.Sprintf("CSVパースエラー: %v", err))
+		_ = uc.importJobRepo.Update(ctx, job)
 		return &ImportMembersOutput{
 			ImportJobID:  job.ImportJobID(),
 			Status:       job.Status(),
@@ -95,17 +95,34 @@ func (uc *ImportMembersUsecase) Execute(ctx context.Context, input ImportMembers
 		}, nil
 	}
 
+	// Check row limit (max 10000 rows)
+	const maxRows = 10000
+	if len(rows) > maxRows {
+		_ = job.Fail(time.Now(), fmt.Sprintf("行数が上限を超えています: %d行 (上限: %d行)", len(rows), maxRows))
+		_ = uc.importJobRepo.Update(ctx, job)
+		return &ImportMembersOutput{
+			ImportJobID:  job.ImportJobID(),
+			Status:       job.Status(),
+			TotalRows:    len(rows),
+			SuccessCount: 0,
+			ErrorCount:   1,
+			Errors:       job.ErrorDetails(),
+		}, nil
+	}
+
 	// Start processing
 	if err := job.Start(time.Now(), len(rows)); err != nil {
 		return nil, err
 	}
-	uc.importJobRepo.Update(ctx, job)
+	if err := uc.importJobRepo.Update(ctx, job); err != nil {
+		return nil, fmt.Errorf("failed to update import job: %w", err)
+	}
 
 	// Get existing members for duplicate check
 	existingMembers, err := uc.memberRepo.FindByTenantID(ctx, input.TenantID)
 	if err != nil {
-		job.Fail(time.Now(), fmt.Sprintf("既存メンバー取得エラー: %v", err))
-		uc.importJobRepo.Update(ctx, job)
+		_ = job.Fail(time.Now(), fmt.Sprintf("既存メンバー取得エラー: %v", err))
+		_ = uc.importJobRepo.Update(ctx, job)
 		return &ImportMembersOutput{
 			ImportJobID:  job.ImportJobID(),
 			Status:       job.Status(),
@@ -187,8 +204,12 @@ func (uc *ImportMembersUsecase) Execute(ctx context.Context, input ImportMembers
 	}
 
 	// Complete job
-	job.Complete(time.Now())
-	uc.importJobRepo.Update(ctx, job)
+	if err := job.Complete(time.Now()); err != nil {
+		return nil, fmt.Errorf("failed to complete import job: %w", err)
+	}
+	if err := uc.importJobRepo.Update(ctx, job); err != nil {
+		return nil, fmt.Errorf("failed to update import job: %w", err)
+	}
 
 	return &ImportMembersOutput{
 		ImportJobID:  job.ImportJobID(),
@@ -203,6 +224,7 @@ func (uc *ImportMembersUsecase) Execute(ctx context.Context, input ImportMembers
 // GetImportStatusInput represents the input for getting import status
 type GetImportStatusInput struct {
 	ImportJobID common.ImportJobID
+	TenantID    common.TenantID
 }
 
 // GetImportStatusOutput represents the output of getting import status
@@ -235,7 +257,7 @@ func NewGetImportStatusUsecase(importJobRepo importjob.ImportJobRepository) *Get
 
 // Execute gets the status of an import job
 func (uc *GetImportStatusUsecase) Execute(ctx context.Context, input GetImportStatusInput) (*GetImportStatusOutput, error) {
-	job, err := uc.importJobRepo.FindByID(ctx, input.ImportJobID)
+	job, err := uc.importJobRepo.FindByIDAndTenantID(ctx, input.ImportJobID, input.TenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -259,6 +281,7 @@ func (uc *GetImportStatusUsecase) Execute(ctx context.Context, input GetImportSt
 // GetImportResultInput represents the input for getting import result
 type GetImportResultInput struct {
 	ImportJobID common.ImportJobID
+	TenantID    common.TenantID
 }
 
 // GetImportResultOutput represents the output of getting import result
@@ -286,7 +309,7 @@ func NewGetImportResultUsecase(importJobRepo importjob.ImportJobRepository) *Get
 
 // Execute gets the result of an import job
 func (uc *GetImportResultUsecase) Execute(ctx context.Context, input GetImportResultInput) (*GetImportResultOutput, error) {
-	job, err := uc.importJobRepo.FindByID(ctx, input.ImportJobID)
+	job, err := uc.importJobRepo.FindByIDAndTenantID(ctx, input.ImportJobID, input.TenantID)
 	if err != nil {
 		return nil, err
 	}
