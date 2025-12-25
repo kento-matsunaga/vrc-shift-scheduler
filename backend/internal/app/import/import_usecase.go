@@ -116,7 +116,10 @@ func (uc *ImportMembersUsecase) Execute(ctx context.Context, input ImportMembers
 		}, nil
 	}
 
-	// Build name index for duplicate check
+	// Build member matcher for duplicate check (with optional fuzzy matching)
+	matcher := importjob.NewMemberMatcher(existingMembers, input.Options.FuzzyMemberMatch)
+
+	// Build name index for tracking newly created members within this import
 	existingNames := make(map[string]*member.Member)
 	for _, m := range existingMembers {
 		existingNames[m.DisplayName()] = m
@@ -133,23 +136,29 @@ func (uc *ImportMembersUsecase) Execute(ctx context.Context, input ImportMembers
 		// Effective display name (already resolved by csv_parser)
 		effectiveDisplayName := row.DisplayName
 
-		// Check for duplicate by display name
-		if existing, ok := existingNames[effectiveDisplayName]; ok {
+		// Check for duplicate using matcher (supports fuzzy matching)
+		existing, _ := matcher.Match(effectiveDisplayName)
+		// Also check newly created members in this import batch
+		if existing == nil {
+			existing = existingNames[effectiveDisplayName]
+		}
+
+		if existing != nil {
 			if input.Options.SkipExisting {
 				job.RecordSkip()
 				continue
 			}
 			if input.Options.UpdateExisting {
-				// Update existing member - nothing to update since display name matches
-				if err := uc.memberRepo.Save(ctx, existing); err != nil {
-					job.RecordError(row.RowNumber, fmt.Sprintf("保存エラー: %v", err))
-					continue
-				}
+				// Update existing member - mark as success (no actual changes for now)
 				job.RecordSuccess()
 				continue
 			}
 			// Neither skip nor update - record as error
-			job.RecordError(row.RowNumber, fmt.Sprintf("メンバー '%s' は既に存在します", effectiveDisplayName))
+			matchInfo := ""
+			if input.Options.FuzzyMemberMatch && existing.DisplayName() != effectiveDisplayName {
+				matchInfo = fmt.Sprintf(" (曖昧一致: '%s')", existing.DisplayName())
+			}
+			job.RecordError(row.RowNumber, fmt.Sprintf("メンバー '%s' は既に存在します%s", effectiveDisplayName, matchInfo))
 			continue
 		}
 

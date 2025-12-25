@@ -126,6 +126,7 @@ func (h *ImportHandler) ImportMembers(w http.ResponseWriter, r *http.Request) {
 	// オプションの取得
 	skipExisting := r.FormValue("skip_existing") == "true"
 	updateExisting := r.FormValue("update_existing") == "true"
+	fuzzyMatch := r.FormValue("fuzzy_match") == "true"
 
 	// Usecaseの実行
 	input := importapp.ImportMembersInput{
@@ -134,8 +135,9 @@ func (h *ImportHandler) ImportMembers(w http.ResponseWriter, r *http.Request) {
 		FileName: header.Filename,
 		FileData: fileData,
 		Options: importjob.ImportOptions{
-			SkipExisting:   skipExisting,
-			UpdateExisting: updateExisting,
+			SkipExisting:     skipExisting,
+			UpdateExisting:   updateExisting,
+			FuzzyMemberMatch: fuzzyMatch,
 		},
 	}
 

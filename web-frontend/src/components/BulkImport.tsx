@@ -28,6 +28,7 @@ export default function BulkImport() {
   // Options state
   const [skipExisting, setSkipExisting] = useState(true);
   const [updateExisting, setUpdateExisting] = useState(false);
+  const [fuzzyMatch, setFuzzyMatch] = useState(false);
 
   // Import state
   const [importing, setImporting] = useState(false);
@@ -102,6 +103,7 @@ export default function BulkImport() {
       const result = await importMembersFromCSV(file, {
         skipExisting,
         updateExisting,
+        fuzzyMatch,
       });
       setImportResult(result);
       setStep('result');
@@ -319,11 +321,22 @@ export default function BulkImport() {
                     if (e.target.checked) setSkipExisting(false);
                   }}
                   className="w-4 h-4 text-accent rounded border-gray-300 focus:ring-accent"
-                  disabled // Currently not implemented
                 />
                 <div>
-                  <span className="text-sm text-gray-400">既存メンバーを更新（準備中）</span>
-                  <p className="text-xs text-gray-400">同じ表示名のメンバーが存在する場合は情報を更新します</p>
+                  <span className="text-sm text-gray-700">既存メンバーを更新</span>
+                  <p className="text-xs text-gray-500">同じ表示名のメンバーが存在する場合はスキップせずに成功としてカウントします</p>
+                </div>
+              </label>
+              <label className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  checked={fuzzyMatch}
+                  onChange={(e) => setFuzzyMatch(e.target.checked)}
+                  className="w-4 h-4 text-accent rounded border-gray-300 focus:ring-accent"
+                />
+                <div>
+                  <span className="text-sm text-gray-700">曖昧一致を有効化</span>
+                  <p className="text-xs text-gray-500">カタカナ⇔ひらがな、全角⇔半角を同一視して重複チェックを行います</p>
                 </div>
               </label>
             </div>

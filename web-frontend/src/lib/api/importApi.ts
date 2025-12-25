@@ -20,6 +20,7 @@ export interface ImportError {
 export interface ImportMembersOptions {
   skipExisting?: boolean;
   updateExisting?: boolean;
+  fuzzyMatch?: boolean;
 }
 
 export interface ImportMembersResponse {
@@ -135,6 +136,9 @@ export async function importMembersFromCSV(
   }
   if (options.updateExisting) {
     formData.append('update_existing', 'true');
+  }
+  if (options.fuzzyMatch) {
+    formData.append('fuzzy_match', 'true');
   }
 
   const res = await fetch(`${getBaseURL()}/api/v1/imports/members`, {
