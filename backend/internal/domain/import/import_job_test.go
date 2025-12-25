@@ -111,7 +111,7 @@ func TestImportJob_RecordSuccess(t *testing.T) {
 	adminID := common.NewAdminIDWithTime(now)
 
 	job, _ := NewImportJob(now, tenantID, ImportTypeMembers, "test.csv", ImportOptions{}, adminID)
-	job.Start(now, 10)
+	_ = job.Start(now, 10)
 
 	job.RecordSuccess()
 	job.RecordSuccess()
@@ -136,7 +136,7 @@ func TestImportJob_RecordError(t *testing.T) {
 	adminID := common.NewAdminIDWithTime(now)
 
 	job, _ := NewImportJob(now, tenantID, ImportTypeMembers, "test.csv", ImportOptions{}, adminID)
-	job.Start(now, 10)
+	_ = job.Start(now, 10)
 
 	job.RecordError(5, "テストエラー1")
 	job.RecordError(8, "テストエラー2")
@@ -171,7 +171,7 @@ func TestImportJob_Progress(t *testing.T) {
 		t.Errorf("progress before start = %f, want 0", job.Progress())
 	}
 
-	job.Start(now, 100)
+	_ = job.Start(now, 100)
 
 	// 0%
 	if job.Progress() != 0 {
@@ -201,7 +201,7 @@ func TestImportJob_Complete(t *testing.T) {
 	adminID := common.NewAdminIDWithTime(now)
 
 	job, _ := NewImportJob(now, tenantID, ImportTypeMembers, "test.csv", ImportOptions{}, adminID)
-	job.Start(now, 10)
+	_ = job.Start(now, 10)
 
 	for i := 0; i < 10; i++ {
 		job.RecordSuccess()
@@ -227,7 +227,7 @@ func TestImportJob_Fail(t *testing.T) {
 	adminID := common.NewAdminIDWithTime(now)
 
 	job, _ := NewImportJob(now, tenantID, ImportTypeMembers, "test.csv", ImportOptions{}, adminID)
-	job.Start(now, 10)
+	_ = job.Start(now, 10)
 
 	err := job.Fail(now.Add(time.Minute), "致命的なエラー")
 	if err != nil {

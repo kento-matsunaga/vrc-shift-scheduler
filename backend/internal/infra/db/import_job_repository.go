@@ -398,7 +398,7 @@ func (r *ImportJobLogRepository) SaveBatch(ctx context.Context, logs []*importjo
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	query := `
 		INSERT INTO import_job_logs (
