@@ -82,3 +82,6 @@ LOCAL_DEPLOY_GUIDE.md
 *.xlsx
 Citoron.xlsx
 
+# Test data (local only)
+backend/test_data/
+
