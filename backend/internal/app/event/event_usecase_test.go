@@ -109,6 +109,10 @@ func (m *MockBusinessDayRepository) FindByTenantIDAndDate(ctx context.Context, t
 	return nil, nil
 }
 
+func (m *MockBusinessDayRepository) FindByTenantIDAndDateRange(ctx context.Context, tenantID common.TenantID, startDate, endDate time.Time) ([]*event.EventBusinessDay, error) {
+	return nil, nil
+}
+
 func (m *MockBusinessDayRepository) Delete(ctx context.Context, tenantID common.TenantID, businessDayID event.BusinessDayID) error {
 	return nil
 }

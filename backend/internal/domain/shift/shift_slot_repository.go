@@ -24,5 +24,9 @@ type ShiftSlotRepository interface {
 	// Delete deletes a shift slot (physical delete)
 	// 通常は ShiftSlot.Delete() で論理削除を使用するため、このメソッドは稀に使用
 	Delete(ctx context.Context, tenantID common.TenantID, slotID SlotID) error
+
+	// FindByBusinessDayIDAndSlotName finds a shift slot by business day ID and slot name
+	// Used for bulk import operations
+	FindByBusinessDayIDAndSlotName(ctx context.Context, tenantID common.TenantID, businessDayID event.BusinessDayID, slotName string) (*ShiftSlot, error)
 }
 
