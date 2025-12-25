@@ -171,6 +171,63 @@ func (r *ShiftSlotRepository) Delete(ctx context.Context, tenantID common.Tenant
 	return nil
 }
 
+// FindByBusinessDayIDAndSlotName finds a shift slot by business day ID and slot name
+func (r *ShiftSlotRepository) FindByBusinessDayIDAndSlotName(ctx context.Context, tenantID common.TenantID, businessDayID event.BusinessDayID, slotName string) (*shift.ShiftSlot, error) {
+	query := `
+		SELECT
+			slot_id, tenant_id, business_day_id, position_id,
+			slot_name, instance_name, start_time, end_time,
+			required_count, priority, created_at, updated_at, deleted_at
+		FROM shift_slots
+		WHERE tenant_id = $1 AND business_day_id = $2 AND slot_name = $3 AND deleted_at IS NULL
+	`
+
+	var (
+		slotIDStr        string
+		tenantIDStr      string
+		businessDayIDStr string
+		positionIDStr    string
+		slotNameResult   string
+		instanceName     string
+		startTime        time.Time
+		endTime          time.Time
+		requiredCount    int
+		priority         int
+		createdAt        time.Time
+		updatedAt        time.Time
+		deletedAt        sql.NullTime
+	)
+
+	err := r.db.QueryRow(ctx, query, tenantID.String(), businessDayID.String(), slotName).Scan(
+		&slotIDStr,
+		&tenantIDStr,
+		&businessDayIDStr,
+		&positionIDStr,
+		&slotNameResult,
+		&instanceName,
+		&startTime,
+		&endTime,
+		&requiredCount,
+		&priority,
+		&createdAt,
+		&updatedAt,
+		&deletedAt,
+	)
+
+	if err == pgx.ErrNoRows {
+		return nil, nil // Not found is not an error for this lookup
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to find shift slot by business day and name: %w", err)
+	}
+
+	return r.scanToShiftSlot(
+		slotIDStr, tenantIDStr, businessDayIDStr, positionIDStr,
+		slotNameResult, instanceName, startTime, endTime,
+		requiredCount, priority, createdAt, updatedAt, deletedAt,
+	)
+}
+
 // queryShiftSlots executes a query and returns a list of shift slots
 func (r *ShiftSlotRepository) queryShiftSlots(ctx context.Context, query string, args ...interface{}) ([]*shift.ShiftSlot, error) {
 	rows, err := r.db.Query(ctx, query, args...)

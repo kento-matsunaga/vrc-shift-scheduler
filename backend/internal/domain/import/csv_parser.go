@@ -27,14 +27,15 @@ func (r MemberRow) Validate() error {
 
 // ActualAttendanceRow represents a parsed row from actual attendance CSV
 type ActualAttendanceRow struct {
-	RowNumber  int
-	Date       string
-	MemberName string
-	EventName  string
-	SlotName   string
-	StartTime  string
-	EndTime    string
-	Note       string
+	RowNumber    int
+	Date         string
+	MemberName   string
+	EventName    string
+	SlotName     string
+	PositionName string
+	StartTime    string
+	EndTime      string
+	Note         string
 }
 
 // Validate validates the actual attendance row
@@ -173,6 +174,9 @@ func (p *CSVParser) ParseActualAttendanceCSV(reader io.Reader) ([]ActualAttendan
 		}
 		if idx, ok := columnIndex["slot_name"]; ok && idx < len(record) {
 			row.SlotName = sanitizeCSVValue(record[idx])
+		}
+		if idx, ok := columnIndex["position_name"]; ok && idx < len(record) {
+			row.PositionName = sanitizeCSVValue(record[idx])
 		}
 		if idx, ok := columnIndex["start_time"]; ok && idx < len(record) {
 			row.StartTime = sanitizeCSVValue(record[idx])

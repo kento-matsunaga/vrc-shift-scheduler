@@ -376,8 +376,18 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 
 		// Import API（一括取り込み機能）
 		importJobRepo := db.NewImportJobRepository(dbPool)
+		positionRepo := db.NewPositionRepository(dbPool)
 		importHandler := NewImportHandler(
 			appimport.NewImportMembersUsecase(importJobRepo, memberRepo),
+			appimport.NewImportActualAttendanceUsecase(
+				importJobRepo,
+				memberRepo,
+				businessDayRepo,
+				eventRepo,
+				slotRepo,
+				assignmentRepo,
+				positionRepo,
+			),
 			appimport.NewGetImportStatusUsecase(importJobRepo),
 			appimport.NewGetImportResultUsecase(importJobRepo),
 			appimport.NewListImportJobsUsecase(importJobRepo),
@@ -385,6 +395,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		r.Route("/imports", func(r chi.Router) {
 			r.Get("/", importHandler.ListImportJobs)
 			r.With(permissionChecker.RequirePermission(tenant.PermissionAddMember)).Post("/members", importHandler.ImportMembers)
+			r.With(permissionChecker.RequirePermission(tenant.PermissionAddMember)).Post("/actual-attendance", importHandler.ImportActualAttendance)
 			r.Get("/{import_job_id}/status", importHandler.GetImportStatus)
 			r.Get("/{import_job_id}/result", importHandler.GetImportResult)
 		})

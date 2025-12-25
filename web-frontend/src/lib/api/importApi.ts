@@ -10,7 +10,7 @@ import { ApiClientError } from '../apiClient';
 // ========================
 
 export type ImportStatus = 'pending' | 'processing' | 'completed' | 'failed';
-export type ImportType = 'members';
+export type ImportType = 'members' | 'actual_attendance';
 
 export interface ImportError {
   row: number;
@@ -23,12 +23,31 @@ export interface ImportMembersOptions {
   fuzzyMatch?: boolean;
 }
 
+export interface ImportActualAttendanceOptions {
+  skipExisting?: boolean;
+  updateExisting?: boolean;
+  fuzzyMatch?: boolean;
+  createMissingSlots?: boolean;
+  createMissingBusinessDays?: boolean;
+  defaultEventId?: string;
+}
+
 export interface ImportMembersResponse {
   import_job_id: string;
   status: ImportStatus;
   total_rows: number;
   success_count: number;
   error_count: number;
+  errors?: ImportError[];
+}
+
+export interface ImportActualAttendanceResponse {
+  import_job_id: string;
+  status: ImportStatus;
+  total_rows: number;
+  success_count: number;
+  error_count: number;
+  skipped_count: number;
   errors?: ImportError[];
 }
 
@@ -212,9 +231,9 @@ export async function getImportResult(
 }
 
 /**
- * CSVテンプレートをダウンロード
+ * メンバーCSVテンプレートをダウンロード
  */
-export function downloadCSVTemplate(): void {
+export function downloadMembersCSVTemplate(): void {
   const csvContent = 'name,display_name,note\n佐藤太郎,たろう,一期生\n鈴木花子,はなこ,二期生\n';
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
@@ -222,6 +241,69 @@ export function downloadCSVTemplate(): void {
   const link = document.createElement('a');
   link.href = url;
   link.download = 'members_template.csv';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * 後方互換のためのエイリアス
+ */
+export const downloadCSVTemplate = downloadMembersCSVTemplate;
+
+/**
+ * 本出勤をCSVからインポート
+ * @param file CSVファイル
+ * @param options インポートオプション
+ */
+export async function importActualAttendanceFromCSV(
+  file: File,
+  options: ImportActualAttendanceOptions = {}
+): Promise<ImportActualAttendanceResponse> {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  if (options.skipExisting) {
+    formData.append('skip_existing', 'true');
+  }
+  if (options.updateExisting) {
+    formData.append('update_existing', 'true');
+  }
+  if (options.fuzzyMatch) {
+    formData.append('fuzzy_match', 'true');
+  }
+  if (options.createMissingSlots) {
+    formData.append('create_missing_slots', 'true');
+  }
+  if (options.createMissingBusinessDays) {
+    formData.append('create_missing_business_days', 'true');
+  }
+  if (options.defaultEventId) {
+    formData.append('default_event_id', options.defaultEventId);
+  }
+
+  const res = await fetch(`${getBaseURL()}/api/v1/imports/actual-attendance`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: formData,
+  });
+
+  return handleResponse<ImportActualAttendanceResponse>(res);
+}
+
+/**
+ * 本出勤CSVテンプレートをダウンロード
+ */
+export function downloadActualAttendanceCSVTemplate(): void {
+  const csvContent = 'date,member_name,event_name,slot_name,position_name,start_time,end_time,note\n2025-01-15,たろう,週末イベント,受付,スタッフ,20:00,22:00,\n2025-01-15,はなこ,週末イベント,案内,スタッフ,20:00,22:00,\n2025-01-22,じろう,週末イベント,受付,スタッフ,20:00,22:00,代打参加\n';
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'actual_attendance_template.csv';
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);

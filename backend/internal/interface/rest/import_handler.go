@@ -14,24 +14,27 @@ import (
 
 // ImportHandler handles import-related HTTP requests
 type ImportHandler struct {
-	importMembersUC   *importapp.ImportMembersUsecase
-	getImportStatusUC *importapp.GetImportStatusUsecase
-	getImportResultUC *importapp.GetImportResultUsecase
-	listImportJobsUC  *importapp.ListImportJobsUsecase
+	importMembersUC           *importapp.ImportMembersUsecase
+	importActualAttendanceUC  *importapp.ImportActualAttendanceUsecase
+	getImportStatusUC         *importapp.GetImportStatusUsecase
+	getImportResultUC         *importapp.GetImportResultUsecase
+	listImportJobsUC          *importapp.ListImportJobsUsecase
 }
 
 // NewImportHandler creates a new ImportHandler
 func NewImportHandler(
 	importMembersUC *importapp.ImportMembersUsecase,
+	importActualAttendanceUC *importapp.ImportActualAttendanceUsecase,
 	getImportStatusUC *importapp.GetImportStatusUsecase,
 	getImportResultUC *importapp.GetImportResultUsecase,
 	listImportJobsUC *importapp.ListImportJobsUsecase,
 ) *ImportHandler {
 	return &ImportHandler{
-		importMembersUC:   importMembersUC,
-		getImportStatusUC: getImportStatusUC,
-		getImportResultUC: getImportResultUC,
-		listImportJobsUC:  listImportJobsUC,
+		importMembersUC:          importMembersUC,
+		importActualAttendanceUC: importActualAttendanceUC,
+		getImportStatusUC:        getImportStatusUC,
+		getImportResultUC:        getImportResultUC,
+		listImportJobsUC:         listImportJobsUC,
 	}
 }
 
@@ -163,6 +166,109 @@ func (h *ImportHandler) ImportMembers(w http.ResponseWriter, r *http.Request) {
 		TotalRows:    output.TotalRows,
 		SuccessCount: output.SuccessCount,
 		ErrorCount:   output.ErrorCount,
+		Errors:       errors,
+	}
+
+	writeSuccess(w, http.StatusOK, resp)
+}
+
+// ImportActualAttendanceResponse represents the response for actual attendance import
+type ImportActualAttendanceResponse struct {
+	ImportJobID  string                `json:"import_job_id"`
+	Status       string                `json:"status"`
+	TotalRows    int                   `json:"total_rows"`
+	SuccessCount int                   `json:"success_count"`
+	ErrorCount   int                   `json:"error_count"`
+	SkippedCount int                   `json:"skipped_count"`
+	Errors       []ImportErrorResponse `json:"errors,omitempty"`
+}
+
+// ImportActualAttendance handles POST /api/v1/imports/actual-attendance
+func (h *ImportHandler) ImportActualAttendance(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// テナントIDの取得
+	tenantID, ok := getTenantIDFromContext(ctx)
+	if !ok {
+		writeError(w, http.StatusForbidden, "ERR_FORBIDDEN", "Tenant ID is required", nil)
+		return
+	}
+
+	// AdminIDの取得
+	adminID, ok := ctx.Value(ContextKeyAdminID).(common.AdminID)
+	if !ok {
+		writeError(w, http.StatusForbidden, "ERR_FORBIDDEN", "Admin ID is required", nil)
+		return
+	}
+
+	// Parse multipart form (max 10MB)
+	if err := r.ParseMultipartForm(10 << 20); err != nil {
+		writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "Failed to parse form data", nil)
+		return
+	}
+
+	// ファイルの取得
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "File is required", nil)
+		return
+	}
+	defer file.Close()
+
+	// ファイルデータの読み込み
+	fileData, err := io.ReadAll(file)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to read file", nil)
+		return
+	}
+
+	// オプションの取得
+	skipExisting := r.FormValue("skip_existing") == "true"
+	updateExisting := r.FormValue("update_existing") == "true"
+	fuzzyMatch := r.FormValue("fuzzy_match") == "true"
+	createMissingSlots := r.FormValue("create_missing_slots") == "true"
+	createMissingBusinessDays := r.FormValue("create_missing_business_days") == "true"
+	defaultEventID := r.FormValue("default_event_id")
+
+	// Usecaseの実行
+	input := importapp.ImportActualAttendanceInput{
+		TenantID: tenantID,
+		AdminID:  adminID,
+		FileName: header.Filename,
+		FileData: fileData,
+		Options: importjob.ImportOptions{
+			SkipExisting:              skipExisting,
+			UpdateExisting:            updateExisting,
+			FuzzyMemberMatch:          fuzzyMatch,
+			CreateMissingSlots:        createMissingSlots,
+			CreateMissingBusinessDays: createMissingBusinessDays,
+			DefaultEventID:            defaultEventID,
+		},
+	}
+
+	output, err := h.importActualAttendanceUC.Execute(ctx, input)
+	if err != nil {
+		log.Printf("ImportActualAttendance error: %+v", err)
+		writeError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to import actual attendance", nil)
+		return
+	}
+
+	// エラー詳細をレスポンス用に変換
+	errors := make([]ImportErrorResponse, len(output.Errors))
+	for i, e := range output.Errors {
+		errors[i] = ImportErrorResponse{
+			Row:     e.Row,
+			Message: e.Message,
+		}
+	}
+
+	resp := ImportActualAttendanceResponse{
+		ImportJobID:  output.ImportJobID.String(),
+		Status:       string(output.Status),
+		TotalRows:    output.TotalRows,
+		SuccessCount: output.SuccessCount,
+		ErrorCount:   output.ErrorCount,
+		SkippedCount: output.SkippedCount,
 		Errors:       errors,
 	}
 
