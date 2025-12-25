@@ -43,6 +43,11 @@ type PositionRepository interface {
 	FindByTenantID(ctx context.Context, tenantID common.TenantID) ([]*shift.Position, error)
 }
 
+// TxManager defines the interface for transaction management
+type TxManager interface {
+	WithTx(ctx context.Context, fn func(context.Context) error) error
+}
+
 // ImportActualAttendanceInput represents the input for importing actual attendance
 type ImportActualAttendanceInput struct {
 	TenantID common.TenantID
@@ -72,6 +77,7 @@ type ImportActualAttendanceUsecase struct {
 	shiftSlotRepo      ShiftSlotRepository
 	shiftAssignmentRepo ShiftAssignmentRepository
 	positionRepo       PositionRepository
+	txManager          TxManager
 	csvParser          *importjob.CSVParser
 }
 
@@ -84,6 +90,7 @@ func NewImportActualAttendanceUsecase(
 	shiftSlotRepo ShiftSlotRepository,
 	shiftAssignmentRepo ShiftAssignmentRepository,
 	positionRepo PositionRepository,
+	txManager TxManager,
 ) *ImportActualAttendanceUsecase {
 	return &ImportActualAttendanceUsecase{
 		importJobRepo:      importJobRepo,
@@ -93,6 +100,7 @@ func NewImportActualAttendanceUsecase(
 		shiftSlotRepo:      shiftSlotRepo,
 		shiftAssignmentRepo: shiftAssignmentRepo,
 		positionRepo:       positionRepo,
+		txManager:          txManager,
 		csvParser:          importjob.NewCSVParser(),
 	}
 }
@@ -381,6 +389,8 @@ func (uc *ImportActualAttendanceUsecase) processRow(
 		return
 	}
 
+	// シフト枠が見つからない場合、新規作成を準備
+	var newSlot *shift.ShiftSlot
 	if slot == nil {
 		if !input.Options.CreateMissingSlots {
 			job.RecordError(row.RowNumber, fmt.Sprintf("シフト枠 '%s' が見つかりません", slotName))
@@ -406,8 +416,8 @@ func (uc *ImportActualAttendanceUsecase) processRow(
 			return
 		}
 
-		// Create new slot
-		newSlot, err := shift.NewShiftSlot(
+		// Create new slot entity (not saved yet)
+		newSlot, err = shift.NewShiftSlot(
 			time.Now(),
 			input.TenantID,
 			businessDay.BusinessDayID(),
@@ -421,11 +431,6 @@ func (uc *ImportActualAttendanceUsecase) processRow(
 		)
 		if err != nil {
 			job.RecordError(row.RowNumber, fmt.Sprintf("シフト枠作成エラー: %v", err))
-			return
-		}
-
-		if err := uc.shiftSlotRepo.Save(ctx, newSlot); err != nil {
-			job.RecordError(row.RowNumber, fmt.Sprintf("シフト枠保存エラー: %v", err))
 			return
 		}
 
@@ -448,7 +453,7 @@ func (uc *ImportActualAttendanceUsecase) processRow(
 		return
 	}
 
-	// Create shift assignment
+	// Create shift assignment entity
 	assignment, err := shift.NewShiftAssignment(
 		time.Now(),
 		input.TenantID,
@@ -463,8 +468,26 @@ func (uc *ImportActualAttendanceUsecase) processRow(
 		return
 	}
 
-	if err := uc.shiftAssignmentRepo.Save(ctx, assignment); err != nil {
-		job.RecordError(row.RowNumber, fmt.Sprintf("シフト割り当て保存エラー: %v", err))
+	// シフト枠と割り当てをトランザクションで保存
+	// 新規シフト枠作成の場合、両方の保存を1つのトランザクションでラップ
+	txErr := uc.txManager.WithTx(ctx, func(txCtx context.Context) error {
+		// 新規シフト枠がある場合は保存
+		if newSlot != nil {
+			if err := uc.shiftSlotRepo.Save(txCtx, newSlot); err != nil {
+				return fmt.Errorf("シフト枠保存エラー: %w", err)
+			}
+		}
+
+		// シフト割り当てを保存
+		if err := uc.shiftAssignmentRepo.Save(txCtx, assignment); err != nil {
+			return fmt.Errorf("シフト割り当て保存エラー: %w", err)
+		}
+
+		return nil
+	})
+
+	if txErr != nil {
+		job.RecordError(row.RowNumber, txErr.Error())
 		return
 	}
 

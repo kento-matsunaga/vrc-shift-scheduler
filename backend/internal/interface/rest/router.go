@@ -387,6 +387,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 				slotRepo,
 				assignmentRepo,
 				positionRepo,
+				txManager,
 			),
 			appimport.NewGetImportStatusUsecase(importJobRepo),
 			appimport.NewGetImportResultUsecase(importJobRepo),

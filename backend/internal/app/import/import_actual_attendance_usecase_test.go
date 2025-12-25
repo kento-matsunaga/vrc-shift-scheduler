@@ -161,6 +161,14 @@ func (m *MockPositionRepository) FindByTenantID(ctx context.Context, tenantID co
 	return m.positions, nil
 }
 
+// MockTxManager is a mock transaction manager for testing
+type MockTxManager struct{}
+
+func (m *MockTxManager) WithTx(ctx context.Context, fn func(context.Context) error) error {
+	// Simply execute the function without actual transaction
+	return fn(ctx)
+}
+
 // =====================================================
 // Test Helper Functions
 // =====================================================
@@ -260,6 +268,7 @@ func TestImportActualAttendanceUsecase_Execute_Success(t *testing.T) {
 		&MockShiftSlotRepository{slots: []*shift.ShiftSlot{testSlot}},
 		&MockShiftAssignmentRepository{assignments: map[string]bool{}},
 		&MockPositionRepository{positions: []*shift.Position{testPosition}},
+		&MockTxManager{},
 	)
 
 	input := ImportActualAttendanceInput{
@@ -321,6 +330,7 @@ func TestImportActualAttendanceUsecase_Execute_MultipleRows(t *testing.T) {
 		&MockShiftSlotRepository{slots: []*shift.ShiftSlot{slot1, slot2}},
 		&MockShiftAssignmentRepository{assignments: map[string]bool{}},
 		&MockPositionRepository{positions: []*shift.Position{testPosition}},
+		&MockTxManager{},
 	)
 
 	input := ImportActualAttendanceInput{
@@ -361,6 +371,7 @@ func TestImportActualAttendanceUsecase_Execute_InvalidCSV(t *testing.T) {
 		&MockShiftSlotRepository{},
 		&MockShiftAssignmentRepository{assignments: map[string]bool{}},
 		&MockPositionRepository{},
+		&MockTxManager{},
 	)
 
 	input := ImportActualAttendanceInput{
@@ -402,6 +413,7 @@ func TestImportActualAttendanceUsecase_Execute_MemberNotFound(t *testing.T) {
 		&MockShiftSlotRepository{slots: []*shift.ShiftSlot{testSlot}},
 		&MockShiftAssignmentRepository{assignments: map[string]bool{}},
 		&MockPositionRepository{positions: []*shift.Position{testPosition}},
+		&MockTxManager{},
 	)
 
 	input := ImportActualAttendanceInput{
@@ -442,6 +454,7 @@ func TestImportActualAttendanceUsecase_Execute_SlotNotFoundWithoutCreate(t *test
 		&MockShiftSlotRepository{slots: []*shift.ShiftSlot{}}, // No slots
 		&MockShiftAssignmentRepository{assignments: map[string]bool{}},
 		&MockPositionRepository{},
+		&MockTxManager{},
 	)
 
 	input := ImportActualAttendanceInput{
@@ -491,6 +504,7 @@ func TestImportActualAttendanceUsecase_Execute_DuplicateWithSkip(t *testing.T) {
 		&MockShiftSlotRepository{slots: []*shift.ShiftSlot{testSlot}},
 		&MockShiftAssignmentRepository{assignments: assignments},
 		&MockPositionRepository{positions: []*shift.Position{testPosition}},
+		&MockTxManager{},
 	)
 
 	input := ImportActualAttendanceInput{
@@ -543,6 +557,7 @@ func TestImportActualAttendanceUsecase_Execute_DuplicateWithoutSkip(t *testing.T
 		&MockShiftSlotRepository{slots: []*shift.ShiftSlot{testSlot}},
 		&MockShiftAssignmentRepository{assignments: assignments},
 		&MockPositionRepository{positions: []*shift.Position{testPosition}},
+		&MockTxManager{},
 	)
 
 	input := ImportActualAttendanceInput{
@@ -588,6 +603,7 @@ func TestImportActualAttendanceUsecase_Execute_RowLimitExceeded(t *testing.T) {
 		&MockShiftSlotRepository{},
 		&MockShiftAssignmentRepository{assignments: map[string]bool{}},
 		&MockPositionRepository{},
+		&MockTxManager{},
 	)
 
 	input := ImportActualAttendanceInput{
