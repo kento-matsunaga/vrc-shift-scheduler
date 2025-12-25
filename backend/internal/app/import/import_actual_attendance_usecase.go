@@ -136,10 +136,9 @@ func (uc *ImportActualAttendanceUsecase) Execute(ctx context.Context, input Impo
 		}, nil
 	}
 
-	// Check row limit (max 10000 rows)
-	const maxRows = 10000
-	if len(rows) > maxRows {
-		_ = job.Fail(time.Now(), fmt.Sprintf("行数が上限を超えています: %d行 (上限: %d行)", len(rows), maxRows))
+	// Check row limit
+	if len(rows) > importjob.MaxImportRows {
+		_ = job.Fail(time.Now(), fmt.Sprintf("行数が上限を超えています: %d行 (上限: %d行)", len(rows), importjob.MaxImportRows))
 		_ = uc.importJobRepo.Update(ctx, job)
 		return &ImportActualAttendanceOutput{
 			ImportJobID:  job.ImportJobID(),
@@ -530,12 +529,13 @@ func (uc *ImportActualAttendanceUsecase) parseSlotTimes(row importjob.ActualAtte
 		return time.Time{}, time.Time{}, fmt.Errorf("シフト枠作成には start_time, end_time が必要です")
 	}
 
-	startTime, err := time.Parse("15:04", row.StartTime)
+	// JSTタイムゾーンで時刻をパース
+	startTime, err := time.ParseInLocation("15:04", row.StartTime, importjob.DefaultTimezone)
 	if err != nil {
 		return time.Time{}, time.Time{}, fmt.Errorf("開始時刻の形式が不正です: %s (HH:MM形式で入力)", row.StartTime)
 	}
 
-	endTime, err := time.Parse("15:04", row.EndTime)
+	endTime, err := time.ParseInLocation("15:04", row.EndTime, importjob.DefaultTimezone)
 	if err != nil {
 		return time.Time{}, time.Time{}, fmt.Errorf("終了時刻の形式が不正です: %s (HH:MM形式で入力)", row.EndTime)
 	}

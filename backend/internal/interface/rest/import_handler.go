@@ -117,10 +117,10 @@ func (h *ImportHandler) ImportMembers(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "File is required", nil)
 		return
 	}
-	defer file.Close()
 
-	// ファイルデータの読み込み
+	// ファイルデータの読み込み（読み込み後すぐにクローズ）
 	fileData, err := io.ReadAll(file)
+	file.Close() // リソースリーク防止のため即座にクローズ
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to read file", nil)
 		return
@@ -213,10 +213,10 @@ func (h *ImportHandler) ImportActualAttendance(w http.ResponseWriter, r *http.Re
 		writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "File is required", nil)
 		return
 	}
-	defer file.Close()
 
-	// ファイルデータの読み込み
+	// ファイルデータの読み込み（読み込み後すぐにクローズ）
 	fileData, err := io.ReadAll(file)
+	file.Close() // リソースリーク防止のため即座にクローズ
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to read file", nil)
 		return
@@ -229,6 +229,14 @@ func (h *ImportHandler) ImportActualAttendance(w http.ResponseWriter, r *http.Re
 	createMissingSlots := r.FormValue("create_missing_slots") == "true"
 	createMissingBusinessDays := r.FormValue("create_missing_business_days") == "true"
 	defaultEventID := r.FormValue("default_event_id")
+
+	// default_event_id のバリデーション
+	if defaultEventID != "" {
+		if _, err := common.ParseEventID(defaultEventID); err != nil {
+			writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "Invalid default_event_id format", nil)
+			return
+		}
+	}
 
 	// Usecaseの実行
 	input := importapp.ImportActualAttendanceInput{

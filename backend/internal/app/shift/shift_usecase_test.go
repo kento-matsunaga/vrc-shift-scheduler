@@ -52,6 +52,10 @@ func (m *MockShiftSlotRepository) Delete(ctx context.Context, tenantID common.Te
 	return nil
 }
 
+func (m *MockShiftSlotRepository) FindByBusinessDayIDAndSlotName(ctx context.Context, tenantID common.TenantID, businessDayID event.BusinessDayID, slotName string) (*shift.ShiftSlot, error) {
+	return nil, nil
+}
+
 type MockShiftAssignmentRepository struct {
 	saveFunc                func(ctx context.Context, assignment *shift.ShiftAssignment) error
 	findByIDFunc            func(ctx context.Context, tenantID common.TenantID, assignmentID shift.AssignmentID) (*shift.ShiftAssignment, error)
@@ -155,6 +159,10 @@ func (m *MockBusinessDayRepository) FindActiveByEventID(ctx context.Context, ten
 }
 
 func (m *MockBusinessDayRepository) FindByTenantIDAndDate(ctx context.Context, tenantID common.TenantID, date time.Time) ([]*event.EventBusinessDay, error) {
+	return nil, nil
+}
+
+func (m *MockBusinessDayRepository) FindByTenantIDAndDateRange(ctx context.Context, tenantID common.TenantID, startDate, endDate time.Time) ([]*event.EventBusinessDay, error) {
 	return nil, nil
 }
 
