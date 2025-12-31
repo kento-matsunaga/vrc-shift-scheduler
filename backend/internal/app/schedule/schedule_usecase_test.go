@@ -17,14 +17,14 @@ import (
 
 // MockDateScheduleRepository is a mock implementation of schedule.DateScheduleRepository
 type MockDateScheduleRepository struct {
-	saveFunc                        func(ctx context.Context, sch *schedule.DateSchedule) error
-	findByIDFunc                    func(ctx context.Context, tenantID common.TenantID, id common.ScheduleID) (*schedule.DateSchedule, error)
-	findByTokenFunc                 func(ctx context.Context, token common.PublicToken) (*schedule.DateSchedule, error)
-	findByTenantIDFunc              func(ctx context.Context, tenantID common.TenantID) ([]*schedule.DateSchedule, error)
-	upsertResponseFunc              func(ctx context.Context, response *schedule.DateScheduleResponse) error
-	findResponsesByScheduleIDFunc   func(ctx context.Context, scheduleID common.ScheduleID) ([]*schedule.DateScheduleResponse, error)
-	findCandidatesByScheduleIDFunc  func(ctx context.Context, scheduleID common.ScheduleID) ([]*schedule.CandidateDate, error)
-	saveGroupAssignmentsFunc        func(ctx context.Context, scheduleID common.ScheduleID, assignments []*schedule.ScheduleGroupAssignment) error
+	saveFunc                             func(ctx context.Context, sch *schedule.DateSchedule) error
+	findByIDFunc                         func(ctx context.Context, tenantID common.TenantID, id common.ScheduleID) (*schedule.DateSchedule, error)
+	findByTokenFunc                      func(ctx context.Context, token common.PublicToken) (*schedule.DateSchedule, error)
+	findByTenantIDFunc                   func(ctx context.Context, tenantID common.TenantID) ([]*schedule.DateSchedule, error)
+	upsertResponseFunc                   func(ctx context.Context, response *schedule.DateScheduleResponse) error
+	findResponsesByScheduleIDFunc        func(ctx context.Context, scheduleID common.ScheduleID) ([]*schedule.DateScheduleResponse, error)
+	findCandidatesByScheduleIDFunc       func(ctx context.Context, scheduleID common.ScheduleID) ([]*schedule.CandidateDate, error)
+	saveGroupAssignmentsFunc             func(ctx context.Context, scheduleID common.ScheduleID, assignments []*schedule.ScheduleGroupAssignment) error
 	findGroupAssignmentsByScheduleIDFunc func(ctx context.Context, scheduleID common.ScheduleID) ([]*schedule.ScheduleGroupAssignment, error)
 }
 

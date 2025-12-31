@@ -22,17 +22,17 @@ type CreateScheduleInput struct {
 
 // CreateScheduleOutput represents the output for creating a schedule
 type CreateScheduleOutput struct {
-	ScheduleID string           `json:"schedule_id"`
-	TenantID   string           `json:"tenant_id"`
-	Title      string           `json:"title"`
-	Description string          `json:"description"`
-	EventID    *string          `json:"event_id,omitempty"`
-	PublicToken string          `json:"public_token"`
-	Status     string           `json:"status"`
-	Deadline   *time.Time       `json:"deadline,omitempty"`
-	Candidates []CandidateDTO   `json:"candidates"`
-	CreatedAt  time.Time        `json:"created_at"`
-	UpdatedAt  time.Time        `json:"updated_at"`
+	ScheduleID  string         `json:"schedule_id"`
+	TenantID    string         `json:"tenant_id"`
+	Title       string         `json:"title"`
+	Description string         `json:"description"`
+	EventID     *string        `json:"event_id,omitempty"`
+	PublicToken string         `json:"public_token"`
+	Status      string         `json:"status"`
+	Deadline    *time.Time     `json:"deadline,omitempty"`
+	Candidates  []CandidateDTO `json:"candidates"`
+	CreatedAt   time.Time      `json:"created_at"`
+	UpdatedAt   time.Time      `json:"updated_at"`
 }
 
 // CandidateDTO represents a candidate date in responses
@@ -59,16 +59,16 @@ type ResponseInput struct {
 
 // SubmitResponseOutput represents the output for submitting responses
 type SubmitResponseOutput struct {
-	ScheduleID string    `json:"schedule_id"`
-	MemberID   string    `json:"member_id"`
+	ScheduleID  string    `json:"schedule_id"`
+	MemberID    string    `json:"member_id"`
 	RespondedAt time.Time `json:"responded_at"`
 }
 
 // DecideScheduleInput represents the input for deciding a schedule
 type DecideScheduleInput struct {
-	TenantID     string // from JWT context (管理API)
-	ScheduleID   string
-	CandidateID  string
+	TenantID    string // from JWT context (管理API)
+	ScheduleID  string
+	CandidateID string
 }
 
 // DecideScheduleOutput represents the output for deciding a schedule
@@ -100,19 +100,19 @@ type GetScheduleInput struct {
 
 // GetScheduleOutput represents the output for getting a schedule
 type GetScheduleOutput struct {
-	ScheduleID         string           `json:"schedule_id"`
-	TenantID           string           `json:"tenant_id"`
-	Title              string           `json:"title"`
-	Description        string           `json:"description"`
-	EventID            *string          `json:"event_id,omitempty"`
-	PublicToken        string           `json:"public_token"`
-	Status             string           `json:"status"`
-	Deadline           *time.Time       `json:"deadline,omitempty"`
-	DecidedCandidateID *string          `json:"decided_candidate_id,omitempty"`
-	Candidates         []CandidateDTO   `json:"candidates"`
-	GroupIDs           []string         `json:"group_ids,omitempty"`
-	CreatedAt          time.Time        `json:"created_at"`
-	UpdatedAt          time.Time        `json:"updated_at"`
+	ScheduleID         string         `json:"schedule_id"`
+	TenantID           string         `json:"tenant_id"`
+	Title              string         `json:"title"`
+	Description        string         `json:"description"`
+	EventID            *string        `json:"event_id,omitempty"`
+	PublicToken        string         `json:"public_token"`
+	Status             string         `json:"status"`
+	Deadline           *time.Time     `json:"deadline,omitempty"`
+	DecidedCandidateID *string        `json:"decided_candidate_id,omitempty"`
+	Candidates         []CandidateDTO `json:"candidates"`
+	GroupIDs           []string       `json:"group_ids,omitempty"`
+	CreatedAt          time.Time      `json:"created_at"`
+	UpdatedAt          time.Time      `json:"updated_at"`
 }
 
 // GetResponsesInput represents the input for getting responses
@@ -135,4 +135,18 @@ type ScheduleResponseDTO struct {
 type GetResponsesOutput struct {
 	ScheduleID string                `json:"schedule_id"`
 	Responses  []ScheduleResponseDTO `json:"responses"`
+}
+
+// DeleteScheduleInput represents the input for deleting a schedule
+type DeleteScheduleInput struct {
+	TenantID   string // from JWT context (管理API)
+	ScheduleID string
+}
+
+// DeleteScheduleOutput represents the output for deleting a schedule
+type DeleteScheduleOutput struct {
+	ScheduleID string     `json:"schedule_id"`
+	Status     string     `json:"status"`
+	DeletedAt  *time.Time `json:"deleted_at,omitempty"`
+	UpdatedAt  time.Time  `json:"updated_at"`
 }

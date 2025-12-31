@@ -14,14 +14,15 @@ import (
 )
 
 type ScheduleHandler struct {
-	createScheduleUsecase       *schedule.CreateScheduleUsecase
-	submitResponseUsecase       *schedule.SubmitResponseUsecase
-	decideScheduleUsecase       *schedule.DecideScheduleUsecase
-	closeScheduleUsecase        *schedule.CloseScheduleUsecase
-	getScheduleUsecase          *schedule.GetScheduleUsecase
-	getScheduleByTokenUsecase   *schedule.GetScheduleByTokenUsecase
-	getResponsesUsecase         *schedule.GetResponsesUsecase
-	listSchedulesUsecase        *schedule.ListSchedulesUsecase
+	createScheduleUsecase     *schedule.CreateScheduleUsecase
+	submitResponseUsecase     *schedule.SubmitResponseUsecase
+	decideScheduleUsecase     *schedule.DecideScheduleUsecase
+	closeScheduleUsecase      *schedule.CloseScheduleUsecase
+	deleteScheduleUsecase     *schedule.DeleteScheduleUsecase
+	getScheduleUsecase        *schedule.GetScheduleUsecase
+	getScheduleByTokenUsecase *schedule.GetScheduleByTokenUsecase
+	getResponsesUsecase       *schedule.GetResponsesUsecase
+	listSchedulesUsecase      *schedule.ListSchedulesUsecase
 }
 
 // NewScheduleHandler creates a new ScheduleHandler with injected usecases
@@ -30,20 +31,22 @@ func NewScheduleHandler(
 	submitResponseUC *schedule.SubmitResponseUsecase,
 	decideScheduleUC *schedule.DecideScheduleUsecase,
 	closeScheduleUC *schedule.CloseScheduleUsecase,
+	deleteScheduleUC *schedule.DeleteScheduleUsecase,
 	getScheduleUC *schedule.GetScheduleUsecase,
 	getScheduleByTokenUC *schedule.GetScheduleByTokenUsecase,
 	getResponsesUC *schedule.GetResponsesUsecase,
 	listSchedulesUC *schedule.ListSchedulesUsecase,
 ) *ScheduleHandler {
 	return &ScheduleHandler{
-		createScheduleUsecase:       createScheduleUC,
-		submitResponseUsecase:       submitResponseUC,
-		decideScheduleUsecase:       decideScheduleUC,
-		closeScheduleUsecase:        closeScheduleUC,
-		getScheduleUsecase:          getScheduleUC,
-		getScheduleByTokenUsecase:   getScheduleByTokenUC,
-		getResponsesUsecase:         getResponsesUC,
-		listSchedulesUsecase:        listSchedulesUC,
+		createScheduleUsecase:     createScheduleUC,
+		submitResponseUsecase:     submitResponseUC,
+		decideScheduleUsecase:     decideScheduleUC,
+		closeScheduleUsecase:      closeScheduleUC,
+		deleteScheduleUsecase:     deleteScheduleUC,
+		getScheduleUsecase:        getScheduleUC,
+		getScheduleByTokenUsecase: getScheduleByTokenUC,
+		getResponsesUsecase:       getResponsesUC,
+		listSchedulesUsecase:      listSchedulesUC,
 	}
 }
 
@@ -115,12 +118,12 @@ func (h *ScheduleHandler) ListSchedules(w http.ResponseWriter, r *http.Request) 
 }
 
 type CreateScheduleRequest struct {
-	Title       string               `json:"title"`
-	Description string               `json:"description"`
-	EventID     *string              `json:"event_id"`
-	Candidates  []CandidateRequest   `json:"candidates"`
-	Deadline    *time.Time           `json:"deadline"`
-	GroupIDs    []string             `json:"group_ids"` // optional: target group IDs
+	Title       string             `json:"title"`
+	Description string             `json:"description"`
+	EventID     *string            `json:"event_id"`
+	Candidates  []CandidateRequest `json:"candidates"`
+	Deadline    *time.Time         `json:"deadline"`
+	GroupIDs    []string           `json:"group_ids"` // optional: target group IDs
 }
 
 type CandidateRequest struct {
@@ -434,9 +437,69 @@ func (h *ScheduleHandler) CloseSchedule(w http.ResponseWriter, r *http.Request) 
 	RespondJSON(w, http.StatusOK, resp)
 }
 
+type DeleteScheduleResponse struct {
+	ScheduleID string     `json:"schedule_id"`
+	Status     string     `json:"status"`
+	DeletedAt  *time.Time `json:"deleted_at,omitempty"`
+	UpdatedAt  time.Time  `json:"updated_at"`
+}
+
+// DeleteSchedule handles DELETE /api/v1/schedules/:id
+func (h *ScheduleHandler) DeleteSchedule(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	tenantID, ok := GetTenantID(ctx)
+	if !ok {
+		RespondBadRequest(w, "tenant_id is required")
+		return
+	}
+
+	scheduleID := chi.URLParam(r, "schedule_id")
+	if scheduleID == "" {
+		RespondBadRequest(w, "schedule_id is required")
+		return
+	}
+
+	input := schedule.DeleteScheduleInput{
+		TenantID:   tenantID.String(),
+		ScheduleID: scheduleID,
+	}
+
+	output, err := h.deleteScheduleUsecase.Execute(ctx, input)
+	if err != nil {
+		// CloseSchedule が ErrAlreadyClosed を BadRequest 扱いなので、Delete も揃える
+		if errors.Is(err, schedDomain.ErrAlreadyDeleted) {
+			RespondBadRequest(w, err.Error())
+			return
+		}
+		var domainErr *common.DomainError
+		if errors.As(err, &domainErr) {
+			switch domainErr.Code() {
+			case common.ErrNotFound:
+				RespondNotFound(w, domainErr.Error())
+				return
+			case common.ErrInvalidInput:
+				RespondBadRequest(w, domainErr.Error())
+				return
+			}
+		}
+		RespondInternalError(w)
+		return
+	}
+
+	resp := DeleteScheduleResponse{
+		ScheduleID: output.ScheduleID,
+		Status:     output.Status,
+		DeletedAt:  output.DeletedAt,
+		UpdatedAt:  output.UpdatedAt,
+	}
+
+	RespondJSON(w, http.StatusOK, resp)
+}
+
 type GetResponsesResponse struct {
-	ScheduleID string                       `json:"schedule_id"`
-	Responses  []ScheduleResponseResponse   `json:"responses"`
+	ScheduleID string                     `json:"schedule_id"`
+	Responses  []ScheduleResponseResponse `json:"responses"`
 }
 
 type ScheduleResponseResponse struct {
@@ -556,8 +619,8 @@ func (h *ScheduleHandler) GetScheduleByToken(w http.ResponseWriter, r *http.Requ
 }
 
 type ScheduleSubmitResponseRequest struct {
-	MemberID  string                   `json:"member_id"`
-	Responses []ScheduleResponseInput  `json:"responses"`
+	MemberID  string                  `json:"member_id"`
+	Responses []ScheduleResponseInput `json:"responses"`
 }
 
 type ScheduleResponseInput struct {

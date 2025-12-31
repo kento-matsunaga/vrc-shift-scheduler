@@ -17,4 +17,7 @@ var (
 
 	// ErrCandidateNotFound is returned when the specified candidate is not found
 	ErrCandidateNotFound = errors.New("candidate not found")
+
+	// ErrAlreadyDeleted is returned when trying to delete an already deleted schedule
+	ErrAlreadyDeleted = errors.New("schedule is already deleted")
 )

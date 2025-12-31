@@ -1,6 +1,8 @@
 package attendance
 
-import "github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
+import (
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
+)
 
 var (
 	// ErrCollectionClosed is returned when trying to respond to a closed collection
@@ -11,4 +13,7 @@ var (
 
 	// ErrAlreadyClosed is returned when trying to close an already closed collection
 	ErrAlreadyClosed = common.NewInvariantViolationError("collection is already closed")
+
+	// ErrAlreadyDeleted is returned when trying to delete an already deleted collection
+	ErrAlreadyDeleted = common.NewInvariantViolationError("collection is already deleted")
 )
