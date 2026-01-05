@@ -49,9 +49,10 @@ func NewMemberHandler(
 
 // CreateMemberRequest represents the request body for creating a member
 type CreateMemberRequest struct {
-	DisplayName   string `json:"display_name"`
-	DiscordUserID string `json:"discord_user_id"`
-	Email         string `json:"email"`
+	DisplayName   string   `json:"display_name"`
+	DiscordUserID string   `json:"discord_user_id"`
+	Email         string   `json:"email"`
+	RoleIDs       []string `json:"role_ids,omitempty"` // Optional role IDs to assign
 }
 
 // UpdateMemberRequest represents the request body for updating a member
@@ -111,6 +112,7 @@ func (h *MemberHandler) CreateMember(w http.ResponseWriter, r *http.Request) {
 		DisplayName:   req.DisplayName,
 		DiscordUserID: req.DiscordUserID,
 		Email:         req.Email,
+		RoleIDs:       req.RoleIDs,
 	}
 
 	newMember, err := h.createMemberUC.Execute(ctx, input)
@@ -119,7 +121,11 @@ func (h *MemberHandler) CreateMember(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// レスポンス
+	// レスポンス（リクエストで指定されたロールIDをそのまま返す）
+	roleIDs := req.RoleIDs
+	if roleIDs == nil {
+		roleIDs = []string{}
+	}
 	resp := MemberResponse{
 		MemberID:      newMember.MemberID().String(),
 		TenantID:      newMember.TenantID().String(),
@@ -127,7 +133,7 @@ func (h *MemberHandler) CreateMember(w http.ResponseWriter, r *http.Request) {
 		DiscordUserID: newMember.DiscordUserID(),
 		Email:         newMember.Email(),
 		IsActive:      newMember.IsActive(),
-		RoleIDs:       []string{}, // 新規作成時はロールなし
+		RoleIDs:       roleIDs,
 		CreatedAt:     newMember.CreatedAt().Format("2006-01-02T15:04:05Z07:00"),
 		UpdatedAt:     newMember.UpdatedAt().Format("2006-01-02T15:04:05Z07:00"),
 	}

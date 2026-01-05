@@ -2,6 +2,7 @@ package member
 
 import (
 	"context"
+	"log"
 	"time"
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
@@ -31,17 +32,20 @@ type CreateMemberInput struct {
 	DisplayName   string
 	DiscordUserID string
 	Email         string
+	RoleIDs       []string // Optional role IDs to assign
 }
 
 // CreateMemberUsecase handles the member creation use case
 type CreateMemberUsecase struct {
-	memberRepo MemberRepository
+	memberRepo     MemberRepository
+	memberRoleRepo MemberRoleAssigner
 }
 
 // NewCreateMemberUsecase creates a new CreateMemberUsecase
-func NewCreateMemberUsecase(memberRepo MemberRepository) *CreateMemberUsecase {
+func NewCreateMemberUsecase(memberRepo MemberRepository, memberRoleRepo MemberRoleAssigner) *CreateMemberUsecase {
 	return &CreateMemberUsecase{
-		memberRepo: memberRepo,
+		memberRepo:     memberRepo,
+		memberRoleRepo: memberRoleRepo,
 	}
 }
 
@@ -84,6 +88,19 @@ func (uc *CreateMemberUsecase) Execute(ctx context.Context, input CreateMemberIn
 	// 保存
 	if err := uc.memberRepo.Save(ctx, newMember); err != nil {
 		return nil, err
+	}
+
+	// ロール割り当て
+	if len(input.RoleIDs) > 0 && uc.memberRoleRepo != nil {
+		roleIDs := make([]common.RoleID, len(input.RoleIDs))
+		for i, rid := range input.RoleIDs {
+			roleIDs[i] = common.RoleID(rid)
+		}
+		// ロール割り当て失敗はログに記録するが、メンバー作成は成功とする
+		// （BulkImportMembersUsecaseと同じ方針）
+		if err := uc.memberRoleRepo.SetMemberRoles(ctx, newMember.MemberID(), roleIDs); err != nil {
+			log.Printf("[WARN] Failed to assign roles to member %s: %v", newMember.MemberID(), err)
+		}
 	}
 
 	return newMember, nil

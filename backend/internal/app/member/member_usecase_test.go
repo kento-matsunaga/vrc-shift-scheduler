@@ -132,7 +132,9 @@ func TestCreateMemberUsecase_Execute_Success(t *testing.T) {
 		},
 	}
 
-	usecase := appmember.NewCreateMemberUsecase(memberRepo)
+	memberRoleRepo := &MockMemberRoleRepository{}
+
+	usecase := appmember.NewCreateMemberUsecase(memberRepo, memberRoleRepo)
 
 	input := appmember.CreateMemberInput{
 		TenantID:      tenantID,
@@ -165,7 +167,9 @@ func TestCreateMemberUsecase_Execute_ErrorWhenDiscordUserIDExists(t *testing.T) 
 		},
 	}
 
-	usecase := appmember.NewCreateMemberUsecase(memberRepo)
+	memberRoleRepo := &MockMemberRoleRepository{}
+
+	usecase := appmember.NewCreateMemberUsecase(memberRepo, memberRoleRepo)
 
 	input := appmember.CreateMemberInput{
 		TenantID:      tenantID,
@@ -193,7 +197,9 @@ func TestCreateMemberUsecase_Execute_ErrorWhenEmailExists(t *testing.T) {
 		},
 	}
 
-	usecase := appmember.NewCreateMemberUsecase(memberRepo)
+	memberRoleRepo := &MockMemberRoleRepository{}
+
+	usecase := appmember.NewCreateMemberUsecase(memberRepo, memberRoleRepo)
 
 	input := appmember.CreateMemberInput{
 		TenantID:      tenantID,
@@ -224,7 +230,9 @@ func TestCreateMemberUsecase_Execute_ErrorWhenSaveFails(t *testing.T) {
 		},
 	}
 
-	usecase := appmember.NewCreateMemberUsecase(memberRepo)
+	memberRoleRepo := &MockMemberRoleRepository{}
+
+	usecase := appmember.NewCreateMemberUsecase(memberRepo, memberRoleRepo)
 
 	input := appmember.CreateMemberInput{
 		TenantID:      tenantID,
@@ -237,6 +245,58 @@ func TestCreateMemberUsecase_Execute_ErrorWhenSaveFails(t *testing.T) {
 
 	if err == nil {
 		t.Fatal("Execute() should fail when save fails")
+	}
+}
+
+func TestCreateMemberUsecase_Execute_WithRoles(t *testing.T) {
+	tenantID := common.NewTenantID()
+	roleID := common.NewRoleID()
+
+	var assignedRoleIDs []common.RoleID
+
+	memberRepo := &MockMemberRepository{
+		existsByDiscordUserIDFunc: func(ctx context.Context, tid common.TenantID, discordUserID string) (bool, error) {
+			return false, nil
+		},
+		existsByEmailFunc: func(ctx context.Context, tid common.TenantID, email string) (bool, error) {
+			return false, nil
+		},
+		saveFunc: func(ctx context.Context, m *member.Member) error {
+			return nil
+		},
+	}
+
+	memberRoleRepo := &MockMemberRoleRepository{
+		setMemberRolesFunc: func(ctx context.Context, memberID common.MemberID, roleIDs []common.RoleID) error {
+			assignedRoleIDs = roleIDs
+			return nil
+		},
+	}
+
+	usecase := appmember.NewCreateMemberUsecase(memberRepo, memberRoleRepo)
+
+	input := appmember.CreateMemberInput{
+		TenantID:    tenantID,
+		DisplayName: "テストメンバー",
+		RoleIDs:     []string{roleID.String()},
+	}
+
+	result, err := usecase.Execute(context.Background(), input)
+
+	if err != nil {
+		t.Fatalf("Execute() should succeed, got error: %v", err)
+	}
+
+	if result == nil {
+		t.Fatal("Result should not be nil")
+	}
+
+	if len(assignedRoleIDs) != 1 {
+		t.Errorf("Should have assigned 1 role, got %d", len(assignedRoleIDs))
+	}
+
+	if assignedRoleIDs[0] != roleID {
+		t.Errorf("RoleID mismatch: got %v, want %v", assignedRoleIDs[0], roleID)
 	}
 }
 
