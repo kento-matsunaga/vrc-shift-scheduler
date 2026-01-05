@@ -6,6 +6,8 @@ import {
   type AttendanceCollection,
 } from '../lib/api/attendanceApi';
 import { getMemberGroups, type MemberGroup } from '../lib/api/memberGroupApi';
+import { getEvents, getEventBusinessDays, type BusinessDay } from '../lib/api/eventApi';
+import type { Event } from '../types/api';
 import { MobileCard, CardHeader, CardField } from '../components/MobileCard';
 
 export default function AttendanceList() {
@@ -25,10 +27,14 @@ export default function AttendanceList() {
   const [submittedDatesCount, setSubmittedDatesCount] = useState(0);
   const [memberGroups, setMemberGroups] = useState<MemberGroup[]>([]);
   const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
+  const [events, setEvents] = useState<Event[]>([]);
+  const [selectedEventId, setSelectedEventId] = useState<string>('');
+  const [loadingBusinessDays, setLoadingBusinessDays] = useState(false);
 
   useEffect(() => {
     loadCollections();
     loadMemberGroups();
+    loadEvents();
   }, []);
 
   const loadMemberGroups = async () => {
@@ -37,6 +43,56 @@ export default function AttendanceList() {
       setMemberGroups(data.groups || []);
     } catch (err) {
       console.error('Failed to load member groups:', err);
+    }
+  };
+
+  const loadEvents = async () => {
+    try {
+      const data = await getEvents({ is_active: true });
+      setEvents(data.events || []);
+    } catch (err) {
+      console.error('Failed to load events:', err);
+    }
+  };
+
+  const handleLoadBusinessDays = async () => {
+    if (!selectedEventId) return;
+
+    setLoadingBusinessDays(true);
+    try {
+      const businessDays = await getEventBusinessDays(selectedEventId, { is_active: true });
+
+      if (businessDays.length === 0) {
+        setError('選択したイベントに営業日が登録されていません');
+        return;
+      }
+
+      // 営業日の日付を抽出してソート
+      const dates = businessDays
+        .map((bd: BusinessDay) => bd.target_date.split('T')[0]) // YYYY-MM-DD形式を取得
+        .filter((date, index, self) => self.indexOf(date) === index) // 重複を除去
+        .sort();
+
+      // 既存の空でない日付を保持し、新しい日付を追加
+      const existingDates = targetDates.filter((d) => d.trim() !== '');
+      const newDates = dates.filter((d: string) => !existingDates.includes(d));
+      const mergedDates = [...existingDates, ...newDates];
+
+      // 日付がない場合は少なくとも1つの空欄を保持
+      setTargetDates(mergedDates.length > 0 ? mergedDates : ['']);
+
+      // イベント名をタイトルに設定（タイトルが空の場合のみ）
+      if (!title.trim()) {
+        const event = events.find((e) => e.event_id === selectedEventId);
+        if (event) {
+          setTitle(`${event.event_name}の出欠確認`);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load business days:', err);
+      setError('営業日の読み込みに失敗しました');
+    } finally {
+      setLoadingBusinessDays(false);
     }
   };
 
@@ -117,6 +173,7 @@ export default function AttendanceList() {
       setDeadline('');
       setTargetDates(['', '', '']);
       setSelectedGroupIds([]);
+      setSelectedEventId('');
       setShowCreateForm(false);
 
       loadCollections();
@@ -213,6 +270,40 @@ export default function AttendanceList() {
                 disabled={submitting}
               />
             </div>
+
+            {events.length > 0 && (
+              <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  イベントから日程を取り込む
+                </label>
+                <p className="text-xs text-gray-500 mb-3">
+                  イベントの営業日を対象日として自動設定できます
+                </p>
+                <div className="flex gap-2">
+                  <select
+                    value={selectedEventId}
+                    onChange={(e) => setSelectedEventId(e.target.value)}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent bg-white"
+                    disabled={submitting || loadingBusinessDays}
+                  >
+                    <option value="">イベントを選択...</option>
+                    {events.map((event) => (
+                      <option key={event.event_id} value={event.event_id}>
+                        {event.event_name}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={handleLoadBusinessDays}
+                    disabled={!selectedEventId || submitting || loadingBusinessDays}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed whitespace-nowrap"
+                  >
+                    {loadingBusinessDays ? '読込中...' : '日程を追加'}
+                  </button>
+                </div>
+              </div>
+            )}
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
