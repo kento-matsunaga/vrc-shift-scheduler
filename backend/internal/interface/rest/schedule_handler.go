@@ -437,13 +437,6 @@ func (h *ScheduleHandler) CloseSchedule(w http.ResponseWriter, r *http.Request) 
 	RespondJSON(w, http.StatusOK, resp)
 }
 
-type DeleteScheduleResponse struct {
-	ScheduleID string     `json:"schedule_id"`
-	Status     string     `json:"status"`
-	DeletedAt  *time.Time `json:"deleted_at,omitempty"`
-	UpdatedAt  time.Time  `json:"updated_at"`
-}
-
 // DeleteSchedule handles DELETE /api/v1/schedules/:id
 func (h *ScheduleHandler) DeleteSchedule(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -467,34 +460,23 @@ func (h *ScheduleHandler) DeleteSchedule(w http.ResponseWriter, r *http.Request)
 
 	output, err := h.deleteScheduleUsecase.Execute(ctx, input)
 	if err != nil {
-		// CloseSchedule が ErrAlreadyClosed を BadRequest 扱いなので、Delete も揃える
-		if errors.Is(err, schedDomain.ErrAlreadyDeleted) {
-			RespondBadRequest(w, err.Error())
-			return
+		switch {
+		case errors.Is(err, schedDomain.ErrAlreadyDeleted):
+			RespondConflict(w, "Schedule is already deleted")
+		default:
+			RespondDomainError(w, err)
 		}
-		var domainErr *common.DomainError
-		if errors.As(err, &domainErr) {
-			switch domainErr.Code() {
-			case common.ErrNotFound:
-				RespondNotFound(w, domainErr.Error())
-				return
-			case common.ErrInvalidInput:
-				RespondBadRequest(w, domainErr.Error())
-				return
-			}
-		}
-		RespondInternalError(w)
 		return
 	}
 
-	resp := DeleteScheduleResponse{
-		ScheduleID: output.ScheduleID,
-		Status:     output.Status,
-		DeletedAt:  output.DeletedAt,
-		UpdatedAt:  output.UpdatedAt,
-	}
-
-	RespondJSON(w, http.StatusOK, resp)
+	RespondJSON(w, http.StatusOK, SuccessResponse{
+		Data: map[string]interface{}{
+			"schedule_id": output.ScheduleID,
+			"status":      output.Status,
+			"deleted_at":  output.DeletedAt,
+			"updated_at":  output.UpdatedAt,
+		},
+	})
 }
 
 type GetResponsesResponse struct {

@@ -1,6 +1,10 @@
 package schedule
 
-import "errors"
+import (
+	"errors"
+
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
+)
 
 var (
 	// ErrScheduleClosed is returned when trying to respond to a closed schedule
@@ -19,5 +23,5 @@ var (
 	ErrCandidateNotFound = errors.New("candidate not found")
 
 	// ErrAlreadyDeleted is returned when trying to delete an already deleted schedule
-	ErrAlreadyDeleted = errors.New("schedule is already deleted")
+	ErrAlreadyDeleted = common.NewInvariantViolationError("schedule is already deleted")
 )
