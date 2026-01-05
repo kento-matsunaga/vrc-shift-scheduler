@@ -65,9 +65,21 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 	// 招待受理（認証不要）
 	r.Post("/api/v1/invitations/accept/{token}", invitationHandler.AcceptInvitation)
 
+	// PasswordResetHandler dependencies (public endpoints)
+	passwordResetClock := &clock.RealClock{}
+	licenseKeyRepo := db.NewLicenseKeyRepository(dbPool)
+	billingAuditLogRepo := db.NewBillingAuditLogRepository(dbPool)
+	checkPasswordResetStatusUsecase := auth.NewCheckPasswordResetStatusUsecase(adminRepo, passwordResetClock)
+	verifyAndResetPasswordUsecase := auth.NewVerifyAndResetPasswordUsecase(adminRepo, licenseKeyRepo, passwordHasher, passwordResetClock, billingAuditLogRepo)
+	passwordResetRateLimiter := DefaultPasswordResetRateLimiter()
+
 	// 認証不要ルート
 	r.Route("/api/v1/auth", func(r chi.Router) {
 		r.Post("/login", authHandler.Login)
+		// Password reset public endpoints (with rate limiting)
+		passwordResetHandler := NewPasswordResetHandler(nil, checkPasswordResetStatusUsecase, verifyAndResetPasswordUsecase, passwordResetRateLimiter)
+		r.Get("/password-reset-status", passwordResetHandler.CheckPasswordResetStatus)
+		r.Post("/reset-password", passwordResetHandler.ResetPassword)
 	})
 
 	// Billing guard dependencies
@@ -118,10 +130,14 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			appevent.NewApplyTemplateUsecase(businessDayRepo, templateRepo, slotRepo),
 		)
 
+		// RoleHandler dependencies (needed by MemberHandler too)
+		roleRepo := db.NewRoleRepository(dbPool)
+
 		// MemberHandler dependencies
 		memberRepo := db.NewMemberRepository(dbPool)
 		memberRoleRepo := db.NewMemberRoleRepository(dbPool)
 		attendanceRepo := db.NewAttendanceRepository(dbPool)
+		memberTxManager := db.NewPgxTxManager(dbPool)
 		memberHandler := NewMemberHandler(
 			appmember.NewCreateMemberUsecase(memberRepo),
 			appmember.NewListMembersUsecase(memberRepo, memberRoleRepo),
@@ -130,10 +146,10 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			appmember.NewUpdateMemberUsecase(memberRepo, memberRoleRepo),
 			appmember.NewGetRecentAttendanceUsecase(memberRepo, attendanceRepo),
 			appmember.NewBulkImportMembersUsecase(memberRepo, memberRoleRepo),
+			appmember.NewBulkUpdateRolesUsecase(memberRepo, memberRoleRepo, roleRepo, memberTxManager),
 		)
 
-		// RoleHandler dependencies
-		roleRepo := db.NewRoleRepository(dbPool)
+		// RoleHandler
 		roleHandler := NewRoleHandler(
 			approle.NewCreateRoleUsecase(roleRepo),
 			approle.NewUpdateRoleUsecase(roleRepo),
@@ -196,6 +212,10 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			auth.NewChangePasswordUsecase(adminRepo, passwordHasher),
 		)
 
+		// PasswordResetHandler dependencies (authenticated endpoint - no rate limiting needed)
+		allowPasswordResetUsecase := auth.NewAllowPasswordResetUsecase(adminRepo, systemClock)
+		authPasswordResetHandler := NewPasswordResetHandler(allowPasswordResetUsecase, nil, nil, nil)
+
 		// Event API
 		r.Route("/events", func(r chi.Router) {
 			// 権限チェック付きルート
@@ -245,6 +265,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		r.Route("/members", func(r chi.Router) {
 			r.With(permissionChecker.RequirePermission(tenant.PermissionAddMember)).Post("/", memberHandler.CreateMember)
 			r.With(permissionChecker.RequirePermission(tenant.PermissionAddMember)).Post("/bulk-import", memberHandler.BulkImportMembers)
+			r.With(permissionChecker.RequirePermission(tenant.PermissionEditMember)).Post("/bulk-update-roles", memberHandler.BulkUpdateRoles)
 			r.Get("/", memberHandler.GetMembers)
 			r.Get("/recent-attendance", memberHandler.GetRecentAttendance)
 			r.Get("/{member_id}", memberHandler.GetMemberDetail)
@@ -361,9 +382,11 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			r.Put("/me", tenantHandler.UpdateCurrentTenant)
 		})
 
-		// Admin API (テナント管理者のパスワード変更)
+		// Admin API (テナント管理者のパスワード変更、PWリセット許可)
 		r.Route("/admins", func(r chi.Router) {
 			r.Post("/me/change-password", adminHandler.ChangePassword)
+			// PWリセット許可（Ownerのみ実行可能 - Usecase内でチェック）
+			r.Post("/{admin_id}/allow-password-reset", authPasswordResetHandler.AllowPasswordReset)
 		})
 
 		// ManagerPermissionsHandler dependencies (reusing managerPermissionsRepo)
@@ -417,6 +440,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		adminTenantUsecase := apptenant.NewAdminTenantUsecase(
 			txManager,
 			tenantRepo,
+			adminRepo,
 			entitlementRepo,
 			billingAuditLogRepo,
 		)
@@ -445,6 +469,15 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 
 		// Audit Logs
 		r.Get("/audit-logs", adminBillingHandler.ListAuditLogs)
+
+		// Admin Auth (Password Reset Allowance)
+		adminAuthClock := &clock.RealClock{}
+		adminAllowPasswordResetUsecase := auth.NewAdminAllowPasswordResetUsecase(adminRepo, adminAuthClock)
+		adminAuthHandler := NewAdminAuthHandler(adminAllowPasswordResetUsecase)
+
+		r.Route("/admins", func(r chi.Router) {
+			r.Post("/{admin_id}/allow-password-reset", adminAuthHandler.AllowPasswordReset)
+		})
 	})
 
 	// Public API（認証不要）
@@ -501,6 +534,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		appmember.NewUpdateMemberUsecase(publicMemberRepo, publicMemberRoleRepo),
 		appmember.NewGetRecentAttendanceUsecase(publicMemberRepo, publicAttendanceRepo),
 		appmember.NewBulkImportMembersUsecase(publicMemberRepo, publicMemberRoleRepo),
+		nil, // BulkUpdateRoles not needed for public handler
 	)
 	r.Get("/api/v1/public/members", func(w http.ResponseWriter, r *http.Request) {
 		tenantID := r.URL.Query().Get("tenant_id")

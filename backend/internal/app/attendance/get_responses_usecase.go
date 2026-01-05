@@ -71,14 +71,16 @@ func (u *GetResponsesUsecase) Execute(ctx context.Context, input GetResponsesInp
 		if err != nil {
 			// If member not found, use ID as name
 			responseDTOs = append(responseDTOs, ResponseDTO{
-				ResponseID:   resp.ResponseID().String(),
-				MemberID:     resp.MemberID().String(),
-				MemberName:   resp.MemberID().String(),
-				TargetDateID: resp.TargetDateID().String(),
-				TargetDate:   targetDateMap[resp.TargetDateID().String()].TargetDateValue(),
-				Response:     resp.Response().String(),
-				Note:         resp.Note(),
-				RespondedAt:  resp.RespondedAt(),
+				ResponseID:    resp.ResponseID().String(),
+				MemberID:      resp.MemberID().String(),
+				MemberName:    resp.MemberID().String(),
+				TargetDateID:  resp.TargetDateID().String(),
+				TargetDate:    targetDateMap[resp.TargetDateID().String()].TargetDateValue(),
+				Response:      resp.Response().String(),
+				Note:          resp.Note(),
+				AvailableFrom: resp.AvailableFrom(),
+				AvailableTo:   resp.AvailableTo(),
+				RespondedAt:   resp.RespondedAt(),
 			})
 			continue
 		}
@@ -90,14 +92,16 @@ func (u *GetResponsesUsecase) Execute(ctx context.Context, input GetResponsesInp
 		}
 
 		responseDTOs = append(responseDTOs, ResponseDTO{
-			ResponseID:   resp.ResponseID().String(),
-			MemberID:     resp.MemberID().String(),
-			MemberName:   memberInfo.DisplayName(),
-			TargetDateID: resp.TargetDateID().String(),
-			TargetDate:   targetDate.TargetDateValue(),
-			Response:     resp.Response().String(),
-			Note:         resp.Note(),
-			RespondedAt:  resp.RespondedAt(),
+			ResponseID:    resp.ResponseID().String(),
+			MemberID:      resp.MemberID().String(),
+			MemberName:    memberInfo.DisplayName(),
+			TargetDateID:  resp.TargetDateID().String(),
+			TargetDate:    targetDate.TargetDateValue(),
+			Response:      resp.Response().String(),
+			Note:          resp.Note(),
+			AvailableFrom: resp.AvailableFrom(),
+			AvailableTo:   resp.AvailableTo(),
+			RespondedAt:   resp.RespondedAt(),
 		})
 	}
 

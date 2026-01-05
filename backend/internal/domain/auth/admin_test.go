@@ -461,6 +461,8 @@ func TestReconstructAdmin_Success(t *testing.T) {
 		now,
 		now,
 		nil,
+		nil,
+		nil,
 	)
 
 	if err != nil {
@@ -491,6 +493,8 @@ func TestReconstructAdmin_WithDeletedAt(t *testing.T) {
 		now,
 		now,
 		&deletedAt,
+		nil,
+		nil,
 	)
 
 	if err != nil {

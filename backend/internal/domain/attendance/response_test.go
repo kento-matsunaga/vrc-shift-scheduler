@@ -27,6 +27,8 @@ func TestNewAttendanceResponse_Success(t *testing.T) {
 		targetDateID,
 		attendance.ResponseTypeAttending,
 		"参加します",
+		nil,
+		nil,
 	)
 
 	if err != nil {
@@ -77,6 +79,8 @@ func TestNewAttendanceResponse_Absent(t *testing.T) {
 		targetDateID,
 		attendance.ResponseTypeAbsent,
 		"予定があります",
+		nil,
+		nil,
 	)
 
 	if err != nil {
@@ -103,6 +107,8 @@ func TestNewAttendanceResponse_EmptyNote(t *testing.T) {
 		targetDateID,
 		attendance.ResponseTypeAttending,
 		"", // Empty note is allowed
+		nil,
+		nil,
 	)
 
 	if err != nil {
@@ -128,6 +134,8 @@ func TestNewAttendanceResponse_ErrorWhenInvalidTenantID(t *testing.T) {
 		targetDateID,
 		attendance.ResponseTypeAttending,
 		"",
+		nil,
+		nil,
 	)
 
 	if err == nil {
@@ -149,6 +157,8 @@ func TestNewAttendanceResponse_ErrorWhenInvalidCollectionID(t *testing.T) {
 		targetDateID,
 		attendance.ResponseTypeAttending,
 		"",
+		nil,
+		nil,
 	)
 
 	if err == nil {
@@ -170,6 +180,8 @@ func TestNewAttendanceResponse_ErrorWhenInvalidMemberID(t *testing.T) {
 		targetDateID,
 		attendance.ResponseTypeAttending,
 		"",
+		nil,
+		nil,
 	)
 
 	if err == nil {
@@ -191,6 +203,8 @@ func TestNewAttendanceResponse_ErrorWhenInvalidTargetDateID(t *testing.T) {
 		common.TargetDateID(""), // Invalid target date ID
 		attendance.ResponseTypeAttending,
 		"",
+		nil,
+		nil,
 	)
 
 	if err == nil {
@@ -213,6 +227,8 @@ func TestNewAttendanceResponse_ErrorWhenInvalidResponseType(t *testing.T) {
 		targetDateID,
 		attendance.ResponseType("invalid"), // Invalid response type
 		"",
+		nil,
+		nil,
 	)
 
 	if err == nil {
@@ -236,6 +252,8 @@ func TestReconstructAttendanceResponse_Success(t *testing.T) {
 		targetDateID,
 		attendance.ResponseTypeAttending,
 		"テストノート",
+		nil,
+		nil,
 		now,
 		now,
 		now,
@@ -289,6 +307,8 @@ func TestReconstructAttendanceResponse_ErrorWhenInvalid(t *testing.T) {
 		targetDateID,
 		attendance.ResponseTypeAttending,
 		"",
+		nil,
+		nil,
 		now,
 		now,
 		now,

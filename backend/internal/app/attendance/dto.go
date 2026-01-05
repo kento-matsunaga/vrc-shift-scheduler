@@ -38,21 +38,25 @@ type CreateCollectionOutput struct {
 
 // SubmitResponseInput represents the input for submitting an attendance response
 type SubmitResponseInput struct {
-	PublicToken  string // from URL path (公開API)
-	MemberID     string // from request body
-	TargetDateID string // from request body - 対象日ID
-	Response     string // "attending" or "absent"
-	Note         string
+	PublicToken   string  // from URL path (公開API)
+	MemberID      string  // from request body
+	TargetDateID  string  // from request body - 対象日ID
+	Response      string  // "attending" or "absent" or "undecided"
+	Note          string
+	AvailableFrom *string // 参加可能開始時間 (HH:MM)
+	AvailableTo   *string // 参加可能終了時間 (HH:MM)
 }
 
 // SubmitResponseOutput represents the output for submitting an attendance response
 type SubmitResponseOutput struct {
-	ResponseID   string    `json:"response_id"`
-	CollectionID string    `json:"collection_id"`
-	MemberID     string    `json:"member_id"`
-	Response     string    `json:"response"`
-	Note         string    `json:"note"`
-	RespondedAt  time.Time `json:"responded_at"`
+	ResponseID    string    `json:"response_id"`
+	CollectionID  string    `json:"collection_id"`
+	MemberID      string    `json:"member_id"`
+	Response      string    `json:"response"`
+	Note          string    `json:"note"`
+	AvailableFrom *string   `json:"available_from,omitempty"`
+	AvailableTo   *string   `json:"available_to,omitempty"`
+	RespondedAt   time.Time `json:"responded_at"`
 }
 
 // CloseCollectionInput represents the input for closing an attendance collection
@@ -99,14 +103,16 @@ type GetResponsesInput struct {
 
 // ResponseDTO represents a single attendance response in the output
 type ResponseDTO struct {
-	ResponseID   string    `json:"response_id"`
-	MemberID     string    `json:"member_id"`
-	MemberName   string    `json:"member_name"`    // メンバー表示名
-	TargetDateID string    `json:"target_date_id"` // 対象日ID
-	TargetDate   time.Time `json:"target_date"`    // 対象日
-	Response     string    `json:"response"`
-	Note         string    `json:"note"`
-	RespondedAt  time.Time `json:"responded_at"`
+	ResponseID    string    `json:"response_id"`
+	MemberID      string    `json:"member_id"`
+	MemberName    string    `json:"member_name"`              // メンバー表示名
+	TargetDateID  string    `json:"target_date_id"`           // 対象日ID
+	TargetDate    time.Time `json:"target_date"`              // 対象日
+	Response      string    `json:"response"`
+	Note          string    `json:"note"`
+	AvailableFrom *string   `json:"available_from,omitempty"` // 参加可能開始時間
+	AvailableTo   *string   `json:"available_to,omitempty"`   // 参加可能終了時間
+	RespondedAt   time.Time `json:"responded_at"`
 }
 
 // GetResponsesOutput represents the output for getting all responses for a collection

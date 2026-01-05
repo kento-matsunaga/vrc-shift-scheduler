@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { getMembers, createMember, updateMember, getRecentAttendance, deleteMember, bulkImportMembers, type BulkImportMemberInput } from '../lib/api/memberApi';
+import { getMembers, createMember, updateMember, getRecentAttendance, deleteMember, bulkImportMembers, bulkUpdateRoles, type BulkImportMemberInput } from '../lib/api/memberApi';
 import { getActualAttendance } from '../lib/api/actualAttendanceApi';
 import { listRoles, type Role } from '../lib/api/roleApi';
 import { getMemberGroups, type MemberGroup } from '../lib/api/memberGroupApi';
@@ -38,6 +38,10 @@ export default function Members() {
 
   // 一括登録モーダル
   const [showBulkImportModal, setShowBulkImportModal] = useState(false);
+
+  // 複数選択とロール一括設定
+  const [selectedMemberIds, setSelectedMemberIds] = useState<Set<string>>(new Set());
+  const [showBulkRoleModal, setShowBulkRoleModal] = useState(false);
 
   // データ取得
   const fetchData = async () => {
@@ -142,6 +146,34 @@ export default function Members() {
 
   // 一括登録成功時
   const handleBulkImportSuccess = () => {
+    fetchData();
+  };
+
+  // メンバー選択のトグル
+  const toggleMemberSelection = (memberId: string) => {
+    setSelectedMemberIds((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(memberId)) {
+        newSet.delete(memberId);
+      } else {
+        newSet.add(memberId);
+      }
+      return newSet;
+    });
+  };
+
+  // 全選択/全解除
+  const toggleSelectAll = () => {
+    if (selectedMemberIds.size === filteredMembers.length) {
+      setSelectedMemberIds(new Set());
+    } else {
+      setSelectedMemberIds(new Set(filteredMembers.map((m) => m.member_id)));
+    }
+  };
+
+  // 一括ロール更新成功時
+  const handleBulkRoleSuccess = () => {
+    setSelectedMemberIds(new Set());
     fetchData();
   };
 
@@ -385,6 +417,27 @@ export default function Members() {
         )}
       </div>
 
+      {/* 選択時のアクションバー */}
+      {selectedMemberIds.size > 0 && (
+        <div className="mb-4 p-3 bg-accent/10 border border-accent/30 rounded-lg flex flex-wrap items-center gap-3">
+          <span className="text-sm font-medium text-accent">
+            {selectedMemberIds.size}名を選択中
+          </span>
+          <button
+            onClick={() => setShowBulkRoleModal(true)}
+            className="btn-primary text-sm py-1.5 px-3"
+          >
+            ロール一括設定
+          </button>
+          <button
+            onClick={() => setSelectedMemberIds(new Set())}
+            className="btn-secondary text-sm py-1.5 px-3"
+          >
+            選択解除
+          </button>
+        </div>
+      )}
+
       {/* メンバー一覧 */}
       {filteredMembers.length === 0 ? (
         <div className="card text-center py-12">
@@ -403,54 +456,64 @@ export default function Members() {
           <div className="md:hidden space-y-3">
             {filteredMembers.map((member) => (
               <MobileCard key={member.member_id}>
-                <CardHeader
-                  title={member.display_name}
-                  badge={
-                    <span
-                      className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded ${
-                        member.is_active
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-gray-100 text-gray-800'
-                      }`}
-                    >
-                      {member.is_active ? 'アクティブ' : '非アクティブ'}
-                    </span>
-                  }
-                />
-                <CardField
-                  label="ロール"
-                  value={
-                    member.role_ids && member.role_ids.length > 0 ? (
-                      <div className="flex flex-wrap gap-1 justify-end">
-                        {member.role_ids.map((roleId) => (
-                          <span
-                            key={roleId}
-                            className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium text-white"
-                            style={{ backgroundColor: getRoleColor(roleId) }}
-                          >
-                            {getRoleName(roleId)}
-                          </span>
-                        ))}
-                      </div>
-                    ) : (
-                      <span className="text-gray-400">なし</span>
-                    )
-                  }
-                />
-                <CardActions>
-                  <button
-                    onClick={() => handleOpenEditForm(member)}
-                    className="flex-1 px-3 py-1.5 text-sm text-accent hover:bg-accent/10 rounded font-medium"
-                  >
-                    編集
-                  </button>
-                  <button
-                    onClick={() => handleDeleteMember(member)}
-                    className="flex-1 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 rounded font-medium"
-                  >
-                    削除
-                  </button>
-                </CardActions>
+                <div className="flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    checked={selectedMemberIds.has(member.member_id)}
+                    onChange={() => toggleMemberSelection(member.member_id)}
+                    className="mt-1 w-4 h-4 text-accent rounded border-gray-300"
+                  />
+                  <div className="flex-1">
+                    <CardHeader
+                      title={member.display_name}
+                      badge={
+                        <span
+                          className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded ${
+                            member.is_active
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-gray-100 text-gray-800'
+                          }`}
+                        >
+                          {member.is_active ? 'アクティブ' : '非アクティブ'}
+                        </span>
+                      }
+                    />
+                    <CardField
+                      label="ロール"
+                      value={
+                        member.role_ids && member.role_ids.length > 0 ? (
+                          <div className="flex flex-wrap gap-1 justify-end">
+                            {member.role_ids.map((roleId) => (
+                              <span
+                                key={roleId}
+                                className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium text-white"
+                                style={{ backgroundColor: getRoleColor(roleId) }}
+                              >
+                                {getRoleName(roleId)}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-gray-400">なし</span>
+                        )
+                      }
+                    />
+                    <CardActions>
+                      <button
+                        onClick={() => handleOpenEditForm(member)}
+                        className="flex-1 px-3 py-1.5 text-sm text-accent hover:bg-accent/10 rounded font-medium"
+                      >
+                        編集
+                      </button>
+                      <button
+                        onClick={() => handleDeleteMember(member)}
+                        className="flex-1 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 rounded font-medium"
+                      >
+                        削除
+                      </button>
+                    </CardActions>
+                  </div>
+                </div>
               </MobileCard>
             ))}
           </div>
@@ -460,6 +523,14 @@ export default function Members() {
             <table className="min-w-full">
               <thead>
                 <tr className="border-b border-gray-200">
+                  <th className="px-4 py-3 text-left">
+                    <input
+                      type="checkbox"
+                      checked={filteredMembers.length > 0 && selectedMemberIds.size === filteredMembers.length}
+                      onChange={toggleSelectAll}
+                      className="w-4 h-4 text-accent rounded border-gray-300"
+                    />
+                  </th>
                   <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">名前</th>
                   <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">ロール</th>
                   <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">ステータス</th>
@@ -468,7 +539,15 @@ export default function Members() {
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {filteredMembers.map((member) => (
-                  <tr key={member.member_id} className="hover:bg-gray-50">
+                  <tr key={member.member_id} className={`hover:bg-gray-50 ${selectedMemberIds.has(member.member_id) ? 'bg-accent/5' : ''}`}>
+                    <td className="px-4 py-3">
+                      <input
+                        type="checkbox"
+                        checked={selectedMemberIds.has(member.member_id)}
+                        onChange={() => toggleMemberSelection(member.member_id)}
+                        className="w-4 h-4 text-accent rounded border-gray-300"
+                      />
+                    </td>
                     <td className="px-4 py-3 text-sm text-gray-900">{member.display_name}</td>
                     <td className="px-4 py-3 text-sm">
                       <div className="flex flex-wrap gap-1">
@@ -563,6 +642,17 @@ export default function Members() {
           roles={roles}
           onClose={() => setShowBulkImportModal(false)}
           onSuccess={handleBulkImportSuccess}
+        />
+      )}
+
+      {/* ロール一括設定モーダル */}
+      {showBulkRoleModal && (
+        <BulkRoleModal
+          roles={roles}
+          selectedMemberIds={Array.from(selectedMemberIds)}
+          members={members}
+          onClose={() => setShowBulkRoleModal(false)}
+          onSuccess={handleBulkRoleSuccess}
         />
       )}
     </div>
@@ -1135,6 +1225,232 @@ function BulkImportModal({
             </div>
           </>
         )}
+      </div>
+    </div>
+  );
+}
+
+// ロール一括設定モーダル
+function BulkRoleModal({
+  roles,
+  selectedMemberIds,
+  members,
+  onClose,
+  onSuccess,
+}: {
+  roles: Role[];
+  selectedMemberIds: string[];
+  members: Member[];
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [addRoleIds, setAddRoleIds] = useState<string[]>([]);
+  const [removeRoleIds, setRemoveRoleIds] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [result, setResult] = useState<{ successCount: number; failedCount: number; failures: { member_id: string; reason: string }[] } | null>(null);
+
+  const selectedMembers = useMemo(
+    () => members.filter((m) => selectedMemberIds.includes(m.member_id)),
+    [members, selectedMemberIds]
+  );
+
+  const toggleAddRole = (roleId: string) => {
+    if (addRoleIds.includes(roleId)) {
+      setAddRoleIds(addRoleIds.filter((id) => id !== roleId));
+    } else {
+      setAddRoleIds([...addRoleIds, roleId]);
+      // 追加と削除は排他的
+      setRemoveRoleIds(removeRoleIds.filter((id) => id !== roleId));
+    }
+  };
+
+  const toggleRemoveRole = (roleId: string) => {
+    if (removeRoleIds.includes(roleId)) {
+      setRemoveRoleIds(removeRoleIds.filter((id) => id !== roleId));
+    } else {
+      setRemoveRoleIds([...removeRoleIds, roleId]);
+      // 追加と削除は排他的
+      setAddRoleIds(addRoleIds.filter((id) => id !== roleId));
+    }
+  };
+
+  // メンバーIDから表示名を取得
+  const getMemberName = (memberId: string) => {
+    const member = members.find((m) => m.member_id === memberId);
+    return member?.display_name || memberId;
+  };
+
+  const handleSubmit = async () => {
+    if (addRoleIds.length === 0 && removeRoleIds.length === 0) {
+      setError('追加または削除するロールを選択してください');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+    setResult(null);
+
+    try {
+      const response = await bulkUpdateRoles({
+        member_ids: selectedMemberIds,
+        add_role_ids: addRoleIds.length > 0 ? addRoleIds : undefined,
+        remove_role_ids: removeRoleIds.length > 0 ? removeRoleIds : undefined,
+      });
+
+      // 結果を設定
+      setResult({
+        successCount: response.success_count,
+        failedCount: response.failed_count,
+        failures: response.failures || [],
+      });
+
+      // 全て成功した場合は自動でクローズ
+      if (response.failed_count === 0) {
+        onSuccess();
+        onClose();
+      } else {
+        // 部分的に成功した場合はデータを再取得（成功分を反映）
+        onSuccess();
+      }
+    } catch (err) {
+      if (err instanceof ApiClientError) {
+        setError(err.getUserMessage());
+      } else {
+        setError('ロールの一括更新に失敗しました');
+      }
+      console.error('Bulk role update failed:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-lg max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
+        <h3 className="text-xl font-bold text-gray-900 mb-4">
+          ロール一括設定（{selectedMemberIds.length}名）
+        </h3>
+
+        <div className="mb-4">
+          <p className="text-sm text-gray-600 mb-2">対象メンバー:</p>
+          <div className="flex flex-wrap gap-1 max-h-20 overflow-y-auto p-2 bg-gray-50 rounded">
+            {selectedMembers.map((m) => (
+              <span key={m.member_id} className="text-xs bg-white px-2 py-1 rounded border">
+                {m.display_name}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {roles.length > 0 ? (
+          <>
+            <div className="mb-4">
+              <p className="text-sm font-medium text-gray-700 mb-2">追加するロール:</p>
+              <div className="flex flex-wrap gap-2">
+                {roles.map((role) => {
+                  const isSelected = addRoleIds.includes(role.role_id);
+                  return (
+                    <button
+                      key={role.role_id}
+                      type="button"
+                      onClick={() => toggleAddRole(role.role_id)}
+                      className={`inline-flex items-center px-3 py-1.5 rounded text-sm font-medium transition-all border-2 ${
+                        isSelected
+                          ? 'border-green-500 ring-2 ring-green-200'
+                          : 'border-transparent opacity-60 hover:opacity-100'
+                      }`}
+                      style={{ backgroundColor: role.color || '#6B7280', color: 'white' }}
+                      disabled={loading}
+                    >
+                      {isSelected && <span className="mr-1">+</span>}
+                      {role.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="mb-4">
+              <p className="text-sm font-medium text-gray-700 mb-2">削除するロール:</p>
+              <div className="flex flex-wrap gap-2">
+                {roles.map((role) => {
+                  const isSelected = removeRoleIds.includes(role.role_id);
+                  return (
+                    <button
+                      key={role.role_id}
+                      type="button"
+                      onClick={() => toggleRemoveRole(role.role_id)}
+                      className={`inline-flex items-center px-3 py-1.5 rounded text-sm font-medium transition-all border-2 ${
+                        isSelected
+                          ? 'border-red-500 ring-2 ring-red-200'
+                          : 'border-transparent opacity-60 hover:opacity-100'
+                      }`}
+                      style={{ backgroundColor: role.color || '#6B7280', color: 'white' }}
+                      disabled={loading}
+                    >
+                      {isSelected && <span className="mr-1">-</span>}
+                      {role.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </>
+        ) : (
+          <p className="text-sm text-gray-500 mb-4">ロールがありません。先にロールを作成してください。</p>
+        )}
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+            <p className="text-sm text-red-800">{error}</p>
+          </div>
+        )}
+
+        {/* 結果表示（部分的失敗時） */}
+        {result && result.failedCount > 0 && (
+          <div className="mb-4">
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-2">
+              <p className="text-sm text-yellow-800 font-medium">
+                {result.successCount}件成功、{result.failedCount}件失敗
+              </p>
+            </div>
+            {result.failures.length > 0 && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                <p className="text-sm text-red-800 font-medium mb-2">失敗したメンバー:</p>
+                <ul className="text-sm text-red-700 space-y-1 max-h-32 overflow-y-auto">
+                  {result.failures.map((f, idx) => (
+                    <li key={idx} className="flex justify-between">
+                      <span>{getMemberName(f.member_id)}</span>
+                      <span className="text-red-500 text-xs">{f.reason}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="flex space-x-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 btn-secondary"
+            disabled={loading}
+          >
+            {result && result.failedCount > 0 ? '閉じる' : 'キャンセル'}
+          </button>
+          {(!result || result.failedCount === 0) && (
+            <button
+              type="button"
+              onClick={handleSubmit}
+              className="flex-1 btn-primary"
+              disabled={loading || (addRoleIds.length === 0 && removeRoleIds.length === 0)}
+            >
+              {loading ? '更新中...' : '一括更新'}
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
