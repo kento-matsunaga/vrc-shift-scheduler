@@ -8,16 +8,18 @@ import (
 
 // AttendanceResponse represents an attendance response entity
 type AttendanceResponse struct {
-	responseID   common.ResponseID
-	tenantID     common.TenantID
-	collectionID common.CollectionID
-	memberID     common.MemberID
-	targetDateID common.TargetDateID // 対象日ID
-	response     ResponseType
-	note         string
-	respondedAt  time.Time
-	createdAt    time.Time
-	updatedAt    time.Time
+	responseID    common.ResponseID
+	tenantID      common.TenantID
+	collectionID  common.CollectionID
+	memberID      common.MemberID
+	targetDateID  common.TargetDateID // 対象日ID
+	response      ResponseType
+	note          string
+	availableFrom *string // 参加可能開始時間（HH:MM形式）
+	availableTo   *string // 参加可能終了時間（HH:MM形式）
+	respondedAt   time.Time
+	createdAt     time.Time
+	updatedAt     time.Time
 }
 
 // NewAttendanceResponse creates a new AttendanceResponse entity
@@ -30,18 +32,22 @@ func NewAttendanceResponse(
 	targetDateID common.TargetDateID,
 	responseType ResponseType,
 	note string,
+	availableFrom *string,
+	availableTo *string,
 ) (*AttendanceResponse, error) {
 	response := &AttendanceResponse{
-		responseID:   common.NewResponseID(),
-		tenantID:     tenantID,
-		collectionID: collectionID,
-		memberID:     memberID,
-		targetDateID: targetDateID,
-		response:     responseType,
-		note:         note,
-		respondedAt:  now,
-		createdAt:    now,
-		updatedAt:    now,
+		responseID:    common.NewResponseID(),
+		tenantID:      tenantID,
+		collectionID:  collectionID,
+		memberID:      memberID,
+		targetDateID:  targetDateID,
+		response:      responseType,
+		note:          note,
+		availableFrom: availableFrom,
+		availableTo:   availableTo,
+		respondedAt:   now,
+		createdAt:     now,
+		updatedAt:     now,
 	}
 
 	if err := response.validate(); err != nil {
@@ -60,21 +66,25 @@ func ReconstructAttendanceResponse(
 	targetDateID common.TargetDateID,
 	responseType ResponseType,
 	note string,
+	availableFrom *string,
+	availableTo *string,
 	respondedAt time.Time,
 	createdAt time.Time,
 	updatedAt time.Time,
 ) (*AttendanceResponse, error) {
 	response := &AttendanceResponse{
-		responseID:   responseID,
-		tenantID:     tenantID,
-		collectionID: collectionID,
-		memberID:     memberID,
-		targetDateID: targetDateID,
-		response:     responseType,
-		note:         note,
-		respondedAt:  respondedAt,
-		createdAt:    createdAt,
-		updatedAt:    updatedAt,
+		responseID:    responseID,
+		tenantID:      tenantID,
+		collectionID:  collectionID,
+		memberID:      memberID,
+		targetDateID:  targetDateID,
+		response:      responseType,
+		note:          note,
+		availableFrom: availableFrom,
+		availableTo:   availableTo,
+		respondedAt:   respondedAt,
+		createdAt:     createdAt,
+		updatedAt:     updatedAt,
 	}
 
 	if err := response.validate(); err != nil {
@@ -141,6 +151,14 @@ func (r *AttendanceResponse) Response() ResponseType {
 
 func (r *AttendanceResponse) Note() string {
 	return r.note
+}
+
+func (r *AttendanceResponse) AvailableFrom() *string {
+	return r.availableFrom
+}
+
+func (r *AttendanceResponse) AvailableTo() *string {
+	return r.availableTo
 }
 
 func (r *AttendanceResponse) RespondedAt() time.Time {
