@@ -150,6 +150,30 @@ export default function RoleList() {
   );
 }
 
+// プリセットカラーパレット
+const PRESET_COLORS = {
+  basic: [
+    { name: '赤', color: '#EF4444' },
+    { name: 'オレンジ', color: '#F97316' },
+    { name: '黄', color: '#EAB308' },
+    { name: '緑', color: '#22C55E' },
+    { name: '青', color: '#3B82F6' },
+    { name: '藍', color: '#6366F1' },
+    { name: '紫', color: '#A855F7' },
+    { name: 'ピンク', color: '#EC4899' },
+  ],
+  pastel: [
+    { name: 'ピンク', color: '#FCA5A5' },
+    { name: 'オレンジ', color: '#FDBA74' },
+    { name: 'イエロー', color: '#FDE047' },
+    { name: 'ライム', color: '#BEF264' },
+    { name: 'スカイ', color: '#7DD3FC' },
+    { name: 'ラベンダー', color: '#C4B5FD' },
+    { name: 'ローズ', color: '#F9A8D4' },
+    { name: 'グレー', color: '#D1D5DB' },
+  ],
+};
+
 // ロール作成・編集モーダルコンポーネント
 function RoleFormModal({
   role,
@@ -244,34 +268,90 @@ function RoleFormModal({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4 mb-4">
-            <div>
-              <label htmlFor="color" className="label">
-                カラー
-              </label>
+          <div className="mb-4">
+            <label className="label">カラー</label>
+            {/* プリセットカラー: ベーシック */}
+            <div className="mb-2">
+              <span className="text-xs text-gray-500 mb-1 block">ベーシック</span>
+              <div className="flex flex-wrap gap-2">
+                {PRESET_COLORS.basic.map((preset) => (
+                  <button
+                    key={preset.color}
+                    type="button"
+                    onClick={() => setColor(preset.color)}
+                    className={`w-7 h-7 rounded-md border-2 transition-all ${
+                      color === preset.color
+                        ? 'border-gray-800 ring-2 ring-offset-1 ring-gray-400'
+                        : 'border-gray-300 hover:border-gray-400'
+                    }`}
+                    style={{ backgroundColor: preset.color }}
+                    title={preset.name}
+                    disabled={loading}
+                  />
+                ))}
+              </div>
+            </div>
+            {/* プリセットカラー: パステル */}
+            <div className="mb-2">
+              <span className="text-xs text-gray-500 mb-1 block">パステル</span>
+              <div className="flex flex-wrap gap-2">
+                {PRESET_COLORS.pastel.map((preset) => (
+                  <button
+                    key={preset.color}
+                    type="button"
+                    onClick={() => setColor(preset.color)}
+                    className={`w-7 h-7 rounded-md border-2 transition-all ${
+                      color === preset.color
+                        ? 'border-gray-800 ring-2 ring-offset-1 ring-gray-400'
+                        : 'border-gray-300 hover:border-gray-400'
+                    }`}
+                    style={{ backgroundColor: preset.color }}
+                    title={preset.name}
+                    disabled={loading}
+                  />
+                ))}
+              </div>
+            </div>
+            {/* カスタムカラー */}
+            <div className="flex items-center gap-2 mt-3">
+              <span className="text-xs text-gray-500">カスタム:</span>
               <input
                 type="color"
                 id="color"
                 value={color}
                 onChange={(e) => setColor(e.target.value)}
-                className="h-10 w-full rounded border border-gray-300"
+                className="h-8 w-12 rounded border border-gray-300 cursor-pointer"
                 disabled={loading}
               />
-            </div>
-            <div>
-              <label htmlFor="displayOrder" className="label">
-                表示順序
-              </label>
               <input
-                type="number"
-                id="displayOrder"
-                value={displayOrder}
-                onChange={(e) => setDisplayOrder(Number(e.target.value))}
-                className="input-field"
+                type="text"
+                value={color}
+                onChange={(e) => setColor(e.target.value)}
+                className="w-24 px-2 py-1 text-sm border border-gray-300 rounded font-mono"
+                placeholder="#000000"
                 disabled={loading}
-                placeholder="0"
+              />
+              <div
+                className="w-8 h-8 rounded border border-gray-300"
+                style={{ backgroundColor: color }}
+                title="現在の色"
               />
             </div>
+          </div>
+
+          <div className="mb-4">
+            <label htmlFor="displayOrder" className="label">
+              表示順序
+            </label>
+            <input
+              type="number"
+              id="displayOrder"
+              value={displayOrder}
+              onChange={(e) => setDisplayOrder(Number(e.target.value))}
+              className="input-field"
+              disabled={loading}
+              placeholder="0"
+            />
           </div>
 
           {error && (
