@@ -8,6 +8,7 @@ export async function createMember(data: {
   display_name: string;
   discord_user_id?: string;
   email?: string;
+  role_ids?: string[];
 }): Promise<Member> {
   const res = await apiClient.post<ApiResponse<Member>>('/api/v1/members', data);
   return res.data;

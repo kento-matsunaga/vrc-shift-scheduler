@@ -217,6 +217,7 @@ export default function Members() {
         // 新規作成
         await createMember({
           display_name: displayName,
+          role_ids: selectedRoleIds.length > 0 ? selectedRoleIds : undefined,
         });
       }
 
