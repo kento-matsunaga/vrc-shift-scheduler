@@ -98,3 +98,33 @@ export async function bulkImportMembers(members: BulkImportMemberInput[]): Promi
   return res.data;
 }
 
+/**
+ * 失敗詳細
+ */
+export interface FailureDetail {
+  member_id: string;
+  reason: string;
+}
+
+/**
+ * ロール一括更新のレスポンス
+ */
+export interface BulkUpdateRolesResponse {
+  total_count: number;
+  success_count: number;
+  failed_count: number;
+  failures?: FailureDetail[];
+}
+
+/**
+ * メンバーのロール一括更新
+ */
+export async function bulkUpdateRoles(data: {
+  member_ids: string[];
+  add_role_ids?: string[];
+  remove_role_ids?: string[];
+}): Promise<BulkUpdateRolesResponse> {
+  const res = await apiClient.post<ApiResponse<BulkUpdateRolesResponse>>('/api/v1/members/bulk-update-roles', data);
+  return res.data;
+}
+
