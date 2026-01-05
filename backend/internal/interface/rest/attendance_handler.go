@@ -13,13 +13,14 @@ import (
 
 // AttendanceHandler handles attendance-related HTTP requests
 type AttendanceHandler struct {
-	createCollectionUsecase       *attendance.CreateCollectionUsecase
-	submitResponseUsecase         *attendance.SubmitResponseUsecase
-	closeCollectionUsecase        *attendance.CloseCollectionUsecase
-	getCollectionUsecase          *attendance.GetCollectionUsecase
-	getCollectionByTokenUsecase   *attendance.GetCollectionByTokenUsecase
-	getResponsesUsecase           *attendance.GetResponsesUsecase
-	listCollectionsUsecase        *attendance.ListCollectionsUsecase
+	createCollectionUsecase     *attendance.CreateCollectionUsecase
+	submitResponseUsecase       *attendance.SubmitResponseUsecase
+	closeCollectionUsecase      *attendance.CloseCollectionUsecase
+	deleteCollectionUsecase     *attendance.DeleteCollectionUsecase
+	getCollectionUsecase        *attendance.GetCollectionUsecase
+	getCollectionByTokenUsecase *attendance.GetCollectionByTokenUsecase
+	getResponsesUsecase         *attendance.GetResponsesUsecase
+	listCollectionsUsecase      *attendance.ListCollectionsUsecase
 }
 
 // NewAttendanceHandler creates a new AttendanceHandler with injected usecases
@@ -27,19 +28,21 @@ func NewAttendanceHandler(
 	createCollectionUC *attendance.CreateCollectionUsecase,
 	submitResponseUC *attendance.SubmitResponseUsecase,
 	closeCollectionUC *attendance.CloseCollectionUsecase,
+	deleteCollectionUC *attendance.DeleteCollectionUsecase,
 	getCollectionUC *attendance.GetCollectionUsecase,
 	getCollectionByTokenUC *attendance.GetCollectionByTokenUsecase,
 	getResponsesUC *attendance.GetResponsesUsecase,
 	listCollectionsUC *attendance.ListCollectionsUsecase,
 ) *AttendanceHandler {
 	return &AttendanceHandler{
-		createCollectionUsecase:       createCollectionUC,
-		submitResponseUsecase:         submitResponseUC,
-		closeCollectionUsecase:        closeCollectionUC,
-		getCollectionUsecase:          getCollectionUC,
-		getCollectionByTokenUsecase:   getCollectionByTokenUC,
-		getResponsesUsecase:           getResponsesUC,
-		listCollectionsUsecase:        listCollectionsUC,
+		createCollectionUsecase:     createCollectionUC,
+		submitResponseUsecase:       submitResponseUC,
+		closeCollectionUsecase:      closeCollectionUC,
+		deleteCollectionUsecase:     deleteCollectionUC,
+		getCollectionUsecase:        getCollectionUC,
+		getCollectionByTokenUsecase: getCollectionByTokenUC,
+		getResponsesUsecase:         getResponsesUC,
+		listCollectionsUsecase:      listCollectionsUC,
 	}
 }
 
@@ -57,55 +60,61 @@ type CreateCollectionRequest struct {
 // TargetDateResponse represents a target date in API responses
 type TargetDateResponse struct {
 	TargetDateID string `json:"target_date_id"`
-	TargetDate   string `json:"target_date"`   // ISO 8601 format
+	TargetDate   string `json:"target_date"` // ISO 8601 format
 	DisplayOrder int    `json:"display_order"`
 }
 
 // CollectionResponse represents an attendance collection in API responses
 type CollectionResponse struct {
-	CollectionID string                `json:"collection_id"`
-	TenantID     string                `json:"tenant_id"`
-	Title        string                `json:"title"`
-	Description  string                `json:"description"`
-	TargetType   string                `json:"target_type"`
-	TargetID     string                `json:"target_id"`
-	TargetDates  []TargetDateResponse  `json:"target_dates,omitempty"` // Target dates with IDs
-	PublicToken  string                `json:"public_token"`
-	Status       string                `json:"status"`
-	Deadline     *time.Time            `json:"deadline,omitempty"`
-	GroupIDs     []string              `json:"group_ids,omitempty"`    // Target group IDs
-	CreatedAt    time.Time             `json:"created_at"`
-	UpdatedAt    time.Time             `json:"updated_at"`
+	CollectionID string               `json:"collection_id"`
+	TenantID     string               `json:"tenant_id"`
+	Title        string               `json:"title"`
+	Description  string               `json:"description"`
+	TargetType   string               `json:"target_type"`
+	TargetID     string               `json:"target_id"`
+	TargetDates  []TargetDateResponse `json:"target_dates,omitempty"` // Target dates with IDs
+	PublicToken  string               `json:"public_token"`
+	Status       string               `json:"status"`
+	Deadline     *time.Time           `json:"deadline,omitempty"`
+	GroupIDs     []string             `json:"group_ids,omitempty"` // Target group IDs
+	CreatedAt    time.Time            `json:"created_at"`
+	UpdatedAt    time.Time            `json:"updated_at"`
 }
 
 // SubmitResponseRequest represents the request body for submitting an attendance response
 type SubmitResponseRequest struct {
-	MemberID     string `json:"member_id"`
-	TargetDateID string `json:"target_date_id"` // 対象日ID
-	Response     string `json:"response"`       // "attending" or "absent"
-	Note         string `json:"note"`
+	MemberID      string  `json:"member_id"`
+	TargetDateID  string  `json:"target_date_id"`          // 対象日ID
+	Response      string  `json:"response"`                // "attending" or "absent" or "undecided"
+	Note          string  `json:"note"`
+	AvailableFrom *string `json:"available_from,omitempty"` // 参加可能開始時間 (HH:MM)
+	AvailableTo   *string `json:"available_to,omitempty"`   // 参加可能終了時間 (HH:MM)
 }
 
 // ResponseDTO represents a single attendance response
 type ResponseDTO struct {
-	ResponseID   string    `json:"response_id"`
-	MemberID     string    `json:"member_id"`
-	MemberName   string    `json:"member_name"`    // メンバー表示名
-	TargetDateID string    `json:"target_date_id"` // 対象日ID
-	TargetDate   string    `json:"target_date"`    // 対象日（ISO 8601）
-	Response     string    `json:"response"`
-	Note         string    `json:"note"`
-	RespondedAt  time.Time `json:"responded_at"`
+	ResponseID    string    `json:"response_id"`
+	MemberID      string    `json:"member_id"`
+	MemberName    string    `json:"member_name"`             // メンバー表示名
+	TargetDateID  string    `json:"target_date_id"`          // 対象日ID
+	TargetDate    string    `json:"target_date"`             // 対象日（ISO 8601）
+	Response      string    `json:"response"`
+	Note          string    `json:"note"`
+	AvailableFrom *string   `json:"available_from,omitempty"` // 参加可能開始時間
+	AvailableTo   *string   `json:"available_to,omitempty"`   // 参加可能終了時間
+	RespondedAt   time.Time `json:"responded_at"`
 }
 
 // SubmitResponseResponse represents the response for submitting an attendance response
 type SubmitResponseResponse struct {
-	ResponseID   string    `json:"response_id"`
-	CollectionID string    `json:"collection_id"`
-	MemberID     string    `json:"member_id"`
-	Response     string    `json:"response"`
-	Note         string    `json:"note"`
-	RespondedAt  time.Time `json:"responded_at"`
+	ResponseID    string    `json:"response_id"`
+	CollectionID  string    `json:"collection_id"`
+	MemberID      string    `json:"member_id"`
+	Response      string    `json:"response"`
+	Note          string    `json:"note"`
+	AvailableFrom *string   `json:"available_from,omitempty"`
+	AvailableTo   *string   `json:"available_to,omitempty"`
+	RespondedAt   time.Time `json:"responded_at"`
 }
 
 // ResponsesListResponse represents the response for getting responses
@@ -289,6 +298,49 @@ func (h *AttendanceHandler) CloseCollection(w http.ResponseWriter, r *http.Reque
 	})
 }
 
+// DeleteCollection handles DELETE /api/v1/attendance/collections/:id
+func (h *AttendanceHandler) DeleteCollection(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// TenantIDの取得（JWTから）
+	tenantID, ok := GetTenantID(ctx)
+	if !ok {
+		RespondBadRequest(w, "tenant_id is required")
+		return
+	}
+
+	// URLパラメータからcollection_idを取得
+	collectionID := chi.URLParam(r, "collection_id")
+	if collectionID == "" {
+		RespondBadRequest(w, "collection_id is required")
+		return
+	}
+
+	// Usecase呼び出し
+	output, err := h.deleteCollectionUsecase.Execute(ctx, attendance.DeleteCollectionInput{
+		TenantID:     tenantID.String(),
+		CollectionID: collectionID,
+	})
+	if err != nil {
+		switch {
+		case errors.Is(err, domainAttendance.ErrAlreadyDeleted):
+			RespondConflict(w, "Collection is already deleted")
+		default:
+			RespondDomainError(w, err)
+		}
+		return
+	}
+
+	RespondJSON(w, http.StatusOK, SuccessResponse{
+		Data: map[string]interface{}{
+			"collection_id": output.CollectionID,
+			"status":        output.Status,
+			"deleted_at":    output.DeletedAt,
+			"updated_at":    output.UpdatedAt,
+		},
+	})
+}
+
 // GetResponses handles GET /api/v1/attendance/collections/:id/responses
 func (h *AttendanceHandler) GetResponses(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -321,14 +373,16 @@ func (h *AttendanceHandler) GetResponses(w http.ResponseWriter, r *http.Request)
 	responses := make([]ResponseDTO, 0, len(output.Responses))
 	for _, resp := range output.Responses {
 		responses = append(responses, ResponseDTO{
-			ResponseID:   resp.ResponseID,
-			MemberID:     resp.MemberID,
-			MemberName:   resp.MemberName,
-			TargetDateID: resp.TargetDateID,
-			TargetDate:   resp.TargetDate.Format(time.RFC3339),
-			Response:     resp.Response,
-			Note:         resp.Note,
-			RespondedAt:  resp.RespondedAt,
+			ResponseID:    resp.ResponseID,
+			MemberID:      resp.MemberID,
+			MemberName:    resp.MemberName,
+			TargetDateID:  resp.TargetDateID,
+			TargetDate:    resp.TargetDate.Format(time.RFC3339),
+			Response:      resp.Response,
+			Note:          resp.Note,
+			AvailableFrom: resp.AvailableFrom,
+			AvailableTo:   resp.AvailableTo,
+			RespondedAt:   resp.RespondedAt,
 		})
 	}
 
@@ -427,11 +481,13 @@ func (h *AttendanceHandler) SubmitResponse(w http.ResponseWriter, r *http.Reques
 
 	// Usecase呼び出し
 	output, err := h.submitResponseUsecase.Execute(ctx, attendance.SubmitResponseInput{
-		PublicToken:  token,
-		MemberID:     req.MemberID,
-		TargetDateID: req.TargetDateID,
-		Response:     req.Response,
-		Note:         req.Note,
+		PublicToken:   token,
+		MemberID:      req.MemberID,
+		TargetDateID:  req.TargetDateID,
+		Response:      req.Response,
+		Note:          req.Note,
+		AvailableFrom: req.AvailableFrom,
+		AvailableTo:   req.AvailableTo,
 	})
 	if err != nil {
 		// エラーハンドリング（トークンエラー → 404, メンバーエラー → 400）
@@ -453,12 +509,14 @@ func (h *AttendanceHandler) SubmitResponse(w http.ResponseWriter, r *http.Reques
 	// レスポンス
 	RespondJSON(w, http.StatusCreated, SuccessResponse{
 		Data: SubmitResponseResponse{
-			ResponseID:   output.ResponseID,
-			CollectionID: output.CollectionID,
-			MemberID:     output.MemberID,
-			Response:     output.Response,
-			Note:         output.Note,
-			RespondedAt:  output.RespondedAt,
+			ResponseID:    output.ResponseID,
+			CollectionID:  output.CollectionID,
+			MemberID:      output.MemberID,
+			Response:      output.Response,
+			Note:          output.Note,
+			AvailableFrom: output.AvailableFrom,
+			AvailableTo:   output.AvailableTo,
+			RespondedAt:   output.RespondedAt,
 		},
 	})
 }

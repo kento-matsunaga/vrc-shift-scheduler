@@ -147,6 +147,17 @@ func (c *AttendanceCollection) Close(now time.Time) error {
 	return nil
 }
 
+// Delete はコレクションを削除済みにする（ソフトデリート）
+// now は App層から Clock 経由で渡される（Domain層で time.Now() を呼ばない）
+func (c *AttendanceCollection) Delete(now time.Time) error {
+	if c.deletedAt != nil {
+		return ErrAlreadyDeleted
+	}
+	c.deletedAt = &now
+	c.updatedAt = now
+	return nil
+}
+
 // Getters
 
 func (c *AttendanceCollection) CollectionID() common.CollectionID {

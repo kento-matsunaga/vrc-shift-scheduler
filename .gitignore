@@ -78,3 +78,10 @@ coverage/
 # ===========================
 LOCAL_DEPLOY_GUIDE.md
 
+# Analysis files (contains customer data)
+*.xlsx
+Citoron.xlsx
+
+# Test data (local only)
+backend/test_data/
+

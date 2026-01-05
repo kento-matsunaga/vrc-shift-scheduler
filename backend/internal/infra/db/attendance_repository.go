@@ -247,11 +247,13 @@ func (r *AttendanceRepository) UpsertResponse(ctx context.Context, response *att
 	query := `
 		INSERT INTO attendance_responses (
 			response_id, tenant_id, collection_id, member_id, target_date_id, response, note,
-			responded_at, created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+			available_from, available_to, responded_at, created_at, updated_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 		ON CONFLICT (collection_id, member_id, target_date_id) DO UPDATE SET
 			response = EXCLUDED.response,
 			note = EXCLUDED.note,
+			available_from = EXCLUDED.available_from,
+			available_to = EXCLUDED.available_to,
 			responded_at = EXCLUDED.responded_at,
 			updated_at = EXCLUDED.updated_at
 	`
@@ -266,6 +268,8 @@ func (r *AttendanceRepository) UpsertResponse(ctx context.Context, response *att
 		response.TargetDateID().String(),
 		response.Response().String(),
 		response.Note(),
+		response.AvailableFrom(),
+		response.AvailableTo(),
 		response.RespondedAt(),
 		response.CreatedAt(),
 		response.UpdatedAt(),
@@ -283,7 +287,7 @@ func (r *AttendanceRepository) FindResponsesByCollectionID(ctx context.Context, 
 	query := `
 		SELECT
 			response_id, tenant_id, collection_id, member_id, target_date_id, response, note,
-			responded_at, created_at, updated_at
+			to_char(available_from, 'HH24:MI'), to_char(available_to, 'HH24:MI'), responded_at, created_at, updated_at
 		FROM attendance_responses
 		WHERE collection_id = $1
 		ORDER BY responded_at DESC
@@ -307,6 +311,8 @@ func (r *AttendanceRepository) FindResponsesByCollectionID(ctx context.Context, 
 			targetDateIDStr string
 			responseStr     string
 			note            string
+			availableFrom   sql.NullString
+			availableTo     sql.NullString
 			respondedAt     time.Time
 			createdAt       time.Time
 			updatedAt       time.Time
@@ -320,6 +326,8 @@ func (r *AttendanceRepository) FindResponsesByCollectionID(ctx context.Context, 
 			&targetDateIDStr,
 			&responseStr,
 			&note,
+			&availableFrom,
+			&availableTo,
 			&respondedAt,
 			&createdAt,
 			&updatedAt,
@@ -358,6 +366,14 @@ func (r *AttendanceRepository) FindResponsesByCollectionID(ctx context.Context, 
 			return nil, fmt.Errorf("failed to parse response type: %w", err)
 		}
 
+		var availableFromPtr, availableToPtr *string
+		if availableFrom.Valid {
+			availableFromPtr = &availableFrom.String
+		}
+		if availableTo.Valid {
+			availableToPtr = &availableTo.String
+		}
+
 		resp, err := attendance.ReconstructAttendanceResponse(
 			responseID,
 			tenantID,
@@ -366,6 +382,8 @@ func (r *AttendanceRepository) FindResponsesByCollectionID(ctx context.Context, 
 			targetDateID,
 			responseType,
 			note,
+			availableFromPtr,
+			availableToPtr,
 			respondedAt,
 			createdAt,
 			updatedAt,
@@ -385,7 +403,7 @@ func (r *AttendanceRepository) FindResponsesByMemberID(ctx context.Context, tena
 	query := `
 		SELECT
 			response_id, tenant_id, collection_id, member_id, target_date_id, response, note,
-			responded_at, created_at, updated_at
+			to_char(available_from, 'HH24:MI'), to_char(available_to, 'HH24:MI'), responded_at, created_at, updated_at
 		FROM attendance_responses
 		WHERE tenant_id = $1 AND member_id = $2
 		ORDER BY responded_at DESC
@@ -409,6 +427,8 @@ func (r *AttendanceRepository) FindResponsesByMemberID(ctx context.Context, tena
 			targetDateIDStr string
 			responseStr     string
 			note            string
+			availableFrom   sql.NullString
+			availableTo     sql.NullString
 			respondedAt     time.Time
 			createdAt       time.Time
 			updatedAt       time.Time
@@ -422,6 +442,8 @@ func (r *AttendanceRepository) FindResponsesByMemberID(ctx context.Context, tena
 			&targetDateIDStr,
 			&responseStr,
 			&note,
+			&availableFrom,
+			&availableTo,
 			&respondedAt,
 			&createdAt,
 			&updatedAt,
@@ -460,6 +482,14 @@ func (r *AttendanceRepository) FindResponsesByMemberID(ctx context.Context, tena
 			return nil, fmt.Errorf("failed to parse response type: %w", err)
 		}
 
+		var availableFromPtr, availableToPtr *string
+		if availableFrom.Valid {
+			availableFromPtr = &availableFrom.String
+		}
+		if availableTo.Valid {
+			availableToPtr = &availableTo.String
+		}
+
 		resp, err := attendance.ReconstructAttendanceResponse(
 			responseID,
 			tid,
@@ -468,6 +498,8 @@ func (r *AttendanceRepository) FindResponsesByMemberID(ctx context.Context, tena
 			targetDateID,
 			responseType,
 			note,
+			availableFromPtr,
+			availableToPtr,
 			respondedAt,
 			createdAt,
 			updatedAt,

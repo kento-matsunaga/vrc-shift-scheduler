@@ -236,6 +236,20 @@ func (r *LicenseKeyRepository) List(ctx context.Context, status *billing.License
 	return keys, totalCount, nil
 }
 
+// FindByHashAndTenant はハッシュとテナントIDで使用済みライセンスキーを検索
+// PWリセット時の本人確認に使用
+func (r *LicenseKeyRepository) FindByHashAndTenant(ctx context.Context, keyHash string, tenantID common.TenantID) (*billing.LicenseKey, error) {
+	query := `
+		SELECT
+			key_id, key_hash, status, issued_batch_id, expires_at, memo,
+			used_at, used_tenant_id, revoked_at, created_at
+		FROM license_keys
+		WHERE key_hash = $1 AND used_tenant_id = $2 AND status = 'used'
+	`
+
+	return r.scanLicenseKey(ctx, query, keyHash, tenantID.String())
+}
+
 func (r *LicenseKeyRepository) scanLicenseKey(ctx context.Context, query string, args ...interface{}) (*billing.LicenseKey, error) {
 	var (
 		keyIDStr     string

@@ -612,3 +612,67 @@ func ParseRoleGroupID(s string) (RoleGroupID, error) {
 	}
 	return RoleGroupID(s), nil
 }
+
+// ImportJobID represents an import job identifier
+type ImportJobID string
+
+// NewImportJobIDWithTime creates a new ImportJobID using the provided time.
+func NewImportJobIDWithTime(t time.Time) ImportJobID {
+	return ImportJobID(NewULIDWithTime(t))
+}
+
+// NewImportJobID creates a new ImportJobID using the current time.
+// Deprecated: Use NewImportJobIDWithTime for better testability.
+func NewImportJobID() ImportJobID {
+	return ImportJobID(NewULID())
+}
+
+func (id ImportJobID) String() string {
+	return string(id)
+}
+
+func (id ImportJobID) Validate() error {
+	if id == "" {
+		return NewValidationError("import_job_id is required", nil)
+	}
+	return ValidateULID(string(id))
+}
+
+func ParseImportJobID(s string) (ImportJobID, error) {
+	if err := ValidateULID(s); err != nil {
+		return "", err
+	}
+	return ImportJobID(s), nil
+}
+
+// ImportLogID represents an import log identifier
+type ImportLogID string
+
+// NewImportLogIDWithTime creates a new ImportLogID using the provided time.
+func NewImportLogIDWithTime(t time.Time) ImportLogID {
+	return ImportLogID(NewULIDWithTime(t))
+}
+
+// NewImportLogID creates a new ImportLogID using the current time.
+// Deprecated: Use NewImportLogIDWithTime for better testability.
+func NewImportLogID() ImportLogID {
+	return ImportLogID(NewULID())
+}
+
+func (id ImportLogID) String() string {
+	return string(id)
+}
+
+func (id ImportLogID) Validate() error {
+	if id == "" {
+		return NewValidationError("log_id is required", nil)
+	}
+	return ValidateULID(string(id))
+}
+
+func ParseImportLogID(s string) (ImportLogID, error) {
+	if err := ValidateULID(s); err != nil {
+		return "", err
+	}
+	return ImportLogID(s), nil
+}

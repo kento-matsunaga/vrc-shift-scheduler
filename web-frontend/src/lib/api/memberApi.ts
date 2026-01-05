@@ -8,6 +8,7 @@ export async function createMember(data: {
   display_name: string;
   discord_user_id?: string;
   email?: string;
+  role_ids?: string[];
 }): Promise<Member> {
   const res = await apiClient.post<ApiResponse<Member>>('/api/v1/members', data);
   return res.data;
@@ -95,6 +96,36 @@ export interface BulkImportMemberInput {
  */
 export async function bulkImportMembers(members: BulkImportMemberInput[]): Promise<BulkImportResponse> {
   const res = await apiClient.post<ApiResponse<BulkImportResponse>>('/api/v1/members/bulk-import', { members });
+  return res.data;
+}
+
+/**
+ * 失敗詳細
+ */
+export interface FailureDetail {
+  member_id: string;
+  reason: string;
+}
+
+/**
+ * ロール一括更新のレスポンス
+ */
+export interface BulkUpdateRolesResponse {
+  total_count: number;
+  success_count: number;
+  failed_count: number;
+  failures?: FailureDetail[];
+}
+
+/**
+ * メンバーのロール一括更新
+ */
+export async function bulkUpdateRoles(data: {
+  member_ids: string[];
+  add_role_ids?: string[];
+  remove_role_ids?: string[];
+}): Promise<BulkUpdateRolesResponse> {
+  const res = await apiClient.post<ApiResponse<BulkUpdateRolesResponse>>('/api/v1/members/bulk-update-roles', data);
   return res.data;
 }
 

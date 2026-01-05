@@ -326,12 +326,23 @@ func (h *AdminBillingHandler) GetTenantDetail(w http.ResponseWriter, r *http.Req
 			"entitlement_id": e.EntitlementID.String(),
 			"plan_code":      e.PlanCode,
 			"source":         string(e.Source),
-			"starts_at":      e.StartsAt,
+			"started_at":     e.StartsAt,
 		}
 		if e.RevokedAt != nil {
 			item["revoked_at"] = e.RevokedAt
 		}
 		entitlements[i] = item
+	}
+
+	// Convert admins
+	admins := make([]map[string]interface{}, len(output.Admins))
+	for i, a := range output.Admins {
+		admins[i] = map[string]interface{}{
+			"admin_id":     a.AdminID.String(),
+			"email":        a.Email,
+			"display_name": a.DisplayName,
+			"role":         string(a.Role),
+		}
 	}
 
 	data := map[string]interface{}{
@@ -341,6 +352,7 @@ func (h *AdminBillingHandler) GetTenantDetail(w http.ResponseWriter, r *http.Req
 		"created_at":   output.CreatedAt,
 		"updated_at":   output.UpdatedAt,
 		"entitlements": entitlements,
+		"admins":       admins,
 	}
 	if output.GraceUntil != nil {
 		data["grace_until"] = output.GraceUntil

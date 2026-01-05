@@ -53,16 +53,18 @@ func (at ActorType) IsValid() bool {
 type BillingAuditAction string
 
 const (
-	BillingAuditActionLicenseClaim       BillingAuditAction = "license_claim"
-	BillingAuditActionLicenseClaimFailed BillingAuditAction = "license_claim_failed"
-	BillingAuditActionLicenseGenerated   BillingAuditAction = "license_generated"
-	BillingAuditActionLicenseRevoked     BillingAuditAction = "license_revoked"
-	BillingAuditActionSubscriptionCreate BillingAuditAction = "subscription_created"
-	BillingAuditActionSubscriptionUpdate BillingAuditAction = "subscription_updated"
-	BillingAuditActionTenantStatusChange BillingAuditAction = "tenant_status_changed"
-	BillingAuditActionPaymentFailed      BillingAuditAction = "payment_failed"
-	BillingAuditActionPaymentSucceeded   BillingAuditAction = "payment_succeeded"
-	BillingAuditActionEntitlementRevoked BillingAuditAction = "entitlement_revoked"
+	BillingAuditActionLicenseClaim         BillingAuditAction = "license_claim"
+	BillingAuditActionLicenseClaimFailed   BillingAuditAction = "license_claim_failed"
+	BillingAuditActionLicenseGenerated     BillingAuditAction = "license_generated"
+	BillingAuditActionLicenseRevoked       BillingAuditAction = "license_revoked"
+	BillingAuditActionSubscriptionCreate   BillingAuditAction = "subscription_created"
+	BillingAuditActionSubscriptionUpdate   BillingAuditAction = "subscription_updated"
+	BillingAuditActionTenantStatusChange   BillingAuditAction = "tenant_status_changed"
+	BillingAuditActionPaymentFailed        BillingAuditAction = "payment_failed"
+	BillingAuditActionPaymentSucceeded     BillingAuditAction = "payment_succeeded"
+	BillingAuditActionEntitlementRevoked   BillingAuditAction = "entitlement_revoked"
+	BillingAuditActionPasswordResetAllowed BillingAuditAction = "password_reset_allowed"
+	BillingAuditActionPasswordResetDone    BillingAuditAction = "password_reset_completed"
 )
 
 // String returns the string representation

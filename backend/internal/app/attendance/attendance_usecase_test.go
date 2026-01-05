@@ -388,3 +388,152 @@ func TestCreateCollectionUsecase_Execute_BusinessDayTarget(t *testing.T) {
 		t.Errorf("TargetID mismatch: got %v, want 'bd-456'", result.TargetID)
 	}
 }
+
+// =====================================================
+// DeleteCollectionUsecase Tests
+// =====================================================
+
+func createTestCollection(t *testing.T, tenantID common.TenantID) *attendance.AttendanceCollection {
+	t.Helper()
+	now := time.Now()
+
+	collection, err := attendance.NewAttendanceCollection(
+		now,
+		tenantID,
+		"Test Collection",
+		"Test Description",
+		attendance.TargetTypeEvent,
+		"event-123",
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("Failed to create test collection: %v", err)
+	}
+	return collection
+}
+
+func TestDeleteCollectionUsecase_Execute_Success(t *testing.T) {
+	tenantID := common.NewTenantID()
+	testCollection := createTestCollection(t, tenantID)
+
+	repo := &MockAttendanceCollectionRepository{
+		findByIDFunc: func(ctx context.Context, tid common.TenantID, cid common.CollectionID) (*attendance.AttendanceCollection, error) {
+			return testCollection, nil
+		},
+		saveFunc: func(ctx context.Context, c *attendance.AttendanceCollection) error {
+			return nil
+		},
+	}
+
+	clock := &MockClock{nowFunc: func() time.Time { return time.Now() }}
+
+	usecase := appattendance.NewDeleteCollectionUsecase(repo, clock)
+
+	input := appattendance.DeleteCollectionInput{
+		TenantID:     tenantID.String(),
+		CollectionID: testCollection.CollectionID().String(),
+	}
+
+	result, err := usecase.Execute(context.Background(), input)
+
+	if err != nil {
+		t.Fatalf("Execute() should succeed, got error: %v", err)
+	}
+
+	if result.CollectionID != testCollection.CollectionID().String() {
+		t.Errorf("CollectionID mismatch: got %v, want %v", result.CollectionID, testCollection.CollectionID().String())
+	}
+
+	if result.DeletedAt == nil {
+		t.Error("DeletedAt should not be nil")
+	}
+}
+
+func TestDeleteCollectionUsecase_Execute_NotFound(t *testing.T) {
+	tenantID := common.NewTenantID()
+	collectionID := common.NewCollectionID()
+
+	repo := &MockAttendanceCollectionRepository{
+		findByIDFunc: func(ctx context.Context, tid common.TenantID, cid common.CollectionID) (*attendance.AttendanceCollection, error) {
+			return nil, common.NewNotFoundError("collection", cid.String())
+		},
+	}
+
+	clock := &MockClock{nowFunc: func() time.Time { return time.Now() }}
+
+	usecase := appattendance.NewDeleteCollectionUsecase(repo, clock)
+
+	input := appattendance.DeleteCollectionInput{
+		TenantID:     tenantID.String(),
+		CollectionID: collectionID.String(),
+	}
+
+	_, err := usecase.Execute(context.Background(), input)
+
+	if err == nil {
+		t.Fatal("Execute() should fail when collection not found")
+	}
+}
+
+func TestDeleteCollectionUsecase_Execute_AlreadyDeleted(t *testing.T) {
+	tenantID := common.NewTenantID()
+	testCollection := createTestCollection(t, tenantID)
+
+	// Delete the collection first
+	now := time.Now()
+	_ = testCollection.Delete(now)
+
+	repo := &MockAttendanceCollectionRepository{
+		findByIDFunc: func(ctx context.Context, tid common.TenantID, cid common.CollectionID) (*attendance.AttendanceCollection, error) {
+			return testCollection, nil
+		},
+	}
+
+	clock := &MockClock{nowFunc: func() time.Time { return time.Now() }}
+
+	usecase := appattendance.NewDeleteCollectionUsecase(repo, clock)
+
+	input := appattendance.DeleteCollectionInput{
+		TenantID:     tenantID.String(),
+		CollectionID: testCollection.CollectionID().String(),
+	}
+
+	_, err := usecase.Execute(context.Background(), input)
+
+	if err == nil {
+		t.Fatal("Execute() should fail when collection is already deleted")
+	}
+
+	if !errors.Is(err, attendance.ErrAlreadyDeleted) {
+		t.Errorf("Expected ErrAlreadyDeleted, got: %v", err)
+	}
+}
+
+func TestDeleteCollectionUsecase_Execute_ErrorWhenSaveFails(t *testing.T) {
+	tenantID := common.NewTenantID()
+	testCollection := createTestCollection(t, tenantID)
+
+	repo := &MockAttendanceCollectionRepository{
+		findByIDFunc: func(ctx context.Context, tid common.TenantID, cid common.CollectionID) (*attendance.AttendanceCollection, error) {
+			return testCollection, nil
+		},
+		saveFunc: func(ctx context.Context, c *attendance.AttendanceCollection) error {
+			return errors.New("database error")
+		},
+	}
+
+	clock := &MockClock{nowFunc: func() time.Time { return time.Now() }}
+
+	usecase := appattendance.NewDeleteCollectionUsecase(repo, clock)
+
+	input := appattendance.DeleteCollectionInput{
+		TenantID:     tenantID.String(),
+		CollectionID: testCollection.CollectionID().String(),
+	}
+
+	_, err := usecase.Execute(context.Background(), input)
+
+	if err == nil {
+		t.Fatal("Execute() should fail when save fails")
+	}
+}
