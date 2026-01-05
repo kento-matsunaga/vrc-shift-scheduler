@@ -237,3 +237,127 @@ export async function allowPasswordReset(
 ): Promise<ApiResponse<AllowPasswordResetOutput>> {
   return request('POST', `/admins/${adminId}/allow-password-reset`);
 }
+
+// ============================================================
+// お知らせ API
+// ============================================================
+
+export interface Announcement {
+  id: string;
+  tenant_id: string | null;
+  title: string;
+  body: string;
+  published_at: string;
+  created_at: string;
+}
+
+export interface ListAnnouncementsOutput {
+  announcements: Announcement[];
+  total_count: number;
+}
+
+export interface CreateAnnouncementInput {
+  title: string;
+  body: string;
+  tenant_id?: string;
+  published_at?: string;
+}
+
+export interface UpdateAnnouncementInput {
+  title?: string;
+  body?: string;
+  published_at?: string;
+}
+
+export async function listAnnouncements(params?: {
+  tenant_id?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<ApiResponse<ListAnnouncementsOutput>> {
+  const query = new URLSearchParams();
+  if (params?.tenant_id) query.set('tenant_id', params.tenant_id);
+  if (params?.limit) query.set('limit', String(params.limit));
+  if (params?.offset) query.set('offset', String(params.offset));
+  const queryString = query.toString();
+  return request('GET', `/announcements${queryString ? '?' + queryString : ''}`);
+}
+
+export async function createAnnouncement(
+  input: CreateAnnouncementInput
+): Promise<ApiResponse<{ announcement: Announcement }>> {
+  return request('POST', '/announcements', input);
+}
+
+export async function updateAnnouncement(
+  id: string,
+  input: UpdateAnnouncementInput
+): Promise<ApiResponse<{ announcement: Announcement }>> {
+  return request('PATCH', `/announcements/${id}`, input);
+}
+
+export async function deleteAnnouncement(id: string): Promise<void> {
+  await request('DELETE', `/announcements/${id}`);
+}
+
+// ============================================================
+// チュートリアル API
+// ============================================================
+
+export interface Tutorial {
+  id: string;
+  category: string;
+  title: string;
+  body: string;
+  display_order: number;
+  is_published: boolean;
+  created_at: string;
+}
+
+export interface ListTutorialsOutput {
+  tutorials: Tutorial[];
+  total_count: number;
+}
+
+export interface CreateTutorialInput {
+  category: string;
+  title: string;
+  body: string;
+  display_order?: number;
+  is_published?: boolean;
+}
+
+export interface UpdateTutorialInput {
+  category?: string;
+  title?: string;
+  body?: string;
+  display_order?: number;
+  is_published?: boolean;
+}
+
+export async function listTutorials(params?: {
+  limit?: number;
+  offset?: number;
+}): Promise<ApiResponse<ListTutorialsOutput>> {
+  const query = new URLSearchParams();
+  if (params?.limit) query.set('limit', String(params.limit));
+  if (params?.offset) query.set('offset', String(params.offset));
+  const queryString = query.toString();
+  return request('GET', `/tutorials${queryString ? '?' + queryString : ''}`);
+}
+
+export async function createTutorial(
+  input: CreateTutorialInput
+): Promise<ApiResponse<{ tutorial: Tutorial }>> {
+  return request('POST', '/tutorials', input);
+}
+
+export async function updateTutorial(
+  id: string,
+  input: UpdateTutorialInput
+): Promise<ApiResponse<{ tutorial: Tutorial }>> {
+  return request('PATCH', `/tutorials/${id}`, input);
+}
+
+export async function deleteTutorial(id: string): Promise<void> {
+  await request('DELETE', `/tutorials/${id}`);
+}

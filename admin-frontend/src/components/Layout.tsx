@@ -39,6 +39,12 @@ export default function Layout() {
             <Link to="/tenants" className={linkClass('/tenants')}>
               テナント
             </Link>
+            <Link to="/announcements" className={linkClass('/announcements')}>
+              お知らせ
+            </Link>
+            <Link to="/tutorials" className={linkClass('/tutorials')}>
+              チュートリアル
+            </Link>
             <Link to="/audit-logs" className={linkClass('/audit-logs')}>
               監査ログ
             </Link>
