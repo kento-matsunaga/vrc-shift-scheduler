@@ -93,6 +93,13 @@ export function AnnouncementBell() {
     }
   }
 
+  function handleKeyDown(event: React.KeyboardEvent, announcement: Announcement) {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      handleAnnouncementClick(announcement);
+    }
+  }
+
   return (
     <div className="relative" ref={dropdownRef}>
       <button
@@ -133,8 +140,12 @@ export function AnnouncementBell() {
                 return (
                   <div
                     key={announcement.id}
+                    role="button"
+                    tabIndex={0}
+                    aria-expanded={isExpanded}
                     onClick={() => handleAnnouncementClick(announcement)}
-                    className={`p-3 border-b border-gray-100 cursor-pointer hover:bg-gray-50 ${
+                    onKeyDown={(e) => handleKeyDown(e, announcement)}
+                    className={`p-3 border-b border-gray-100 cursor-pointer hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-inset ${
                       !announcement.is_read ? 'bg-blue-50' : ''
                     }`}
                   >
