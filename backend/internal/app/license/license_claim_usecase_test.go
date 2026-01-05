@@ -140,6 +140,9 @@ func (m *MockLicenseKeyRepository) RevokeBatch(ctx context.Context, batchID stri
 func (m *MockLicenseKeyRepository) List(ctx context.Context, status *billing.LicenseKeyStatus, limit, offset int) ([]*billing.LicenseKey, int, error) {
 	return nil, 0, errors.New("not implemented")
 }
+func (m *MockLicenseKeyRepository) FindByHashAndTenant(ctx context.Context, keyHash string, tenantID common.TenantID) (*billing.LicenseKey, error) {
+	return nil, errors.New("not implemented")
+}
 
 // MockEntitlementRepository is a mock implementation of billing.EntitlementRepository
 type MockEntitlementRepository struct {
