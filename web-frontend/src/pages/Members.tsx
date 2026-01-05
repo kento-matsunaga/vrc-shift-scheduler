@@ -1248,6 +1248,7 @@ function BulkRoleModal({
   const [removeRoleIds, setRemoveRoleIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [result, setResult] = useState<{ successCount: number; failedCount: number; failures: { member_id: string; reason: string }[] } | null>(null);
 
   const selectedMembers = useMemo(
     () => members.filter((m) => selectedMemberIds.includes(m.member_id)),
@@ -1274,6 +1275,12 @@ function BulkRoleModal({
     }
   };
 
+  // メンバーIDから表示名を取得
+  const getMemberName = (memberId: string) => {
+    const member = members.find((m) => m.member_id === memberId);
+    return member?.display_name || memberId;
+  };
+
   const handleSubmit = async () => {
     if (addRoleIds.length === 0 && removeRoleIds.length === 0) {
       setError('追加または削除するロールを選択してください');
@@ -1282,15 +1289,30 @@ function BulkRoleModal({
 
     setLoading(true);
     setError('');
+    setResult(null);
 
     try {
-      await bulkUpdateRoles({
+      const response = await bulkUpdateRoles({
         member_ids: selectedMemberIds,
         add_role_ids: addRoleIds.length > 0 ? addRoleIds : undefined,
         remove_role_ids: removeRoleIds.length > 0 ? removeRoleIds : undefined,
       });
-      onSuccess();
-      onClose();
+
+      // 結果を設定
+      setResult({
+        successCount: response.success_count,
+        failedCount: response.failed_count,
+        failures: response.failures || [],
+      });
+
+      // 全て成功した場合は自動でクローズ
+      if (response.failed_count === 0) {
+        onSuccess();
+        onClose();
+      } else {
+        // 部分的に成功した場合はデータを再取得（成功分を反映）
+        onSuccess();
+      }
     } catch (err) {
       if (err instanceof ApiClientError) {
         setError(err.getUserMessage());
@@ -1385,6 +1407,30 @@ function BulkRoleModal({
           </div>
         )}
 
+        {/* 結果表示（部分的失敗時） */}
+        {result && result.failedCount > 0 && (
+          <div className="mb-4">
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-2">
+              <p className="text-sm text-yellow-800 font-medium">
+                {result.successCount}件成功、{result.failedCount}件失敗
+              </p>
+            </div>
+            {result.failures.length > 0 && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                <p className="text-sm text-red-800 font-medium mb-2">失敗したメンバー:</p>
+                <ul className="text-sm text-red-700 space-y-1 max-h-32 overflow-y-auto">
+                  {result.failures.map((f, idx) => (
+                    <li key={idx} className="flex justify-between">
+                      <span>{getMemberName(f.member_id)}</span>
+                      <span className="text-red-500 text-xs">{f.reason}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="flex space-x-3">
           <button
             type="button"
@@ -1392,16 +1438,18 @@ function BulkRoleModal({
             className="flex-1 btn-secondary"
             disabled={loading}
           >
-            キャンセル
+            {result && result.failedCount > 0 ? '閉じる' : 'キャンセル'}
           </button>
-          <button
-            type="button"
-            onClick={handleSubmit}
-            className="flex-1 btn-primary"
-            disabled={loading || (addRoleIds.length === 0 && removeRoleIds.length === 0)}
-          >
-            {loading ? '更新中...' : '一括更新'}
-          </button>
+          {(!result || result.failedCount === 0) && (
+            <button
+              type="button"
+              onClick={handleSubmit}
+              className="flex-1 btn-primary"
+              disabled={loading || (addRoleIds.length === 0 && removeRoleIds.length === 0)}
+            >
+              {loading ? '更新中...' : '一括更新'}
+            </button>
+          )}
         </div>
       </div>
     </div>

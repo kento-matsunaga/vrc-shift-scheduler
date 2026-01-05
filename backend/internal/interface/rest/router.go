@@ -137,6 +137,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		memberRepo := db.NewMemberRepository(dbPool)
 		memberRoleRepo := db.NewMemberRoleRepository(dbPool)
 		attendanceRepo := db.NewAttendanceRepository(dbPool)
+		memberTxManager := db.NewPgxTxManager(dbPool)
 		memberHandler := NewMemberHandler(
 			appmember.NewCreateMemberUsecase(memberRepo),
 			appmember.NewListMembersUsecase(memberRepo, memberRoleRepo),
@@ -145,7 +146,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			appmember.NewUpdateMemberUsecase(memberRepo, memberRoleRepo),
 			appmember.NewGetRecentAttendanceUsecase(memberRepo, attendanceRepo),
 			appmember.NewBulkImportMembersUsecase(memberRepo, memberRoleRepo),
-			appmember.NewBulkUpdateRolesUsecase(memberRepo, memberRoleRepo, roleRepo),
+			appmember.NewBulkUpdateRolesUsecase(memberRepo, memberRoleRepo, roleRepo, memberTxManager),
 		)
 
 		// RoleHandler

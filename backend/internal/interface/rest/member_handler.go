@@ -12,9 +12,6 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-// MaxBulkUpdateMembers is the maximum number of members that can be updated at once
-const MaxBulkUpdateMembers = 100
-
 // MemberHandler handles member-related HTTP requests
 type MemberHandler struct {
 	createMemberUC             *appmember.CreateMemberUsecase
@@ -506,6 +503,13 @@ func (h *MemberHandler) BulkUpdateRoles(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	// 管理者IDの取得（監査ログ用）
+	adminID, ok := GetAdminID(ctx)
+	if !ok {
+		writeError(w, http.StatusForbidden, "ERR_FORBIDDEN", "Admin ID is required", nil)
+		return
+	}
+
 	// リクエストボディのパース
 	var req BulkUpdateRolesRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -519,8 +523,8 @@ func (h *MemberHandler) BulkUpdateRoles(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if len(req.MemberIDs) > MaxBulkUpdateMembers {
-		writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", fmt.Sprintf("Maximum %d members can be updated at once", MaxBulkUpdateMembers), nil)
+	if len(req.MemberIDs) > appmember.MaxBulkUpdateMembers {
+		writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", fmt.Sprintf("Maximum %d members can be updated at once", appmember.MaxBulkUpdateMembers), nil)
 		return
 	}
 
@@ -532,6 +536,7 @@ func (h *MemberHandler) BulkUpdateRoles(w http.ResponseWriter, r *http.Request) 
 	// Usecaseの入力を構築
 	input := appmember.BulkUpdateRolesInput{
 		TenantID:      tenantID,
+		AdminID:       adminID,
 		MemberIDs:     req.MemberIDs,
 		AddRoleIDs:    req.AddRoleIDs,
 		RemoveRoleIDs: req.RemoveRoleIDs,
@@ -541,6 +546,11 @@ func (h *MemberHandler) BulkUpdateRoles(w http.ResponseWriter, r *http.Request) 
 	output, err := h.bulkUpdateRolesUC.Execute(ctx, input)
 	if err != nil {
 		log.Printf("BulkUpdateRoles error: %+v", err)
+		// バリデーションエラーの場合は400を返す
+		if domainErr, ok := err.(*common.DomainError); ok && domainErr.Code() == common.ErrInvalidInput {
+			writeError(w, http.StatusBadRequest, "ERR_VALIDATION", domainErr.Message, nil)
+			return
+		}
 		writeError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to update roles", nil)
 		return
 	}

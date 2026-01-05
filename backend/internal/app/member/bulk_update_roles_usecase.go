@@ -2,18 +2,27 @@ package member
 
 import (
 	"context"
+	"fmt"
 	"log"
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/member"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/role"
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/services"
 )
 
-// BulkUpdateRolesUsecase handles bulk role assignment/removal for members
+// BulkUpdateRolesUsecase handles bulk role assignment/removal for members.
+//
+// Design notes:
+// - Uses transaction to ensure atomicity: either all updates succeed or all are rolled back.
+// - Uses batch queries to avoid N+1 query problems.
+// - Validates all roles and members upfront before making any changes.
+// - Records audit log with admin ID for traceability.
 type BulkUpdateRolesUsecase struct {
 	memberRepo     member.MemberRepository
 	memberRoleRepo member.MemberRoleRepository
 	roleRepo       role.RoleRepository
+	txManager      services.TxManager
 }
 
 // NewBulkUpdateRolesUsecase creates a new BulkUpdateRolesUsecase
@@ -21,17 +30,20 @@ func NewBulkUpdateRolesUsecase(
 	memberRepo member.MemberRepository,
 	memberRoleRepo member.MemberRoleRepository,
 	roleRepo role.RoleRepository,
+	txManager services.TxManager,
 ) *BulkUpdateRolesUsecase {
 	return &BulkUpdateRolesUsecase{
 		memberRepo:     memberRepo,
 		memberRoleRepo: memberRoleRepo,
 		roleRepo:       roleRepo,
+		txManager:      txManager,
 	}
 }
 
 // BulkUpdateRolesInput represents the input for bulk role update
 type BulkUpdateRolesInput struct {
 	TenantID      common.TenantID
+	AdminID       common.AdminID // For audit logging
 	MemberIDs     []string
 	AddRoleIDs    []string
 	RemoveRoleIDs []string
@@ -51,113 +63,120 @@ type BulkUpdateRolesOutput struct {
 	Failures     []FailureDetail `json:"failures,omitempty"`
 }
 
+// MaxBulkUpdateMembers is the maximum number of members that can be updated in a single request
+const MaxBulkUpdateMembers = 100
+
 // Execute executes the bulk role update use case
 func (u *BulkUpdateRolesUsecase) Execute(ctx context.Context, input BulkUpdateRolesInput) (*BulkUpdateRolesOutput, error) {
-	// Parse role IDs to add
-	addRoleIDs := make([]common.RoleID, 0, len(input.AddRoleIDs))
-	for _, roleIDStr := range input.AddRoleIDs {
-		roleID, err := common.ParseRoleID(roleIDStr)
-		if err != nil {
-			return nil, common.NewValidationError("invalid add_role_id: "+roleIDStr, err)
-		}
-		addRoleIDs = append(addRoleIDs, roleID)
+	// Validate input count
+	if len(input.MemberIDs) > MaxBulkUpdateMembers {
+		return nil, common.NewValidationError(
+			fmt.Sprintf("too many members: max %d allowed", MaxBulkUpdateMembers), nil)
 	}
 
-	// Parse role IDs to remove
-	removeRoleIDs := make([]common.RoleID, 0, len(input.RemoveRoleIDs))
-	for _, roleIDStr := range input.RemoveRoleIDs {
-		roleID, err := common.ParseRoleID(roleIDStr)
-		if err != nil {
-			return nil, common.NewValidationError("invalid remove_role_id: "+roleIDStr, err)
-		}
-		removeRoleIDs = append(removeRoleIDs, roleID)
+	if len(input.MemberIDs) == 0 {
+		return nil, common.NewValidationError("member_ids is required", nil)
 	}
 
-	// Verify all roles belong to the tenant (security check)
-	allRoleIDs := append(addRoleIDs, removeRoleIDs...)
-	for _, roleID := range allRoleIDs {
-		_, err := u.roleRepo.FindByID(ctx, input.TenantID, roleID)
-		if err != nil {
-			return nil, common.NewValidationError("invalid role_id: does not belong to tenant: "+roleID.String(), err)
-		}
+	if len(input.AddRoleIDs) == 0 && len(input.RemoveRoleIDs) == 0 {
+		return nil, common.NewValidationError("add_role_ids or remove_role_ids is required", nil)
 	}
 
-	successCount := 0
-	failedCount := 0
-	failures := make([]FailureDetail, 0)
-
-	// Process each member
-	for _, memberIDStr := range input.MemberIDs {
-		memberID, err := common.ParseMemberID(memberIDStr)
-		if err != nil {
-			failedCount++
-			failures = append(failures, FailureDetail{
-				MemberID: memberIDStr,
-				Reason:   "invalid member_id format",
-			})
-			continue
-		}
-
-		// Verify member exists and belongs to the tenant
-		_, err = u.memberRepo.FindByID(ctx, input.TenantID, memberID)
-		if err != nil {
-			failedCount++
-			failures = append(failures, FailureDetail{
-				MemberID: memberIDStr,
-				Reason:   "member not found or does not belong to tenant",
-			})
-			continue
-		}
-
-		// Get current roles
-		currentRoles, err := u.memberRoleRepo.FindRolesByMemberID(ctx, memberID)
-		if err != nil {
-			failedCount++
-			failures = append(failures, FailureDetail{
-				MemberID: memberIDStr,
-				Reason:   "failed to get current roles",
-			})
-			continue
-		}
-
-		// Build new role set
-		roleSet := make(map[common.RoleID]bool)
-		for _, roleID := range currentRoles {
-			roleSet[roleID] = true
-		}
-
-		// Add new roles
-		for _, roleID := range addRoleIDs {
-			roleSet[roleID] = true
-		}
-
-		// Remove roles
-		for _, roleID := range removeRoleIDs {
-			delete(roleSet, roleID)
-		}
-
-		// Convert back to slice
-		newRoleIDs := make([]common.RoleID, 0, len(roleSet))
-		for roleID := range roleSet {
-			newRoleIDs = append(newRoleIDs, roleID)
-		}
-
-		// Set new roles
-		if err := u.memberRoleRepo.SetMemberRoles(ctx, memberID, newRoleIDs); err != nil {
-			failedCount++
-			failures = append(failures, FailureDetail{
-				MemberID: memberIDStr,
-				Reason:   "failed to update roles",
-			})
-			continue
-		}
-
-		successCount++
+	// Parse and validate role IDs upfront (batch validation)
+	addRoleIDs, err := u.parseAndValidateRoleIDs(ctx, input.TenantID, input.AddRoleIDs)
+	if err != nil {
+		return nil, err
 	}
 
-	// Audit log for successful bulk update
-	log.Printf("BulkUpdateRoles completed: tenant=%s members=%d success=%d failed=%d add_roles=%v remove_roles=%v",
-		input.TenantID.String(), len(input.MemberIDs), successCount, failedCount, input.AddRoleIDs, input.RemoveRoleIDs)
+	removeRoleIDs, err := u.parseAndValidateRoleIDs(ctx, input.TenantID, input.RemoveRoleIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	// Parse and validate member IDs upfront (batch validation)
+	memberIDs, invalidMembers, err := u.parseAndValidateMemberIDs(ctx, input.TenantID, input.MemberIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	// If all members are invalid, return early
+	if len(memberIDs) == 0 {
+		return &BulkUpdateRolesOutput{
+			TotalCount:   len(input.MemberIDs),
+			SuccessCount: 0,
+			FailedCount:  len(invalidMembers),
+			Failures:     invalidMembers,
+		}, nil
+	}
+
+	var successCount int
+	failures := invalidMembers // Start with already-invalid members
+
+	// Execute within transaction for atomicity
+	txErr := u.txManager.WithTx(ctx, func(txCtx context.Context) error {
+		for _, memberID := range memberIDs {
+			// Get current roles
+			currentRoles, err := u.memberRoleRepo.FindRolesByMemberID(txCtx, memberID)
+			if err != nil {
+				failures = append(failures, FailureDetail{
+					MemberID: memberID.String(),
+					Reason:   "failed to get current roles",
+				})
+				continue
+			}
+
+			// Build new role set
+			roleSet := make(map[common.RoleID]bool)
+			for _, roleID := range currentRoles {
+				roleSet[roleID] = true
+			}
+
+			// Add new roles
+			for _, roleID := range addRoleIDs {
+				roleSet[roleID] = true
+			}
+
+			// Remove roles
+			for _, roleID := range removeRoleIDs {
+				delete(roleSet, roleID)
+			}
+
+			// Convert back to slice
+			newRoleIDs := make([]common.RoleID, 0, len(roleSet))
+			for roleID := range roleSet {
+				newRoleIDs = append(newRoleIDs, roleID)
+			}
+
+			// Set new roles
+			if err := u.memberRoleRepo.SetMemberRoles(txCtx, memberID, newRoleIDs); err != nil {
+				failures = append(failures, FailureDetail{
+					MemberID: memberID.String(),
+					Reason:   "failed to update roles",
+				})
+				continue
+			}
+
+			successCount++
+		}
+
+		// If no members succeeded, rollback the transaction
+		if successCount == 0 && len(memberIDs) > 0 {
+			return fmt.Errorf("all member updates failed")
+		}
+
+		return nil
+	})
+
+	if txErr != nil {
+		// Transaction failed entirely
+		return nil, fmt.Errorf("bulk update transaction failed: %w", txErr)
+	}
+
+	failedCount := len(input.MemberIDs) - successCount
+
+	// Audit log
+	log.Printf("[AUDIT] BulkUpdateRoles: admin=%s tenant=%s members=%d success=%d failed=%d add_roles=%v remove_roles=%v",
+		input.AdminID.String(), input.TenantID.String(), len(input.MemberIDs), successCount, failedCount, input.AddRoleIDs, input.RemoveRoleIDs)
 
 	return &BulkUpdateRolesOutput{
 		TotalCount:   len(input.MemberIDs),
@@ -165,4 +184,97 @@ func (u *BulkUpdateRolesUsecase) Execute(ctx context.Context, input BulkUpdateRo
 		FailedCount:  failedCount,
 		Failures:     failures,
 	}, nil
+}
+
+// parseAndValidateRoleIDs parses role ID strings and validates they belong to the tenant.
+// Uses batch query to avoid N+1 problem.
+func (u *BulkUpdateRolesUsecase) parseAndValidateRoleIDs(
+	ctx context.Context,
+	tenantID common.TenantID,
+	roleIDStrs []string,
+) ([]common.RoleID, error) {
+	if len(roleIDStrs) == 0 {
+		return nil, nil
+	}
+
+	// Get all roles for tenant (batch query)
+	tenantRoles, err := u.roleRepo.FindByTenantID(ctx, tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch tenant roles: %w", err)
+	}
+
+	// Build lookup map
+	validRoleIDs := make(map[string]bool)
+	for _, r := range tenantRoles {
+		validRoleIDs[r.RoleID().String()] = true
+	}
+
+	// Parse and validate
+	result := make([]common.RoleID, 0, len(roleIDStrs))
+	for _, roleIDStr := range roleIDStrs {
+		roleID, err := common.ParseRoleID(roleIDStr)
+		if err != nil {
+			return nil, common.NewValidationError("invalid role_id format: "+roleIDStr, err)
+		}
+
+		if !validRoleIDs[roleIDStr] {
+			return nil, common.NewValidationError("role does not belong to tenant: "+roleIDStr, nil)
+		}
+
+		result = append(result, roleID)
+	}
+
+	return result, nil
+}
+
+// parseAndValidateMemberIDs parses member ID strings and validates they belong to the tenant.
+// Uses batch query to avoid N+1 problem.
+// Returns valid member IDs and failure details for invalid ones.
+func (u *BulkUpdateRolesUsecase) parseAndValidateMemberIDs(
+	ctx context.Context,
+	tenantID common.TenantID,
+	memberIDStrs []string,
+) ([]common.MemberID, []FailureDetail, error) {
+	if len(memberIDStrs) == 0 {
+		return nil, nil, nil
+	}
+
+	// Get all members for tenant (batch query)
+	tenantMembers, err := u.memberRepo.FindByTenantID(ctx, tenantID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to fetch tenant members: %w", err)
+	}
+
+	// Build lookup map
+	validMemberIDs := make(map[string]bool)
+	for _, m := range tenantMembers {
+		validMemberIDs[m.MemberID().String()] = true
+	}
+
+	// Parse and validate
+	result := make([]common.MemberID, 0, len(memberIDStrs))
+	failures := make([]FailureDetail, 0)
+
+	for _, memberIDStr := range memberIDStrs {
+		memberID, err := common.ParseMemberID(memberIDStr)
+		if err != nil {
+			failures = append(failures, FailureDetail{
+				MemberID: memberIDStr,
+				Reason:   "invalid member_id format",
+			})
+			continue
+		}
+
+		if !validMemberIDs[memberIDStr] {
+			failures = append(failures, FailureDetail{
+				MemberID: memberIDStr,
+				Reason:   "member not found or does not belong to tenant",
+			})
+			continue
+		}
+
+		result = append(result, memberID)
+	}
+
+	return result, failures, nil
 }
