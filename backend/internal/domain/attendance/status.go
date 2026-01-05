@@ -88,8 +88,9 @@ func (t TargetType) String() string {
 type ResponseType string
 
 const (
-	ResponseTypeAttending ResponseType = "attending" // 出席
-	ResponseTypeAbsent    ResponseType = "absent"    // 欠席
+	ResponseTypeAttending  ResponseType = "attending"  // 出席
+	ResponseTypeAbsent     ResponseType = "absent"     // 欠席
+	ResponseTypeUndecided  ResponseType = "undecided"  // 未定
 )
 
 // NewResponseType creates a new ResponseType from a string
@@ -104,11 +105,11 @@ func NewResponseType(responseType string) (ResponseType, error) {
 // Validate validates the response type
 func (r ResponseType) Validate() error {
 	switch r {
-	case ResponseTypeAttending, ResponseTypeAbsent:
+	case ResponseTypeAttending, ResponseTypeAbsent, ResponseTypeUndecided:
 		return nil
 	default:
 		return common.NewValidationError(
-			fmt.Sprintf("invalid response: must be 'attending' or 'absent', got: %s", r),
+			fmt.Sprintf("invalid response: must be 'attending', 'absent', or 'undecided', got: %s", r),
 			nil,
 		)
 	}
