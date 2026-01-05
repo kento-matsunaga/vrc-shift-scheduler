@@ -750,3 +750,90 @@ func (r *AttendanceRepository) FindGroupAssignmentsByCollectionID(ctx context.Co
 
 	return assignments, nil
 }
+
+// SaveRoleAssignments saves role assignments for a collection (deletes existing ones first)
+func (r *AttendanceRepository) SaveRoleAssignments(ctx context.Context, collectionID common.CollectionID, assignments []*attendance.CollectionRoleAssignment) error {
+	executor := GetTx(ctx, r.pool)
+
+	// 既存のロール割り当てを削除
+	deleteQuery := `DELETE FROM attendance_collection_role_assignments WHERE collection_id = $1`
+	_, err := executor.Exec(ctx, deleteQuery, collectionID.String())
+	if err != nil {
+		return fmt.Errorf("failed to delete old role assignments: %w", err)
+	}
+
+	// 新しいロール割り当てを挿入
+	if len(assignments) == 0 {
+		return nil
+	}
+
+	insertQuery := `
+		INSERT INTO attendance_collection_role_assignments (
+			collection_id, role_id, created_at
+		) VALUES ($1, $2, $3)
+	`
+
+	for _, a := range assignments {
+		_, err := executor.Exec(ctx, insertQuery,
+			a.CollectionID().String(),
+			a.RoleID().String(),
+			a.CreatedAt(),
+		)
+		if err != nil {
+			return fmt.Errorf("failed to save role assignment: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// FindRoleAssignmentsByCollectionID finds all role assignments for a collection
+func (r *AttendanceRepository) FindRoleAssignmentsByCollectionID(ctx context.Context, collectionID common.CollectionID) ([]*attendance.CollectionRoleAssignment, error) {
+	query := `
+		SELECT collection_id, role_id, created_at
+		FROM attendance_collection_role_assignments
+		WHERE collection_id = $1
+		ORDER BY created_at
+	`
+
+	executor := GetTx(ctx, r.pool)
+	rows, err := executor.Query(ctx, query, collectionID.String())
+	if err != nil {
+		return nil, fmt.Errorf("failed to query role assignments: %w", err)
+	}
+	defer rows.Close()
+
+	var assignments []*attendance.CollectionRoleAssignment
+	for rows.Next() {
+		var collectionIDStr, roleIDStr string
+		var createdAt time.Time
+
+		err := rows.Scan(&collectionIDStr, &roleIDStr, &createdAt)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan role assignment: %w", err)
+		}
+
+		parsedCollectionID, err := common.ParseCollectionID(collectionIDStr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse collection_id: %w", err)
+		}
+
+		roleID, err := common.ParseRoleID(roleIDStr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse role_id: %w", err)
+		}
+
+		assignment, err := attendance.ReconstructCollectionRoleAssignment(parsedCollectionID, roleID, createdAt)
+		if err != nil {
+			return nil, fmt.Errorf("failed to reconstruct role assignment: %w", err)
+		}
+
+		assignments = append(assignments, assignment)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration error: %w", err)
+	}
+
+	return assignments, nil
+}

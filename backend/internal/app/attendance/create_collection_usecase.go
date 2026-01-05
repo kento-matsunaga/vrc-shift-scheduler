@@ -2,26 +2,31 @@ package attendance
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/attendance"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/role"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/services"
 )
 
 // CreateCollectionUsecase handles creating an attendance collection
 type CreateCollectionUsecase struct {
-	repo  attendance.AttendanceCollectionRepository
-	clock services.Clock
+	repo     attendance.AttendanceCollectionRepository
+	roleRepo role.RoleRepository
+	clock    services.Clock
 }
 
 // NewCreateCollectionUsecase creates a new CreateCollectionUsecase
 func NewCreateCollectionUsecase(
 	repo attendance.AttendanceCollectionRepository,
+	roleRepo role.RoleRepository,
 	clock services.Clock,
 ) *CreateCollectionUsecase {
 	return &CreateCollectionUsecase{
-		repo:  repo,
-		clock: clock,
+		repo:     repo,
+		roleRepo: roleRepo,
+		clock:    clock,
 	}
 }
 
@@ -96,7 +101,40 @@ func (u *CreateCollectionUsecase) Execute(ctx context.Context, input CreateColle
 		}
 	}
 
-	// 7. Return output DTO
+	// 7. Save role assignments if provided
+	if len(input.RoleIDs) > 0 {
+		var roleAssignments []*attendance.CollectionRoleAssignment
+		for _, roleIDStr := range input.RoleIDs {
+			roleID, err := common.ParseRoleID(roleIDStr)
+			if err != nil {
+				return nil, err
+			}
+
+			// Validate that the role exists and belongs to this tenant
+			_, err = u.roleRepo.FindByID(ctx, tenantID, roleID)
+			if err != nil {
+				if common.IsNotFoundError(err) {
+					return nil, common.NewValidationError(
+						fmt.Sprintf("role not found or not accessible: %s", roleIDStr),
+						nil,
+					)
+				}
+				return nil, err
+			}
+
+			assignment, err := attendance.NewCollectionRoleAssignment(now, collection.CollectionID(), roleID)
+			if err != nil {
+				return nil, err
+			}
+			roleAssignments = append(roleAssignments, assignment)
+		}
+
+		if err := u.repo.SaveRoleAssignments(ctx, collection.CollectionID(), roleAssignments); err != nil {
+			return nil, err
+		}
+	}
+
+	// 8. Return output DTO
 	return &CreateCollectionOutput{
 		CollectionID: collection.CollectionID().String(),
 		TenantID:     collection.TenantID().String(),

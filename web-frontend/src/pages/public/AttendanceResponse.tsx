@@ -45,8 +45,12 @@ export default function AttendanceResponse() {
         console.log('Attendance collection data:', collectionData);
         setCollection(collectionData);
 
-        // メンバー一覧を取得（グループでフィルタリング）
-        const membersData = await getMembers(collectionData.tenant_id, collectionData.group_ids);
+        // メンバー一覧を取得（グループとロールでフィルタリング）
+        const membersData = await getMembers(
+          collectionData.tenant_id,
+          collectionData.group_ids,
+          collectionData.role_ids
+        );
         setMembers(membersData.data?.members || []);
 
         // Target dates を設定
