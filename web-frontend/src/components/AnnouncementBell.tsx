@@ -6,6 +6,7 @@ export function AnnouncementBell() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // 未読件数を取得
@@ -79,6 +80,19 @@ export function AnnouncementBell() {
     return date.toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' });
   }
 
+  function handleAnnouncementClick(announcement: Announcement) {
+    // 展開/折りたたみをトグル
+    if (expandedId === announcement.id) {
+      setExpandedId(null);
+    } else {
+      setExpandedId(announcement.id);
+      // 未読なら既読にする
+      if (!announcement.is_read) {
+        handleMarkAsRead(announcement.id);
+      }
+    }
+  }
+
   return (
     <div className="relative" ref={dropdownRef}>
       <button
@@ -114,30 +128,45 @@ export function AnnouncementBell() {
             ) : announcements.length === 0 ? (
               <div className="p-4 text-center text-gray-500">お知らせはありません</div>
             ) : (
-              announcements.map(announcement => (
-                <div
-                  key={announcement.id}
-                  onClick={() => !announcement.is_read && handleMarkAsRead(announcement.id)}
-                  className={`p-3 border-b border-gray-100 cursor-pointer hover:bg-gray-50 ${
-                    !announcement.is_read ? 'bg-blue-50' : ''
-                  }`}
-                >
-                  <div className="flex items-start gap-2">
-                    {!announcement.is_read && (
-                      <span className="mt-1.5 w-2 h-2 bg-orange-500 rounded-full flex-shrink-0" />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2">
-                        <h4 className="font-medium text-gray-900 truncate">{announcement.title}</h4>
-                        <span className="text-xs text-gray-500 flex-shrink-0">
-                          {formatDate(announcement.published_at)}
-                        </span>
+              announcements.map(announcement => {
+                const isExpanded = expandedId === announcement.id;
+                return (
+                  <div
+                    key={announcement.id}
+                    onClick={() => handleAnnouncementClick(announcement)}
+                    className={`p-3 border-b border-gray-100 cursor-pointer hover:bg-gray-50 ${
+                      !announcement.is_read ? 'bg-blue-50' : ''
+                    }`}
+                  >
+                    <div className="flex items-start gap-2">
+                      {!announcement.is_read && (
+                        <span className="mt-1.5 w-2 h-2 bg-orange-500 rounded-full flex-shrink-0" />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <h4 className="font-medium text-gray-900 truncate">{announcement.title}</h4>
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            <span className="text-xs text-gray-500">
+                              {formatDate(announcement.published_at)}
+                            </span>
+                            <svg
+                              className={`w-4 h-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                          </div>
+                        </div>
+                        {isExpanded && (
+                          <p className="mt-2 text-sm text-gray-600 whitespace-pre-wrap">{announcement.body}</p>
+                        )}
                       </div>
-                      <p className="mt-1 text-sm text-gray-600 line-clamp-2">{announcement.body}</p>
                     </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>
