@@ -160,6 +160,17 @@ export default function AttendanceDetail() {
     responseMap.get(resp.member_id)!.set(resp.target_date_id, resp.response);
   });
 
+  // Create note map for quick lookup: member_id -> note (most recent response's note)
+  const noteMap = new Map<string, string>();
+  responses.forEach((resp) => {
+    if (resp.note && resp.note.trim()) {
+      // Keep the most recent note per member
+      if (!noteMap.has(resp.member_id) || new Date(resp.responded_at) > new Date(responses.find(r => r.member_id === resp.member_id && noteMap.get(resp.member_id) === r.note)?.responded_at || 0)) {
+        noteMap.set(resp.member_id, resp.note);
+      }
+    }
+  });
+
   // Calculate stats for each target date
   const dateStats = sortedTargetDates.map((targetDate) => {
     const attendingCount = responses.filter(
@@ -319,22 +330,35 @@ export default function AttendanceDetail() {
                     </div>
                   </th>
                 ))}
+                <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">
+                  備考
+                </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {members.length === 0 ? (
                 <tr>
-                  <td colSpan={sortedTargetDates.length + 1} className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan={sortedTargetDates.length + 2} className="px-6 py-12 text-center text-gray-500">
                     メンバーがいません
                   </td>
                 </tr>
               ) : (
                 members.map((member) => {
                   const memberResponses = responseMap.get(member.member_id);
+                  const memberNote = noteMap.get(member.member_id);
                   return (
                     <tr key={member.member_id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 sticky left-0 bg-white">
-                        {member.display_name}
+                        <span className="flex items-center gap-1">
+                          {member.display_name}
+                          {memberNote && (
+                            <span className="text-amber-500" title="備考あり">
+                              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z" clipRule="evenodd" />
+                              </svg>
+                            </span>
+                          )}
+                        </span>
                       </td>
                       {sortedTargetDates.map((targetDate) => {
                         const response = memberResponses?.get(targetDate.target_date_id);
@@ -361,6 +385,15 @@ export default function AttendanceDetail() {
                           </td>
                         );
                       })}
+                      <td className="px-4 py-4 text-sm text-gray-600 max-w-xs">
+                        {memberNote ? (
+                          <div className="truncate" title={memberNote}>
+                            {memberNote}
+                          </div>
+                        ) : (
+                          <span className="text-gray-300">-</span>
+                        )}
+                      </td>
                     </tr>
                   );
                 })
@@ -389,6 +422,9 @@ export default function AttendanceDetail() {
                     </td>
                   );
                 })}
+                <td className="px-4 py-3 text-center text-xs text-gray-500">
+                  {noteMap.size > 0 && `${noteMap.size}件`}
+                </td>
               </tr>
             </tfoot>
           </table>
