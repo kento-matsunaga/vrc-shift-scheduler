@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 
+	appannouncement "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/announcement"
 	appattendance "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/attendance"
 	appaudit "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/audit"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/app/auth"
@@ -20,6 +21,7 @@ import (
 	appschedule "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/schedule"
 	appshift "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/shift"
 	apptenant "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/tenant"
+	apptutorial "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/tutorial"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/tenant"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/clock"
@@ -415,6 +417,33 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			r.Get("/{import_job_id}/status", importHandler.GetImportStatus)
 			r.Get("/{import_job_id}/result", importHandler.GetImportResult)
 		})
+
+		// Announcement API（お知らせ機能）
+		announcementRepo := db.NewAnnouncementRepository(dbPool)
+		announcementReadRepo := db.NewAnnouncementReadRepository(dbPool)
+		announcementHandler := NewAnnouncementHandler(
+			appannouncement.NewListAnnouncementsUsecase(announcementRepo, announcementReadRepo),
+			appannouncement.NewGetUnreadCountUsecase(announcementReadRepo),
+			appannouncement.NewMarkAsReadUsecase(announcementReadRepo),
+			appannouncement.NewMarkAllAsReadUsecase(announcementReadRepo),
+		)
+		r.Route("/announcements", func(r chi.Router) {
+			r.Get("/", announcementHandler.List)
+			r.Get("/unread-count", announcementHandler.GetUnreadCount)
+			r.Post("/{id}/read", announcementHandler.MarkAsRead)
+			r.Post("/read-all", announcementHandler.MarkAllAsRead)
+		})
+
+		// Tutorial API（チュートリアル機能）
+		tutorialRepo := db.NewTutorialRepository(dbPool)
+		tutorialHandler := NewTutorialHandler(
+			apptutorial.NewListTutorialsUsecase(tutorialRepo),
+			apptutorial.NewGetTutorialUsecase(tutorialRepo),
+		)
+		r.Route("/tutorials", func(r chi.Router) {
+			r.Get("/", tutorialHandler.List)
+			r.Get("/{id}", tutorialHandler.Get)
+		})
 	})
 
 	// ============================================================
@@ -477,6 +506,36 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 
 		r.Route("/admins", func(r chi.Router) {
 			r.Post("/{admin_id}/allow-password-reset", adminAuthHandler.AllowPasswordReset)
+		})
+
+		// Admin Announcement Management
+		adminAnnouncementRepo := db.NewAnnouncementRepository(dbPool)
+		adminAnnouncementHandler := NewAdminAnnouncementHandler(
+			appannouncement.NewListAllAnnouncementsUsecase(adminAnnouncementRepo),
+			appannouncement.NewCreateAnnouncementUsecase(adminAnnouncementRepo),
+			appannouncement.NewUpdateAnnouncementUsecase(adminAnnouncementRepo),
+			appannouncement.NewDeleteAnnouncementUsecase(adminAnnouncementRepo),
+		)
+		r.Route("/announcements", func(r chi.Router) {
+			r.Get("/", adminAnnouncementHandler.List)
+			r.Post("/", adminAnnouncementHandler.Create)
+			r.Put("/{id}", adminAnnouncementHandler.Update)
+			r.Delete("/{id}", adminAnnouncementHandler.Delete)
+		})
+
+		// Admin Tutorial Management
+		adminTutorialRepo := db.NewTutorialRepository(dbPool)
+		adminTutorialHandler := NewAdminTutorialHandler(
+			apptutorial.NewListAllTutorialsUsecase(adminTutorialRepo),
+			apptutorial.NewCreateTutorialUsecase(adminTutorialRepo),
+			apptutorial.NewUpdateTutorialUsecase(adminTutorialRepo),
+			apptutorial.NewDeleteTutorialUsecase(adminTutorialRepo),
+		)
+		r.Route("/tutorials", func(r chi.Router) {
+			r.Get("/", adminTutorialHandler.List)
+			r.Post("/", adminTutorialHandler.Create)
+			r.Put("/{id}", adminTutorialHandler.Update)
+			r.Delete("/{id}", adminTutorialHandler.Delete)
 		})
 	})
 
