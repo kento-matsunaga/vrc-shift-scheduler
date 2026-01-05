@@ -4,6 +4,8 @@ import LicenseKeys from './pages/LicenseKeys';
 import Tenants from './pages/Tenants';
 import TenantDetail from './pages/TenantDetail';
 import AuditLogs from './pages/AuditLogs';
+import Announcements from './pages/Announcements';
+import Tutorials from './pages/Tutorials';
 
 function App() {
   return (
@@ -13,6 +15,8 @@ function App() {
         <Route path="tenants" element={<Tenants />} />
         <Route path="tenants/:tenantId" element={<TenantDetail />} />
         <Route path="audit-logs" element={<AuditLogs />} />
+        <Route path="announcements" element={<Announcements />} />
+        <Route path="tutorials" element={<Tutorials />} />
       </Route>
     </Routes>
   );

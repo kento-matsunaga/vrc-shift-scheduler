@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
+import { AnnouncementBell } from './AnnouncementBell';
+import { TutorialButton } from './TutorialButton';
 
 export default function Layout() {
   const navigate = useNavigate();
@@ -196,7 +198,24 @@ export default function Layout() {
               </svg>
             </button>
             <h1 className="text-lg font-bold text-white">VRC Shift</h1>
-            <div className="w-10" /> {/* スペーサー */}
+            <div className="flex items-center gap-1">
+              <div className="text-white">
+                <TutorialButton />
+              </div>
+              <div className="text-white">
+                <AnnouncementBell />
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* デスクトップ用ヘッダー */}
+        <header className="hidden md:flex sticky top-0 z-30 bg-white shadow-sm border-b border-gray-200">
+          <div className="flex items-center justify-end w-full px-6 py-3">
+            <div className="flex items-center gap-2">
+              <TutorialButton />
+              <AnnouncementBell />
+            </div>
           </div>
         </header>
 
