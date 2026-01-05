@@ -287,7 +287,7 @@ func (r *AttendanceRepository) FindResponsesByCollectionID(ctx context.Context, 
 	query := `
 		SELECT
 			response_id, tenant_id, collection_id, member_id, target_date_id, response, note,
-			available_from, available_to, responded_at, created_at, updated_at
+			to_char(available_from, 'HH24:MI'), to_char(available_to, 'HH24:MI'), responded_at, created_at, updated_at
 		FROM attendance_responses
 		WHERE collection_id = $1
 		ORDER BY responded_at DESC
@@ -403,7 +403,7 @@ func (r *AttendanceRepository) FindResponsesByMemberID(ctx context.Context, tena
 	query := `
 		SELECT
 			response_id, tenant_id, collection_id, member_id, target_date_id, response, note,
-			available_from, available_to, responded_at, created_at, updated_at
+			to_char(available_from, 'HH24:MI'), to_char(available_to, 'HH24:MI'), responded_at, created_at, updated_at
 		FROM attendance_responses
 		WHERE tenant_id = $1 AND member_id = $2
 		ORDER BY responded_at DESC
