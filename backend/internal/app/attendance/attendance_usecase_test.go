@@ -104,6 +104,14 @@ func (m *MockAttendanceCollectionRepository) FindGroupAssignmentsByCollectionID(
 	return nil, nil
 }
 
+func (m *MockAttendanceCollectionRepository) SaveRoleAssignments(ctx context.Context, collectionID common.CollectionID, assignments []*attendance.CollectionRoleAssignment) error {
+	return nil
+}
+
+func (m *MockAttendanceCollectionRepository) FindRoleAssignmentsByCollectionID(ctx context.Context, collectionID common.CollectionID) ([]*attendance.CollectionRoleAssignment, error) {
+	return nil, nil
+}
+
 // =====================================================
 // CreateCollectionUsecase Tests
 // =====================================================
