@@ -2,6 +2,7 @@ package rest
 
 import (
 	"errors"
+	"log"
 	"net/http"
 
 	appAuth "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/auth"
@@ -58,6 +59,7 @@ func (h *AdminAuthHandler) AllowPasswordReset(w http.ResponseWriter, r *http.Req
 		SystemAdminID: systemAdminID,
 	})
 	if err != nil {
+		log.Printf("[ERROR] AdminAllowPasswordReset failed: %v", err)
 		if errors.Is(err, appAuth.ErrAdminNotFound) {
 			RespondError(w, http.StatusNotFound, "ERR_NOT_FOUND", "指定された管理者が見つかりません", nil)
 			return

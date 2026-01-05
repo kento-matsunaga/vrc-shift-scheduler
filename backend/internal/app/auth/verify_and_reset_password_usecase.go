@@ -61,8 +61,9 @@ func (u *VerifyAndResetPasswordUsecase) Execute(ctx context.Context, input Verif
 		return nil, ErrPasswordResetNotAllowed
 	}
 
-	// 3. ライセンスキーをハッシュ化して検証
-	keyHash := billing.HashLicenseKey(input.LicenseKey)
+	// 3. ライセンスキーを正規化してハッシュ化
+	normalizedKey := billing.NormalizeLicenseKey(input.LicenseKey)
+	keyHash := billing.HashLicenseKey(normalizedKey)
 
 	// 4. ハッシュとテナントIDで使用済みライセンスキーを検索
 	licenseKey, err := u.licenseKeyRepo.FindByHashAndTenant(ctx, keyHash, admin.TenantID())

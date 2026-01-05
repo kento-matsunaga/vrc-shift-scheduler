@@ -52,13 +52,11 @@ func (u *AdminAllowPasswordResetUsecase) Execute(ctx context.Context, input Admi
 		return nil, ErrAdminNotFound
 	}
 
-	// 2. PWリセットを許可（システム管理者IDを記録）
-	// NOTE: AllowPasswordResetは自分自身への許可を禁止するが、
-	// システム管理者IDは対象とは異なるので問題なし
+	// 2. PWリセットを許可（システム管理者による操作なのでallowedByはNULL）
+	// NOTE: システム管理者IDはadminsテーブルに存在しないため、
+	// 外部キー制約を回避するためにNULLを設定
 	now := u.clock.Now()
-	if err := targetAdmin.AllowPasswordReset(now, input.SystemAdminID); err != nil {
-		return nil, err
-	}
+	targetAdmin.AllowPasswordResetBySystem(now)
 
 	// 3. 保存
 	if err := u.adminRepo.Save(ctx, targetAdmin); err != nil {

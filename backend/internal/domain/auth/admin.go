@@ -271,6 +271,14 @@ func (a *Admin) AllowPasswordReset(now time.Time, allowedByAdminID common.AdminI
 	return nil
 }
 
+// AllowPasswordResetBySystem はシステム管理者によるPWリセット許可
+// allowedBy は NULL になる（外部キー制約を回避）
+func (a *Admin) AllowPasswordResetBySystem(now time.Time) {
+	a.passwordResetAllowedAt = &now
+	a.passwordResetAllowedBy = nil // システム管理者の場合はNULL
+	a.updatedAt = now
+}
+
 // CanResetPassword はPWリセット可能かを判定する（24時間以内）
 func (a *Admin) CanResetPassword(now time.Time) bool {
 	if a.passwordResetAllowedAt == nil {
