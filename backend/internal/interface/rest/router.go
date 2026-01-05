@@ -65,9 +65,18 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 	// 招待受理（認証不要）
 	r.Post("/api/v1/invitations/accept/{token}", invitationHandler.AcceptInvitation)
 
+	// PasswordResetHandler dependencies (public endpoints)
+	passwordResetClock := &clock.RealClock{}
+	licenseKeyRepo := db.NewLicenseKeyRepository(dbPool)
+	checkPasswordResetStatusUsecase := auth.NewCheckPasswordResetStatusUsecase(adminRepo, passwordResetClock)
+	verifyAndResetPasswordUsecase := auth.NewVerifyAndResetPasswordUsecase(adminRepo, licenseKeyRepo, passwordHasher, passwordResetClock)
+
 	// 認証不要ルート
 	r.Route("/api/v1/auth", func(r chi.Router) {
 		r.Post("/login", authHandler.Login)
+		// Password reset public endpoints
+		r.Get("/password-reset-status", NewPasswordResetHandler(nil, checkPasswordResetStatusUsecase, nil).CheckPasswordResetStatus)
+		r.Post("/reset-password", NewPasswordResetHandler(nil, nil, verifyAndResetPasswordUsecase).ResetPassword)
 	})
 
 	// Billing guard dependencies
@@ -194,6 +203,10 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		adminHandler := NewAdminHandler(
 			auth.NewChangePasswordUsecase(adminRepo, passwordHasher),
 		)
+
+		// PasswordResetHandler dependencies (authenticated endpoint)
+		allowPasswordResetUsecase := auth.NewAllowPasswordResetUsecase(adminRepo, systemClock)
+		passwordResetHandler := NewPasswordResetHandler(allowPasswordResetUsecase, nil, nil)
 
 		// Event API
 		r.Route("/events", func(r chi.Router) {
@@ -357,9 +370,11 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			r.Put("/me", tenantHandler.UpdateCurrentTenant)
 		})
 
-		// Admin API (テナント管理者のパスワード変更)
+		// Admin API (テナント管理者のパスワード変更、PWリセット許可)
 		r.Route("/admins", func(r chi.Router) {
 			r.Post("/me/change-password", adminHandler.ChangePassword)
+			// PWリセット許可（Ownerのみ実行可能 - Usecase内でチェック）
+			r.Post("/{admin_id}/allow-password-reset", passwordResetHandler.AllowPasswordReset)
 		})
 
 		// ManagerPermissionsHandler dependencies (reusing managerPermissionsRepo)
@@ -413,6 +428,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		adminTenantUsecase := apptenant.NewAdminTenantUsecase(
 			txManager,
 			tenantRepo,
+			adminRepo,
 			entitlementRepo,
 			billingAuditLogRepo,
 		)
@@ -441,6 +457,15 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 
 		// Audit Logs
 		r.Get("/audit-logs", adminBillingHandler.ListAuditLogs)
+
+		// Admin Auth (Password Reset Allowance)
+		adminAuthClock := &clock.RealClock{}
+		adminAllowPasswordResetUsecase := auth.NewAdminAllowPasswordResetUsecase(adminRepo, adminAuthClock)
+		adminAuthHandler := NewAdminAuthHandler(adminAllowPasswordResetUsecase)
+
+		r.Route("/admins", func(r chi.Router) {
+			r.Post("/{admin_id}/allow-password-reset", adminAuthHandler.AllowPasswordReset)
+		})
 	})
 
 	// Public API（認証不要）

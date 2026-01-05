@@ -19,6 +19,9 @@ type Admin struct {
 	createdAt    time.Time
 	updatedAt    time.Time
 	deletedAt    *time.Time
+	// PWリセット許可関連
+	passwordResetAllowedAt *time.Time      // PWリセット許可日時（NULL=未許可、24時間有効）
+	passwordResetAllowedBy *common.AdminID // PWリセットを許可した管理者ID
 }
 
 // NewAdmin creates a new Admin entity
@@ -63,18 +66,22 @@ func ReconstructAdmin(
 	createdAt time.Time,
 	updatedAt time.Time,
 	deletedAt *time.Time,
+	passwordResetAllowedAt *time.Time,
+	passwordResetAllowedBy *common.AdminID,
 ) (*Admin, error) {
 	admin := &Admin{
-		adminID:      adminID,
-		tenantID:     tenantID,
-		email:        email,
-		passwordHash: passwordHash,
-		displayName:  displayName,
-		role:         role,
-		isActive:     isActive,
-		createdAt:    createdAt,
-		updatedAt:    updatedAt,
-		deletedAt:    deletedAt,
+		adminID:                adminID,
+		tenantID:               tenantID,
+		email:                  email,
+		passwordHash:           passwordHash,
+		displayName:            displayName,
+		role:                   role,
+		isActive:               isActive,
+		createdAt:              createdAt,
+		updatedAt:              updatedAt,
+		deletedAt:              deletedAt,
+		passwordResetAllowedAt: passwordResetAllowedAt,
+		passwordResetAllowedBy: passwordResetAllowedBy,
 	}
 
 	if err := admin.validate(); err != nil {
@@ -238,4 +245,63 @@ func (a *Admin) Deactivate(now time.Time) {
 func (a *Admin) Delete(now time.Time) {
 	a.deletedAt = &now
 	a.updatedAt = now
+}
+
+// PasswordResetAllowedAt returns the password reset allowed timestamp
+func (a *Admin) PasswordResetAllowedAt() *time.Time {
+	return a.passwordResetAllowedAt
+}
+
+// PasswordResetAllowedBy returns the admin ID who allowed password reset
+func (a *Admin) PasswordResetAllowedBy() *common.AdminID {
+	return a.passwordResetAllowedBy
+}
+
+// AllowPasswordReset はPWリセットを許可する（オーナーが実行）
+// ビジネスルール:
+// - 自分自身には許可できない
+// - 許可者はOwnerロールである必要がある（Usecase層でチェック）
+func (a *Admin) AllowPasswordReset(now time.Time, allowedByAdminID common.AdminID) error {
+	if a.adminID == allowedByAdminID {
+		return common.NewValidationError("cannot allow password reset for yourself", nil)
+	}
+	a.passwordResetAllowedAt = &now
+	a.passwordResetAllowedBy = &allowedByAdminID
+	a.updatedAt = now
+	return nil
+}
+
+// CanResetPassword はPWリセット可能かを判定する（24時間以内）
+func (a *Admin) CanResetPassword(now time.Time) bool {
+	if a.passwordResetAllowedAt == nil {
+		return false
+	}
+	// 24時間以内かチェック
+	return now.Sub(*a.passwordResetAllowedAt) <= 24*time.Hour
+}
+
+// PasswordResetExpiresAt はPWリセット許可の有効期限を返す
+func (a *Admin) PasswordResetExpiresAt() *time.Time {
+	if a.passwordResetAllowedAt == nil {
+		return nil
+	}
+	expiresAt := a.passwordResetAllowedAt.Add(24 * time.Hour)
+	return &expiresAt
+}
+
+// ClearPasswordResetAllowance はPWリセット許可をクリアする（リセット完了後）
+func (a *Admin) ClearPasswordResetAllowance(now time.Time) {
+	a.passwordResetAllowedAt = nil
+	a.passwordResetAllowedBy = nil
+	a.updatedAt = now
+}
+
+// ResetPassword はパスワードをリセットし、許可をクリアする
+// NOTE: passwordHash は既にハッシュ化された値を受け取る
+func (a *Admin) ResetPassword(now time.Time, passwordHash string) error {
+	if err := a.UpdatePasswordHash(now, passwordHash); err != nil {
+		return err
+	}
+	a.ClearPasswordResetAllowance(now)
+	return nil
 }

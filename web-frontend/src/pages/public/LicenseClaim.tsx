@@ -52,6 +52,20 @@ export default function LicenseClaim() {
       return;
     }
 
+    // Check password complexity
+    if (!/[A-Z]/.test(formData.password)) {
+      setError('パスワードには大文字を1文字以上含めてください');
+      return;
+    }
+    if (!/[a-z]/.test(formData.password)) {
+      setError('パスワードには小文字を1文字以上含めてください');
+      return;
+    }
+    if (!/[0-9]/.test(formData.password)) {
+      setError('パスワードには数字を1文字以上含めてください');
+      return;
+    }
+
     if (!formData.license_key.match(/^[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}$/)) {
       setError('ライセンスキーの形式が正しくありません（形式: XXXX-XXXX-XXXX-XXXX）');
       return;
@@ -223,7 +237,7 @@ export default function LicenseClaim() {
                 className="w-full px-4 py-3 border border-gray-300 rounded-md text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition"
                 disabled={isLoading}
               />
-              <p className="mt-1 text-xs text-gray-500">8文字以上</p>
+              <p className="mt-1 text-xs text-gray-500">8文字以上、大文字・小文字・数字を含む</p>
             </div>
 
             <div>

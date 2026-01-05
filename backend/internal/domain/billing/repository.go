@@ -58,6 +58,10 @@ type LicenseKeyRepository interface {
 
 	// List returns license keys with optional status filter
 	List(ctx context.Context, status *LicenseKeyStatus, limit, offset int) ([]*LicenseKey, int, error)
+
+	// FindByHashAndTenant はハッシュとテナントIDで使用済みライセンスキーを検索
+	// PWリセット時の本人確認に使用
+	FindByHashAndTenant(ctx context.Context, keyHash string, tenantID common.TenantID) (*LicenseKey, error)
 }
 
 // SubscriptionRepository defines the interface for subscription persistence

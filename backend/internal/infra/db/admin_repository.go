@@ -27,8 +27,9 @@ func (r *AdminRepository) Save(ctx context.Context, a *auth.Admin) error {
 	query := `
 		INSERT INTO admins (
 			admin_id, tenant_id, email, password_hash, display_name, role,
-			is_active, created_at, updated_at, deleted_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+			is_active, created_at, updated_at, deleted_at,
+			password_reset_allowed_at, password_reset_allowed_by
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 		ON CONFLICT (admin_id) DO UPDATE SET
 			email = EXCLUDED.email,
 			password_hash = EXCLUDED.password_hash,
@@ -36,8 +37,16 @@ func (r *AdminRepository) Save(ctx context.Context, a *auth.Admin) error {
 			role = EXCLUDED.role,
 			is_active = EXCLUDED.is_active,
 			updated_at = EXCLUDED.updated_at,
-			deleted_at = EXCLUDED.deleted_at
+			deleted_at = EXCLUDED.deleted_at,
+			password_reset_allowed_at = EXCLUDED.password_reset_allowed_at,
+			password_reset_allowed_by = EXCLUDED.password_reset_allowed_by
 	`
+
+	var allowedByStr *string
+	if a.PasswordResetAllowedBy() != nil {
+		s := a.PasswordResetAllowedBy().String()
+		allowedByStr = &s
+	}
 
 	_, err := r.db.Exec(ctx, query,
 		a.AdminID().String(),
@@ -50,6 +59,8 @@ func (r *AdminRepository) Save(ctx context.Context, a *auth.Admin) error {
 		a.CreatedAt(),
 		a.UpdatedAt(),
 		a.DeletedAt(),
+		a.PasswordResetAllowedAt(),
+		allowedByStr,
 	)
 
 	if err != nil {
@@ -64,22 +75,25 @@ func (r *AdminRepository) FindByIDWithTenant(ctx context.Context, tenantID commo
 	query := `
 		SELECT
 			admin_id, tenant_id, email, password_hash, display_name, role,
-			is_active, created_at, updated_at, deleted_at
+			is_active, created_at, updated_at, deleted_at,
+			password_reset_allowed_at, password_reset_allowed_by
 		FROM admins
 		WHERE tenant_id = $1 AND admin_id = $2 AND deleted_at IS NULL
 	`
 
 	var (
-		adminIDStr    string
-		tenantIDStr   string
-		email         string
-		passwordHash  string
-		displayName   string
-		roleStr       string
-		isActive      bool
-		createdAt     time.Time
-		updatedAt     time.Time
-		deletedAt     sql.NullTime
+		adminIDStr             string
+		tenantIDStr            string
+		email                  string
+		passwordHash           string
+		displayName            string
+		roleStr                string
+		isActive               bool
+		createdAt              time.Time
+		updatedAt              time.Time
+		deletedAt              sql.NullTime
+		passwordResetAllowedAt sql.NullTime
+		passwordResetAllowedBy sql.NullString
 	)
 
 	err := r.db.QueryRow(ctx, query, tenantID.String(), adminID.String()).Scan(
@@ -93,6 +107,8 @@ func (r *AdminRepository) FindByIDWithTenant(ctx context.Context, tenantID commo
 		&createdAt,
 		&updatedAt,
 		&deletedAt,
+		&passwordResetAllowedAt,
+		&passwordResetAllowedBy,
 	)
 
 	if err == pgx.ErrNoRows {
@@ -122,6 +138,20 @@ func (r *AdminRepository) FindByIDWithTenant(ctx context.Context, tenantID commo
 		deletedAtPtr = &deletedAt.Time
 	}
 
+	var allowedAtPtr *time.Time
+	if passwordResetAllowedAt.Valid {
+		allowedAtPtr = &passwordResetAllowedAt.Time
+	}
+
+	var allowedByPtr *common.AdminID
+	if passwordResetAllowedBy.Valid {
+		parsed, err := common.ParseAdminID(passwordResetAllowedBy.String)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse password_reset_allowed_by: %w", err)
+		}
+		allowedByPtr = &parsed
+	}
+
 	return auth.ReconstructAdmin(
 		parsedAdminID,
 		parsedTenantID,
@@ -133,6 +163,8 @@ func (r *AdminRepository) FindByIDWithTenant(ctx context.Context, tenantID commo
 		createdAt,
 		updatedAt,
 		deletedAtPtr,
+		allowedAtPtr,
+		allowedByPtr,
 	)
 }
 
@@ -141,23 +173,26 @@ func (r *AdminRepository) FindByID(ctx context.Context, adminID common.AdminID) 
 	query := `
 		SELECT
 			admin_id, tenant_id, email, password_hash, display_name, role,
-			is_active, created_at, updated_at, deleted_at
+			is_active, created_at, updated_at, deleted_at,
+			password_reset_allowed_at, password_reset_allowed_by
 		FROM admins
 		WHERE admin_id = $1 AND deleted_at IS NULL
 		LIMIT 1
 	`
 
 	var (
-		adminIDStr    string
-		tenantIDStr   string
-		email         string
-		passwordHash  string
-		displayName   string
-		roleStr       string
-		isActive      bool
-		createdAt     time.Time
-		updatedAt     time.Time
-		deletedAt     sql.NullTime
+		adminIDStr             string
+		tenantIDStr            string
+		email                  string
+		passwordHash           string
+		displayName            string
+		roleStr                string
+		isActive               bool
+		createdAt              time.Time
+		updatedAt              time.Time
+		deletedAt              sql.NullTime
+		passwordResetAllowedAt sql.NullTime
+		passwordResetAllowedBy sql.NullString
 	)
 
 	err := r.db.QueryRow(ctx, query, adminID.String()).Scan(
@@ -171,6 +206,8 @@ func (r *AdminRepository) FindByID(ctx context.Context, adminID common.AdminID) 
 		&createdAt,
 		&updatedAt,
 		&deletedAt,
+		&passwordResetAllowedAt,
+		&passwordResetAllowedBy,
 	)
 
 	if err == pgx.ErrNoRows {
@@ -200,6 +237,20 @@ func (r *AdminRepository) FindByID(ctx context.Context, adminID common.AdminID) 
 		deletedAtPtr = &deletedAt.Time
 	}
 
+	var allowedAtPtr *time.Time
+	if passwordResetAllowedAt.Valid {
+		allowedAtPtr = &passwordResetAllowedAt.Time
+	}
+
+	var allowedByPtr *common.AdminID
+	if passwordResetAllowedBy.Valid {
+		parsed, err := common.ParseAdminID(passwordResetAllowedBy.String)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse password_reset_allowed_by: %w", err)
+		}
+		allowedByPtr = &parsed
+	}
+
 	return auth.ReconstructAdmin(
 		parsedAdminID,
 		parsedTenantID,
@@ -211,6 +262,8 @@ func (r *AdminRepository) FindByID(ctx context.Context, adminID common.AdminID) 
 		createdAt,
 		updatedAt,
 		deletedAtPtr,
+		allowedAtPtr,
+		allowedByPtr,
 	)
 }
 
@@ -219,22 +272,25 @@ func (r *AdminRepository) FindByEmail(ctx context.Context, tenantID common.Tenan
 	query := `
 		SELECT
 			admin_id, tenant_id, email, password_hash, display_name, role,
-			is_active, created_at, updated_at, deleted_at
+			is_active, created_at, updated_at, deleted_at,
+			password_reset_allowed_at, password_reset_allowed_by
 		FROM admins
 		WHERE tenant_id = $1 AND email = $2 AND deleted_at IS NULL
 	`
 
 	var (
-		adminIDStr    string
-		tenantIDStr   string
-		emailStr      string
-		passwordHash  string
-		displayName   string
-		roleStr       string
-		isActive      bool
-		createdAt     time.Time
-		updatedAt     time.Time
-		deletedAt     sql.NullTime
+		adminIDStr             string
+		tenantIDStr            string
+		emailStr               string
+		passwordHash           string
+		displayName            string
+		roleStr                string
+		isActive               bool
+		createdAt              time.Time
+		updatedAt              time.Time
+		deletedAt              sql.NullTime
+		passwordResetAllowedAt sql.NullTime
+		passwordResetAllowedBy sql.NullString
 	)
 
 	err := r.db.QueryRow(ctx, query, tenantID.String(), email).Scan(
@@ -248,6 +304,8 @@ func (r *AdminRepository) FindByEmail(ctx context.Context, tenantID common.Tenan
 		&createdAt,
 		&updatedAt,
 		&deletedAt,
+		&passwordResetAllowedAt,
+		&passwordResetAllowedBy,
 	)
 
 	if err == pgx.ErrNoRows {
@@ -277,6 +335,20 @@ func (r *AdminRepository) FindByEmail(ctx context.Context, tenantID common.Tenan
 		deletedAtPtr = &deletedAt.Time
 	}
 
+	var allowedAtPtr *time.Time
+	if passwordResetAllowedAt.Valid {
+		allowedAtPtr = &passwordResetAllowedAt.Time
+	}
+
+	var allowedByPtr *common.AdminID
+	if passwordResetAllowedBy.Valid {
+		parsed, err := common.ParseAdminID(passwordResetAllowedBy.String)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse password_reset_allowed_by: %w", err)
+		}
+		allowedByPtr = &parsed
+	}
+
 	return auth.ReconstructAdmin(
 		parsedAdminID,
 		parsedTenantID,
@@ -288,6 +360,8 @@ func (r *AdminRepository) FindByEmail(ctx context.Context, tenantID common.Tenan
 		createdAt,
 		updatedAt,
 		deletedAtPtr,
+		allowedAtPtr,
+		allowedByPtr,
 	)
 }
 
@@ -296,23 +370,26 @@ func (r *AdminRepository) FindByEmailGlobal(ctx context.Context, email string) (
 	query := `
 		SELECT
 			admin_id, tenant_id, email, password_hash, display_name, role,
-			is_active, created_at, updated_at, deleted_at
+			is_active, created_at, updated_at, deleted_at,
+			password_reset_allowed_at, password_reset_allowed_by
 		FROM admins
 		WHERE email = $1 AND deleted_at IS NULL
 		LIMIT 1
 	`
 
 	var (
-		adminIDStr    string
-		tenantIDStr   string
-		emailStr      string
-		passwordHash  string
-		displayName   string
-		roleStr       string
-		isActive      bool
-		createdAt     time.Time
-		updatedAt     time.Time
-		deletedAt     sql.NullTime
+		adminIDStr             string
+		tenantIDStr            string
+		emailStr               string
+		passwordHash           string
+		displayName            string
+		roleStr                string
+		isActive               bool
+		createdAt              time.Time
+		updatedAt              time.Time
+		deletedAt              sql.NullTime
+		passwordResetAllowedAt sql.NullTime
+		passwordResetAllowedBy sql.NullString
 	)
 
 	err := r.db.QueryRow(ctx, query, email).Scan(
@@ -326,6 +403,8 @@ func (r *AdminRepository) FindByEmailGlobal(ctx context.Context, email string) (
 		&createdAt,
 		&updatedAt,
 		&deletedAt,
+		&passwordResetAllowedAt,
+		&passwordResetAllowedBy,
 	)
 
 	if err == pgx.ErrNoRows {
@@ -355,6 +434,20 @@ func (r *AdminRepository) FindByEmailGlobal(ctx context.Context, email string) (
 		deletedAtPtr = &deletedAt.Time
 	}
 
+	var allowedAtPtr *time.Time
+	if passwordResetAllowedAt.Valid {
+		allowedAtPtr = &passwordResetAllowedAt.Time
+	}
+
+	var allowedByPtr *common.AdminID
+	if passwordResetAllowedBy.Valid {
+		parsed, err := common.ParseAdminID(passwordResetAllowedBy.String)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse password_reset_allowed_by: %w", err)
+		}
+		allowedByPtr = &parsed
+	}
+
 	return auth.ReconstructAdmin(
 		parsedAdminID,
 		parsedTenantID,
@@ -366,6 +459,8 @@ func (r *AdminRepository) FindByEmailGlobal(ctx context.Context, email string) (
 		createdAt,
 		updatedAt,
 		deletedAtPtr,
+		allowedAtPtr,
+		allowedByPtr,
 	)
 }
 
@@ -374,7 +469,8 @@ func (r *AdminRepository) FindByTenantID(ctx context.Context, tenantID common.Te
 	query := `
 		SELECT
 			admin_id, tenant_id, email, password_hash, display_name, role,
-			is_active, created_at, updated_at, deleted_at
+			is_active, created_at, updated_at, deleted_at,
+			password_reset_allowed_at, password_reset_allowed_by
 		FROM admins
 		WHERE tenant_id = $1 AND deleted_at IS NULL
 		ORDER BY created_at DESC
@@ -389,16 +485,18 @@ func (r *AdminRepository) FindByTenantID(ctx context.Context, tenantID common.Te
 	var admins []*auth.Admin
 	for rows.Next() {
 		var (
-			adminIDStr    string
-			tenantIDStr   string
-			email         string
-			passwordHash  string
-			displayName   string
-			roleStr       string
-			isActive      bool
-			createdAt     time.Time
-			updatedAt     time.Time
-			deletedAt     sql.NullTime
+			adminIDStr             string
+			tenantIDStr            string
+			email                  string
+			passwordHash           string
+			displayName            string
+			roleStr                string
+			isActive               bool
+			createdAt              time.Time
+			updatedAt              time.Time
+			deletedAt              sql.NullTime
+			passwordResetAllowedAt sql.NullTime
+			passwordResetAllowedBy sql.NullString
 		)
 
 		err := rows.Scan(
@@ -412,6 +510,8 @@ func (r *AdminRepository) FindByTenantID(ctx context.Context, tenantID common.Te
 			&createdAt,
 			&updatedAt,
 			&deletedAt,
+			&passwordResetAllowedAt,
+			&passwordResetAllowedBy,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan admin: %w", err)
@@ -437,6 +537,20 @@ func (r *AdminRepository) FindByTenantID(ctx context.Context, tenantID common.Te
 			deletedAtPtr = &deletedAt.Time
 		}
 
+		var allowedAtPtr *time.Time
+		if passwordResetAllowedAt.Valid {
+			allowedAtPtr = &passwordResetAllowedAt.Time
+		}
+
+		var allowedByPtr *common.AdminID
+		if passwordResetAllowedBy.Valid {
+			parsed, err := common.ParseAdminID(passwordResetAllowedBy.String)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse password_reset_allowed_by: %w", err)
+			}
+			allowedByPtr = &parsed
+		}
+
 		admin, err := auth.ReconstructAdmin(
 			parsedAdminID,
 			parsedTenantID,
@@ -448,6 +562,8 @@ func (r *AdminRepository) FindByTenantID(ctx context.Context, tenantID common.Te
 			createdAt,
 			updatedAt,
 			deletedAtPtr,
+			allowedAtPtr,
+			allowedByPtr,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to reconstruct admin: %w", err)
@@ -464,7 +580,8 @@ func (r *AdminRepository) FindActiveByTenantID(ctx context.Context, tenantID com
 	query := `
 		SELECT
 			admin_id, tenant_id, email, password_hash, display_name, role,
-			is_active, created_at, updated_at, deleted_at
+			is_active, created_at, updated_at, deleted_at,
+			password_reset_allowed_at, password_reset_allowed_by
 		FROM admins
 		WHERE tenant_id = $1 AND is_active = true AND deleted_at IS NULL
 		ORDER BY created_at DESC
@@ -479,16 +596,18 @@ func (r *AdminRepository) FindActiveByTenantID(ctx context.Context, tenantID com
 	var admins []*auth.Admin
 	for rows.Next() {
 		var (
-			adminIDStr    string
-			tenantIDStr   string
-			email         string
-			passwordHash  string
-			displayName   string
-			roleStr       string
-			isActive      bool
-			createdAt     time.Time
-			updatedAt     time.Time
-			deletedAt     sql.NullTime
+			adminIDStr             string
+			tenantIDStr            string
+			email                  string
+			passwordHash           string
+			displayName            string
+			roleStr                string
+			isActive               bool
+			createdAt              time.Time
+			updatedAt              time.Time
+			deletedAt              sql.NullTime
+			passwordResetAllowedAt sql.NullTime
+			passwordResetAllowedBy sql.NullString
 		)
 
 		err := rows.Scan(
@@ -502,6 +621,8 @@ func (r *AdminRepository) FindActiveByTenantID(ctx context.Context, tenantID com
 			&createdAt,
 			&updatedAt,
 			&deletedAt,
+			&passwordResetAllowedAt,
+			&passwordResetAllowedBy,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan admin: %w", err)
@@ -527,6 +648,20 @@ func (r *AdminRepository) FindActiveByTenantID(ctx context.Context, tenantID com
 			deletedAtPtr = &deletedAt.Time
 		}
 
+		var allowedAtPtr *time.Time
+		if passwordResetAllowedAt.Valid {
+			allowedAtPtr = &passwordResetAllowedAt.Time
+		}
+
+		var allowedByPtr *common.AdminID
+		if passwordResetAllowedBy.Valid {
+			parsed, err := common.ParseAdminID(passwordResetAllowedBy.String)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse password_reset_allowed_by: %w", err)
+			}
+			allowedByPtr = &parsed
+		}
+
 		admin, err := auth.ReconstructAdmin(
 			parsedAdminID,
 			parsedTenantID,
@@ -538,6 +673,8 @@ func (r *AdminRepository) FindActiveByTenantID(ctx context.Context, tenantID com
 			createdAt,
 			updatedAt,
 			deletedAtPtr,
+			allowedAtPtr,
+			allowedByPtr,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to reconstruct admin: %w", err)
