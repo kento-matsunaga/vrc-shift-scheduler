@@ -22,6 +22,8 @@ export default function AttendanceResponse() {
   const [selectedMemberId, setSelectedMemberId] = useState('');
   // 各対象日ごとの出欠状態: { target_date_id: 'attending' | 'absent' | 'undecided' }
   const [responses, setResponses] = useState<Record<string, 'attending' | 'absent' | 'undecided'>>({});
+  // 各対象日ごとの参加可能時間: { target_date_id: { from: string, to: string } }
+  const [availableTimes, setAvailableTimes] = useState<Record<string, { from: string; to: string }>>({});
   const [note, setNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -53,10 +55,13 @@ export default function AttendanceResponse() {
 
         // 初期状態として全て「参加」を設定
         const initialResponses: Record<string, 'attending' | 'absent' | 'undecided'> = {};
+        const initialTimes: Record<string, { from: string; to: string }> = {};
         targetDatesList.forEach((td) => {
           initialResponses[td.target_date_id] = 'attending';
+          initialTimes[td.target_date_id] = { from: '', to: '' };
         });
         setResponses(initialResponses);
+        setAvailableTimes(initialTimes);
       } catch (err) {
         if (err instanceof PublicApiError) {
           if (err.isNotFound()) {
@@ -84,6 +89,16 @@ export default function AttendanceResponse() {
     }));
   };
 
+  const handleTimeChange = (targetDateId: string, field: 'from' | 'to', value: string) => {
+    setAvailableTimes((prev) => ({
+      ...prev,
+      [targetDateId]: {
+        ...prev[targetDateId],
+        [field]: value,
+      },
+    }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -104,14 +119,17 @@ export default function AttendanceResponse() {
       setError(null);
 
       // 各対象日ごとに回答を送信
-      const submitPromises = targetDates.map((td) =>
-        submitAttendanceResponse(token, {
+      const submitPromises = targetDates.map((td) => {
+        const times = availableTimes[td.target_date_id];
+        return submitAttendanceResponse(token, {
           member_id: selectedMemberId,
           target_date_id: td.target_date_id,
           response: responses[td.target_date_id] || 'attending',
           note,
-        })
-      );
+          available_from: times?.from || undefined,
+          available_to: times?.to || undefined,
+        });
+      });
 
       await Promise.all(submitPromises);
 
@@ -175,10 +193,13 @@ export default function AttendanceResponse() {
                 setSubmitted(false);
                 setSelectedMemberId('');
                 const initialResponses: Record<string, 'attending' | 'absent' | 'undecided'> = {};
+                const initialTimes: Record<string, { from: string; to: string }> = {};
                 targetDates.forEach((td) => {
                   initialResponses[td.target_date_id] = 'attending';
+                  initialTimes[td.target_date_id] = { from: '', to: '' };
                 });
                 setResponses(initialResponses);
+                setAvailableTimes(initialTimes);
                 setNote('');
               }}
               className="px-4 py-2 bg-accent text-white rounded-md hover:bg-accent-dark transition"
@@ -272,7 +293,7 @@ export default function AttendanceResponse() {
                           weekday: 'short',
                         })}
                       </div>
-                      <div className="flex gap-4">
+                      <div className="flex gap-4 flex-wrap">
                         <label className="flex items-center cursor-pointer">
                           <input
                             type="radio"
@@ -307,6 +328,29 @@ export default function AttendanceResponse() {
                           <span className="text-gray-700">不参加</span>
                         </label>
                       </div>
+                      {/* 参加または未定の場合に時間指定を表示 */}
+                      {(responses[td.target_date_id] === 'attending' || responses[td.target_date_id] === 'undecided') && (
+                        <div className="mt-3 pt-3 border-t border-gray-200">
+                          <p className="text-sm text-gray-600 mb-2">参加可能な時間帯（任意）</p>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <input
+                              type="time"
+                              value={availableTimes[td.target_date_id]?.from || ''}
+                              onChange={(e) => handleTimeChange(td.target_date_id, 'from', e.target.value)}
+                              className="px-2 py-1 border border-gray-300 rounded-md text-sm"
+                              disabled={collection?.status === 'closed'}
+                            />
+                            <span className="text-gray-500">〜</span>
+                            <input
+                              type="time"
+                              value={availableTimes[td.target_date_id]?.to || ''}
+                              onChange={(e) => handleTimeChange(td.target_date_id, 'to', e.target.value)}
+                              className="px-2 py-1 border border-gray-300 rounded-md text-sm"
+                              disabled={collection?.status === 'closed'}
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

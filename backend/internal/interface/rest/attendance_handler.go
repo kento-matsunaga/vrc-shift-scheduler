@@ -80,32 +80,38 @@ type CollectionResponse struct {
 
 // SubmitResponseRequest represents the request body for submitting an attendance response
 type SubmitResponseRequest struct {
-	MemberID     string `json:"member_id"`
-	TargetDateID string `json:"target_date_id"` // 対象日ID
-	Response     string `json:"response"`       // "attending" or "absent"
-	Note         string `json:"note"`
+	MemberID      string  `json:"member_id"`
+	TargetDateID  string  `json:"target_date_id"`          // 対象日ID
+	Response      string  `json:"response"`                // "attending" or "absent" or "undecided"
+	Note          string  `json:"note"`
+	AvailableFrom *string `json:"available_from,omitempty"` // 参加可能開始時間 (HH:MM)
+	AvailableTo   *string `json:"available_to,omitempty"`   // 参加可能終了時間 (HH:MM)
 }
 
 // ResponseDTO represents a single attendance response
 type ResponseDTO struct {
-	ResponseID   string    `json:"response_id"`
-	MemberID     string    `json:"member_id"`
-	MemberName   string    `json:"member_name"`    // メンバー表示名
-	TargetDateID string    `json:"target_date_id"` // 対象日ID
-	TargetDate   string    `json:"target_date"`    // 対象日（ISO 8601）
-	Response     string    `json:"response"`
-	Note         string    `json:"note"`
-	RespondedAt  time.Time `json:"responded_at"`
+	ResponseID    string    `json:"response_id"`
+	MemberID      string    `json:"member_id"`
+	MemberName    string    `json:"member_name"`             // メンバー表示名
+	TargetDateID  string    `json:"target_date_id"`          // 対象日ID
+	TargetDate    string    `json:"target_date"`             // 対象日（ISO 8601）
+	Response      string    `json:"response"`
+	Note          string    `json:"note"`
+	AvailableFrom *string   `json:"available_from,omitempty"` // 参加可能開始時間
+	AvailableTo   *string   `json:"available_to,omitempty"`   // 参加可能終了時間
+	RespondedAt   time.Time `json:"responded_at"`
 }
 
 // SubmitResponseResponse represents the response for submitting an attendance response
 type SubmitResponseResponse struct {
-	ResponseID   string    `json:"response_id"`
-	CollectionID string    `json:"collection_id"`
-	MemberID     string    `json:"member_id"`
-	Response     string    `json:"response"`
-	Note         string    `json:"note"`
-	RespondedAt  time.Time `json:"responded_at"`
+	ResponseID    string    `json:"response_id"`
+	CollectionID  string    `json:"collection_id"`
+	MemberID      string    `json:"member_id"`
+	Response      string    `json:"response"`
+	Note          string    `json:"note"`
+	AvailableFrom *string   `json:"available_from,omitempty"`
+	AvailableTo   *string   `json:"available_to,omitempty"`
+	RespondedAt   time.Time `json:"responded_at"`
 }
 
 // ResponsesListResponse represents the response for getting responses
@@ -321,14 +327,16 @@ func (h *AttendanceHandler) GetResponses(w http.ResponseWriter, r *http.Request)
 	responses := make([]ResponseDTO, 0, len(output.Responses))
 	for _, resp := range output.Responses {
 		responses = append(responses, ResponseDTO{
-			ResponseID:   resp.ResponseID,
-			MemberID:     resp.MemberID,
-			MemberName:   resp.MemberName,
-			TargetDateID: resp.TargetDateID,
-			TargetDate:   resp.TargetDate.Format(time.RFC3339),
-			Response:     resp.Response,
-			Note:         resp.Note,
-			RespondedAt:  resp.RespondedAt,
+			ResponseID:    resp.ResponseID,
+			MemberID:      resp.MemberID,
+			MemberName:    resp.MemberName,
+			TargetDateID:  resp.TargetDateID,
+			TargetDate:    resp.TargetDate.Format(time.RFC3339),
+			Response:      resp.Response,
+			Note:          resp.Note,
+			AvailableFrom: resp.AvailableFrom,
+			AvailableTo:   resp.AvailableTo,
+			RespondedAt:   resp.RespondedAt,
 		})
 	}
 
@@ -427,11 +435,13 @@ func (h *AttendanceHandler) SubmitResponse(w http.ResponseWriter, r *http.Reques
 
 	// Usecase呼び出し
 	output, err := h.submitResponseUsecase.Execute(ctx, attendance.SubmitResponseInput{
-		PublicToken:  token,
-		MemberID:     req.MemberID,
-		TargetDateID: req.TargetDateID,
-		Response:     req.Response,
-		Note:         req.Note,
+		PublicToken:   token,
+		MemberID:      req.MemberID,
+		TargetDateID:  req.TargetDateID,
+		Response:      req.Response,
+		Note:          req.Note,
+		AvailableFrom: req.AvailableFrom,
+		AvailableTo:   req.AvailableTo,
 	})
 	if err != nil {
 		// エラーハンドリング（トークンエラー → 404, メンバーエラー → 400）
@@ -453,12 +463,14 @@ func (h *AttendanceHandler) SubmitResponse(w http.ResponseWriter, r *http.Reques
 	// レスポンス
 	RespondJSON(w, http.StatusCreated, SuccessResponse{
 		Data: SubmitResponseResponse{
-			ResponseID:   output.ResponseID,
-			CollectionID: output.CollectionID,
-			MemberID:     output.MemberID,
-			Response:     output.Response,
-			Note:         output.Note,
-			RespondedAt:  output.RespondedAt,
+			ResponseID:    output.ResponseID,
+			CollectionID:  output.CollectionID,
+			MemberID:      output.MemberID,
+			Response:      output.Response,
+			Note:          output.Note,
+			AvailableFrom: output.AvailableFrom,
+			AvailableTo:   output.AvailableTo,
+			RespondedAt:   output.RespondedAt,
 		},
 	})
 }

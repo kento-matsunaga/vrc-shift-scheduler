@@ -491,6 +491,8 @@ func createAttendanceCollections(ctx context.Context, repo *db.AttendanceReposit
 				targetDateEntity.TargetDateID(),
 				responseType,
 				"",
+				nil, // availableFrom
+				nil, // availableTo
 			)
 			if err != nil {
 				continue

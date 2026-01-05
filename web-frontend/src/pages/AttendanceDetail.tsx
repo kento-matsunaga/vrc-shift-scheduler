@@ -160,6 +160,20 @@ export default function AttendanceDetail() {
     responseMap.get(resp.member_id)!.set(resp.target_date_id, resp.response);
   });
 
+  // Create time map for quick lookup: member_id -> target_date_id -> { from, to }
+  const timeMap = new Map<string, Map<string, { from?: string; to?: string }>>();
+  responses.forEach((resp) => {
+    if (resp.available_from || resp.available_to) {
+      if (!timeMap.has(resp.member_id)) {
+        timeMap.set(resp.member_id, new Map());
+      }
+      timeMap.get(resp.member_id)!.set(resp.target_date_id, {
+        from: resp.available_from,
+        to: resp.available_to,
+      });
+    }
+  });
+
   // Create note map for quick lookup: member_id -> note (most recent response's note)
   // Store note with timestamp to track the most recent one efficiently
   const noteDataMap = new Map<string, { note: string; respondedAt: Date }>();
@@ -374,6 +388,8 @@ export default function AttendanceDetail() {
                       </td>
                       {sortedTargetDates.map((targetDate) => {
                         const response = memberResponses?.get(targetDate.target_date_id);
+                        const memberTimes = timeMap.get(member.member_id);
+                        const times = memberTimes?.get(targetDate.target_date_id);
                         let content;
                         let bgColor;
 
@@ -391,12 +407,21 @@ export default function AttendanceDetail() {
                           bgColor = 'bg-gray-50 text-gray-400';
                         }
 
+                        // Format time display
+                        const timeDisplay = times && (times.from || times.to)
+                          ? `${times.from || '?'}〜${times.to || '?'}`
+                          : null;
+
                         return (
                           <td
                             key={targetDate.target_date_id}
-                            className={`px-4 py-4 text-center text-lg font-semibold ${bgColor}`}
+                            className={`px-4 py-4 text-center ${bgColor}`}
+                            title={timeDisplay || undefined}
                           >
-                            {content}
+                            <div className="text-lg font-semibold">{content}</div>
+                            {timeDisplay && (
+                              <div className="text-xs text-gray-600 mt-1">{timeDisplay}</div>
+                            )}
                           </td>
                         );
                       })}

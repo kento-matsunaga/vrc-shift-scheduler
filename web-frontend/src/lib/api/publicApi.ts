@@ -108,6 +108,8 @@ export interface AttendanceSubmitRequest {
   target_date_id: string;
   response: 'attending' | 'absent' | 'undecided';
   note?: string;
+  available_from?: string; // 参加可能開始時間 (HH:MM)
+  available_to?: string;   // 参加可能終了時間 (HH:MM)
 }
 
 export interface AttendanceSubmitResponse {

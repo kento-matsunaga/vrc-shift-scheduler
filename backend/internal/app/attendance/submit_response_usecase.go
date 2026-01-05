@@ -87,6 +87,8 @@ func (u *SubmitResponseUsecase) Execute(ctx context.Context, input SubmitRespons
 			targetDateID,
 			responseType,
 			input.Note,
+			input.AvailableFrom,
+			input.AvailableTo,
 		)
 		if err != nil {
 			return err
@@ -99,12 +101,14 @@ func (u *SubmitResponseUsecase) Execute(ctx context.Context, input SubmitRespons
 
 		// e. Build output
 		output = &SubmitResponseOutput{
-			ResponseID:   response.ResponseID().String(),
-			CollectionID: response.CollectionID().String(),
-			MemberID:     response.MemberID().String(),
-			Response:     response.Response().String(),
-			Note:         response.Note(),
-			RespondedAt:  response.RespondedAt(),
+			ResponseID:    response.ResponseID().String(),
+			CollectionID:  response.CollectionID().String(),
+			MemberID:      response.MemberID().String(),
+			Response:      response.Response().String(),
+			Note:          response.Note(),
+			AvailableFrom: response.AvailableFrom(),
+			AvailableTo:   response.AvailableTo(),
+			RespondedAt:   response.RespondedAt(),
 		}
 
 		return nil
