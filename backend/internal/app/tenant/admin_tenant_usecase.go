@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/auth"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/billing"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/services"
@@ -15,6 +16,7 @@ import (
 type AdminTenantUsecase struct {
 	txManager       services.TxManager
 	tenantRepo      tenant.TenantRepository
+	adminRepo       auth.AdminRepository
 	entitlementRepo billing.EntitlementRepository
 	auditLogRepo    billing.BillingAuditLogRepository
 }
@@ -23,12 +25,14 @@ type AdminTenantUsecase struct {
 func NewAdminTenantUsecase(
 	txManager services.TxManager,
 	tenantRepo tenant.TenantRepository,
+	adminRepo auth.AdminRepository,
 	entitlementRepo billing.EntitlementRepository,
 	auditLogRepo billing.BillingAuditLogRepository,
 ) *AdminTenantUsecase {
 	return &AdminTenantUsecase{
 		txManager:       txManager,
 		tenantRepo:      tenantRepo,
+		adminRepo:       adminRepo,
 		entitlementRepo: entitlementRepo,
 		auditLogRepo:    auditLogRepo,
 	}
@@ -98,6 +102,7 @@ type TenantDetailOutput struct {
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 	Entitlements []EntitlementInfo
+	Admins       []AdminInfo
 }
 
 // EntitlementInfo represents entitlement information
@@ -107,6 +112,14 @@ type EntitlementInfo struct {
 	Source        billing.EntitlementSource
 	StartsAt      time.Time
 	RevokedAt     *time.Time
+}
+
+// AdminInfo represents admin information for tenant detail
+type AdminInfo struct {
+	AdminID     common.AdminID
+	Email       string
+	DisplayName string
+	Role        auth.Role
 }
 
 // GetDetail returns detailed tenant information
@@ -135,6 +148,22 @@ func (uc *AdminTenantUsecase) GetDetail(ctx context.Context, tenantID common.Ten
 		}
 	}
 
+	// Fetch admins for the tenant
+	admins, err := uc.adminRepo.FindByTenantID(ctx, tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find admins: %w", err)
+	}
+
+	adminInfos := make([]AdminInfo, len(admins))
+	for i, a := range admins {
+		adminInfos[i] = AdminInfo{
+			AdminID:     a.AdminID(),
+			Email:       a.Email(),
+			DisplayName: a.DisplayName(),
+			Role:        a.Role(),
+		}
+	}
+
 	return &TenantDetailOutput{
 		TenantID:     t.TenantID(),
 		TenantName:   t.TenantName(),
@@ -143,6 +172,7 @@ func (uc *AdminTenantUsecase) GetDetail(ctx context.Context, tenantID common.Ten
 		CreatedAt:    t.CreatedAt(),
 		UpdatedAt:    t.UpdatedAt(),
 		Entitlements: entitlementInfos,
+		Admins:       adminInfos,
 	}, nil
 }
 

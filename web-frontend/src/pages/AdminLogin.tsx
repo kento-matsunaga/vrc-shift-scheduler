@@ -1,7 +1,9 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { login } from '../lib/api/authApi';
 
 export default function AdminLogin() {
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -133,6 +135,16 @@ export default function AdminLogin() {
                 'ログイン'
               )}
             </button>
+
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={() => navigate('/reset-password')}
+                className="text-sm text-accent hover:underline"
+              >
+                パスワードを忘れた場合
+              </button>
+            </div>
           </form>
         </div>
       </main>

@@ -24,6 +24,7 @@ import Layout from './components/Layout';
 import AttendanceResponse from './pages/public/AttendanceResponse';
 import ScheduleResponse from './pages/public/ScheduleResponse';
 import LicenseClaim from './pages/public/LicenseClaim';
+import PasswordReset from './pages/public/PasswordReset';
 
 /**
  * ログイン状態をチェック
@@ -79,6 +80,9 @@ function App() {
 
       {/* ライセンス登録（認証不要） */}
       <Route path="/register" element={<LicenseClaim />} />
+
+      {/* パスワードリセット（認証不要） */}
+      <Route path="/reset-password" element={<PasswordReset />} />
 
       {/* ログイン必須の画面 */}
       <Route path="/" element={isLoggedIn ? <Layout /> : <Navigate to="/admin/login" replace />}>

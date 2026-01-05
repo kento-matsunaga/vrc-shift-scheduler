@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { getTenantDetail, updateTenantStatus, type TenantDetail as TenantDetailType } from '../lib/api';
+import { getTenantDetail, updateTenantStatus, allowPasswordReset, type TenantDetail as TenantDetailType } from '../lib/api';
 
 export default function TenantDetail() {
   const { tenantId } = useParams<{ tenantId: string }>();
   const [tenant, setTenant] = useState<TenantDetailType | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [passwordResetSuccess, setPasswordResetSuccess] = useState<string | null>(null);
+  const [allowingResetFor, setAllowingResetFor] = useState<string | null>(null);
 
   useEffect(() => {
     if (!tenantId) return;
@@ -39,6 +41,27 @@ export default function TenantDetail() {
     } catch (err) {
       setError('ステータスの変更に失敗しました');
       console.error(err);
+    }
+  };
+
+  const handleAllowPasswordReset = async (adminId: string, displayName: string) => {
+    if (!confirm(`「${displayName}」のパスワードリセットを許可しますか？\n（24時間有効）`)) return;
+
+    setAllowingResetFor(adminId);
+    setError(null);
+    setPasswordResetSuccess(null);
+
+    try {
+      const response = await allowPasswordReset(adminId);
+      setPasswordResetSuccess(
+        `「${displayName}」のパスワードリセットを許可しました。有効期限: ${new Date(response.data.expires_at).toLocaleString('ja-JP')}`
+      );
+      setTimeout(() => setPasswordResetSuccess(null), 10000);
+    } catch (err) {
+      setError('パスワードリセットの許可に失敗しました');
+      console.error(err);
+    } finally {
+      setAllowingResetFor(null);
     }
   };
 
@@ -181,6 +204,13 @@ export default function TenantDetail() {
       {/* 管理者 */}
       <div className="bg-white shadow rounded-lg p-6">
         <h3 className="text-lg font-medium text-gray-900 mb-4">管理者</h3>
+
+        {passwordResetSuccess && (
+          <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
+            <p className="text-sm text-green-800">{passwordResetSuccess}</p>
+          </div>
+        )}
+
         {tenant.admins && tenant.admins.length > 0 ? (
           <table className="min-w-full divide-y divide-gray-200">
             <thead>
@@ -193,6 +223,9 @@ export default function TenantDetail() {
                 </th>
                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
                   ロール
+                </th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                  操作
                 </th>
               </tr>
             </thead>
@@ -207,6 +240,15 @@ export default function TenantDetail() {
                   </td>
                   <td className="px-4 py-2 text-sm text-gray-500">
                     {a.role === 'owner' ? 'オーナー' : 'マネージャー'}
+                  </td>
+                  <td className="px-4 py-2 text-sm">
+                    <button
+                      onClick={() => handleAllowPasswordReset(a.admin_id, a.display_name)}
+                      disabled={allowingResetFor === a.admin_id}
+                      className="px-3 py-1 text-sm font-medium text-indigo-700 bg-indigo-100 rounded-md hover:bg-indigo-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {allowingResetFor === a.admin_id ? '許可中...' : 'PWリセット許可'}
+                    </button>
                   </td>
                 </tr>
               ))}

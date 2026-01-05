@@ -218,3 +218,22 @@ export async function listAuditLogs(params?: {
   const queryString = query.toString();
   return request('GET', `/audit-logs${queryString ? '?' + queryString : ''}`);
 }
+
+// ============================================================
+// パスワードリセット許可 API
+// ============================================================
+
+export interface AllowPasswordResetOutput {
+  target_admin_id: string;
+  target_email: string;
+  tenant_id: string;
+  allowed_at: string;
+  expires_at: string;
+  message: string;
+}
+
+export async function allowPasswordReset(
+  adminId: string
+): Promise<ApiResponse<AllowPasswordResetOutput>> {
+  return request('POST', `/admins/${adminId}/allow-password-reset`);
+}

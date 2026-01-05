@@ -98,3 +98,9 @@ func (rl *RateLimiter) cleanup() {
 func DefaultClaimRateLimiter() *RateLimiter {
 	return NewRateLimiter(5, time.Minute)
 }
+
+// DefaultPasswordResetRateLimiter creates a rate limiter for password reset endpoints
+// 5 requests per minute per IP - prevents brute force attacks on license keys
+func DefaultPasswordResetRateLimiter() *RateLimiter {
+	return NewRateLimiter(5, time.Minute)
+}

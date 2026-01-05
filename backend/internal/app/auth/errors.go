@@ -15,4 +15,18 @@ var (
 
 	// ErrEmailAlreadyExists is returned when the email already exists
 	ErrEmailAlreadyExists = errors.New("email already exists")
+
+	// ErrPasswordResetNotAllowed is returned when password reset is not allowed
+	// PWリセットが許可されていない または 24時間経過している
+	ErrPasswordResetNotAllowed = errors.New("password reset is not allowed or expired")
+
+	// ErrInvalidLicenseKey is returned when the license key verification fails
+	// ライセンスキーが不正 または テナントと一致しない
+	ErrInvalidLicenseKey = errors.New("invalid license key for this tenant")
+
+	// ErrAdminNotFound is returned when admin is not found
+	ErrAdminNotFound = errors.New("admin not found")
+
+	// ErrUnauthorized is returned when the caller lacks permission
+	ErrUnauthorized = errors.New("unauthorized operation")
 )

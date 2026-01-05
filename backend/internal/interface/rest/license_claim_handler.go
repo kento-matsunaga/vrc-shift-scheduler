@@ -2,6 +2,7 @@ package rest
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -93,6 +94,8 @@ func (h *LicenseClaimHandler) Claim(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		// Log the actual error for debugging
+		log.Printf("[ERROR] License claim failed: %v", err)
 		RespondInternalError(w)
 		return
 	}

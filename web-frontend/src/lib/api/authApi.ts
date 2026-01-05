@@ -154,7 +154,7 @@ export async function setup(data: SetupRequest): Promise<SetupResponse> {
  */
 export async function registerByInvite(data: RegisterByInviteRequest): Promise<RegisterByInviteResponse> {
   const baseURL = import.meta.env.VITE_API_BASE_URL || '';
-  
+
   const response = await fetch(`${baseURL}/api/v1/auth/register-by-invite`, {
     method: 'POST',
     headers: {
@@ -191,6 +191,120 @@ export async function registerByInvite(data: RegisterByInviteRequest): Promise<R
   }
 
   const result: ApiResponse<RegisterByInviteResponse> = await response.json();
+  return result.data;
+}
+
+// ============================================================
+// パスワードリセット関連
+// ============================================================
+
+/**
+ * パスワードリセット状態確認レスポンス
+ */
+export interface PasswordResetStatusResponse {
+  allowed: boolean;
+  expires_at?: string;
+  tenant_id?: string;
+}
+
+/**
+ * パスワードリセットリクエスト
+ */
+export interface ResetPasswordRequest {
+  email: string;
+  license_key: string;
+  new_password: string;
+  confirm_new_password: string;
+}
+
+/**
+ * パスワードリセットレスポンス
+ */
+export interface ResetPasswordResponse {
+  success: boolean;
+  message: string;
+}
+
+/**
+ * パスワードリセット状態を確認
+ * (認証不要)
+ */
+export async function checkPasswordResetStatus(email: string): Promise<PasswordResetStatusResponse> {
+  const baseURL = import.meta.env.VITE_API_BASE_URL || '';
+
+  const response = await fetch(`${baseURL}/api/v1/auth/password-reset-status?email=${encodeURIComponent(email)}`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    let errorData: any;
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+      try {
+        errorData = await response.json();
+      } catch (e) {
+        const text = await response.text();
+        throw new Error(`確認に失敗しました: ${text || response.statusText}`);
+      }
+    } else {
+      const text = await response.text();
+      throw new Error(`確認に失敗しました: ${text || response.statusText}`);
+    }
+    throw new Error(errorData.error?.message || 'Failed to check password reset status');
+  }
+
+  const contentType = response.headers.get('content-type');
+  if (!contentType || !contentType.includes('application/json')) {
+    const text = await response.text();
+    throw new Error(`予期しないレスポンス形式: ${text}`);
+  }
+
+  const result: ApiResponse<PasswordResetStatusResponse> = await response.json();
+  return result.data;
+}
+
+/**
+ * パスワードをリセット
+ * (認証不要、ライセンスキーで本人確認)
+ */
+export async function resetPassword(data: ResetPasswordRequest): Promise<ResetPasswordResponse> {
+  const baseURL = import.meta.env.VITE_API_BASE_URL || '';
+
+  const response = await fetch(`${baseURL}/api/v1/auth/reset-password`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    let errorData: any;
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+      try {
+        errorData = await response.json();
+      } catch (e) {
+        const text = await response.text();
+        throw new Error(`リセットに失敗しました: ${text || response.statusText}`);
+      }
+    } else {
+      const text = await response.text();
+      throw new Error(`リセットに失敗しました: ${text || response.statusText}`);
+    }
+    throw new Error(errorData.error?.message || 'Failed to reset password');
+  }
+
+  const contentType = response.headers.get('content-type');
+  if (!contentType || !contentType.includes('application/json')) {
+    const text = await response.text();
+    throw new Error(`予期しないレスポンス形式: ${text}`);
+  }
+
+  const result: ApiResponse<ResetPasswordResponse> = await response.json();
   return result.data;
 }
 
