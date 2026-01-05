@@ -2,9 +2,11 @@ package auth
 
 import (
 	"context"
+	"unicode"
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/auth"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/billing"
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/services"
 )
 
@@ -46,6 +48,11 @@ func NewVerifyAndResetPasswordUsecase(
 
 // Execute executes the password reset with license key verification use case
 func (u *VerifyAndResetPasswordUsecase) Execute(ctx context.Context, input VerifyAndResetPasswordInput) (*VerifyAndResetPasswordOutput, error) {
+	// 0. パスワード複雑性チェック
+	if err := validatePasswordComplexity(input.NewPassword); err != nil {
+		return nil, err
+	}
+
 	// 1. メールアドレスで管理者を検索
 	admin, err := u.adminRepo.FindByEmailGlobal(ctx, input.Email)
 	if err != nil {
@@ -103,4 +110,39 @@ func (u *VerifyAndResetPasswordUsecase) Execute(ctx context.Context, input Verif
 		Success: true,
 		Message: "password reset successfully",
 	}, nil
+}
+
+// validatePasswordComplexity checks password meets security requirements
+func validatePasswordComplexity(password string) error {
+	if len(password) < 8 {
+		return common.NewValidationError("パスワードは8文字以上で入力してください", nil)
+	}
+
+	if len(password) > 128 {
+		return common.NewValidationError("パスワードは128文字以内で入力してください", nil)
+	}
+
+	var hasUpper, hasLower, hasDigit bool
+	for _, r := range password {
+		switch {
+		case unicode.IsUpper(r):
+			hasUpper = true
+		case unicode.IsLower(r):
+			hasLower = true
+		case unicode.IsDigit(r):
+			hasDigit = true
+		}
+	}
+
+	if !hasUpper {
+		return common.NewValidationError("パスワードには大文字を1文字以上含めてください", nil)
+	}
+	if !hasLower {
+		return common.NewValidationError("パスワードには小文字を1文字以上含めてください", nil)
+	}
+	if !hasDigit {
+		return common.NewValidationError("パスワードには数字を1文字以上含めてください", nil)
+	}
+
+	return nil
 }
