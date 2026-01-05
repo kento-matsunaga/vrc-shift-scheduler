@@ -1,10 +1,14 @@
 package attendance
 
 import (
+	"regexp"
 	"time"
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
 )
+
+// timeFormatRegex validates HH:MM format (00:00 - 23:59)
+var timeFormatRegex = regexp.MustCompile(`^([01]\d|2[0-3]):([0-5]\d)$`)
 
 // AttendanceResponse represents an attendance response entity
 type AttendanceResponse struct {
@@ -118,6 +122,26 @@ func (r *AttendanceResponse) validate() error {
 	// ResponseType の検証
 	if err := r.response.Validate(); err != nil {
 		return err
+	}
+
+	// 時間フォーマットの検証（HH:MM形式）
+	if r.availableFrom != nil && *r.availableFrom != "" {
+		if !timeFormatRegex.MatchString(*r.availableFrom) {
+			return common.NewValidationError("available_from must be in HH:MM format (00:00 - 23:59)", nil)
+		}
+	}
+	if r.availableTo != nil && *r.availableTo != "" {
+		if !timeFormatRegex.MatchString(*r.availableTo) {
+			return common.NewValidationError("available_to must be in HH:MM format (00:00 - 23:59)", nil)
+		}
+	}
+
+	// 時間の順序チェック（from < to）
+	if r.availableFrom != nil && r.availableTo != nil &&
+		*r.availableFrom != "" && *r.availableTo != "" {
+		if *r.availableFrom >= *r.availableTo {
+			return common.NewValidationError("available_from must be before available_to", nil)
+		}
 	}
 
 	return nil
