@@ -43,22 +43,32 @@ export default function Announcements() {
 
   const handleOpenCreate = () => {
     setEditingId(null);
+    // Convert current time to datetime-local format (YYYY-MM-DDTHH:mm) in local timezone
+    const now = new Date();
+    const localDatetime = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
+      .toISOString()
+      .slice(0, 16);
     setFormData({
       title: '',
       body: '',
       tenant_id: '',
-      published_at: new Date().toISOString().slice(0, 16),
+      published_at: localDatetime,
     });
     setIsModalOpen(true);
   };
 
   const handleOpenEdit = (announcement: Announcement) => {
     setEditingId(announcement.id);
+    // Convert ISO date to datetime-local format (YYYY-MM-DDTHH:mm)
+    const publishedDate = new Date(announcement.published_at);
+    const localDatetime = new Date(publishedDate.getTime() - publishedDate.getTimezoneOffset() * 60000)
+      .toISOString()
+      .slice(0, 16);
     setFormData({
       title: announcement.title,
       body: announcement.body,
       tenant_id: announcement.tenant_id || '',
-      published_at: announcement.published_at.slice(0, 16),
+      published_at: localDatetime,
     });
     setIsModalOpen(true);
   };

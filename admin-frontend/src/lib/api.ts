@@ -292,7 +292,7 @@ export async function updateAnnouncement(
   id: string,
   input: UpdateAnnouncementInput
 ): Promise<ApiResponse<{ announcement: Announcement }>> {
-  return request('PATCH', `/announcements/${id}`, input);
+  return request('PUT', `/announcements/${id}`, input);
 }
 
 export async function deleteAnnouncement(id: string): Promise<void> {
@@ -355,7 +355,7 @@ export async function updateTutorial(
   id: string,
   input: UpdateTutorialInput
 ): Promise<ApiResponse<{ tutorial: Tutorial }>> {
-  return request('PATCH', `/tutorials/${id}`, input);
+  return request('PUT', `/tutorials/${id}`, input);
 }
 
 export async function deleteTutorial(id: string): Promise<void> {
