@@ -9,6 +9,7 @@ import (
 	appattendance "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/attendance"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/attendance"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/role"
 )
 
 // =====================================================
@@ -113,6 +114,34 @@ func (m *MockAttendanceCollectionRepository) FindRoleAssignmentsByCollectionID(c
 }
 
 // =====================================================
+// Mock Role Repository
+// =====================================================
+
+type MockRoleRepository struct {
+	findByIDFunc func(ctx context.Context, tenantID common.TenantID, roleID common.RoleID) (*role.Role, error)
+}
+
+func (m *MockRoleRepository) Save(ctx context.Context, r *role.Role) error {
+	return nil
+}
+
+func (m *MockRoleRepository) FindByID(ctx context.Context, tenantID common.TenantID, roleID common.RoleID) (*role.Role, error) {
+	if m.findByIDFunc != nil {
+		return m.findByIDFunc(ctx, tenantID, roleID)
+	}
+	// Default: return a mock role (role exists)
+	return &role.Role{}, nil
+}
+
+func (m *MockRoleRepository) FindByTenantID(ctx context.Context, tenantID common.TenantID) ([]*role.Role, error) {
+	return nil, nil
+}
+
+func (m *MockRoleRepository) Delete(ctx context.Context, tenantID common.TenantID, roleID common.RoleID) error {
+	return nil
+}
+
+// =====================================================
 // CreateCollectionUsecase Tests
 // =====================================================
 
@@ -130,7 +159,9 @@ func TestCreateCollectionUsecase_Execute_Success(t *testing.T) {
 		},
 	}
 
-	usecase := appattendance.NewCreateCollectionUsecase(repo, clock)
+	roleRepo := &MockRoleRepository{}
+
+	usecase := appattendance.NewCreateCollectionUsecase(repo, roleRepo, clock)
 
 	input := appattendance.CreateCollectionInput{
 		TenantID:    tenantID.String(),
@@ -178,7 +209,9 @@ func TestCreateCollectionUsecase_Execute_WithDeadline(t *testing.T) {
 		},
 	}
 
-	usecase := appattendance.NewCreateCollectionUsecase(repo, clock)
+	roleRepo := &MockRoleRepository{}
+
+	usecase := appattendance.NewCreateCollectionUsecase(repo, roleRepo, clock)
 
 	input := appattendance.CreateCollectionInput{
 		TenantID:    tenantID.String(),
@@ -209,8 +242,9 @@ func TestCreateCollectionUsecase_Execute_ErrorWhenTitleEmpty(t *testing.T) {
 	}
 
 	repo := &MockAttendanceCollectionRepository{}
+	roleRepo := &MockRoleRepository{}
 
-	usecase := appattendance.NewCreateCollectionUsecase(repo, clock)
+	usecase := appattendance.NewCreateCollectionUsecase(repo, roleRepo, clock)
 
 	input := appattendance.CreateCollectionInput{
 		TenantID:    tenantID.String(),
@@ -236,8 +270,9 @@ func TestCreateCollectionUsecase_Execute_ErrorWhenInvalidTargetType(t *testing.T
 	}
 
 	repo := &MockAttendanceCollectionRepository{}
+	roleRepo := &MockRoleRepository{}
 
-	usecase := appattendance.NewCreateCollectionUsecase(repo, clock)
+	usecase := appattendance.NewCreateCollectionUsecase(repo, roleRepo, clock)
 
 	input := appattendance.CreateCollectionInput{
 		TenantID:    tenantID.String(),
@@ -267,8 +302,9 @@ func TestCreateCollectionUsecase_Execute_ErrorWhenSaveFails(t *testing.T) {
 			return errors.New("database error")
 		},
 	}
+	roleRepo := &MockRoleRepository{}
 
-	usecase := appattendance.NewCreateCollectionUsecase(repo, clock)
+	usecase := appattendance.NewCreateCollectionUsecase(repo, roleRepo, clock)
 
 	input := appattendance.CreateCollectionInput{
 		TenantID:    tenantID.String(),
@@ -293,8 +329,9 @@ func TestCreateCollectionUsecase_Execute_ErrorWhenInvalidTenantID(t *testing.T) 
 	}
 
 	repo := &MockAttendanceCollectionRepository{}
+	roleRepo := &MockRoleRepository{}
 
-	usecase := appattendance.NewCreateCollectionUsecase(repo, clock)
+	usecase := appattendance.NewCreateCollectionUsecase(repo, roleRepo, clock)
 
 	input := appattendance.CreateCollectionInput{
 		TenantID:    "invalid-tenant-id", // Invalid tenant ID format
@@ -335,8 +372,9 @@ func TestCreateCollectionUsecase_Execute_WithTargetDates(t *testing.T) {
 			return nil
 		},
 	}
+	roleRepo := &MockRoleRepository{}
 
-	usecase := appattendance.NewCreateCollectionUsecase(repo, clock)
+	usecase := appattendance.NewCreateCollectionUsecase(repo, roleRepo, clock)
 
 	input := appattendance.CreateCollectionInput{
 		TenantID:    tenantID.String(),
@@ -371,8 +409,9 @@ func TestCreateCollectionUsecase_Execute_BusinessDayTarget(t *testing.T) {
 			return nil
 		},
 	}
+	roleRepo := &MockRoleRepository{}
 
-	usecase := appattendance.NewCreateCollectionUsecase(repo, clock)
+	usecase := appattendance.NewCreateCollectionUsecase(repo, roleRepo, clock)
 
 	input := appattendance.CreateCollectionInput{
 		TenantID:    tenantID.String(),

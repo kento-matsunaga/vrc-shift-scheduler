@@ -186,11 +186,11 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			appshift.NewCancelAssignmentUsecase(assignmentRepo),
 		)
 
-		// AttendanceHandler dependencies (reusing attendanceRepo, memberRepo)
+		// AttendanceHandler dependencies (reusing attendanceRepo, memberRepo, roleRepo)
 		systemClock := &clock.RealClock{}
 		txManager := db.NewPgxTxManager(dbPool)
 		attendanceHandler := NewAttendanceHandler(
-			appattendance.NewCreateCollectionUsecase(attendanceRepo, systemClock),
+			appattendance.NewCreateCollectionUsecase(attendanceRepo, roleRepo, systemClock),
 			appattendance.NewSubmitResponseUsecase(attendanceRepo, txManager, systemClock),
 			appattendance.NewCloseCollectionUsecase(attendanceRepo, systemClock),
 			appattendance.NewDeleteCollectionUsecase(attendanceRepo, systemClock),
@@ -547,8 +547,9 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 	r.Route("/api/v1/public/attendance", func(r chi.Router) {
 		publicAttendanceRepoForHandler := db.NewAttendanceRepository(dbPool)
 		publicMemberRepoForAttendance := db.NewMemberRepository(dbPool)
+		publicRoleRepoForAttendance := db.NewRoleRepository(dbPool)
 		publicAttendanceHandler := NewAttendanceHandler(
-			appattendance.NewCreateCollectionUsecase(publicAttendanceRepoForHandler, publicClock),
+			appattendance.NewCreateCollectionUsecase(publicAttendanceRepoForHandler, publicRoleRepoForAttendance, publicClock),
 			appattendance.NewSubmitResponseUsecase(publicAttendanceRepoForHandler, publicTxManager, publicClock),
 			appattendance.NewCloseCollectionUsecase(publicAttendanceRepoForHandler, publicClock),
 			appattendance.NewDeleteCollectionUsecase(publicAttendanceRepoForHandler, publicClock),
