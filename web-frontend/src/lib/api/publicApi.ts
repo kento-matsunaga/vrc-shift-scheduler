@@ -106,7 +106,7 @@ export interface Member {
 export interface AttendanceSubmitRequest {
   member_id: string;
   target_date_id: string;
-  response: 'attending' | 'absent';
+  response: 'attending' | 'absent' | 'undecided';
   note?: string;
 }
 

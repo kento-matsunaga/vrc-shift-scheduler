@@ -20,8 +20,8 @@ export default function AttendanceResponse() {
 
   // フォーム状態
   const [selectedMemberId, setSelectedMemberId] = useState('');
-  // 各対象日ごとの出欠状態: { target_date_id: 'attending' | 'absent' }
-  const [responses, setResponses] = useState<Record<string, 'attending' | 'absent'>>({});
+  // 各対象日ごとの出欠状態: { target_date_id: 'attending' | 'absent' | 'undecided' }
+  const [responses, setResponses] = useState<Record<string, 'attending' | 'absent' | 'undecided'>>({});
   const [note, setNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -52,7 +52,7 @@ export default function AttendanceResponse() {
         setTargetDates(targetDatesList);
 
         // 初期状態として全て「参加」を設定
-        const initialResponses: Record<string, 'attending' | 'absent'> = {};
+        const initialResponses: Record<string, 'attending' | 'absent' | 'undecided'> = {};
         targetDatesList.forEach((td) => {
           initialResponses[td.target_date_id] = 'attending';
         });
@@ -77,7 +77,7 @@ export default function AttendanceResponse() {
     fetchData();
   }, [token]);
 
-  const handleResponseChange = (targetDateId: string, response: 'attending' | 'absent') => {
+  const handleResponseChange = (targetDateId: string, response: 'attending' | 'absent' | 'undecided') => {
     setResponses((prev) => ({
       ...prev,
       [targetDateId]: response,
@@ -174,7 +174,7 @@ export default function AttendanceResponse() {
               onClick={() => {
                 setSubmitted(false);
                 setSelectedMemberId('');
-                const initialResponses: Record<string, 'attending' | 'absent'> = {};
+                const initialResponses: Record<string, 'attending' | 'absent' | 'undecided'> = {};
                 targetDates.forEach((td) => {
                   initialResponses[td.target_date_id] = 'attending';
                 });
@@ -283,6 +283,17 @@ export default function AttendanceResponse() {
                             disabled={collection?.status === 'closed'}
                           />
                           <span className="text-gray-700">参加</span>
+                        </label>
+                        <label className="flex items-center cursor-pointer">
+                          <input
+                            type="radio"
+                            value="undecided"
+                            checked={responses[td.target_date_id] === 'undecided'}
+                            onChange={() => handleResponseChange(td.target_date_id, 'undecided')}
+                            className="mr-2"
+                            disabled={collection?.status === 'closed'}
+                          />
+                          <span className="text-gray-700">未定</span>
                         </label>
                         <label className="flex items-center cursor-pointer">
                           <input

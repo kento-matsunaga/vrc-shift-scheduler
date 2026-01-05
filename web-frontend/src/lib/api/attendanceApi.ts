@@ -52,7 +52,7 @@ export interface AttendanceResponse {
   member_name: string; // メンバー表示名
   target_date_id: string; // 対象日ID
   target_date: string; // 対象日（ISO 8601）
-  response: 'attending' | 'absent';
+  response: 'attending' | 'absent' | 'undecided';
   note: string;
   responded_at: string;
 }

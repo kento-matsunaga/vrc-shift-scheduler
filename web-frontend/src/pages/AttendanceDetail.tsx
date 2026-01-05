@@ -152,7 +152,7 @@ export default function AttendanceDetail() {
   const totalMembers = members.length;
 
   // Create response map for quick lookup: member_id -> target_date_id -> response
-  const responseMap = new Map<string, Map<string, 'attending' | 'absent'>>();
+  const responseMap = new Map<string, Map<string, 'attending' | 'absent' | 'undecided'>>();
   responses.forEach((resp) => {
     if (!responseMap.has(resp.member_id)) {
       responseMap.set(resp.member_id, new Map());
@@ -165,6 +165,9 @@ export default function AttendanceDetail() {
     const attendingCount = responses.filter(
       (r) => r.target_date_id === targetDate.target_date_id && r.response === 'attending'
     ).length;
+    const undecidedCount = responses.filter(
+      (r) => r.target_date_id === targetDate.target_date_id && r.response === 'undecided'
+    ).length;
     const absentCount = responses.filter(
       (r) => r.target_date_id === targetDate.target_date_id && r.response === 'absent'
     ).length;
@@ -173,6 +176,7 @@ export default function AttendanceDetail() {
     return {
       targetDateId: targetDate.target_date_id,
       attendingCount,
+      undecidedCount,
       absentCount,
       noResponseCount,
     };
@@ -291,7 +295,7 @@ export default function AttendanceDetail() {
         <div className="px-6 py-4 border-b border-gray-200">
           <h2 className="text-lg font-semibold text-gray-900">出欠確認状況</h2>
           <p className="text-sm text-gray-600 mt-1">
-            ○: 参加、×: 不参加、-: 未回答
+            ○: 参加、△: 未定、×: 不参加、-: 未回答
           </p>
         </div>
         <div className="overflow-x-auto">
@@ -344,6 +348,9 @@ export default function AttendanceDetail() {
                         if (response === 'attending') {
                           content = '○';
                           bgColor = 'bg-green-50 text-green-800';
+                        } else if (response === 'undecided') {
+                          content = '△';
+                          bgColor = 'bg-yellow-50 text-yellow-800';
                         } else if (response === 'absent') {
                           content = '×';
                           bgColor = 'bg-red-50 text-red-800';
@@ -378,6 +385,9 @@ export default function AttendanceDetail() {
                       <div className="text-xs space-y-1">
                         <div className="text-green-700">
                           ○ {stats?.attendingCount || 0}
+                        </div>
+                        <div className="text-yellow-700">
+                          △ {stats?.undecidedCount || 0}
                         </div>
                         <div className="text-red-700">
                           × {stats?.absentCount || 0}
