@@ -2,6 +2,7 @@ package member
 
 import (
 	"context"
+	"log"
 	"time"
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
@@ -95,8 +96,11 @@ func (uc *CreateMemberUsecase) Execute(ctx context.Context, input CreateMemberIn
 		for i, rid := range input.RoleIDs {
 			roleIDs[i] = common.RoleID(rid)
 		}
-		// ロール割り当て失敗でもメンバー作成は成功とする
-		_ = uc.memberRoleRepo.SetMemberRoles(ctx, newMember.MemberID(), roleIDs)
+		// ロール割り当て失敗はログに記録するが、メンバー作成は成功とする
+		// （BulkImportMembersUsecaseと同じ方針）
+		if err := uc.memberRoleRepo.SetMemberRoles(ctx, newMember.MemberID(), roleIDs); err != nil {
+			log.Printf("[WARN] Failed to assign roles to member %s: %v", newMember.MemberID(), err)
+		}
 	}
 
 	return newMember, nil
