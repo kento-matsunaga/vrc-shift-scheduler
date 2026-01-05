@@ -10,6 +10,30 @@ import {
 import { listRoles, type Role } from '../lib/api/roleApi';
 import { ApiClientError } from '../lib/apiClient';
 
+// プリセットカラーパレット
+const PRESET_COLORS = {
+  basic: [
+    { name: '赤', color: '#EF4444' },
+    { name: 'オレンジ', color: '#F97316' },
+    { name: '黄', color: '#EAB308' },
+    { name: '緑', color: '#22C55E' },
+    { name: '青', color: '#3B82F6' },
+    { name: '藍', color: '#6366F1' },
+    { name: '紫', color: '#A855F7' },
+    { name: 'ピンク', color: '#EC4899' },
+  ],
+  pastel: [
+    { name: 'ピンク', color: '#FCA5A5' },
+    { name: 'オレンジ', color: '#FDBA74' },
+    { name: 'イエロー', color: '#FDE047' },
+    { name: 'ライム', color: '#BEF264' },
+    { name: 'スカイ', color: '#7DD3FC' },
+    { name: 'ラベンダー', color: '#C4B5FD' },
+    { name: 'ローズ', color: '#F9A8D4' },
+    { name: 'グレー', color: '#D1D5DB' },
+  ],
+};
+
 export default function RoleGroupList() {
   const [groups, setGroups] = useState<RoleGroup[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
@@ -252,6 +276,12 @@ function RoleGroupFormModal({
       return;
     }
 
+    // HEXカラーコードのバリデーション
+    if (color && !/^#[0-9A-Fa-f]{6}$/.test(color)) {
+      setError('カラーコードは #RRGGBB 形式で入力してください（例: #FF0000）');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -320,34 +350,94 @@ function RoleGroupFormModal({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4 mb-4">
-            <div>
-              <label htmlFor="color" className="label">
-                カラー
-              </label>
+          {/* カラー選択 */}
+          <div className="mb-4">
+            <label className="label">カラー</label>
+
+            {/* 基本色 */}
+            <div className="mb-2">
+              <span className="text-xs text-gray-500 mb-1 block">基本色</span>
+              <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="基本色の選択">
+                {PRESET_COLORS.basic.map((preset) => (
+                  <button
+                    key={preset.color}
+                    type="button"
+                    onClick={() => setColor(preset.color)}
+                    className={`w-8 h-8 rounded-lg border-2 transition-all ${
+                      color === preset.color
+                        ? 'border-gray-800 scale-110 shadow-md'
+                        : 'border-transparent hover:border-gray-300'
+                    }`}
+                    style={{ backgroundColor: preset.color }}
+                    disabled={loading}
+                    title={preset.name}
+                    aria-label={`${preset.name} (${preset.color})`}
+                    aria-pressed={color === preset.color}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* パステルカラー */}
+            <div className="mb-2">
+              <span className="text-xs text-gray-500 mb-1 block">パステル</span>
+              <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="パステルカラーの選択">
+                {PRESET_COLORS.pastel.map((preset) => (
+                  <button
+                    key={preset.color}
+                    type="button"
+                    onClick={() => setColor(preset.color)}
+                    className={`w-8 h-8 rounded-lg border-2 transition-all ${
+                      color === preset.color
+                        ? 'border-gray-800 scale-110 shadow-md'
+                        : 'border-transparent hover:border-gray-300'
+                    }`}
+                    style={{ backgroundColor: preset.color }}
+                    disabled={loading}
+                    title={preset.name}
+                    aria-label={`${preset.name} (${preset.color})`}
+                    aria-pressed={color === preset.color}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* カスタムカラー入力 */}
+            <div className="flex items-center gap-2 mt-2">
+              <span className="text-xs text-gray-500">カスタム:</span>
+              <div
+                className="w-6 h-6 rounded border border-gray-300"
+                style={{ backgroundColor: color }}
+                aria-label={`現在の色: ${color}`}
+              ></div>
               <input
-                type="color"
+                type="text"
                 id="color"
                 value={color}
                 onChange={(e) => setColor(e.target.value)}
-                className="h-10 w-full rounded border border-gray-300"
+                className="input-field flex-1"
                 disabled={loading}
+                placeholder="#3B82F6"
+                pattern="^#[0-9A-Fa-f]{6}$"
+                aria-label="カスタムカラーコード"
               />
             </div>
-            <div>
-              <label htmlFor="displayOrder" className="label">
-                表示順序
-              </label>
-              <input
-                type="number"
-                id="displayOrder"
-                value={displayOrder}
-                onChange={(e) => setDisplayOrder(Number(e.target.value))}
-                className="input-field"
-                disabled={loading}
-                placeholder="0"
-              />
-            </div>
+          </div>
+
+          {/* 表示順序 */}
+          <div className="mb-4">
+            <label htmlFor="displayOrder" className="label">
+              表示順序
+            </label>
+            <input
+              type="number"
+              id="displayOrder"
+              value={displayOrder}
+              onChange={(e) => setDisplayOrder(Number(e.target.value))}
+              className="input-field"
+              disabled={loading}
+              placeholder="0"
+            />
           </div>
 
           {error && (
