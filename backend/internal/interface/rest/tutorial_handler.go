@@ -2,9 +2,11 @@ package rest
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	apptutorial "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/tutorial"
+	tutorialdomain "github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/tutorial"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -45,7 +47,11 @@ func (h *TutorialHandler) Get(w http.ResponseWriter, r *http.Request) {
 
 	tutorial, err := h.getUC.Execute(ctx, id)
 	if err != nil {
-		RespondNotFound(w, "Tutorial not found")
+		if errors.Is(err, tutorialdomain.ErrTutorialNotFound) {
+			RespondNotFound(w, "Tutorial not found")
+			return
+		}
+		RespondInternalError(w)
 		return
 	}
 
@@ -103,7 +109,15 @@ func (h *AdminTutorialHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	result, err := h.createUC.Execute(ctx, req)
 	if err != nil {
-		RespondBadRequest(w, err.Error())
+		if errors.Is(err, tutorialdomain.ErrCategoryRequired) ||
+			errors.Is(err, tutorialdomain.ErrCategoryTooLong) ||
+			errors.Is(err, tutorialdomain.ErrTitleRequired) ||
+			errors.Is(err, tutorialdomain.ErrTitleTooLong) ||
+			errors.Is(err, tutorialdomain.ErrBodyRequired) {
+			RespondBadRequest(w, err.Error())
+			return
+		}
+		RespondInternalError(w)
 		return
 	}
 
@@ -126,7 +140,19 @@ func (h *AdminTutorialHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	result, err := h.updateUC.Execute(ctx, req)
 	if err != nil {
-		RespondBadRequest(w, err.Error())
+		if errors.Is(err, tutorialdomain.ErrTutorialNotFound) {
+			RespondNotFound(w, "Tutorial not found")
+			return
+		}
+		if errors.Is(err, tutorialdomain.ErrCategoryRequired) ||
+			errors.Is(err, tutorialdomain.ErrCategoryTooLong) ||
+			errors.Is(err, tutorialdomain.ErrTitleRequired) ||
+			errors.Is(err, tutorialdomain.ErrTitleTooLong) ||
+			errors.Is(err, tutorialdomain.ErrBodyRequired) {
+			RespondBadRequest(w, err.Error())
+			return
+		}
+		RespondInternalError(w)
 		return
 	}
 
@@ -141,6 +167,10 @@ func (h *AdminTutorialHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 
 	if err := h.deleteUC.Execute(ctx, id); err != nil {
+		if errors.Is(err, tutorialdomain.ErrTutorialNotFound) {
+			RespondNotFound(w, "Tutorial not found")
+			return
+		}
 		RespondInternalError(w)
 		return
 	}

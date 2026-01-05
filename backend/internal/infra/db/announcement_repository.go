@@ -224,25 +224,51 @@ func (r *AnnouncementReadRepository) MarkAsRead(ctx context.Context, announcemen
 }
 
 func (r *AnnouncementReadRepository) MarkAllAsRead(ctx context.Context, adminID common.AdminID, tenantID common.TenantID) error {
-	query := `
-		INSERT INTO announcement_reads (id, announcement_id, admin_id, read_at)
-		SELECT $1 || substr(a.id, 1, 10), a.id, $2, NOW()
+	// まず未読のお知らせIDを取得
+	selectQuery := `
+		SELECT a.id
 		FROM announcements a
 		WHERE a.deleted_at IS NULL
 		  AND a.published_at <= NOW()
-		  AND (a.tenant_id IS NULL OR a.tenant_id = $3)
+		  AND (a.tenant_id IS NULL OR a.tenant_id = $1)
 		  AND NOT EXISTS (
 			SELECT 1 FROM announcement_reads ar
 			WHERE ar.announcement_id = a.id AND ar.admin_id = $2
 		  )
 	`
 
-	_, err := r.pool.Exec(ctx, query,
-		common.NewULID()[:16],
-		adminID.String(),
-		tenantID.String(),
-	)
-	return err
+	rows, err := r.pool.Query(ctx, selectQuery, tenantID.String(), adminID.String())
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	// 各お知らせに対して個別にULIDを生成して挿入
+	insertQuery := `
+		INSERT INTO announcement_reads (id, announcement_id, admin_id, read_at)
+		VALUES ($1, $2, $3, $4)
+		ON CONFLICT (announcement_id, admin_id) DO NOTHING
+	`
+
+	now := time.Now()
+	for rows.Next() {
+		var announcementID string
+		if err := rows.Scan(&announcementID); err != nil {
+			return err
+		}
+
+		_, err := r.pool.Exec(ctx, insertQuery,
+			common.NewULID(),
+			announcementID,
+			adminID.String(),
+			now,
+		)
+		if err != nil {
+			return err
+		}
+	}
+
+	return rows.Err()
 }
 
 func (r *AnnouncementReadRepository) IsRead(ctx context.Context, announcementID announcement.AnnouncementID, adminID common.AdminID) (bool, error) {

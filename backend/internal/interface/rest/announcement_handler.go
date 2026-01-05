@@ -2,9 +2,11 @@ package rest
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/app/announcement"
+	announcementdomain "github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/announcement"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
 	"github.com/go-chi/chi/v5"
 )
@@ -175,7 +177,13 @@ func (h *AdminAnnouncementHandler) Create(w http.ResponseWriter, r *http.Request
 
 	result, err := h.createUC.Execute(ctx, req)
 	if err != nil {
-		RespondBadRequest(w, err.Error())
+		if errors.Is(err, announcementdomain.ErrTitleRequired) ||
+			errors.Is(err, announcementdomain.ErrTitleTooLong) ||
+			errors.Is(err, announcementdomain.ErrBodyRequired) {
+			RespondBadRequest(w, err.Error())
+			return
+		}
+		RespondInternalError(w)
 		return
 	}
 
@@ -198,7 +206,17 @@ func (h *AdminAnnouncementHandler) Update(w http.ResponseWriter, r *http.Request
 
 	result, err := h.updateUC.Execute(ctx, req)
 	if err != nil {
-		RespondBadRequest(w, err.Error())
+		if errors.Is(err, announcementdomain.ErrAnnouncementNotFound) {
+			RespondNotFound(w, "Announcement not found")
+			return
+		}
+		if errors.Is(err, announcementdomain.ErrTitleRequired) ||
+			errors.Is(err, announcementdomain.ErrTitleTooLong) ||
+			errors.Is(err, announcementdomain.ErrBodyRequired) {
+			RespondBadRequest(w, err.Error())
+			return
+		}
+		RespondInternalError(w)
 		return
 	}
 
@@ -213,6 +231,10 @@ func (h *AdminAnnouncementHandler) Delete(w http.ResponseWriter, r *http.Request
 	id := chi.URLParam(r, "id")
 
 	if err := h.deleteUC.Execute(ctx, id); err != nil {
+		if errors.Is(err, announcementdomain.ErrAnnouncementNotFound) {
+			RespondNotFound(w, "Announcement not found")
+			return
+		}
 		RespondInternalError(w)
 		return
 	}
