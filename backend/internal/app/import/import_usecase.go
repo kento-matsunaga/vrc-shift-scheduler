@@ -95,10 +95,9 @@ func (uc *ImportMembersUsecase) Execute(ctx context.Context, input ImportMembers
 		}, nil
 	}
 
-	// Check row limit (max 10000 rows)
-	const maxRows = 10000
-	if len(rows) > maxRows {
-		_ = job.Fail(time.Now(), fmt.Sprintf("行数が上限を超えています: %d行 (上限: %d行)", len(rows), maxRows))
+	// Check row limit
+	if len(rows) > importjob.MaxImportRows {
+		_ = job.Fail(time.Now(), fmt.Sprintf("行数が上限を超えています: %d行 (上限: %d行)", len(rows), importjob.MaxImportRows))
 		_ = uc.importJobRepo.Update(ctx, job)
 		return &ImportMembersOutput{
 			ImportJobID:  job.ImportJobID(),

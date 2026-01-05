@@ -96,6 +96,10 @@ func (m *MockShiftSlotRepository) Delete(ctx context.Context, tenantID common.Te
 	return nil
 }
 
+func (m *MockShiftSlotRepository) FindByBusinessDayIDAndSlotName(ctx context.Context, tenantID common.TenantID, businessDayID event.BusinessDayID, slotName string) (*shift.ShiftSlot, error) {
+	return nil, nil
+}
+
 // =====================================================
 // Test Helper Functions
 // =====================================================
