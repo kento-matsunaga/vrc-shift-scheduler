@@ -17,14 +17,14 @@ import (
 
 // MockDateScheduleRepository is a mock implementation of schedule.DateScheduleRepository
 type MockDateScheduleRepository struct {
-	saveFunc                        func(ctx context.Context, sch *schedule.DateSchedule) error
-	findByIDFunc                    func(ctx context.Context, tenantID common.TenantID, id common.ScheduleID) (*schedule.DateSchedule, error)
-	findByTokenFunc                 func(ctx context.Context, token common.PublicToken) (*schedule.DateSchedule, error)
-	findByTenantIDFunc              func(ctx context.Context, tenantID common.TenantID) ([]*schedule.DateSchedule, error)
-	upsertResponseFunc              func(ctx context.Context, response *schedule.DateScheduleResponse) error
-	findResponsesByScheduleIDFunc   func(ctx context.Context, scheduleID common.ScheduleID) ([]*schedule.DateScheduleResponse, error)
-	findCandidatesByScheduleIDFunc  func(ctx context.Context, scheduleID common.ScheduleID) ([]*schedule.CandidateDate, error)
-	saveGroupAssignmentsFunc        func(ctx context.Context, scheduleID common.ScheduleID, assignments []*schedule.ScheduleGroupAssignment) error
+	saveFunc                             func(ctx context.Context, sch *schedule.DateSchedule) error
+	findByIDFunc                         func(ctx context.Context, tenantID common.TenantID, id common.ScheduleID) (*schedule.DateSchedule, error)
+	findByTokenFunc                      func(ctx context.Context, token common.PublicToken) (*schedule.DateSchedule, error)
+	findByTenantIDFunc                   func(ctx context.Context, tenantID common.TenantID) ([]*schedule.DateSchedule, error)
+	upsertResponseFunc                   func(ctx context.Context, response *schedule.DateScheduleResponse) error
+	findResponsesByScheduleIDFunc        func(ctx context.Context, scheduleID common.ScheduleID) ([]*schedule.DateScheduleResponse, error)
+	findCandidatesByScheduleIDFunc       func(ctx context.Context, scheduleID common.ScheduleID) ([]*schedule.CandidateDate, error)
+	saveGroupAssignmentsFunc             func(ctx context.Context, scheduleID common.ScheduleID, assignments []*schedule.ScheduleGroupAssignment) error
 	findGroupAssignmentsByScheduleIDFunc func(ctx context.Context, scheduleID common.ScheduleID) ([]*schedule.ScheduleGroupAssignment, error)
 }
 
@@ -616,5 +616,135 @@ func TestDecideScheduleUsecase_Execute_ErrorWhenInvalidCandidateID(t *testing.T)
 
 	if err == nil {
 		t.Fatal("Execute() should fail when candidate ID is not in the schedule")
+	}
+}
+
+// =====================================================
+// DeleteScheduleUsecase Tests
+// =====================================================
+
+func TestDeleteScheduleUsecase_Execute_Success(t *testing.T) {
+	tenantID := common.NewTenantID()
+	testSchedule := createTestSchedule(t, tenantID)
+
+	repo := &MockDateScheduleRepository{
+		findByIDFunc: func(ctx context.Context, tid common.TenantID, id common.ScheduleID) (*schedule.DateSchedule, error) {
+			return testSchedule, nil
+		},
+		saveFunc: func(ctx context.Context, sch *schedule.DateSchedule) error {
+			return nil
+		},
+	}
+
+	clock := &MockClock{nowFunc: func() time.Time { return time.Now() }}
+
+	usecase := appschedule.NewDeleteScheduleUsecase(repo, clock)
+
+	input := appschedule.DeleteScheduleInput{
+		TenantID:   tenantID.String(),
+		ScheduleID: testSchedule.ScheduleID().String(),
+	}
+
+	result, err := usecase.Execute(context.Background(), input)
+
+	if err != nil {
+		t.Fatalf("Execute() should succeed, got error: %v", err)
+	}
+
+	if result.ScheduleID != testSchedule.ScheduleID().String() {
+		t.Errorf("ScheduleID mismatch: got %v, want %v", result.ScheduleID, testSchedule.ScheduleID().String())
+	}
+
+	if result.DeletedAt == nil {
+		t.Error("DeletedAt should not be nil")
+	}
+}
+
+func TestDeleteScheduleUsecase_Execute_NotFound(t *testing.T) {
+	tenantID := common.NewTenantID()
+	scheduleID := common.NewScheduleID()
+
+	repo := &MockDateScheduleRepository{
+		findByIDFunc: func(ctx context.Context, tid common.TenantID, id common.ScheduleID) (*schedule.DateSchedule, error) {
+			return nil, common.NewNotFoundError("schedule", id.String())
+		},
+	}
+
+	clock := &MockClock{nowFunc: func() time.Time { return time.Now() }}
+
+	usecase := appschedule.NewDeleteScheduleUsecase(repo, clock)
+
+	input := appschedule.DeleteScheduleInput{
+		TenantID:   tenantID.String(),
+		ScheduleID: scheduleID.String(),
+	}
+
+	_, err := usecase.Execute(context.Background(), input)
+
+	if err == nil {
+		t.Fatal("Execute() should fail when schedule not found")
+	}
+}
+
+func TestDeleteScheduleUsecase_Execute_AlreadyDeleted(t *testing.T) {
+	tenantID := common.NewTenantID()
+	testSchedule := createTestSchedule(t, tenantID)
+	
+	// Delete the schedule first
+	now := time.Now()
+	_ = testSchedule.Delete(now)
+
+	repo := &MockDateScheduleRepository{
+		findByIDFunc: func(ctx context.Context, tid common.TenantID, id common.ScheduleID) (*schedule.DateSchedule, error) {
+			return testSchedule, nil
+		},
+	}
+
+	clock := &MockClock{nowFunc: func() time.Time { return time.Now() }}
+
+	usecase := appschedule.NewDeleteScheduleUsecase(repo, clock)
+
+	input := appschedule.DeleteScheduleInput{
+		TenantID:   tenantID.String(),
+		ScheduleID: testSchedule.ScheduleID().String(),
+	}
+
+	_, err := usecase.Execute(context.Background(), input)
+
+	if err == nil {
+		t.Fatal("Execute() should fail when schedule is already deleted")
+	}
+
+	if !errors.Is(err, schedule.ErrAlreadyDeleted) {
+		t.Errorf("Expected ErrAlreadyDeleted, got: %v", err)
+	}
+}
+
+func TestDeleteScheduleUsecase_Execute_ErrorWhenSaveFails(t *testing.T) {
+	tenantID := common.NewTenantID()
+	testSchedule := createTestSchedule(t, tenantID)
+
+	repo := &MockDateScheduleRepository{
+		findByIDFunc: func(ctx context.Context, tid common.TenantID, id common.ScheduleID) (*schedule.DateSchedule, error) {
+			return testSchedule, nil
+		},
+		saveFunc: func(ctx context.Context, sch *schedule.DateSchedule) error {
+			return errors.New("database error")
+		},
+	}
+
+	clock := &MockClock{nowFunc: func() time.Time { return time.Now() }}
+
+	usecase := appschedule.NewDeleteScheduleUsecase(repo, clock)
+
+	input := appschedule.DeleteScheduleInput{
+		TenantID:   tenantID.String(),
+		ScheduleID: testSchedule.ScheduleID().String(),
+	}
+
+	_, err := usecase.Execute(context.Background(), input)
+
+	if err == nil {
+		t.Fatal("Execute() should fail when save fails")
 	}
 }

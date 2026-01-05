@@ -13,13 +13,14 @@ import (
 
 // AttendanceHandler handles attendance-related HTTP requests
 type AttendanceHandler struct {
-	createCollectionUsecase       *attendance.CreateCollectionUsecase
-	submitResponseUsecase         *attendance.SubmitResponseUsecase
-	closeCollectionUsecase        *attendance.CloseCollectionUsecase
-	getCollectionUsecase          *attendance.GetCollectionUsecase
-	getCollectionByTokenUsecase   *attendance.GetCollectionByTokenUsecase
-	getResponsesUsecase           *attendance.GetResponsesUsecase
-	listCollectionsUsecase        *attendance.ListCollectionsUsecase
+	createCollectionUsecase     *attendance.CreateCollectionUsecase
+	submitResponseUsecase       *attendance.SubmitResponseUsecase
+	closeCollectionUsecase      *attendance.CloseCollectionUsecase
+	deleteCollectionUsecase     *attendance.DeleteCollectionUsecase
+	getCollectionUsecase        *attendance.GetCollectionUsecase
+	getCollectionByTokenUsecase *attendance.GetCollectionByTokenUsecase
+	getResponsesUsecase         *attendance.GetResponsesUsecase
+	listCollectionsUsecase      *attendance.ListCollectionsUsecase
 }
 
 // NewAttendanceHandler creates a new AttendanceHandler with injected usecases
@@ -27,19 +28,21 @@ func NewAttendanceHandler(
 	createCollectionUC *attendance.CreateCollectionUsecase,
 	submitResponseUC *attendance.SubmitResponseUsecase,
 	closeCollectionUC *attendance.CloseCollectionUsecase,
+	deleteCollectionUC *attendance.DeleteCollectionUsecase,
 	getCollectionUC *attendance.GetCollectionUsecase,
 	getCollectionByTokenUC *attendance.GetCollectionByTokenUsecase,
 	getResponsesUC *attendance.GetResponsesUsecase,
 	listCollectionsUC *attendance.ListCollectionsUsecase,
 ) *AttendanceHandler {
 	return &AttendanceHandler{
-		createCollectionUsecase:       createCollectionUC,
-		submitResponseUsecase:         submitResponseUC,
-		closeCollectionUsecase:        closeCollectionUC,
-		getCollectionUsecase:          getCollectionUC,
-		getCollectionByTokenUsecase:   getCollectionByTokenUC,
-		getResponsesUsecase:           getResponsesUC,
-		listCollectionsUsecase:        listCollectionsUC,
+		createCollectionUsecase:     createCollectionUC,
+		submitResponseUsecase:       submitResponseUC,
+		closeCollectionUsecase:      closeCollectionUC,
+		deleteCollectionUsecase:     deleteCollectionUC,
+		getCollectionUsecase:        getCollectionUC,
+		getCollectionByTokenUsecase: getCollectionByTokenUC,
+		getResponsesUsecase:         getResponsesUC,
+		listCollectionsUsecase:      listCollectionsUC,
 	}
 }
 
@@ -57,25 +60,25 @@ type CreateCollectionRequest struct {
 // TargetDateResponse represents a target date in API responses
 type TargetDateResponse struct {
 	TargetDateID string `json:"target_date_id"`
-	TargetDate   string `json:"target_date"`   // ISO 8601 format
+	TargetDate   string `json:"target_date"` // ISO 8601 format
 	DisplayOrder int    `json:"display_order"`
 }
 
 // CollectionResponse represents an attendance collection in API responses
 type CollectionResponse struct {
-	CollectionID string                `json:"collection_id"`
-	TenantID     string                `json:"tenant_id"`
-	Title        string                `json:"title"`
-	Description  string                `json:"description"`
-	TargetType   string                `json:"target_type"`
-	TargetID     string                `json:"target_id"`
-	TargetDates  []TargetDateResponse  `json:"target_dates,omitempty"` // Target dates with IDs
-	PublicToken  string                `json:"public_token"`
-	Status       string                `json:"status"`
-	Deadline     *time.Time            `json:"deadline,omitempty"`
-	GroupIDs     []string              `json:"group_ids,omitempty"`    // Target group IDs
-	CreatedAt    time.Time             `json:"created_at"`
-	UpdatedAt    time.Time             `json:"updated_at"`
+	CollectionID string               `json:"collection_id"`
+	TenantID     string               `json:"tenant_id"`
+	Title        string               `json:"title"`
+	Description  string               `json:"description"`
+	TargetType   string               `json:"target_type"`
+	TargetID     string               `json:"target_id"`
+	TargetDates  []TargetDateResponse `json:"target_dates,omitempty"` // Target dates with IDs
+	PublicToken  string               `json:"public_token"`
+	Status       string               `json:"status"`
+	Deadline     *time.Time           `json:"deadline,omitempty"`
+	GroupIDs     []string             `json:"group_ids,omitempty"` // Target group IDs
+	CreatedAt    time.Time            `json:"created_at"`
+	UpdatedAt    time.Time            `json:"updated_at"`
 }
 
 // SubmitResponseRequest represents the request body for submitting an attendance response
@@ -290,6 +293,49 @@ func (h *AttendanceHandler) CloseCollection(w http.ResponseWriter, r *http.Reque
 		Data: map[string]interface{}{
 			"collection_id": output.CollectionID,
 			"status":        output.Status,
+			"updated_at":    output.UpdatedAt,
+		},
+	})
+}
+
+// DeleteCollection handles DELETE /api/v1/attendance/collections/:id
+func (h *AttendanceHandler) DeleteCollection(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// TenantIDの取得（JWTから）
+	tenantID, ok := GetTenantID(ctx)
+	if !ok {
+		RespondBadRequest(w, "tenant_id is required")
+		return
+	}
+
+	// URLパラメータからcollection_idを取得
+	collectionID := chi.URLParam(r, "collection_id")
+	if collectionID == "" {
+		RespondBadRequest(w, "collection_id is required")
+		return
+	}
+
+	// Usecase呼び出し
+	output, err := h.deleteCollectionUsecase.Execute(ctx, attendance.DeleteCollectionInput{
+		TenantID:     tenantID.String(),
+		CollectionID: collectionID,
+	})
+	if err != nil {
+		switch {
+		case errors.Is(err, domainAttendance.ErrAlreadyDeleted):
+			RespondConflict(w, "Collection is already deleted")
+		default:
+			RespondDomainError(w, err)
+		}
+		return
+	}
+
+	RespondJSON(w, http.StatusOK, SuccessResponse{
+		Data: map[string]interface{}{
+			"collection_id": output.CollectionID,
+			"status":        output.Status,
+			"deleted_at":    output.DeletedAt,
 			"updated_at":    output.UpdatedAt,
 		},
 	})

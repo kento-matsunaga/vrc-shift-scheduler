@@ -10,19 +10,19 @@ import (
 // MVP方針: responses は集約内で保持しない（Repository側UPSERTで管理）
 // candidates は集約内で保持する（作成時に確定）
 type DateSchedule struct {
-	scheduleID          common.ScheduleID
-	tenantID            common.TenantID
-	title               string
-	description         string
-	eventID             *common.EventID
-	publicToken         common.PublicToken
-	status              Status
-	deadline            *time.Time
-	decidedCandidateID  *common.CandidateID
-	candidates          []*CandidateDate // 候補日は集約内で保持
-	createdAt           time.Time
-	updatedAt           time.Time
-	deletedAt           *time.Time
+	scheduleID         common.ScheduleID
+	tenantID           common.TenantID
+	title              string
+	description        string
+	eventID            *common.EventID
+	publicToken        common.PublicToken
+	status             Status
+	deadline           *time.Time
+	decidedCandidateID *common.CandidateID
+	candidates         []*CandidateDate // 候補日は集約内で保持
+	createdAt          time.Time
+	updatedAt          time.Time
+	deletedAt          *time.Time
 }
 
 // NewDateSchedule creates a new DateSchedule entity
@@ -173,6 +173,17 @@ func (s *DateSchedule) Close(now time.Time) error {
 		return ErrAlreadyClosed
 	}
 	s.status = StatusClosed
+	s.updatedAt = now
+	return nil
+}
+
+// Delete はスケジュールを削除済みにする（ソフトデリート）
+// now は App層から Clock 経由で渡される（Domain層で time.Now() を呼ばない）
+func (s *DateSchedule) Delete(now time.Time) error {
+	if s.deletedAt != nil {
+		return ErrAlreadyDeleted
+	}
+	s.deletedAt = &now
 	s.updatedAt = now
 	return nil
 }
