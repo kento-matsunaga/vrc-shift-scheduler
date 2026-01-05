@@ -161,14 +161,22 @@ export default function AttendanceDetail() {
   });
 
   // Create note map for quick lookup: member_id -> note (most recent response's note)
-  const noteMap = new Map<string, string>();
+  // Store note with timestamp to track the most recent one efficiently
+  const noteDataMap = new Map<string, { note: string; respondedAt: Date }>();
   responses.forEach((resp) => {
     if (resp.note && resp.note.trim()) {
+      const existing = noteDataMap.get(resp.member_id);
+      const respondedAt = new Date(resp.responded_at);
       // Keep the most recent note per member
-      if (!noteMap.has(resp.member_id) || new Date(resp.responded_at) > new Date(responses.find(r => r.member_id === resp.member_id && noteMap.get(resp.member_id) === r.note)?.responded_at || 0)) {
-        noteMap.set(resp.member_id, resp.note);
+      if (!existing || respondedAt > existing.respondedAt) {
+        noteDataMap.set(resp.member_id, { note: resp.note, respondedAt });
       }
     }
+  });
+  // Convert to simple note map for easier access
+  const noteMap = new Map<string, string>();
+  noteDataMap.forEach((data, memberId) => {
+    noteMap.set(memberId, data.note);
   });
 
   // Calculate stats for each target date
