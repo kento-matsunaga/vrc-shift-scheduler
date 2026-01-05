@@ -130,6 +130,9 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			appevent.NewApplyTemplateUsecase(businessDayRepo, templateRepo, slotRepo),
 		)
 
+		// RoleHandler dependencies (needed by MemberHandler too)
+		roleRepo := db.NewRoleRepository(dbPool)
+
 		// MemberHandler dependencies
 		memberRepo := db.NewMemberRepository(dbPool)
 		memberRoleRepo := db.NewMemberRoleRepository(dbPool)
@@ -142,11 +145,10 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			appmember.NewUpdateMemberUsecase(memberRepo, memberRoleRepo),
 			appmember.NewGetRecentAttendanceUsecase(memberRepo, attendanceRepo),
 			appmember.NewBulkImportMembersUsecase(memberRepo, memberRoleRepo),
-			appmember.NewBulkUpdateRolesUsecase(memberRepo, memberRoleRepo),
+			appmember.NewBulkUpdateRolesUsecase(memberRepo, memberRoleRepo, roleRepo),
 		)
 
-		// RoleHandler dependencies
-		roleRepo := db.NewRoleRepository(dbPool)
+		// RoleHandler
 		roleHandler := NewRoleHandler(
 			approle.NewCreateRoleUsecase(roleRepo),
 			approle.NewUpdateRoleUsecase(roleRepo),

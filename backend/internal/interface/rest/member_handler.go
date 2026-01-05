@@ -2,6 +2,7 @@ package rest
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -10,6 +11,9 @@ import (
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
 	"github.com/go-chi/chi/v5"
 )
+
+// MaxBulkUpdateMembers is the maximum number of members that can be updated at once
+const MaxBulkUpdateMembers = 100
 
 // MemberHandler handles member-related HTTP requests
 type MemberHandler struct {
@@ -515,8 +519,8 @@ func (h *MemberHandler) BulkUpdateRoles(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if len(req.MemberIDs) > 100 {
-		writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "Maximum 100 members can be updated at once", nil)
+	if len(req.MemberIDs) > MaxBulkUpdateMembers {
+		writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", fmt.Sprintf("Maximum %d members can be updated at once", MaxBulkUpdateMembers), nil)
 		return
 	}
 
