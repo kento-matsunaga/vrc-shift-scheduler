@@ -99,12 +99,21 @@ export async function bulkImportMembers(members: BulkImportMemberInput[]): Promi
 }
 
 /**
+ * 失敗詳細
+ */
+export interface FailureDetail {
+  member_id: string;
+  reason: string;
+}
+
+/**
  * ロール一括更新のレスポンス
  */
 export interface BulkUpdateRolesResponse {
   total_count: number;
   success_count: number;
   failed_count: number;
+  failures?: FailureDetail[];
 }
 
 /**
