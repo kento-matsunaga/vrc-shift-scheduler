@@ -96,7 +96,27 @@ func (u *CreateCollectionUsecase) Execute(ctx context.Context, input CreateColle
 		}
 	}
 
-	// 7. Return output DTO
+	// 7. Save role assignments if provided
+	if len(input.RoleIDs) > 0 {
+		var roleAssignments []*attendance.CollectionRoleAssignment
+		for _, roleIDStr := range input.RoleIDs {
+			roleID, err := common.ParseRoleID(roleIDStr)
+			if err != nil {
+				return nil, err
+			}
+			assignment, err := attendance.NewCollectionRoleAssignment(now, collection.CollectionID(), roleID)
+			if err != nil {
+				return nil, err
+			}
+			roleAssignments = append(roleAssignments, assignment)
+		}
+
+		if err := u.repo.SaveRoleAssignments(ctx, collection.CollectionID(), roleAssignments); err != nil {
+			return nil, err
+		}
+	}
+
+	// 8. Return output DTO
 	return &CreateCollectionOutput{
 		CollectionID: collection.CollectionID().String(),
 		TenantID:     collection.TenantID().String(),

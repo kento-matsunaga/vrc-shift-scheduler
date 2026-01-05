@@ -11,6 +11,7 @@ export interface CreateAttendanceRequest {
   target_dates?: string[]; // ISO 8601 format array
   deadline?: string; // ISO 8601 format
   group_ids?: string[]; // optional: target member group IDs
+  role_ids?: string[]; // optional: target role IDs
 }
 
 /**
@@ -39,6 +40,7 @@ export interface AttendanceCollection {
   target_date_count?: number;
   response_count?: number;
   group_ids?: string[]; // 対象グループIDs
+  role_ids?: string[]; // 対象ロールIDs
   created_at: string;
   updated_at: string;
 }
