@@ -108,10 +108,10 @@ func (uc *MarkAllAsReadUsecase) Execute(ctx context.Context, adminID common.Admi
 
 // CreateAnnouncementInput represents input for creating announcement
 type CreateAnnouncementInput struct {
-	TenantID    *string
-	Title       string
-	Body        string
-	PublishedAt time.Time
+	TenantID    *string   `json:"tenant_id"`
+	Title       string    `json:"title"`
+	Body        string    `json:"body"`
+	PublishedAt time.Time `json:"published_at"`
 }
 
 // CreateAnnouncementUsecase creates an announcement (admin)
@@ -158,10 +158,10 @@ func (uc *CreateAnnouncementUsecase) Execute(ctx context.Context, input CreateAn
 
 // UpdateAnnouncementInput represents input for updating announcement
 type UpdateAnnouncementInput struct {
-	ID          string
-	Title       string
-	Body        string
-	PublishedAt time.Time
+	ID          string    `json:"-"`
+	Title       string    `json:"title"`
+	Body        string    `json:"body"`
+	PublishedAt time.Time `json:"published_at"`
 }
 
 // UpdateAnnouncementUsecase updates an announcement (admin)
