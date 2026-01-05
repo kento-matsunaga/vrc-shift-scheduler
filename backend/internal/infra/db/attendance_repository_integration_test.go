@@ -324,6 +324,8 @@ func TestAttendanceRepository_UpsertResponse(t *testing.T) {
 		targetDate.TargetDateID(),
 		attendance.ResponseTypeAttending,
 		"参加します",
+		nil,
+		nil,
 	)
 	if err != nil {
 		t.Fatalf("Failed to create response: %v", err)
@@ -358,6 +360,8 @@ func TestAttendanceRepository_UpsertResponse(t *testing.T) {
 		targetDate.TargetDateID(),
 		attendance.ResponseTypeAbsent,
 		"予定が入りました",
+		nil,
+		nil,
 	)
 	if err != nil {
 		t.Fatalf("Failed to create updated response: %v", err)
@@ -443,6 +447,8 @@ func TestAttendanceRepository_FindResponsesByMemberID(t *testing.T) {
 			targetDate.TargetDateID(),
 			attendance.ResponseTypeAttending,
 			"",
+			nil,
+			nil,
 		)
 		if err != nil {
 			t.Fatalf("Failed to create response %d: %v", i, err)
