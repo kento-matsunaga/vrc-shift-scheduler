@@ -20,6 +20,7 @@ type MemberHandler struct {
 	updateMemberUsecase        *appmember.UpdateMemberUsecase
 	getRecentAttendanceUsecase *appmember.GetRecentAttendanceUsecase
 	bulkImportMembersUC        *appmember.BulkImportMembersUsecase
+	bulkUpdateRolesUC          *appmember.BulkUpdateRolesUsecase
 }
 
 // NewMemberHandler creates a new MemberHandler with injected usecases
@@ -31,6 +32,7 @@ func NewMemberHandler(
 	updateMemberUC *appmember.UpdateMemberUsecase,
 	getRecentAttendanceUC *appmember.GetRecentAttendanceUsecase,
 	bulkImportMembersUC *appmember.BulkImportMembersUsecase,
+	bulkUpdateRolesUC *appmember.BulkUpdateRolesUsecase,
 ) *MemberHandler {
 	return &MemberHandler{
 		createMemberUC:             createMemberUC,
@@ -40,6 +42,7 @@ func NewMemberHandler(
 		updateMemberUsecase:        updateMemberUC,
 		getRecentAttendanceUsecase: getRecentAttendanceUC,
 		bulkImportMembersUC:        bulkImportMembersUC,
+		bulkUpdateRolesUC:          bulkUpdateRolesUC,
 	}
 }
 
@@ -474,6 +477,67 @@ func (h *MemberHandler) BulkImportMembers(w http.ResponseWriter, r *http.Request
 	if err != nil {
 		log.Printf("BulkImportMembers error: %+v", err)
 		writeError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to import members", nil)
+		return
+	}
+
+	// レスポンス
+	writeSuccess(w, http.StatusOK, output)
+}
+
+// BulkUpdateRolesRequest represents the request body for bulk updating roles
+type BulkUpdateRolesRequest struct {
+	MemberIDs     []string `json:"member_ids"`
+	AddRoleIDs    []string `json:"add_role_ids,omitempty"`
+	RemoveRoleIDs []string `json:"remove_role_ids,omitempty"`
+}
+
+// BulkUpdateRoles handles POST /api/v1/members/bulk-update-roles
+func (h *MemberHandler) BulkUpdateRoles(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// テナントIDの取得
+	tenantID, ok := getTenantIDFromContext(ctx)
+	if !ok {
+		writeError(w, http.StatusForbidden, "ERR_FORBIDDEN", "Tenant ID is required", nil)
+		return
+	}
+
+	// リクエストボディのパース
+	var req BulkUpdateRolesRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "Invalid request body", nil)
+		return
+	}
+
+	// バリデーション
+	if len(req.MemberIDs) == 0 {
+		writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "member_ids is required and must not be empty", nil)
+		return
+	}
+
+	if len(req.MemberIDs) > 100 {
+		writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "Maximum 100 members can be updated at once", nil)
+		return
+	}
+
+	if len(req.AddRoleIDs) == 0 && len(req.RemoveRoleIDs) == 0 {
+		writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "At least one of add_role_ids or remove_role_ids is required", nil)
+		return
+	}
+
+	// Usecaseの入力を構築
+	input := appmember.BulkUpdateRolesInput{
+		TenantID:      tenantID,
+		MemberIDs:     req.MemberIDs,
+		AddRoleIDs:    req.AddRoleIDs,
+		RemoveRoleIDs: req.RemoveRoleIDs,
+	}
+
+	// Usecaseの実行
+	output, err := h.bulkUpdateRolesUC.Execute(ctx, input)
+	if err != nil {
+		log.Printf("BulkUpdateRoles error: %+v", err)
+		writeError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to update roles", nil)
 		return
 	}
 
