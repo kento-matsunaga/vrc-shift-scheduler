@@ -19,6 +19,24 @@ export default function PasswordReset() {
   const [resetAllowed, setResetAllowed] = useState<boolean | null>(null);
   const [expiresAt, setExpiresAt] = useState<string | null>(null);
 
+  // Password strength state
+  const [passwordStrength, setPasswordStrength] = useState({
+    hasMinLength: false,
+    hasUpper: false,
+    hasLower: false,
+    hasDigit: false,
+  });
+
+  // Update password strength when password changes
+  useEffect(() => {
+    setPasswordStrength({
+      hasMinLength: newPassword.length >= 8,
+      hasUpper: /[A-Z]/.test(newPassword),
+      hasLower: /[a-z]/.test(newPassword),
+      hasDigit: /\d/.test(newPassword),
+    });
+  }, [newPassword]);
+
   // Check reset status when email changes
   useEffect(() => {
     if (!email.trim()) {
@@ -62,8 +80,15 @@ export default function PasswordReset() {
       return;
     }
 
-    if (newPassword.length < 8) {
-      setError('パスワードは8文字以上で入力してください');
+    // Check password complexity
+    const allPasswordRequirementsMet =
+      passwordStrength.hasMinLength &&
+      passwordStrength.hasUpper &&
+      passwordStrength.hasLower &&
+      passwordStrength.hasDigit;
+
+    if (!allPasswordRequirementsMet) {
+      setError('パスワードは8文字以上で、大文字・小文字・数字を含む必要があります');
       return;
     }
 
@@ -219,6 +244,23 @@ export default function PasswordReset() {
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 shadow-inset-input focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition"
                 disabled={loading}
               />
+              {/* Password strength indicator */}
+              {newPassword && (
+                <ul className="mt-2 space-y-1 text-xs">
+                  <li className={`flex items-center gap-1 ${passwordStrength.hasMinLength ? 'text-green-600' : 'text-gray-400'}`}>
+                    {passwordStrength.hasMinLength ? '✓' : '○'} 8文字以上
+                  </li>
+                  <li className={`flex items-center gap-1 ${passwordStrength.hasUpper ? 'text-green-600' : 'text-gray-400'}`}>
+                    {passwordStrength.hasUpper ? '✓' : '○'} 大文字を含む
+                  </li>
+                  <li className={`flex items-center gap-1 ${passwordStrength.hasLower ? 'text-green-600' : 'text-gray-400'}`}>
+                    {passwordStrength.hasLower ? '✓' : '○'} 小文字を含む
+                  </li>
+                  <li className={`flex items-center gap-1 ${passwordStrength.hasDigit ? 'text-green-600' : 'text-gray-400'}`}>
+                    {passwordStrength.hasDigit ? '✓' : '○'} 数字を含む
+                  </li>
+                </ul>
+              )}
             </div>
 
             <div>

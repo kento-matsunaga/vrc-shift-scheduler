@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"time"
 
 	appAuth "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/auth"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/auth"
@@ -16,6 +17,7 @@ type PasswordResetHandler struct {
 	allowPasswordResetUsecase       *appAuth.AllowPasswordResetUsecase
 	checkPasswordResetStatusUsecase *appAuth.CheckPasswordResetStatusUsecase
 	verifyAndResetPasswordUsecase   *appAuth.VerifyAndResetPasswordUsecase
+	rateLimiter                     *RateLimiter
 }
 
 // NewPasswordResetHandler creates a new PasswordResetHandler
@@ -23,11 +25,13 @@ func NewPasswordResetHandler(
 	allowPasswordResetUsecase *appAuth.AllowPasswordResetUsecase,
 	checkPasswordResetStatusUsecase *appAuth.CheckPasswordResetStatusUsecase,
 	verifyAndResetPasswordUsecase *appAuth.VerifyAndResetPasswordUsecase,
+	rateLimiter *RateLimiter,
 ) *PasswordResetHandler {
 	return &PasswordResetHandler{
 		allowPasswordResetUsecase:       allowPasswordResetUsecase,
 		checkPasswordResetStatusUsecase: checkPasswordResetStatusUsecase,
 		verifyAndResetPasswordUsecase:   verifyAndResetPasswordUsecase,
+		rateLimiter:                     rateLimiter,
 	}
 }
 
@@ -131,6 +135,17 @@ type CheckPasswordResetStatusResponse struct {
 func (h *PasswordResetHandler) CheckPasswordResetStatus(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
+	// Rate limiting check (if rate limiter is configured)
+	if h.rateLimiter != nil {
+		clientIP := getClientIP(r)
+		if !h.rateLimiter.Allow(clientIP) {
+			time.Sleep(1 * time.Second) // Delay to slow down attackers
+			RespondError(w, http.StatusTooManyRequests, "ERR_RATE_LIMITED",
+				"リクエストが多すぎます。しばらくしてから再度お試しください。", nil)
+			return
+		}
+	}
+
 	// Get email from query parameter
 	email := r.URL.Query().Get("email")
 	if email == "" {
@@ -175,6 +190,17 @@ type ResetPasswordResponse struct {
 // Public endpoint to reset password with license key verification
 func (h *PasswordResetHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+
+	// Rate limiting check (if rate limiter is configured)
+	if h.rateLimiter != nil {
+		clientIP := getClientIP(r)
+		if !h.rateLimiter.Allow(clientIP) {
+			time.Sleep(1 * time.Second) // Delay to slow down attackers
+			RespondError(w, http.StatusTooManyRequests, "ERR_RATE_LIMITED",
+				"リクエストが多すぎます。しばらくしてから再度お試しください。", nil)
+			return
+		}
+	}
 
 	// Parse request body
 	var req ResetPasswordRequest

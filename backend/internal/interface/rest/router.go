@@ -68,15 +68,18 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 	// PasswordResetHandler dependencies (public endpoints)
 	passwordResetClock := &clock.RealClock{}
 	licenseKeyRepo := db.NewLicenseKeyRepository(dbPool)
+	billingAuditLogRepo := db.NewBillingAuditLogRepository(dbPool)
 	checkPasswordResetStatusUsecase := auth.NewCheckPasswordResetStatusUsecase(adminRepo, passwordResetClock)
-	verifyAndResetPasswordUsecase := auth.NewVerifyAndResetPasswordUsecase(adminRepo, licenseKeyRepo, passwordHasher, passwordResetClock)
+	verifyAndResetPasswordUsecase := auth.NewVerifyAndResetPasswordUsecase(adminRepo, licenseKeyRepo, passwordHasher, passwordResetClock, billingAuditLogRepo)
+	passwordResetRateLimiter := DefaultPasswordResetRateLimiter()
 
 	// 認証不要ルート
 	r.Route("/api/v1/auth", func(r chi.Router) {
 		r.Post("/login", authHandler.Login)
-		// Password reset public endpoints
-		r.Get("/password-reset-status", NewPasswordResetHandler(nil, checkPasswordResetStatusUsecase, nil).CheckPasswordResetStatus)
-		r.Post("/reset-password", NewPasswordResetHandler(nil, nil, verifyAndResetPasswordUsecase).ResetPassword)
+		// Password reset public endpoints (with rate limiting)
+		passwordResetHandler := NewPasswordResetHandler(nil, checkPasswordResetStatusUsecase, verifyAndResetPasswordUsecase, passwordResetRateLimiter)
+		r.Get("/password-reset-status", passwordResetHandler.CheckPasswordResetStatus)
+		r.Post("/reset-password", passwordResetHandler.ResetPassword)
 	})
 
 	// Billing guard dependencies
@@ -204,9 +207,9 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			auth.NewChangePasswordUsecase(adminRepo, passwordHasher),
 		)
 
-		// PasswordResetHandler dependencies (authenticated endpoint)
+		// PasswordResetHandler dependencies (authenticated endpoint - no rate limiting needed)
 		allowPasswordResetUsecase := auth.NewAllowPasswordResetUsecase(adminRepo, systemClock)
-		passwordResetHandler := NewPasswordResetHandler(allowPasswordResetUsecase, nil, nil)
+		authPasswordResetHandler := NewPasswordResetHandler(allowPasswordResetUsecase, nil, nil, nil)
 
 		// Event API
 		r.Route("/events", func(r chi.Router) {
@@ -374,7 +377,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		r.Route("/admins", func(r chi.Router) {
 			r.Post("/me/change-password", adminHandler.ChangePassword)
 			// PWリセット許可（Ownerのみ実行可能 - Usecase内でチェック）
-			r.Post("/{admin_id}/allow-password-reset", passwordResetHandler.AllowPasswordReset)
+			r.Post("/{admin_id}/allow-password-reset", authPasswordResetHandler.AllowPasswordReset)
 		})
 
 		// ManagerPermissionsHandler dependencies (reusing managerPermissionsRepo)

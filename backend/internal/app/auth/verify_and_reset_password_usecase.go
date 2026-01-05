@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"log"
 	"unicode"
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/auth"
@@ -27,6 +28,7 @@ type VerifyAndResetPasswordOutput struct {
 type VerifyAndResetPasswordUsecase struct {
 	adminRepo      auth.AdminRepository
 	licenseKeyRepo billing.LicenseKeyRepository
+	auditLogRepo   billing.BillingAuditLogRepository
 	passwordHasher services.PasswordHasher
 	clock          services.Clock
 }
@@ -37,10 +39,12 @@ func NewVerifyAndResetPasswordUsecase(
 	licenseKeyRepo billing.LicenseKeyRepository,
 	passwordHasher services.PasswordHasher,
 	clock services.Clock,
+	auditLogRepo billing.BillingAuditLogRepository,
 ) *VerifyAndResetPasswordUsecase {
 	return &VerifyAndResetPasswordUsecase{
 		adminRepo:      adminRepo,
 		licenseKeyRepo: licenseKeyRepo,
+		auditLogRepo:   auditLogRepo,
 		passwordHasher: passwordHasher,
 		clock:          clock,
 	}
@@ -104,6 +108,32 @@ func (u *VerifyAndResetPasswordUsecase) Execute(ctx context.Context, input Verif
 	// 8. 保存
 	if err := u.adminRepo.Save(ctx, admin); err != nil {
 		return nil, err
+	}
+
+	// 9. 監査ログを記録（ベストエフォート - 失敗しても操作は成功扱い）
+	if u.auditLogRepo != nil {
+		adminIDStr := admin.AdminID().String()
+		tenantIDStr := admin.TenantID().String()
+		targetType := "admin"
+		auditLog, err := billing.NewBillingAuditLog(
+			now,
+			billing.ActorTypeUser,
+			&adminIDStr,
+			billing.BillingAuditActionPasswordResetDone.String(),
+			&targetType,
+			&adminIDStr,
+			nil,
+			nil,
+			nil,
+			nil,
+		)
+		if err == nil {
+			if saveErr := u.auditLogRepo.Save(ctx, auditLog); saveErr != nil {
+				// 監査ログの保存失敗は致命的エラーではないため、ログに記録して継続
+				log.Printf("[WARN] Failed to save password reset audit log for admin %s (tenant: %s): %v",
+					adminIDStr, tenantIDStr, saveErr)
+			}
+		}
 	}
 
 	return &VerifyAndResetPasswordOutput{

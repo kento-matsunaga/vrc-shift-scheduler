@@ -6,6 +6,10 @@ import (
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
 )
 
+// PasswordResetValidityDuration is the duration for which a password reset allowance is valid.
+// After this duration, the admin must request a new password reset allowance from an owner.
+const PasswordResetValidityDuration = 24 * time.Hour
+
 // Admin represents an admin entity (aggregate root)
 // 管理者（店長/副店長）はテナント内の管理操作を行う権限を持つ
 type Admin struct {
@@ -272,20 +276,30 @@ func (a *Admin) AllowPasswordReset(now time.Time, allowedByAdminID common.AdminI
 }
 
 // AllowPasswordResetBySystem はシステム管理者によるPWリセット許可
-// allowedBy は NULL になる（外部キー制約を回避）
+//
+// password_reset_allowed_by を NULL に設定する理由:
+// - システム管理者（admin-frontend利用者）は admins テーブルに存在しない
+// - admins.password_reset_allowed_by は admins.admin_id への外部キー制約がある
+// - そのため、システム管理者のIDを設定すると外部キー制約違反が発生する
+// - NULL は外部キー制約違反を回避し、「システム管理者による許可」を表現する
+//
+// 将来の改善オプション:
+// - オプションA: システム管理者用の特殊レコードを admins テーブルに作成
+// - オプションB: password_reset_allowed_by を別テーブル（system_admins）への参照に変更
+// - オプションC: 現状維持（NULL = システム管理者による許可として運用）
 func (a *Admin) AllowPasswordResetBySystem(now time.Time) {
 	a.passwordResetAllowedAt = &now
-	a.passwordResetAllowedBy = nil // システム管理者の場合はNULL
+	a.passwordResetAllowedBy = nil // システム管理者の場合はNULL（上記コメント参照）
 	a.updatedAt = now
 }
 
-// CanResetPassword はPWリセット可能かを判定する（24時間以内）
+// CanResetPassword はPWリセット可能かを判定する
 func (a *Admin) CanResetPassword(now time.Time) bool {
 	if a.passwordResetAllowedAt == nil {
 		return false
 	}
-	// 24時間以内かチェック
-	return now.Sub(*a.passwordResetAllowedAt) <= 24*time.Hour
+	// PasswordResetValidityDuration 以内かチェック
+	return now.Sub(*a.passwordResetAllowedAt) <= PasswordResetValidityDuration
 }
 
 // PasswordResetExpiresAt はPWリセット許可の有効期限を返す
@@ -293,7 +307,7 @@ func (a *Admin) PasswordResetExpiresAt() *time.Time {
 	if a.passwordResetAllowedAt == nil {
 		return nil
 	}
-	expiresAt := a.passwordResetAllowedAt.Add(24 * time.Hour)
+	expiresAt := a.passwordResetAllowedAt.Add(PasswordResetValidityDuration)
 	return &expiresAt
 }
 
