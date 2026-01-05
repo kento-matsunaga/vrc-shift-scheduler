@@ -200,6 +200,12 @@ function RoleFormModal({
       return;
     }
 
+    // HEXカラーコードのバリデーション
+    if (color && !/^#[0-9A-Fa-f]{6}$/.test(color)) {
+      setError('カラーコードは #RRGGBB 形式で入力してください（例: #FF0000）');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -273,7 +279,7 @@ function RoleFormModal({
             {/* プリセットカラー: ベーシック */}
             <div className="mb-2">
               <span className="text-xs text-gray-500 mb-1 block">ベーシック</span>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2" role="group" aria-label="ベーシックカラー">
                 {PRESET_COLORS.basic.map((preset) => (
                   <button
                     key={preset.color}
@@ -286,6 +292,8 @@ function RoleFormModal({
                     }`}
                     style={{ backgroundColor: preset.color }}
                     title={preset.name}
+                    aria-label={`${preset.name}を選択`}
+                    aria-pressed={color === preset.color}
                     disabled={loading}
                   />
                 ))}
@@ -294,7 +302,7 @@ function RoleFormModal({
             {/* プリセットカラー: パステル */}
             <div className="mb-2">
               <span className="text-xs text-gray-500 mb-1 block">パステル</span>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2" role="group" aria-label="パステルカラー">
                 {PRESET_COLORS.pastel.map((preset) => (
                   <button
                     key={preset.color}
@@ -307,6 +315,8 @@ function RoleFormModal({
                     }`}
                     style={{ backgroundColor: preset.color }}
                     title={preset.name}
+                    aria-label={`${preset.name}を選択`}
+                    aria-pressed={color === preset.color}
                     disabled={loading}
                   />
                 ))}
