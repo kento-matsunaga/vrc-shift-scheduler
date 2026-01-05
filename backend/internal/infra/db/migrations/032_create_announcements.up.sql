@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS announcements (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP,
-    FOREIGN KEY (tenant_id) REFERENCES tenants(id)
+    FOREIGN KEY (tenant_id) REFERENCES tenants(tenant_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_announcements_tenant ON announcements(tenant_id);
@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS announcement_reads (
     admin_id VARCHAR(26) NOT NULL,
     read_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (announcement_id) REFERENCES announcements(id),
-    FOREIGN KEY (admin_id) REFERENCES admins(id),
+    FOREIGN KEY (admin_id) REFERENCES admins(admin_id),
     UNIQUE (announcement_id, admin_id)
 );
 
