@@ -142,6 +142,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			appmember.NewUpdateMemberUsecase(memberRepo, memberRoleRepo),
 			appmember.NewGetRecentAttendanceUsecase(memberRepo, attendanceRepo),
 			appmember.NewBulkImportMembersUsecase(memberRepo, memberRoleRepo),
+			appmember.NewBulkUpdateRolesUsecase(memberRepo, memberRoleRepo),
 		)
 
 		// RoleHandler dependencies
@@ -260,6 +261,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		r.Route("/members", func(r chi.Router) {
 			r.With(permissionChecker.RequirePermission(tenant.PermissionAddMember)).Post("/", memberHandler.CreateMember)
 			r.With(permissionChecker.RequirePermission(tenant.PermissionAddMember)).Post("/bulk-import", memberHandler.BulkImportMembers)
+			r.With(permissionChecker.RequirePermission(tenant.PermissionEditMember)).Post("/bulk-update-roles", memberHandler.BulkUpdateRoles)
 			r.Get("/", memberHandler.GetMembers)
 			r.Get("/recent-attendance", memberHandler.GetRecentAttendance)
 			r.Get("/{member_id}", memberHandler.GetMemberDetail)
@@ -523,6 +525,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		appmember.NewUpdateMemberUsecase(publicMemberRepo, publicMemberRoleRepo),
 		appmember.NewGetRecentAttendanceUsecase(publicMemberRepo, publicAttendanceRepo),
 		appmember.NewBulkImportMembersUsecase(publicMemberRepo, publicMemberRoleRepo),
+		nil, // BulkUpdateRoles not needed for public handler
 	)
 	r.Get("/api/v1/public/members", func(w http.ResponseWriter, r *http.Request) {
 		tenantID := r.URL.Query().Get("tenant_id")
