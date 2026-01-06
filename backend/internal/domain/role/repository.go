@@ -14,6 +14,9 @@ type RoleRepository interface {
 	// FindByID finds a role by ID within a tenant
 	FindByID(ctx context.Context, tenantID common.TenantID, roleID common.RoleID) (*Role, error)
 
+	// FindByIDs finds multiple roles by IDs within a tenant (batch fetch to avoid N+1)
+	FindByIDs(ctx context.Context, tenantID common.TenantID, roleIDs []common.RoleID) ([]*Role, error)
+
 	// FindByTenantID finds all roles within a tenant (deleted_at IS NULL)
 	FindByTenantID(ctx context.Context, tenantID common.TenantID) ([]*Role, error)
 

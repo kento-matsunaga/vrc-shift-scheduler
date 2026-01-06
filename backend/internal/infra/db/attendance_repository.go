@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/attendance"
@@ -752,6 +753,7 @@ func (r *AttendanceRepository) FindGroupAssignmentsByCollectionID(ctx context.Co
 }
 
 // SaveRoleAssignments saves role assignments for a collection (deletes existing ones first)
+// Uses multi-row INSERT for atomicity and performance
 func (r *AttendanceRepository) SaveRoleAssignments(ctx context.Context, collectionID common.CollectionID, assignments []*attendance.CollectionRoleAssignment) error {
 	executor := GetTx(ctx, r.pool)
 
@@ -767,21 +769,25 @@ func (r *AttendanceRepository) SaveRoleAssignments(ctx context.Context, collecti
 		return nil
 	}
 
-	insertQuery := `
+	// マルチロー INSERT で一括挿入（部分的な失敗を防ぐ）
+	// VALUES ($1, $2, $3), ($4, $5, $6), ... の形式で構築
+	valueStrings := make([]string, 0, len(assignments))
+	args := make([]interface{}, 0, len(assignments)*3)
+
+	for i, a := range assignments {
+		valueStrings = append(valueStrings, fmt.Sprintf("($%d, $%d, $%d)", i*3+1, i*3+2, i*3+3))
+		args = append(args, a.CollectionID().String(), a.RoleID().String(), a.CreatedAt())
+	}
+
+	insertQuery := fmt.Sprintf(`
 		INSERT INTO attendance_collection_role_assignments (
 			collection_id, role_id, created_at
-		) VALUES ($1, $2, $3)
-	`
+		) VALUES %s
+	`, strings.Join(valueStrings, ", "))
 
-	for _, a := range assignments {
-		_, err := executor.Exec(ctx, insertQuery,
-			a.CollectionID().String(),
-			a.RoleID().String(),
-			a.CreatedAt(),
-		)
-		if err != nil {
-			return fmt.Errorf("failed to save role assignment: %w", err)
-		}
+	_, err = executor.Exec(ctx, insertQuery, args...)
+	if err != nil {
+		return fmt.Errorf("failed to save role assignments: %w", err)
 	}
 
 	return nil

@@ -118,7 +118,8 @@ func (m *MockAttendanceCollectionRepository) FindRoleAssignmentsByCollectionID(c
 // =====================================================
 
 type MockRoleRepository struct {
-	findByIDFunc func(ctx context.Context, tenantID common.TenantID, roleID common.RoleID) (*role.Role, error)
+	findByIDFunc  func(ctx context.Context, tenantID common.TenantID, roleID common.RoleID) (*role.Role, error)
+	findByIDsFunc func(ctx context.Context, tenantID common.TenantID, roleIDs []common.RoleID) ([]*role.Role, error)
 }
 
 func (m *MockRoleRepository) Save(ctx context.Context, r *role.Role) error {
@@ -131,6 +132,18 @@ func (m *MockRoleRepository) FindByID(ctx context.Context, tenantID common.Tenan
 	}
 	// Default: return a mock role (role exists)
 	return &role.Role{}, nil
+}
+
+func (m *MockRoleRepository) FindByIDs(ctx context.Context, tenantID common.TenantID, roleIDs []common.RoleID) ([]*role.Role, error) {
+	if m.findByIDsFunc != nil {
+		return m.findByIDsFunc(ctx, tenantID, roleIDs)
+	}
+	// Default: return mock roles for all requested IDs
+	roles := make([]*role.Role, 0, len(roleIDs))
+	for range roleIDs {
+		roles = append(roles, &role.Role{})
+	}
+	return roles, nil
 }
 
 func (m *MockRoleRepository) FindByTenantID(ctx context.Context, tenantID common.TenantID) ([]*role.Role, error) {

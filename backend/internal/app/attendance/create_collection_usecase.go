@@ -103,25 +103,40 @@ func (u *CreateCollectionUsecase) Execute(ctx context.Context, input CreateColle
 
 	// 7. Save role assignments if provided
 	if len(input.RoleIDs) > 0 {
-		var roleAssignments []*attendance.CollectionRoleAssignment
+		// Parse all role IDs first
+		roleIDs := make([]common.RoleID, 0, len(input.RoleIDs))
 		for _, roleIDStr := range input.RoleIDs {
 			roleID, err := common.ParseRoleID(roleIDStr)
 			if err != nil {
 				return nil, err
 			}
+			roleIDs = append(roleIDs, roleID)
+		}
 
-			// Validate that the role exists and belongs to this tenant
-			_, err = u.roleRepo.FindByID(ctx, tenantID, roleID)
-			if err != nil {
-				if common.IsNotFoundError(err) {
-					return nil, common.NewValidationError(
-						fmt.Sprintf("role not found or not accessible: %s", roleIDStr),
-						nil,
-					)
-				}
-				return nil, err
+		// Batch fetch all roles to validate they exist and belong to this tenant (避免 N+1)
+		foundRoles, err := u.roleRepo.FindByIDs(ctx, tenantID, roleIDs)
+		if err != nil {
+			return nil, err
+		}
+
+		// Check that all requested roles were found
+		foundRoleMap := make(map[string]bool, len(foundRoles))
+		for _, r := range foundRoles {
+			foundRoleMap[r.RoleID().String()] = true
+		}
+
+		for _, roleIDStr := range input.RoleIDs {
+			if !foundRoleMap[roleIDStr] {
+				return nil, common.NewValidationError(
+					fmt.Sprintf("role not found or not accessible: %s", roleIDStr),
+					nil,
+				)
 			}
+		}
 
+		// Create role assignments
+		var roleAssignments []*attendance.CollectionRoleAssignment
+		for _, roleID := range roleIDs {
 			assignment, err := attendance.NewCollectionRoleAssignment(now, collection.CollectionID(), roleID)
 			if err != nil {
 				return nil, err

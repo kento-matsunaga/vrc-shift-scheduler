@@ -7,6 +7,7 @@ export function AnnouncementBell() {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // 未読件数を取得
@@ -27,22 +28,29 @@ export function AnnouncementBell() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  function showError(message: string) {
+    setError(message);
+    setTimeout(() => setError(null), 3000);
+  }
+
   async function fetchUnreadCount() {
     try {
       const count = await getUnreadCount();
       setUnreadCount(count);
-    } catch (error) {
-      console.error('Failed to fetch unread count:', error);
+    } catch (err) {
+      console.error('Failed to fetch unread count:', err);
     }
   }
 
   async function fetchAnnouncements() {
     setLoading(true);
+    setError(null);
     try {
       const data = await getAnnouncements();
       setAnnouncements(data);
-    } catch (error) {
-      console.error('Failed to fetch announcements:', error);
+    } catch (err) {
+      console.error('Failed to fetch announcements:', err);
+      showError('お知らせの取得に失敗しました');
     } finally {
       setLoading(false);
     }
@@ -60,8 +68,9 @@ export function AnnouncementBell() {
       await markAsRead(id);
       setAnnouncements(prev => prev.map(a => a.id === id ? { ...a, is_read: true } : a));
       setUnreadCount(prev => Math.max(0, prev - 1));
-    } catch (error) {
-      console.error('Failed to mark as read:', error);
+    } catch (err) {
+      console.error('Failed to mark as read:', err);
+      showError('既読にできませんでした');
     }
   }
 
@@ -70,8 +79,9 @@ export function AnnouncementBell() {
       await markAllAsRead();
       setAnnouncements(prev => prev.map(a => ({ ...a, is_read: true })));
       setUnreadCount(0);
-    } catch (error) {
-      console.error('Failed to mark all as read:', error);
+    } catch (err) {
+      console.error('Failed to mark all as read:', err);
+      showError('既読にできませんでした');
     }
   }
 
@@ -128,6 +138,12 @@ export function AnnouncementBell() {
               </button>
             )}
           </div>
+
+          {error && (
+            <div className="px-3 py-2 bg-red-50 border-b border-red-200 text-sm text-red-600">
+              {error}
+            </div>
+          )}
 
           <div className="max-h-96 overflow-y-auto">
             {loading ? (
