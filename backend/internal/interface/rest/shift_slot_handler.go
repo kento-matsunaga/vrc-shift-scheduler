@@ -11,6 +11,23 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
+// parseTimeFlexible parses time in HH:MM or HH:MM:SS format
+func parseTimeFlexible(timeStr string) (time.Time, error) {
+	// まず HH:MM:SS 形式を試す
+	t, err := time.Parse("15:04:05", timeStr)
+	if err == nil {
+		return t, nil
+	}
+
+	// 次に HH:MM 形式を試す
+	t, err = time.Parse("15:04", timeStr)
+	if err == nil {
+		return t, nil
+	}
+
+	return time.Time{}, err
+}
+
 // ShiftSlotHandler handles shift slot-related HTTP requests
 type ShiftSlotHandler struct {
 	createShiftSlotUC *appshift.CreateShiftSlotUsecase
@@ -119,16 +136,16 @@ func (h *ShiftSlotHandler) CreateShiftSlot(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// 時刻のパース (HH:MM:SS 形式)
-	startTime, err := time.Parse("15:04:05", req.StartTime)
+	// 時刻のパース (HH:MM or HH:MM:SS 形式)
+	startTime, err := parseTimeFlexible(req.StartTime)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "Invalid start_time format (expected HH:MM:SS)", nil)
+		writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "開始時刻の形式が正しくありません（HH:MMまたはHH:MM:SS）", nil)
 		return
 	}
 
-	endTime, err := time.Parse("15:04:05", req.EndTime)
+	endTime, err := parseTimeFlexible(req.EndTime)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "Invalid end_time format (expected HH:MM:SS)", nil)
+		writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "終了時刻の形式が正しくありません（HH:MMまたはHH:MM:SS）", nil)
 		return
 	}
 
