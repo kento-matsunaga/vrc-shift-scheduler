@@ -365,9 +365,9 @@ func TestCreateCollectionUsecase_Execute_WithTargetDates(t *testing.T) {
 	tenantID := common.NewTenantID()
 	now := time.Now()
 
-	targetDates := []time.Time{
-		now.Add(24 * time.Hour),
-		now.Add(48 * time.Hour),
+	targetDates := []appattendance.TargetDateInput{
+		{TargetDate: now.Add(24 * time.Hour)},
+		{TargetDate: now.Add(48 * time.Hour)},
 	}
 
 	clock := &MockClock{

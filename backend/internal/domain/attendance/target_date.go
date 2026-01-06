@@ -11,6 +11,8 @@ type TargetDate struct {
 	targetDateID  common.TargetDateID
 	collectionID  common.CollectionID
 	targetDate    time.Time // 日付部分のみ使用
+	startTime     *string   // 開始時間（HH:MM形式、任意）
+	endTime       *string   // 終了時間（HH:MM形式、任意）
 	displayOrder  int
 	createdAt     time.Time
 }
@@ -20,12 +22,16 @@ func NewTargetDate(
 	now time.Time,
 	collectionID common.CollectionID,
 	targetDate time.Time,
+	startTime *string,
+	endTime *string,
 	displayOrder int,
 ) (*TargetDate, error) {
 	td := &TargetDate{
 		targetDateID: common.NewTargetDateID(),
 		collectionID: collectionID,
 		targetDate:   targetDate,
+		startTime:    startTime,
+		endTime:      endTime,
 		displayOrder: displayOrder,
 		createdAt:    now,
 	}
@@ -42,6 +48,8 @@ func ReconstructTargetDate(
 	targetDateID common.TargetDateID,
 	collectionID common.CollectionID,
 	targetDate time.Time,
+	startTime *string,
+	endTime *string,
 	displayOrder int,
 	createdAt time.Time,
 ) (*TargetDate, error) {
@@ -49,6 +57,8 @@ func ReconstructTargetDate(
 		targetDateID: targetDateID,
 		collectionID: collectionID,
 		targetDate:   targetDate,
+		startTime:    startTime,
+		endTime:      endTime,
 		displayOrder: displayOrder,
 		createdAt:    createdAt,
 	}
@@ -81,6 +91,14 @@ func (td *TargetDate) CollectionID() common.CollectionID {
 
 func (td *TargetDate) TargetDateValue() time.Time {
 	return td.targetDate
+}
+
+func (td *TargetDate) StartTime() *string {
+	return td.startTime
+}
+
+func (td *TargetDate) EndTime() *string {
+	return td.endTime
 }
 
 func (td *TargetDate) DisplayOrder() int {

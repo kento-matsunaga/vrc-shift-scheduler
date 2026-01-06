@@ -419,6 +419,8 @@ func createAttendanceCollections(ctx context.Context, repo *db.AttendanceReposit
 			now,
 			collection.CollectionID(),
 			targetDate,
+			nil, // startTime
+			nil, // endTime
 			1,
 		)
 		if err != nil {

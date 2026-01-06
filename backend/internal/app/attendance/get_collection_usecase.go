@@ -53,6 +53,8 @@ func (u *GetCollectionUsecase) Execute(ctx context.Context, input GetCollectionI
 		targetDateDTOs = append(targetDateDTOs, TargetDateDTO{
 			TargetDateID: td.TargetDateID().String(),
 			TargetDate:   td.TargetDateValue(),
+			StartTime:    td.StartTime(),
+			EndTime:      td.EndTime(),
 			DisplayOrder: td.DisplayOrder(),
 		})
 	}
