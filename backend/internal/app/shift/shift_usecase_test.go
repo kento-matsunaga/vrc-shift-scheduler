@@ -44,10 +44,6 @@ func (m *MockShiftSlotRepository) FindByBusinessDayID(ctx context.Context, tenan
 	return nil, nil
 }
 
-func (m *MockShiftSlotRepository) FindByPositionID(ctx context.Context, tenantID common.TenantID, positionID shift.PositionID) ([]*shift.ShiftSlot, error) {
-	return nil, nil
-}
-
 func (m *MockShiftSlotRepository) Delete(ctx context.Context, tenantID common.TenantID, slotID shift.SlotID) error {
 	return nil
 }
@@ -218,13 +214,11 @@ func createTestShiftSlot(t *testing.T, tenantID common.TenantID) *shift.ShiftSlo
 	t.Helper()
 	now := time.Now()
 	businessDayID := event.NewBusinessDayID()
-	positionID := shift.NewPositionID()
 
 	slot, err := shift.NewShiftSlot(
 		now,
 		tenantID,
 		businessDayID,
-		positionID,
 		"テストシフト",
 		"VRChat Japan",
 		time.Date(2024, 1, 1, 20, 0, 0, 0, time.UTC),
@@ -286,7 +280,6 @@ func TestCreateShiftSlotUsecase_Execute_Success(t *testing.T) {
 	eventID := common.NewEventID()
 	businessDay := createTestBusinessDay(t, tenantID, eventID)
 	businessDayID := businessDay.BusinessDayID()
-	positionID := shift.NewPositionID()
 
 	bdRepo := &MockBusinessDayRepository{
 		findByIDFunc: func(ctx context.Context, tid common.TenantID, id event.BusinessDayID) (*event.EventBusinessDay, error) {
@@ -305,7 +298,6 @@ func TestCreateShiftSlotUsecase_Execute_Success(t *testing.T) {
 	input := appshift.CreateShiftSlotInput{
 		TenantID:      tenantID,
 		BusinessDayID: businessDayID,
-		PositionID:    positionID,
 		SlotName:      "受付",
 		InstanceName:  "VRChat Japan",
 		StartTime:     time.Date(2024, 1, 1, 20, 0, 0, 0, time.UTC),
@@ -336,7 +328,6 @@ func TestCreateShiftSlotUsecase_Execute_Success(t *testing.T) {
 func TestCreateShiftSlotUsecase_Execute_ErrorWhenBusinessDayNotFound(t *testing.T) {
 	tenantID := common.NewTenantID()
 	businessDayID := event.NewBusinessDayID()
-	positionID := shift.NewPositionID()
 
 	bdRepo := &MockBusinessDayRepository{
 		findByIDFunc: func(ctx context.Context, tid common.TenantID, id event.BusinessDayID) (*event.EventBusinessDay, error) {
@@ -351,7 +342,6 @@ func TestCreateShiftSlotUsecase_Execute_ErrorWhenBusinessDayNotFound(t *testing.
 	input := appshift.CreateShiftSlotInput{
 		TenantID:      tenantID,
 		BusinessDayID: businessDayID,
-		PositionID:    positionID,
 		SlotName:      "受付",
 		InstanceName:  "VRChat Japan",
 		StartTime:     time.Date(2024, 1, 1, 20, 0, 0, 0, time.UTC),
@@ -372,7 +362,6 @@ func TestCreateShiftSlotUsecase_Execute_ErrorWhenSaveFails(t *testing.T) {
 	eventID := common.NewEventID()
 	businessDay := createTestBusinessDay(t, tenantID, eventID)
 	businessDayID := businessDay.BusinessDayID()
-	positionID := shift.NewPositionID()
 
 	bdRepo := &MockBusinessDayRepository{
 		findByIDFunc: func(ctx context.Context, tid common.TenantID, id event.BusinessDayID) (*event.EventBusinessDay, error) {
@@ -391,7 +380,6 @@ func TestCreateShiftSlotUsecase_Execute_ErrorWhenSaveFails(t *testing.T) {
 	input := appshift.CreateShiftSlotInput{
 		TenantID:      tenantID,
 		BusinessDayID: businessDayID,
-		PositionID:    positionID,
 		SlotName:      "受付",
 		InstanceName:  "VRChat Japan",
 		StartTime:     time.Date(2024, 1, 1, 20, 0, 0, 0, time.UTC),

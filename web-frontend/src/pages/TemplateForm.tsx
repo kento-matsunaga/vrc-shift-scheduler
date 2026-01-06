@@ -16,9 +16,6 @@ export default function TemplateForm() {
   const [loadingData, setLoadingData] = useState(isEditMode);
   const [error, setError] = useState('');
 
-  // デフォルトのポジションID（既存のShiftSlotListと同じ固定値）
-  const defaultPositionId = '01KCMHNFRVKWY3SY44BXSBNVTT';
-
   useEffect(() => {
     if (isEditMode && templateId && eventId) {
       loadTemplate();
@@ -50,7 +47,6 @@ export default function TemplateForm() {
     setItems([
       ...items,
       {
-        position_id: defaultPositionId,
         slot_name: '',
         instance_name: '',
         start_time: '21:30:00',
@@ -114,7 +110,6 @@ export default function TemplateForm() {
         template_name: templateName.trim(),
         description: description.trim(),
         items: items.map((item) => ({
-          position_id: defaultPositionId,
           slot_name: item.slot_name.trim(),
           instance_name: item.instance_name.trim(),
           start_time: item.start_time,

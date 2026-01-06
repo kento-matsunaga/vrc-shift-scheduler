@@ -33,7 +33,6 @@ func NewShiftSlotHandler(
 
 // CreateShiftSlotRequest represents the request body for creating a shift slot
 type CreateShiftSlotRequest struct {
-	PositionID    string `json:"position_id"`
 	SlotName      string `json:"slot_name"`
 	InstanceName  string `json:"instance_name"`
 	StartTime     string `json:"start_time"` // HH:MM
@@ -47,7 +46,6 @@ type ShiftSlotResponse struct {
 	SlotID        string `json:"slot_id"`
 	TenantID      string `json:"tenant_id"`
 	BusinessDayID string `json:"business_day_id"`
-	PositionID    string `json:"position_id"`
 	SlotName      string `json:"slot_name"`
 	InstanceName  string `json:"instance_name"`
 	StartTime     string `json:"start_time"`
@@ -112,13 +110,6 @@ func (h *ShiftSlotHandler) CreateShiftSlot(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Position ID のパース
-	positionID, err := shift.ParsePositionID(req.PositionID)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "Invalid position_id format", nil)
-		return
-	}
-
 	// 時刻のパース (HH:MM or HH:MM:SS 形式)
 	startTime, err := ParseTimeFlexible(req.StartTime)
 	if err != nil {
@@ -136,7 +127,6 @@ func (h *ShiftSlotHandler) CreateShiftSlot(w http.ResponseWriter, r *http.Reques
 	input := appshift.CreateShiftSlotInput{
 		TenantID:      tenantID,
 		BusinessDayID: businessDayID,
-		PositionID:    positionID,
 		SlotName:      req.SlotName,
 		InstanceName:  req.InstanceName,
 		StartTime:     startTime,
@@ -157,7 +147,6 @@ func (h *ShiftSlotHandler) CreateShiftSlot(w http.ResponseWriter, r *http.Reques
 		SlotID:        newSlot.SlotID().String(),
 		TenantID:      newSlot.TenantID().String(),
 		BusinessDayID: newSlot.BusinessDayID().String(),
-		PositionID:    newSlot.PositionID().String(),
 		SlotName:      newSlot.SlotName(),
 		InstanceName:  newSlot.InstanceName(),
 		StartTime:     newSlot.StartTime().Format("15:04:05"),
@@ -215,7 +204,6 @@ func (h *ShiftSlotHandler) GetShiftSlots(w http.ResponseWriter, r *http.Request)
 			SlotID:        s.Slot.SlotID().String(),
 			TenantID:      s.Slot.TenantID().String(),
 			BusinessDayID: s.Slot.BusinessDayID().String(),
-			PositionID:    s.Slot.PositionID().String(),
 			SlotName:      s.Slot.SlotName(),
 			InstanceName:  s.Slot.InstanceName(),
 			StartTime:     s.Slot.StartTime().Format("15:04:05"),
@@ -276,7 +264,6 @@ func (h *ShiftSlotHandler) GetShiftSlotDetail(w http.ResponseWriter, r *http.Req
 		SlotID:        result.Slot.SlotID().String(),
 		TenantID:      result.Slot.TenantID().String(),
 		BusinessDayID: result.Slot.BusinessDayID().String(),
-		PositionID:    result.Slot.PositionID().String(),
 		SlotName:      result.Slot.SlotName(),
 		InstanceName:  result.Slot.InstanceName(),
 		StartTime:     result.Slot.StartTime().Format("15:04:05"),

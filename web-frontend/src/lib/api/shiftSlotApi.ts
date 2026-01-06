@@ -7,7 +7,6 @@ import type { ApiResponse, ShiftSlot, ShiftSlotListResponse } from '../../types/
 export async function createShiftSlot(
   businessDayId: string,
   data: {
-    position_id: string;
     slot_name: string;
     instance_name: string;
     start_time: string; // HH:MM

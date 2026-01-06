@@ -13,6 +13,8 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
+// shift domain is used for ShiftSlotTemplate type
+
 // ShiftTemplateHandler handles shift template-related HTTP requests
 type ShiftTemplateHandler struct {
 	createTemplateUC        *appshift.CreateShiftTemplateUsecase
@@ -44,7 +46,6 @@ func NewShiftTemplateHandler(
 
 // TemplateItemRequest represents a single template item in request
 type TemplateItemRequest struct {
-	PositionID    string `json:"position_id"`
 	SlotName      string `json:"slot_name"`
 	InstanceName  string `json:"instance_name"`
 	StartTime     string `json:"start_time"` // HH:MM:SS
@@ -76,7 +77,6 @@ type SaveAsTemplateRequest struct {
 // TemplateItemResponse represents a template item in API responses
 type TemplateItemResponse struct {
 	ItemID        string `json:"item_id"`
-	PositionID    string `json:"position_id"`
 	SlotName      string `json:"slot_name"`
 	InstanceName  string `json:"instance_name"`
 	StartTime     string `json:"start_time"`
@@ -142,12 +142,6 @@ func (h *ShiftTemplateHandler) CreateTemplate(w http.ResponseWriter, r *http.Req
 	// Parse template items
 	var items []appshift.TemplateItemInput
 	for _, itemReq := range req.Items {
-		positionID, err := shift.ParsePositionID(itemReq.PositionID)
-		if err != nil {
-			writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "Invalid position_id format", nil)
-			return
-		}
-
 		startTime, err := ParseTimeFlexible(itemReq.StartTime)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "開始時刻の形式が正しくありません（HH:MMまたはHH:MM:SS）", nil)
@@ -161,7 +155,6 @@ func (h *ShiftTemplateHandler) CreateTemplate(w http.ResponseWriter, r *http.Req
 		}
 
 		items = append(items, appshift.TemplateItemInput{
-			PositionID:    positionID,
 			SlotName:      itemReq.SlotName,
 			InstanceName:  itemReq.InstanceName,
 			StartTime:     startTime,
@@ -326,12 +319,6 @@ func (h *ShiftTemplateHandler) UpdateTemplate(w http.ResponseWriter, r *http.Req
 	// Parse template items
 	var items []appshift.TemplateItemInput
 	for _, itemReq := range req.Items {
-		positionID, err := shift.ParsePositionID(itemReq.PositionID)
-		if err != nil {
-			writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "Invalid position_id format", nil)
-			return
-		}
-
 		startTime, err := ParseTimeFlexible(itemReq.StartTime)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "開始時刻の形式が正しくありません（HH:MMまたはHH:MM:SS）", nil)
@@ -345,7 +332,6 @@ func (h *ShiftTemplateHandler) UpdateTemplate(w http.ResponseWriter, r *http.Req
 		}
 
 		items = append(items, appshift.TemplateItemInput{
-			PositionID:    positionID,
 			SlotName:      itemReq.SlotName,
 			InstanceName:  itemReq.InstanceName,
 			StartTime:     startTime,
@@ -477,7 +463,6 @@ func (h *ShiftTemplateHandler) toTemplateResponse(template *shift.ShiftSlotTempl
 	for _, item := range template.Items() {
 		items = append(items, TemplateItemResponse{
 			ItemID:        item.ItemID().String(),
-			PositionID:    item.PositionID().String(),
 			SlotName:      item.SlotName(),
 			InstanceName:  item.InstanceName(),
 			StartTime:     item.StartTime().Format("15:04:05"),

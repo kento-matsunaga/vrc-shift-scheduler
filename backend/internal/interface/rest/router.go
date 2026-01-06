@@ -162,9 +162,8 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 
 		// ShiftSlotHandler dependencies (reusing slotRepo, businessDayRepo)
 		assignmentRepo := db.NewShiftAssignmentRepository(dbPool)
-		positionRepo := db.NewPositionRepository(dbPool)
 		shiftSlotHandler := NewShiftSlotHandler(
-			appshift.NewCreateShiftSlotUsecase(slotRepo, businessDayRepo, positionRepo),
+			appshift.NewCreateShiftSlotUsecase(slotRepo, businessDayRepo),
 			appshift.NewListShiftSlotsUsecase(slotRepo, assignmentRepo),
 			appshift.NewGetShiftSlotUsecase(slotRepo, assignmentRepo),
 		)

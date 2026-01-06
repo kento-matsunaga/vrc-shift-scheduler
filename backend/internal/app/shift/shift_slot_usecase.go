@@ -9,11 +9,12 @@ import (
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/shift"
 )
 
+// commonを使用しているのでインポートを維持
+
 // CreateShiftSlotInput represents the input for creating a shift slot
 type CreateShiftSlotInput struct {
 	TenantID      common.TenantID
 	BusinessDayID event.BusinessDayID
-	PositionID    shift.PositionID // オプショナル: 空の場合はデフォルトのポジションを使用
 	SlotName      string
 	InstanceName  string
 	StartTime     time.Time
@@ -26,19 +27,16 @@ type CreateShiftSlotInput struct {
 type CreateShiftSlotUsecase struct {
 	slotRepo        shift.ShiftSlotRepository
 	businessDayRepo event.EventBusinessDayRepository
-	positionRepo    shift.PositionRepository
 }
 
 // NewCreateShiftSlotUsecase creates a new CreateShiftSlotUsecase
 func NewCreateShiftSlotUsecase(
 	slotRepo shift.ShiftSlotRepository,
 	businessDayRepo event.EventBusinessDayRepository,
-	positionRepo shift.PositionRepository,
 ) *CreateShiftSlotUsecase {
 	return &CreateShiftSlotUsecase{
 		slotRepo:        slotRepo,
 		businessDayRepo: businessDayRepo,
-		positionRepo:    positionRepo,
 	}
 }
 
@@ -50,37 +48,11 @@ func (uc *CreateShiftSlotUsecase) Execute(ctx context.Context, input CreateShift
 		return nil, err
 	}
 
-	// PositionID の解決（空または無効な場合はデフォルトのポジションを使用）
-	positionID := input.PositionID
-	needsDefaultPosition := positionID == ""
-
-	if !needsDefaultPosition {
-		// 指定されたPositionIDの存在確認
-		_, err := uc.positionRepo.FindByID(ctx, input.TenantID, positionID)
-		if err != nil {
-			// ポジションが見つからない場合はデフォルトを使用
-			needsDefaultPosition = true
-		}
-	}
-
-	if needsDefaultPosition {
-		// デフォルトのポジションを取得
-		positions, err := uc.positionRepo.FindActiveByTenantID(ctx, input.TenantID)
-		if err != nil {
-			return nil, common.NewValidationError("ポジション情報の取得に失敗しました", err)
-		}
-		if len(positions) == 0 {
-			return nil, common.NewValidationError("このテナントには有効なポジションがありません", nil)
-		}
-		positionID = positions[0].PositionID()
-	}
-
 	// ShiftSlot エンティティの作成
 	newSlot, err := shift.NewShiftSlot(
 		time.Now(),
 		input.TenantID,
 		input.BusinessDayID,
-		positionID,
 		input.SlotName,
 		input.InstanceName,
 		input.StartTime,
