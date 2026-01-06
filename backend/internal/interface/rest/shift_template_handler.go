@@ -148,15 +148,15 @@ func (h *ShiftTemplateHandler) CreateTemplate(w http.ResponseWriter, r *http.Req
 			return
 		}
 
-		startTime, err := time.Parse("15:04:05", itemReq.StartTime)
+		startTime, err := ParseTimeFlexible(itemReq.StartTime)
 		if err != nil {
-			writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "Invalid start_time format (expected HH:MM:SS)", nil)
+			writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "開始時刻の形式が正しくありません（HH:MMまたはHH:MM:SS）", nil)
 			return
 		}
 
-		endTime, err := time.Parse("15:04:05", itemReq.EndTime)
+		endTime, err := ParseTimeFlexible(itemReq.EndTime)
 		if err != nil {
-			writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "Invalid end_time format (expected HH:MM:SS)", nil)
+			writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "終了時刻の形式が正しくありません（HH:MMまたはHH:MM:SS）", nil)
 			return
 		}
 
@@ -332,15 +332,15 @@ func (h *ShiftTemplateHandler) UpdateTemplate(w http.ResponseWriter, r *http.Req
 			return
 		}
 
-		startTime, err := time.Parse("15:04:05", itemReq.StartTime)
+		startTime, err := ParseTimeFlexible(itemReq.StartTime)
 		if err != nil {
-			writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "Invalid start_time format (expected HH:MM:SS)", nil)
+			writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "開始時刻の形式が正しくありません（HH:MMまたはHH:MM:SS）", nil)
 			return
 		}
 
-		endTime, err := time.Parse("15:04:05", itemReq.EndTime)
+		endTime, err := ParseTimeFlexible(itemReq.EndTime)
 		if err != nil {
-			writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "Invalid end_time format (expected HH:MM:SS)", nil)
+			writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "終了時刻の形式が正しくありません（HH:MMまたはHH:MM:SS）", nil)
 			return
 		}
 

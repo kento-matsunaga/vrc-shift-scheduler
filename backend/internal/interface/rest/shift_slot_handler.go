@@ -3,30 +3,12 @@ package rest
 import (
 	"encoding/json"
 	"net/http"
-	"time"
 
 	appshift "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/shift"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/event"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/shift"
 	"github.com/go-chi/chi/v5"
 )
-
-// parseTimeFlexible parses time in HH:MM or HH:MM:SS format
-func parseTimeFlexible(timeStr string) (time.Time, error) {
-	// まず HH:MM:SS 形式を試す
-	t, err := time.Parse("15:04:05", timeStr)
-	if err == nil {
-		return t, nil
-	}
-
-	// 次に HH:MM 形式を試す
-	t, err = time.Parse("15:04", timeStr)
-	if err == nil {
-		return t, nil
-	}
-
-	return time.Time{}, err
-}
 
 // ShiftSlotHandler handles shift slot-related HTTP requests
 type ShiftSlotHandler struct {
@@ -137,13 +119,13 @@ func (h *ShiftSlotHandler) CreateShiftSlot(w http.ResponseWriter, r *http.Reques
 	}
 
 	// 時刻のパース (HH:MM or HH:MM:SS 形式)
-	startTime, err := parseTimeFlexible(req.StartTime)
+	startTime, err := ParseTimeFlexible(req.StartTime)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "開始時刻の形式が正しくありません（HH:MMまたはHH:MM:SS）", nil)
 		return
 	}
 
-	endTime, err := parseTimeFlexible(req.EndTime)
+	endTime, err := ParseTimeFlexible(req.EndTime)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "終了時刻の形式が正しくありません（HH:MMまたはHH:MM:SS）", nil)
 		return
