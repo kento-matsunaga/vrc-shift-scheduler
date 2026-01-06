@@ -617,7 +617,9 @@ func (r *AttendanceRepository) SaveTargetDates(ctx context.Context, collectionID
 // FindTargetDatesByCollectionID finds all target dates for a collection
 func (r *AttendanceRepository) FindTargetDatesByCollectionID(ctx context.Context, collectionID common.CollectionID) ([]*attendance.TargetDate, error) {
 	query := `
-		SELECT target_date_id, collection_id, target_date, start_time, end_time, display_order, created_at
+		SELECT target_date_id, collection_id, target_date,
+		       to_char(start_time, 'HH24:MI'), to_char(end_time, 'HH24:MI'),
+		       display_order, created_at
 		FROM attendance_target_dates
 		WHERE collection_id = $1
 		ORDER BY display_order, target_date
@@ -634,13 +636,22 @@ func (r *AttendanceRepository) FindTargetDatesByCollectionID(ctx context.Context
 	for rows.Next() {
 		var targetDateIDStr, collectionIDStr string
 		var targetDate time.Time
-		var startTime, endTime *string
+		var startTime, endTime sql.NullString
 		var displayOrder int
 		var createdAt time.Time
 
 		err := rows.Scan(&targetDateIDStr, &collectionIDStr, &targetDate, &startTime, &endTime, &displayOrder, &createdAt)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan target date: %w", err)
+		}
+
+		// Convert sql.NullString to *string
+		var startTimePtr, endTimePtr *string
+		if startTime.Valid {
+			startTimePtr = &startTime.String
+		}
+		if endTime.Valid {
+			endTimePtr = &endTime.String
 		}
 
 		targetDateID, err := common.ParseTargetDateID(targetDateIDStr)
@@ -653,7 +664,7 @@ func (r *AttendanceRepository) FindTargetDatesByCollectionID(ctx context.Context
 			return nil, fmt.Errorf("failed to parse collection_id: %w", err)
 		}
 
-		td, err := attendance.ReconstructTargetDate(targetDateID, parsedCollectionID, targetDate, startTime, endTime, displayOrder, createdAt)
+		td, err := attendance.ReconstructTargetDate(targetDateID, parsedCollectionID, targetDate, startTimePtr, endTimePtr, displayOrder, createdAt)
 		if err != nil {
 			return nil, fmt.Errorf("failed to reconstruct target date: %w", err)
 		}
