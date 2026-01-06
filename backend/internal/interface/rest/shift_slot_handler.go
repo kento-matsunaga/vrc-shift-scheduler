@@ -2,6 +2,7 @@ package rest
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 
 	appshift "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/shift"
@@ -146,6 +147,7 @@ func (h *ShiftSlotHandler) CreateShiftSlot(w http.ResponseWriter, r *http.Reques
 
 	newSlot, err := h.createShiftSlotUC.Execute(ctx, input)
 	if err != nil {
+		log.Printf("CreateShiftSlot error: %+v", err)
 		RespondDomainError(w, err)
 		return
 	}
