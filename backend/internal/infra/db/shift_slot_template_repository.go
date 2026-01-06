@@ -82,10 +82,10 @@ func (r *ShiftSlotTemplateRepository) Save(ctx context.Context, template *shift.
 	// Save items
 	itemQuery := `
 		INSERT INTO shift_slot_template_items (
-			item_id, template_id, position_id, slot_name, instance_name,
+			item_id, template_id, slot_name, instance_name,
 			start_time, end_time, required_count, priority,
 			created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 	`
 
 	for _, item := range template.Items() {
@@ -97,7 +97,6 @@ func (r *ShiftSlotTemplateRepository) Save(ctx context.Context, template *shift.
 		_, err = tx.Exec(ctx, itemQuery,
 			item.ItemID().String(),
 			item.TemplateID().String(),
-			item.PositionID().String(),
 			item.SlotName(),
 			item.InstanceName(),
 			item.StartTime(),
@@ -303,7 +302,7 @@ func (r *ShiftSlotTemplateRepository) Delete(ctx context.Context, tenantID commo
 func (r *ShiftSlotTemplateRepository) findItemsByTemplateID(ctx context.Context, templateID common.ShiftSlotTemplateID) ([]*shift.ShiftSlotTemplateItem, error) {
 	itemQuery := `
 		SELECT
-			item_id, template_id, position_id, slot_name, instance_name,
+			item_id, template_id, slot_name, instance_name,
 			start_time, end_time, required_count, priority,
 			created_at, updated_at
 		FROM shift_slot_template_items
@@ -322,7 +321,6 @@ func (r *ShiftSlotTemplateRepository) findItemsByTemplateID(ctx context.Context,
 		var (
 			itemIDStr     string
 			templateIDStr string
-			positionIDStr string
 			slotName      string
 			instanceName  string
 			startTime     time.Time
@@ -336,7 +334,6 @@ func (r *ShiftSlotTemplateRepository) findItemsByTemplateID(ctx context.Context,
 		err := rows.Scan(
 			&itemIDStr,
 			&templateIDStr,
-			&positionIDStr,
 			&slotName,
 			&instanceName,
 			&startTime,
@@ -353,7 +350,6 @@ func (r *ShiftSlotTemplateRepository) findItemsByTemplateID(ctx context.Context,
 		item := shift.ReconstituteShiftSlotTemplateItem(
 			common.ShiftSlotTemplateItemID(itemIDStr),
 			common.ShiftSlotTemplateID(templateIDStr),
-			shift.PositionID(positionIDStr),
 			slotName,
 			instanceName,
 			startTime,

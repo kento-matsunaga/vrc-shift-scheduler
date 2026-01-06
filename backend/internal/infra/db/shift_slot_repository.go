@@ -27,10 +27,10 @@ func NewShiftSlotRepository(db *pgxpool.Pool) *ShiftSlotRepository {
 func (r *ShiftSlotRepository) Save(ctx context.Context, slot *shift.ShiftSlot) error {
 	query := `
 		INSERT INTO shift_slots (
-			slot_id, tenant_id, business_day_id, position_id,
+			slot_id, tenant_id, business_day_id,
 			slot_name, instance_name, start_time, end_time,
 			required_count, priority, created_at, updated_at, deleted_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 		ON CONFLICT (slot_id) DO UPDATE SET
 			slot_name = EXCLUDED.slot_name,
 			instance_name = EXCLUDED.instance_name,
@@ -46,7 +46,6 @@ func (r *ShiftSlotRepository) Save(ctx context.Context, slot *shift.ShiftSlot) e
 		slot.SlotID().String(),
 		slot.TenantID().String(),
 		slot.BusinessDayID().String(),
-		slot.PositionID().String(),
 		slot.SlotName(),
 		slot.InstanceName(),
 		slot.StartTime(),
@@ -69,7 +68,7 @@ func (r *ShiftSlotRepository) Save(ctx context.Context, slot *shift.ShiftSlot) e
 func (r *ShiftSlotRepository) FindByID(ctx context.Context, tenantID common.TenantID, slotID shift.SlotID) (*shift.ShiftSlot, error) {
 	query := `
 		SELECT
-			slot_id, tenant_id, business_day_id, position_id,
+			slot_id, tenant_id, business_day_id,
 			slot_name, instance_name, start_time, end_time,
 			required_count, priority, created_at, updated_at, deleted_at
 		FROM shift_slots
@@ -80,7 +79,6 @@ func (r *ShiftSlotRepository) FindByID(ctx context.Context, tenantID common.Tena
 		slotIDStr       string
 		tenantIDStr     string
 		businessDayIDStr string
-		positionIDStr   string
 		slotName        string
 		instanceName    string
 		startTime       time.Time
@@ -96,7 +94,6 @@ func (r *ShiftSlotRepository) FindByID(ctx context.Context, tenantID common.Tena
 		&slotIDStr,
 		&tenantIDStr,
 		&businessDayIDStr,
-		&positionIDStr,
 		&slotName,
 		&instanceName,
 		&startTime,
@@ -116,7 +113,7 @@ func (r *ShiftSlotRepository) FindByID(ctx context.Context, tenantID common.Tena
 	}
 
 	return r.scanToShiftSlot(
-		slotIDStr, tenantIDStr, businessDayIDStr, positionIDStr,
+		slotIDStr, tenantIDStr, businessDayIDStr,
 		slotName, instanceName, startTime, endTime,
 		requiredCount, priority, createdAt, updatedAt, deletedAt,
 	)
@@ -126,7 +123,7 @@ func (r *ShiftSlotRepository) FindByID(ctx context.Context, tenantID common.Tena
 func (r *ShiftSlotRepository) FindByBusinessDayID(ctx context.Context, tenantID common.TenantID, businessDayID event.BusinessDayID) ([]*shift.ShiftSlot, error) {
 	query := `
 		SELECT
-			slot_id, tenant_id, business_day_id, position_id,
+			slot_id, tenant_id, business_day_id,
 			slot_name, instance_name, start_time, end_time,
 			required_count, priority, created_at, updated_at, deleted_at
 		FROM shift_slots
@@ -135,21 +132,6 @@ func (r *ShiftSlotRepository) FindByBusinessDayID(ctx context.Context, tenantID 
 	`
 
 	return r.queryShiftSlots(ctx, query, tenantID.String(), businessDayID.String())
-}
-
-// FindByPositionID finds all shift slots for a position
-func (r *ShiftSlotRepository) FindByPositionID(ctx context.Context, tenantID common.TenantID, positionID shift.PositionID) ([]*shift.ShiftSlot, error) {
-	query := `
-		SELECT
-			slot_id, tenant_id, business_day_id, position_id,
-			slot_name, instance_name, start_time, end_time,
-			required_count, priority, created_at, updated_at, deleted_at
-		FROM shift_slots
-		WHERE tenant_id = $1 AND position_id = $2 AND deleted_at IS NULL
-		ORDER BY created_at DESC
-	`
-
-	return r.queryShiftSlots(ctx, query, tenantID.String(), positionID.String())
 }
 
 // Delete deletes a shift slot (physical delete)
@@ -185,7 +167,6 @@ func (r *ShiftSlotRepository) queryShiftSlots(ctx context.Context, query string,
 			slotIDStr       string
 			tenantIDStr     string
 			businessDayIDStr string
-			positionIDStr   string
 			slotName        string
 			instanceName    string
 			startTime       time.Time
@@ -201,7 +182,6 @@ func (r *ShiftSlotRepository) queryShiftSlots(ctx context.Context, query string,
 			&slotIDStr,
 			&tenantIDStr,
 			&businessDayIDStr,
-			&positionIDStr,
 			&slotName,
 			&instanceName,
 			&startTime,
@@ -217,7 +197,7 @@ func (r *ShiftSlotRepository) queryShiftSlots(ctx context.Context, query string,
 		}
 
 		slot, err := r.scanToShiftSlot(
-			slotIDStr, tenantIDStr, businessDayIDStr, positionIDStr,
+			slotIDStr, tenantIDStr, businessDayIDStr,
 			slotName, instanceName, startTime, endTime,
 			requiredCount, priority, createdAt, updatedAt, deletedAt,
 		)
@@ -237,7 +217,7 @@ func (r *ShiftSlotRepository) queryShiftSlots(ctx context.Context, query string,
 
 // scanToShiftSlot converts scanned row data to ShiftSlot entity
 func (r *ShiftSlotRepository) scanToShiftSlot(
-	slotIDStr, tenantIDStr, businessDayIDStr, positionIDStr string,
+	slotIDStr, tenantIDStr, businessDayIDStr string,
 	slotName, instanceName string,
 	startTime, endTime time.Time,
 	requiredCount, priority int,
@@ -253,7 +233,6 @@ func (r *ShiftSlotRepository) scanToShiftSlot(
 		shift.SlotID(slotIDStr),
 		common.TenantID(tenantIDStr),
 		event.BusinessDayID(businessDayIDStr),
-		shift.PositionID(positionIDStr),
 		slotName,
 		instanceName,
 		startTime,

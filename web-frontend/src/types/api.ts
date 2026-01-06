@@ -63,7 +63,6 @@ export interface ShiftSlot {
   slot_id: string;
   tenant_id: string;
   business_day_id: string;
-  position_id: string;
   slot_name: string;
   instance_name: string;
   start_time: string; // HH:MM:SS
@@ -142,27 +141,9 @@ export interface RecentAttendanceResponse {
   member_attendances: MemberAttendanceStatus[];
 }
 
-// Position 関連
-export interface Position {
-  position_id: string;
-  tenant_id: string;
-  position_name: string;
-  description: string;
-  display_order: number;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface PositionListResponse {
-  positions: Position[];
-  count: number;
-}
-
 // ShiftSlotTemplate 関連
 export interface TemplateItem {
   item_id?: string;
-  position_id: string;
   slot_name: string;
   instance_name: string;
   start_time: string; // HH:MM:SS

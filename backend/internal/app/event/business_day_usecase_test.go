@@ -57,7 +57,6 @@ type MockShiftSlotRepository struct {
 	saveFunc              func(ctx context.Context, slot *shift.ShiftSlot) error
 	findByIDFunc          func(ctx context.Context, tenantID common.TenantID, slotID shift.SlotID) (*shift.ShiftSlot, error)
 	findByBusinessDayIDFunc func(ctx context.Context, tenantID common.TenantID, businessDayID event.BusinessDayID) ([]*shift.ShiftSlot, error)
-	findByPositionIDFunc  func(ctx context.Context, tenantID common.TenantID, positionID shift.PositionID) ([]*shift.ShiftSlot, error)
 	deleteFunc            func(ctx context.Context, tenantID common.TenantID, slotID shift.SlotID) error
 }
 
@@ -78,13 +77,6 @@ func (m *MockShiftSlotRepository) FindByID(ctx context.Context, tenantID common.
 func (m *MockShiftSlotRepository) FindByBusinessDayID(ctx context.Context, tenantID common.TenantID, businessDayID event.BusinessDayID) ([]*shift.ShiftSlot, error) {
 	if m.findByBusinessDayIDFunc != nil {
 		return m.findByBusinessDayIDFunc(ctx, tenantID, businessDayID)
-	}
-	return nil, errors.New("not implemented")
-}
-
-func (m *MockShiftSlotRepository) FindByPositionID(ctx context.Context, tenantID common.TenantID, positionID shift.PositionID) ([]*shift.ShiftSlot, error) {
-	if m.findByPositionIDFunc != nil {
-		return m.findByPositionIDFunc(ctx, tenantID, positionID)
 	}
 	return nil, errors.New("not implemented")
 }
