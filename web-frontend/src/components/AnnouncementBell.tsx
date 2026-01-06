@@ -6,6 +6,8 @@ export function AnnouncementBell() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // 未読件数を取得
@@ -26,22 +28,29 @@ export function AnnouncementBell() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  function showError(message: string) {
+    setError(message);
+    setTimeout(() => setError(null), 3000);
+  }
+
   async function fetchUnreadCount() {
     try {
       const count = await getUnreadCount();
       setUnreadCount(count);
-    } catch (error) {
-      console.error('Failed to fetch unread count:', error);
+    } catch (err) {
+      console.error('Failed to fetch unread count:', err);
     }
   }
 
   async function fetchAnnouncements() {
     setLoading(true);
+    setError(null);
     try {
       const data = await getAnnouncements();
       setAnnouncements(data);
-    } catch (error) {
-      console.error('Failed to fetch announcements:', error);
+    } catch (err) {
+      console.error('Failed to fetch announcements:', err);
+      showError('お知らせの取得に失敗しました');
     } finally {
       setLoading(false);
     }
@@ -59,8 +68,9 @@ export function AnnouncementBell() {
       await markAsRead(id);
       setAnnouncements(prev => prev.map(a => a.id === id ? { ...a, is_read: true } : a));
       setUnreadCount(prev => Math.max(0, prev - 1));
-    } catch (error) {
-      console.error('Failed to mark as read:', error);
+    } catch (err) {
+      console.error('Failed to mark as read:', err);
+      showError('既読にできませんでした');
     }
   }
 
@@ -69,14 +79,35 @@ export function AnnouncementBell() {
       await markAllAsRead();
       setAnnouncements(prev => prev.map(a => ({ ...a, is_read: true })));
       setUnreadCount(0);
-    } catch (error) {
-      console.error('Failed to mark all as read:', error);
+    } catch (err) {
+      console.error('Failed to mark all as read:', err);
+      showError('既読にできませんでした');
     }
   }
 
   function formatDate(dateString: string) {
     const date = new Date(dateString);
     return date.toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' });
+  }
+
+  function handleAnnouncementClick(announcement: Announcement) {
+    // 展開/折りたたみをトグル
+    if (expandedId === announcement.id) {
+      setExpandedId(null);
+    } else {
+      setExpandedId(announcement.id);
+      // 未読なら既読にする
+      if (!announcement.is_read) {
+        handleMarkAsRead(announcement.id);
+      }
+    }
+  }
+
+  function handleKeyDown(event: React.KeyboardEvent, announcement: Announcement) {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      handleAnnouncementClick(announcement);
+    }
   }
 
   return (
@@ -108,36 +139,61 @@ export function AnnouncementBell() {
             )}
           </div>
 
+          {error && (
+            <div className="px-3 py-2 bg-red-50 border-b border-red-200 text-sm text-red-600">
+              {error}
+            </div>
+          )}
+
           <div className="max-h-96 overflow-y-auto">
             {loading ? (
               <div className="p-4 text-center text-gray-500">読み込み中...</div>
             ) : announcements.length === 0 ? (
               <div className="p-4 text-center text-gray-500">お知らせはありません</div>
             ) : (
-              announcements.map(announcement => (
-                <div
-                  key={announcement.id}
-                  onClick={() => !announcement.is_read && handleMarkAsRead(announcement.id)}
-                  className={`p-3 border-b border-gray-100 cursor-pointer hover:bg-gray-50 ${
-                    !announcement.is_read ? 'bg-blue-50' : ''
-                  }`}
-                >
-                  <div className="flex items-start gap-2">
-                    {!announcement.is_read && (
-                      <span className="mt-1.5 w-2 h-2 bg-orange-500 rounded-full flex-shrink-0" />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2">
-                        <h4 className="font-medium text-gray-900 truncate">{announcement.title}</h4>
-                        <span className="text-xs text-gray-500 flex-shrink-0">
-                          {formatDate(announcement.published_at)}
-                        </span>
+              announcements.map(announcement => {
+                const isExpanded = expandedId === announcement.id;
+                return (
+                  <div
+                    key={announcement.id}
+                    role="button"
+                    tabIndex={0}
+                    aria-expanded={isExpanded}
+                    onClick={() => handleAnnouncementClick(announcement)}
+                    onKeyDown={(e) => handleKeyDown(e, announcement)}
+                    className={`p-3 border-b border-gray-100 cursor-pointer hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-inset ${
+                      !announcement.is_read ? 'bg-blue-50' : ''
+                    }`}
+                  >
+                    <div className="flex items-start gap-2">
+                      {!announcement.is_read && (
+                        <span className="mt-1.5 w-2 h-2 bg-orange-500 rounded-full flex-shrink-0" />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <h4 className="font-medium text-gray-900 truncate">{announcement.title}</h4>
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            <span className="text-xs text-gray-500">
+                              {formatDate(announcement.published_at)}
+                            </span>
+                            <svg
+                              className={`w-4 h-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                          </div>
+                        </div>
+                        {isExpanded && (
+                          <p className="mt-2 text-sm text-gray-600 whitespace-pre-wrap">{announcement.body}</p>
+                        )}
                       </div>
-                      <p className="mt-1 text-sm text-gray-600 line-clamp-2">{announcement.body}</p>
                     </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>

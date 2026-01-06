@@ -39,45 +39,12 @@ func ParseSlotID(s string) (SlotID, error) {
 	return SlotID(s), nil
 }
 
-// PositionID represents a position identifier
-type PositionID string
-
-// NewPositionIDWithTime creates a new PositionID using the provided time.
-func NewPositionIDWithTime(t time.Time) PositionID {
-	return PositionID(common.NewULIDWithTime(t))
-}
-
-// NewPositionID creates a new PositionID using the current time.
-// Deprecated: Use NewPositionIDWithTime for better testability.
-func NewPositionID() PositionID {
-	return PositionID(common.NewULID())
-}
-
-func (id PositionID) String() string {
-	return string(id)
-}
-
-func (id PositionID) Validate() error {
-	if id == "" {
-		return common.NewValidationError("position_id is required", nil)
-	}
-	return common.ValidateULID(string(id))
-}
-
-func ParsePositionID(s string) (PositionID, error) {
-	if err := common.ValidateULID(s); err != nil {
-		return "", err
-	}
-	return PositionID(s), nil
-}
-
 // ShiftSlot represents a shift slot entity (独立したエンティティ)
 // EventBusinessDay に属するが、EventBusinessDay集約には含まれない
 type ShiftSlot struct {
 	slotID        SlotID
 	tenantID      common.TenantID
 	businessDayID event.BusinessDayID
-	positionID    PositionID
 	slotName      string
 	instanceName  string
 	startTime     time.Time // TIME型として扱う（HH:MM:SS）
@@ -94,7 +61,6 @@ func NewShiftSlot(
 	now time.Time,
 	tenantID common.TenantID,
 	businessDayID event.BusinessDayID,
-	positionID PositionID,
 	slotName string,
 	instanceName string,
 	startTime time.Time,
@@ -106,7 +72,6 @@ func NewShiftSlot(
 		slotID:        NewSlotIDWithTime(now),
 		tenantID:      tenantID,
 		businessDayID: businessDayID,
-		positionID:    positionID,
 		slotName:      slotName,
 		instanceName:  instanceName,
 		startTime:     truncateToTime(startTime),
@@ -129,7 +94,6 @@ func ReconstructShiftSlot(
 	slotID SlotID,
 	tenantID common.TenantID,
 	businessDayID event.BusinessDayID,
-	positionID PositionID,
 	slotName string,
 	instanceName string,
 	startTime time.Time,
@@ -144,7 +108,6 @@ func ReconstructShiftSlot(
 		slotID:        slotID,
 		tenantID:      tenantID,
 		businessDayID: businessDayID,
-		positionID:    positionID,
 		slotName:      slotName,
 		instanceName:  instanceName,
 		startTime:     truncateToTime(startTime),
@@ -172,11 +135,6 @@ func (s *ShiftSlot) validate() error {
 	// BusinessDayID の必須性チェック
 	if err := s.businessDayID.Validate(); err != nil {
 		return common.NewValidationError("business_day_id is required", err)
-	}
-
-	// PositionID の必須性チェック
-	if err := s.positionID.Validate(); err != nil {
-		return common.NewValidationError("position_id is required", err)
 	}
 
 	// SlotName の必須性チェック
@@ -218,10 +176,6 @@ func (s *ShiftSlot) TenantID() common.TenantID {
 
 func (s *ShiftSlot) BusinessDayID() event.BusinessDayID {
 	return s.businessDayID
-}
-
-func (s *ShiftSlot) PositionID() PositionID {
-	return s.positionID
 }
 
 func (s *ShiftSlot) SlotName() string {

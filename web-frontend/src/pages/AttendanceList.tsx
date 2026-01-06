@@ -6,6 +6,7 @@ import {
   type AttendanceCollection,
 } from '../lib/api/attendanceApi';
 import { getMemberGroups, type MemberGroup } from '../lib/api/memberGroupApi';
+import { listRoles, type Role } from '../lib/api/roleApi';
 import { MobileCard, CardHeader, CardField } from '../components/MobileCard';
 
 export default function AttendanceList() {
@@ -25,10 +26,13 @@ export default function AttendanceList() {
   const [submittedDatesCount, setSubmittedDatesCount] = useState(0);
   const [memberGroups, setMemberGroups] = useState<MemberGroup[]>([]);
   const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>([]);
 
   useEffect(() => {
     loadCollections();
     loadMemberGroups();
+    loadRoles();
   }, []);
 
   const loadMemberGroups = async () => {
@@ -37,6 +41,15 @@ export default function AttendanceList() {
       setMemberGroups(data.groups || []);
     } catch (err) {
       console.error('Failed to load member groups:', err);
+    }
+  };
+
+  const loadRoles = async () => {
+    try {
+      const data = await listRoles();
+      setRoles(data || []);
+    } catch (err) {
+      console.error('Failed to load roles:', err);
     }
   };
 
@@ -77,6 +90,14 @@ export default function AttendanceList() {
     );
   };
 
+  const toggleRoleSelection = (roleId: string) => {
+    setSelectedRoleIds((prev) =>
+      prev.includes(roleId)
+        ? prev.filter((id) => id !== roleId)
+        : [...prev, roleId]
+    );
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -105,6 +126,7 @@ export default function AttendanceList() {
         target_dates: validDates.map((d) => new Date(d).toISOString()),
         deadline: deadline ? new Date(deadline).toISOString() : undefined,
         group_ids: selectedGroupIds.length > 0 ? selectedGroupIds : undefined,
+        role_ids: selectedRoleIds.length > 0 ? selectedRoleIds : undefined,
       });
 
       const baseUrl = window.location.origin;
@@ -117,6 +139,7 @@ export default function AttendanceList() {
       setDeadline('');
       setTargetDates(['', '', '']);
       setSelectedGroupIds([]);
+      setSelectedRoleIds([]);
       setShowCreateForm(false);
 
       loadCollections();
@@ -297,6 +320,44 @@ export default function AttendanceList() {
                 {selectedGroupIds.length > 0 && (
                   <p className="mt-2 text-xs text-accent">
                     {selectedGroupIds.length}個のグループを選択中
+                  </p>
+                )}
+              </div>
+            )}
+
+            {roles.length > 0 && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  対象ロール（任意）
+                </label>
+                <p className="text-xs text-gray-500 mb-2">
+                  選択すると、そのロールを持つメンバーのみが回答可能になります
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {roles.map((role) => (
+                    <button
+                      key={role.role_id}
+                      type="button"
+                      onClick={() => toggleRoleSelection(role.role_id)}
+                      disabled={submitting}
+                      className={`px-3 py-1.5 rounded-full text-sm font-medium transition ${
+                        selectedRoleIds.includes(role.role_id)
+                          ? 'bg-accent text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                      style={
+                        selectedRoleIds.includes(role.role_id) && role.color
+                          ? { backgroundColor: role.color }
+                          : undefined
+                      }
+                    >
+                      {role.name}
+                    </button>
+                  ))}
+                </div>
+                {selectedRoleIds.length > 0 && (
+                  <p className="mt-2 text-xs text-accent">
+                    {selectedRoleIds.length}個のロールを選択中
                   </p>
                 )}
               </div>

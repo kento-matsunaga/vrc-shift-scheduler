@@ -2,26 +2,31 @@ package attendance
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/attendance"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/role"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/services"
 )
 
 // CreateCollectionUsecase handles creating an attendance collection
 type CreateCollectionUsecase struct {
-	repo  attendance.AttendanceCollectionRepository
-	clock services.Clock
+	repo     attendance.AttendanceCollectionRepository
+	roleRepo role.RoleRepository
+	clock    services.Clock
 }
 
 // NewCreateCollectionUsecase creates a new CreateCollectionUsecase
 func NewCreateCollectionUsecase(
 	repo attendance.AttendanceCollectionRepository,
+	roleRepo role.RoleRepository,
 	clock services.Clock,
 ) *CreateCollectionUsecase {
 	return &CreateCollectionUsecase{
-		repo:  repo,
-		clock: clock,
+		repo:     repo,
+		roleRepo: roleRepo,
+		clock:    clock,
 	}
 }
 
@@ -96,7 +101,55 @@ func (u *CreateCollectionUsecase) Execute(ctx context.Context, input CreateColle
 		}
 	}
 
-	// 7. Return output DTO
+	// 7. Save role assignments if provided
+	if len(input.RoleIDs) > 0 {
+		// Parse all role IDs first
+		roleIDs := make([]common.RoleID, 0, len(input.RoleIDs))
+		for _, roleIDStr := range input.RoleIDs {
+			roleID, err := common.ParseRoleID(roleIDStr)
+			if err != nil {
+				return nil, err
+			}
+			roleIDs = append(roleIDs, roleID)
+		}
+
+		// Batch fetch all roles to validate they exist and belong to this tenant (避免 N+1)
+		foundRoles, err := u.roleRepo.FindByIDs(ctx, tenantID, roleIDs)
+		if err != nil {
+			return nil, err
+		}
+
+		// Check that all requested roles were found
+		foundRoleMap := make(map[string]bool, len(foundRoles))
+		for _, r := range foundRoles {
+			foundRoleMap[r.RoleID().String()] = true
+		}
+
+		for _, roleIDStr := range input.RoleIDs {
+			if !foundRoleMap[roleIDStr] {
+				return nil, common.NewValidationError(
+					fmt.Sprintf("role not found or not accessible: %s", roleIDStr),
+					nil,
+				)
+			}
+		}
+
+		// Create role assignments
+		var roleAssignments []*attendance.CollectionRoleAssignment
+		for _, roleID := range roleIDs {
+			assignment, err := attendance.NewCollectionRoleAssignment(now, collection.CollectionID(), roleID)
+			if err != nil {
+				return nil, err
+			}
+			roleAssignments = append(roleAssignments, assignment)
+		}
+
+		if err := u.repo.SaveRoleAssignments(ctx, collection.CollectionID(), roleAssignments); err != nil {
+			return nil, err
+		}
+	}
+
+	// 8. Return output DTO
 	return &CreateCollectionOutput{
 		CollectionID: collection.CollectionID().String(),
 		TenantID:     collection.TenantID().String(),

@@ -42,4 +42,10 @@ type AttendanceCollectionRepository interface {
 
 	// FindGroupAssignmentsByCollectionID は collection のグループ割り当て一覧を取得する
 	FindGroupAssignmentsByCollectionID(ctx context.Context, collectionID common.CollectionID) ([]*CollectionGroupAssignment, error)
+
+	// SaveRoleAssignments はロール割り当てを保存する（既存のものを全て削除してから保存）
+	SaveRoleAssignments(ctx context.Context, collectionID common.CollectionID, assignments []*CollectionRoleAssignment) error
+
+	// FindRoleAssignmentsByCollectionID は collection のロール割り当て一覧を取得する
+	FindRoleAssignmentsByCollectionID(ctx context.Context, collectionID common.CollectionID) ([]*CollectionRoleAssignment, error)
 }

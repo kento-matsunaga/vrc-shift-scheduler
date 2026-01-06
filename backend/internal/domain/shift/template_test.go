@@ -157,13 +157,11 @@ func TestNewShiftSlotTemplate_ErrorWhenTemplateNameTooLong(t *testing.T) {
 
 func TestNewShiftSlotTemplateItem_Success(t *testing.T) {
 	templateID := common.NewShiftSlotTemplateID()
-	positionID := shift.NewPositionID()
 	startTime := time.Date(2000, 1, 1, 20, 0, 0, 0, time.UTC)
 	endTime := time.Date(2000, 1, 1, 22, 0, 0, 0, time.UTC)
 
 	item, err := shift.NewShiftSlotTemplateItem(
 		templateID,
-		positionID,
 		"DJ Slot",
 		"Main Stage",
 		startTime,
@@ -178,10 +176,6 @@ func TestNewShiftSlotTemplateItem_Success(t *testing.T) {
 
 	if item.TemplateID() != templateID {
 		t.Errorf("TemplateID mismatch: got %v, want %v", item.TemplateID(), templateID)
-	}
-
-	if item.PositionID() != positionID {
-		t.Errorf("PositionID mismatch: got %v, want %v", item.PositionID(), positionID)
 	}
 
 	if item.SlotName() != "DJ Slot" {
@@ -207,13 +201,11 @@ func TestNewShiftSlotTemplateItem_Success(t *testing.T) {
 
 func TestNewShiftSlotTemplateItem_Success_EmptyInstanceName(t *testing.T) {
 	templateID := common.NewShiftSlotTemplateID()
-	positionID := shift.NewPositionID()
 	startTime := time.Date(2000, 1, 1, 20, 0, 0, 0, time.UTC)
 	endTime := time.Date(2000, 1, 1, 22, 0, 0, 0, time.UTC)
 
 	item, err := shift.NewShiftSlotTemplateItem(
 		templateID,
-		positionID,
 		"DJ Slot",
 		"", // Empty instance name is allowed
 		startTime,
@@ -232,13 +224,11 @@ func TestNewShiftSlotTemplateItem_Success_EmptyInstanceName(t *testing.T) {
 }
 
 func TestNewShiftSlotTemplateItem_ErrorWhenInvalidTemplateID(t *testing.T) {
-	positionID := shift.NewPositionID()
 	startTime := time.Date(2000, 1, 1, 20, 0, 0, 0, time.UTC)
 	endTime := time.Date(2000, 1, 1, 22, 0, 0, 0, time.UTC)
 
 	_, err := shift.NewShiftSlotTemplateItem(
 		common.ShiftSlotTemplateID(""), // Invalid
-		positionID,
 		"DJ Slot",
 		"",
 		startTime,
@@ -252,36 +242,13 @@ func TestNewShiftSlotTemplateItem_ErrorWhenInvalidTemplateID(t *testing.T) {
 	}
 }
 
-func TestNewShiftSlotTemplateItem_ErrorWhenInvalidPositionID(t *testing.T) {
-	templateID := common.NewShiftSlotTemplateID()
-	startTime := time.Date(2000, 1, 1, 20, 0, 0, 0, time.UTC)
-	endTime := time.Date(2000, 1, 1, 22, 0, 0, 0, time.UTC)
-
-	_, err := shift.NewShiftSlotTemplateItem(
-		templateID,
-		shift.PositionID(""), // Invalid
-		"DJ Slot",
-		"",
-		startTime,
-		endTime,
-		1,
-		0,
-	)
-
-	if err == nil {
-		t.Error("NewShiftSlotTemplateItem() should fail when position_id is invalid")
-	}
-}
-
 func TestNewShiftSlotTemplateItem_ErrorWhenEmptySlotName(t *testing.T) {
 	templateID := common.NewShiftSlotTemplateID()
-	positionID := shift.NewPositionID()
 	startTime := time.Date(2000, 1, 1, 20, 0, 0, 0, time.UTC)
 	endTime := time.Date(2000, 1, 1, 22, 0, 0, 0, time.UTC)
 
 	_, err := shift.NewShiftSlotTemplateItem(
 		templateID,
-		positionID,
 		"", // Empty slot name
 		"",
 		startTime,
@@ -297,13 +264,11 @@ func TestNewShiftSlotTemplateItem_ErrorWhenEmptySlotName(t *testing.T) {
 
 func TestNewShiftSlotTemplateItem_ErrorWhenRequiredCountZero(t *testing.T) {
 	templateID := common.NewShiftSlotTemplateID()
-	positionID := shift.NewPositionID()
 	startTime := time.Date(2000, 1, 1, 20, 0, 0, 0, time.UTC)
 	endTime := time.Date(2000, 1, 1, 22, 0, 0, 0, time.UTC)
 
 	_, err := shift.NewShiftSlotTemplateItem(
 		templateID,
-		positionID,
 		"DJ Slot",
 		"",
 		startTime,
@@ -319,13 +284,11 @@ func TestNewShiftSlotTemplateItem_ErrorWhenRequiredCountZero(t *testing.T) {
 
 func TestNewShiftSlotTemplateItem_ErrorWhenRequiredCountNegative(t *testing.T) {
 	templateID := common.NewShiftSlotTemplateID()
-	positionID := shift.NewPositionID()
 	startTime := time.Date(2000, 1, 1, 20, 0, 0, 0, time.UTC)
 	endTime := time.Date(2000, 1, 1, 22, 0, 0, 0, time.UTC)
 
 	_, err := shift.NewShiftSlotTemplateItem(
 		templateID,
-		positionID,
 		"DJ Slot",
 		"",
 		startTime,
@@ -407,7 +370,6 @@ func TestReconstituteShiftSlotTemplate_Success_Deleted(t *testing.T) {
 func TestReconstituteShiftSlotTemplateItem_Success(t *testing.T) {
 	itemID := common.NewShiftSlotTemplateItemID()
 	templateID := common.NewShiftSlotTemplateID()
-	positionID := shift.NewPositionID()
 	startTime := time.Date(2000, 1, 1, 20, 0, 0, 0, time.UTC)
 	endTime := time.Date(2000, 1, 1, 22, 0, 0, 0, time.UTC)
 	createdAt := time.Now()
@@ -416,7 +378,6 @@ func TestReconstituteShiftSlotTemplateItem_Success(t *testing.T) {
 	item := shift.ReconstituteShiftSlotTemplateItem(
 		itemID,
 		templateID,
-		positionID,
 		"DJ Slot",
 		"Main Stage",
 		startTime,
@@ -465,13 +426,11 @@ func TestShiftSlotTemplate_UpdateDetails_Success(t *testing.T) {
 	)
 
 	templateID := template.TemplateID()
-	positionID := shift.NewPositionID()
 	startTime := time.Date(2000, 1, 1, 20, 0, 0, 0, time.UTC)
 	endTime := time.Date(2000, 1, 1, 22, 0, 0, 0, time.UTC)
 
 	item, _ := shift.NewShiftSlotTemplateItem(
 		templateID,
-		positionID,
 		"DJ Slot",
 		"",
 		startTime,
@@ -523,13 +482,11 @@ func TestShiftSlotTemplate_UpdateDetails_ErrorWhenEmptyName(t *testing.T) {
 	)
 
 	templateID := template.TemplateID()
-	positionID := shift.NewPositionID()
 	startTime := time.Date(2000, 1, 1, 20, 0, 0, 0, time.UTC)
 	endTime := time.Date(2000, 1, 1, 22, 0, 0, 0, time.UTC)
 
 	item, _ := shift.NewShiftSlotTemplateItem(
 		templateID,
-		positionID,
 		"DJ Slot",
 		"",
 		startTime,
@@ -558,13 +515,11 @@ func TestShiftSlotTemplate_UpdateDetails_ErrorWhenNameTooLong(t *testing.T) {
 	)
 
 	templateID := template.TemplateID()
-	positionID := shift.NewPositionID()
 	startTime := time.Date(2000, 1, 1, 20, 0, 0, 0, time.UTC)
 	endTime := time.Date(2000, 1, 1, 22, 0, 0, 0, time.UTC)
 
 	item, _ := shift.NewShiftSlotTemplateItem(
 		templateID,
-		positionID,
 		"DJ Slot",
 		"",
 		startTime,

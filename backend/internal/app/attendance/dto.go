@@ -19,6 +19,7 @@ type CreateCollectionInput struct {
 	TargetDates []time.Time // 対象日の配列
 	Deadline    *time.Time
 	GroupIDs    []string // 対象グループID（複数可）
+	RoleIDs     []string // 対象ロールID（複数可）
 }
 
 // CreateCollectionOutput represents the output for creating an attendance collection
@@ -91,6 +92,7 @@ type GetCollectionOutput struct {
 	Status       string          `json:"status"`
 	Deadline     *time.Time      `json:"deadline,omitempty"`
 	GroupIDs     []string        `json:"group_ids,omitempty"` // 対象グループID
+	RoleIDs      []string        `json:"role_ids,omitempty"`  // 対象ロールID
 	CreatedAt    time.Time       `json:"created_at"`
 	UpdatedAt    time.Time       `json:"updated_at"`
 }

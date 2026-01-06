@@ -90,6 +90,7 @@ export interface AttendanceCollection {
   status: 'open' | 'closed';
   deadline?: string;
   group_ids?: string[]; // Target group IDs
+  role_ids?: string[]; // Target role IDs
   created_at: string;
   updated_at: string;
 }
@@ -133,12 +134,21 @@ export async function getAttendanceByToken(token: string): Promise<AttendanceCol
  * メンバー一覧を取得（出欠確認用）
  * NOTE: MVPでは簡易実装として公開APIでメンバー一覧を取得可能
  * @param tenantId テナントID
- * @param groupIds 対象グループID（カンマ区切り）- 指定するとそのグループに属するメンバーのみ返す
+ * @param groupIds 対象グループID - 指定するとそのグループに属するメンバーのみ返す
+ * @param roleIds 対象ロールID - 指定するとそのロールを持つメンバーのみ返す
+ * 両方指定した場合は AND 条件（両方に該当するメンバーのみ）
  */
-export async function getMembers(tenantId: string, groupIds?: string[]): Promise<{ data: { members: Member[] } }> {
+export async function getMembers(
+  tenantId: string,
+  groupIds?: string[],
+  roleIds?: string[]
+): Promise<{ data: { members: Member[] } }> {
   let url = `/api/v1/public/members?tenant_id=${tenantId}`;
   if (groupIds && groupIds.length > 0) {
     url += `&group_ids=${groupIds.join(',')}`;
+  }
+  if (roleIds && roleIds.length > 0) {
+    url += `&role_ids=${roleIds.join(',')}`;
   }
   return publicRequest<{ data: { members: Member[] } }>('GET', url);
 }

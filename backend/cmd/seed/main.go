@@ -118,15 +118,8 @@ func seedData(ctx context.Context, pool *pgxpool.Pool, tenantCount int) error {
 		}
 		log.Printf("   ✅ Roles created: %d", roleCount)
 
-		// 4. ポジションを作成
-		positionIDs, err := createPositions(ctx, pool, tenantID)
-		if err != nil {
-			return fmt.Errorf("failed to create positions: %w", err)
-		}
-		log.Printf("   ✅ Positions created: %d", len(positionIDs))
-
-		// 4.5. シフトテンプレートを作成
-		templateCount, err := createShiftTemplates(ctx, templateRepo, tenantID, eventID, positionIDs)
+		// 4. シフトテンプレートを作成
+		templateCount, err := createShiftTemplates(ctx, templateRepo, tenantID, eventID)
 		if err != nil {
 			return fmt.Errorf("failed to create templates: %w", err)
 		}
@@ -136,7 +129,7 @@ func seedData(ctx context.Context, pool *pgxpool.Pool, tenantCount int) error {
 		allSlotIDs := make([]shift.SlotID, 0)
 		pastSlotIDs := make([]shift.SlotID, 0)
 		for _, bdID := range businessDayIDs {
-			slots, err := createShiftSlots(ctx, slotRepo, tenantID, bdID, positionIDs)
+			slots, err := createShiftSlots(ctx, slotRepo, tenantID, bdID)
 			if err != nil {
 				return fmt.Errorf("failed to create shift slots: %w", err)
 			}
@@ -186,36 +179,6 @@ func createTenant(ctx context.Context, pool *pgxpool.Pool, tenantID common.Tenan
 	now := time.Now()
 	_, err := pool.Exec(ctx, query, string(tenantID), name, "Asia/Tokyo", true, now)
 	return err
-}
-
-func createPositions(ctx context.Context, pool *pgxpool.Pool, tenantID common.TenantID) ([]shift.PositionID, error) {
-	positions := []struct {
-		name        string
-		description string
-	}{
-		{"受付", "来場者の受付業務"},
-		{"案内", "イベント会場の案内業務"},
-		{"配信", "イベントの配信サポート業務"},
-	}
-
-	ids := make([]shift.PositionID, 0, len(positions))
-	now := time.Now()
-
-	for i, pos := range positions {
-		positionID := shift.NewPositionID()
-		query := `
-			INSERT INTO positions (position_id, tenant_id, position_name, description, display_order, is_active, created_at, updated_at)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $7)
-			ON CONFLICT (position_id) DO NOTHING
-		`
-		_, err := pool.Exec(ctx, query, string(positionID), string(tenantID), pos.name, pos.description, i+1, true, now)
-		if err != nil {
-			return nil, err
-		}
-		ids = append(ids, positionID)
-	}
-
-	return ids, nil
 }
 
 func createEvent(ctx context.Context, repo *db.EventRepository, tenantID common.TenantID, name string) (common.EventID, error) {
@@ -328,9 +291,7 @@ func createMembers(ctx context.Context, repo *db.MemberRepository, tenantID comm
 	return ids, nil
 }
 
-func createShiftSlots(ctx context.Context, repo *db.ShiftSlotRepository, tenantID common.TenantID, businessDayID event.BusinessDayID, positionIDs []shift.PositionID) ([]shift.SlotID, error) {
-	ids := make([]shift.SlotID, 0, len(positionIDs))
-
+func createShiftSlots(ctx context.Context, repo *db.ShiftSlotRepository, tenantID common.TenantID, businessDayID event.BusinessDayID) ([]shift.SlotID, error) {
 	slotConfigs := []struct {
 		name          string
 		instanceName  string
@@ -345,12 +306,9 @@ func createShiftSlots(ctx context.Context, repo *db.ShiftSlotRepository, tenantI
 		{"配信", "配信1", 21, 0, 23, 30, 1},
 	}
 
-	for i, positionID := range positionIDs {
-		if i >= len(slotConfigs) {
-			break
-		}
-		cfg := slotConfigs[i]
+	ids := make([]shift.SlotID, 0, len(slotConfigs))
 
+	for i, cfg := range slotConfigs {
 		startTime := time.Date(2000, 1, 1, cfg.startHour, cfg.startMinute, 0, 0, time.UTC)
 		endTime := time.Date(2000, 1, 1, cfg.endHour, cfg.endMinute, 0, 0, time.UTC)
 
@@ -358,7 +316,6 @@ func createShiftSlots(ctx context.Context, repo *db.ShiftSlotRepository, tenantI
 			time.Now(),
 			tenantID,
 			businessDayID,
-			positionID,
 			cfg.name,
 			cfg.instanceName,
 			startTime,
@@ -851,7 +808,7 @@ func createShiftAssignments(ctx context.Context, repo *db.ShiftAssignmentReposit
 }
 
 // createShiftTemplates creates shift slot templates
-func createShiftTemplates(ctx context.Context, repo *db.ShiftSlotTemplateRepository, tenantID common.TenantID, eventID common.EventID, positionIDs []shift.PositionID) (int, error) {
+func createShiftTemplates(ctx context.Context, repo *db.ShiftSlotTemplateRepository, tenantID common.TenantID, eventID common.EventID) (int, error) {
 	templates := []struct {
 		name        string
 		description string
@@ -864,7 +821,6 @@ func createShiftTemplates(ctx context.Context, repo *db.ShiftSlotTemplateReposit
 			endMinute     int
 			requiredCount int
 			priority      int
-			positionIdx   int // positionIDs のインデックス
 		}
 	}{
 		{
@@ -879,11 +835,10 @@ func createShiftTemplates(ctx context.Context, repo *db.ShiftSlotTemplateReposit
 				endMinute     int
 				requiredCount int
 				priority      int
-				positionIdx   int
 			}{
-				{"受付", "受付1", 21, 0, 22, 0, 2, 1, 0},
-				{"案内", "案内1", 21, 30, 23, 0, 1, 2, 1},
-				{"配信", "配信1", 21, 0, 23, 30, 1, 3, 2},
+				{"受付", "受付1", 21, 0, 22, 0, 2, 1},
+				{"案内", "案内1", 21, 30, 23, 0, 1, 2},
+				{"配信", "配信1", 21, 0, 23, 30, 1, 3},
 			},
 		},
 		{
@@ -898,13 +853,12 @@ func createShiftTemplates(ctx context.Context, repo *db.ShiftSlotTemplateReposit
 				endMinute     int
 				requiredCount int
 				priority      int
-				positionIdx   int
 			}{
-				{"受付", "受付1", 20, 30, 21, 30, 2, 1, 0},
-				{"受付", "受付2", 21, 30, 22, 30, 2, 2, 0},
-				{"案内", "案内1", 20, 30, 23, 0, 2, 3, 1},
-				{"配信", "配信1", 20, 30, 23, 30, 1, 4, 2},
-				{"MC", "MC1", 21, 0, 23, 0, 1, 5, 1},
+				{"受付", "受付1", 20, 30, 21, 30, 2, 1},
+				{"受付", "受付2", 21, 30, 22, 30, 2, 2},
+				{"案内", "案内1", 20, 30, 23, 0, 2, 3},
+				{"配信", "配信1", 20, 30, 23, 30, 1, 4},
+				{"MC", "MC1", 21, 0, 23, 0, 1, 5},
 			},
 		},
 	}
@@ -919,18 +873,12 @@ func createShiftTemplates(ctx context.Context, repo *db.ShiftSlotTemplateReposit
 		// アイテムを作成
 		items := make([]*shift.ShiftSlotTemplateItem, 0, len(tmpl.items))
 		for _, itemDef := range tmpl.items {
-			positionID := positionIDs[0] // デフォルト
-			if itemDef.positionIdx < len(positionIDs) {
-				positionID = positionIDs[itemDef.positionIdx]
-			}
-
 			startTime := time.Date(2000, 1, 1, itemDef.startHour, itemDef.startMinute, 0, 0, time.UTC)
 			endTime := time.Date(2000, 1, 1, itemDef.endHour, itemDef.endMinute, 0, 0, time.UTC)
 
 			item := shift.ReconstituteShiftSlotTemplateItem(
 				common.NewShiftSlotTemplateItemID(),
 				templateID,
-				positionID,
 				itemDef.slotName,
 				itemDef.instanceName,
 				startTime,
