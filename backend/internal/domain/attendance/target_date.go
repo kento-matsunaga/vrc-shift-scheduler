@@ -76,7 +76,33 @@ func (td *TargetDate) validate() error {
 		return common.NewValidationError("collection_id is required", err)
 	}
 
+	// 開始時間のフォーマットチェック (HH:MM形式)
+	if td.startTime != nil {
+		if !isValidTimeFormat(*td.startTime) {
+			return common.NewValidationError("start_time must be in HH:MM format (00:00-23:59)", nil)
+		}
+	}
+
+	// 終了時間のフォーマットチェック (HH:MM形式)
+	if td.endTime != nil {
+		if !isValidTimeFormat(*td.endTime) {
+			return common.NewValidationError("end_time must be in HH:MM format (00:00-23:59)", nil)
+		}
+	}
+
+	// 開始時間と終了時間の論理チェック
+	if td.startTime != nil && td.endTime != nil {
+		if *td.startTime >= *td.endTime {
+			return common.NewValidationError("start_time must be before end_time", nil)
+		}
+	}
+
 	return nil
+}
+
+// isValidTimeFormat checks if time string is in HH:MM format (00:00-23:59)
+func isValidTimeFormat(timeStr string) bool {
+	return timeFormatRegex.MatchString(timeStr)
 }
 
 // Getters

@@ -118,6 +118,21 @@ export default function AttendanceList() {
       return;
     }
 
+    // 時間のバリデーション
+    for (let i = 0; i < validDates.length; i++) {
+      const d = validDates[i];
+      // 片方だけ入力されている場合
+      if ((d.startTime && !d.endTime) || (!d.startTime && d.endTime)) {
+        setError(`対象日${i + 1}: 開始時間と終了時間は両方入力してください`);
+        return;
+      }
+      // 開始時間 >= 終了時間の場合
+      if (d.startTime && d.endTime && d.startTime >= d.endTime) {
+        setError(`対象日${i + 1}: 開始時間は終了時間より前に設定してください`);
+        return;
+      }
+    }
+
     setSubmitting(true);
 
     try {
