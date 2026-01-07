@@ -6,7 +6,16 @@ import "time"
 type TargetDateDTO struct {
 	TargetDateID string    `json:"target_date_id"`
 	TargetDate   time.Time `json:"target_date"`
+	StartTime    *string   `json:"start_time,omitempty"` // 開始時間（HH:MM形式、任意）
+	EndTime      *string   `json:"end_time,omitempty"`   // 終了時間（HH:MM形式、任意）
 	DisplayOrder int       `json:"display_order"`
+}
+
+// TargetDateInput represents input for a target date when creating a collection
+type TargetDateInput struct {
+	TargetDate time.Time
+	StartTime  *string // 開始時間（HH:MM形式、任意）
+	EndTime    *string // 終了時間（HH:MM形式、任意）
 }
 
 // CreateCollectionInput represents the input for creating an attendance collection
@@ -14,9 +23,9 @@ type CreateCollectionInput struct {
 	TenantID    string // from JWT context (管理API)
 	Title       string
 	Description string
-	TargetType  string      // "event" or "business_day"
-	TargetID    string      // event_id or business_day_id (optional)
-	TargetDates []time.Time // 対象日の配列
+	TargetType  string            // "event" or "business_day"
+	TargetID    string            // event_id or business_day_id (optional)
+	TargetDates []TargetDateInput // 対象日の配列（開始時間込み）
 	Deadline    *time.Time
 	GroupIDs    []string // 対象グループID（複数可）
 	RoleIDs     []string // 対象ロールID（複数可）

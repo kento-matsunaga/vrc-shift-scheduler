@@ -101,3 +101,37 @@ export async function updateEventGroupAssignments(
   return res.data;
 }
 
+/**
+ * 営業日の型
+ */
+export interface BusinessDay {
+  business_day_id: string;
+  tenant_id: string;
+  event_id: string;
+  target_date: string; // YYYY-MM-DD
+  start_time: string; // HH:MM:SS
+  end_time: string; // HH:MM:SS
+  occurrence_type: 'recurring' | 'special';
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * イベントの営業日一覧を取得
+ */
+export async function getEventBusinessDays(
+  eventId: string,
+  params?: {
+    start_date?: string;
+    end_date?: string;
+    is_active?: boolean;
+  }
+): Promise<BusinessDay[]> {
+  const res = await apiClient.get<ApiResponse<{ business_days: BusinessDay[]; count: number }>>(
+    `/api/v1/events/${eventId}/business-days`,
+    params
+  );
+  return res.data.business_days || [];
+}
+
