@@ -198,6 +198,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			appattendance.NewGetCollectionByTokenUsecase(attendanceRepo),
 			appattendance.NewGetResponsesUsecase(attendanceRepo, memberRepo),
 			appattendance.NewListCollectionsUsecase(attendanceRepo),
+			appattendance.NewGetMemberResponsesUsecase(attendanceRepo),
 		)
 
 		// ActualAttendanceHandler dependencies (reusing memberRepo, businessDayRepo, assignmentRepo)
@@ -557,9 +558,11 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			appattendance.NewGetCollectionByTokenUsecase(publicAttendanceRepoForHandler),
 			appattendance.NewGetResponsesUsecase(publicAttendanceRepoForHandler, publicMemberRepoForAttendance),
 			appattendance.NewListCollectionsUsecase(publicAttendanceRepoForHandler),
+			appattendance.NewGetMemberResponsesUsecase(publicAttendanceRepoForHandler),
 		)
 		r.Get("/{token}", publicAttendanceHandler.GetCollectionByToken)
 		r.Post("/{token}/responses", publicAttendanceHandler.SubmitResponse)
+		r.Get("/{token}/members/{member_id}/responses", publicAttendanceHandler.GetMemberResponses)
 	})
 
 	r.Route("/api/v1/public/schedules", func(r chi.Router) {

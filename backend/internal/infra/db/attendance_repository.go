@@ -515,6 +515,122 @@ func (r *AttendanceRepository) FindResponsesByMemberID(ctx context.Context, tena
 	return responses, nil
 }
 
+// FindResponsesByCollectionIDAndMemberID は collection 内の特定 member の回答一覧を取得する
+func (r *AttendanceRepository) FindResponsesByCollectionIDAndMemberID(ctx context.Context, collectionID common.CollectionID, memberID common.MemberID) ([]*attendance.AttendanceResponse, error) {
+	query := `
+		SELECT
+			response_id, tenant_id, collection_id, member_id, target_date_id, response, note,
+			to_char(available_from, 'HH24:MI'), to_char(available_to, 'HH24:MI'), responded_at, created_at, updated_at
+		FROM attendance_responses
+		WHERE collection_id = $1 AND member_id = $2
+		ORDER BY responded_at DESC
+	`
+
+	executor := GetTx(ctx, r.pool)
+
+	rows, err := executor.Query(ctx, query, collectionID.String(), memberID.String())
+	if err != nil {
+		return nil, fmt.Errorf("failed to find responses by collection and member: %w", err)
+	}
+	defer rows.Close()
+
+	var responses []*attendance.AttendanceResponse
+	for rows.Next() {
+		var (
+			responseIDStr   string
+			tenantIDStr     string
+			collectionIDStr string
+			memberIDStr     string
+			targetDateIDStr string
+			responseStr     string
+			note            string
+			availableFrom   sql.NullString
+			availableTo     sql.NullString
+			respondedAt     time.Time
+			createdAt       time.Time
+			updatedAt       time.Time
+		)
+
+		err := rows.Scan(
+			&responseIDStr,
+			&tenantIDStr,
+			&collectionIDStr,
+			&memberIDStr,
+			&targetDateIDStr,
+			&responseStr,
+			&note,
+			&availableFrom,
+			&availableTo,
+			&respondedAt,
+			&createdAt,
+			&updatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan response: %w", err)
+		}
+
+		responseID, err := common.ParseResponseID(responseIDStr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse response_id: %w", err)
+		}
+
+		tid, err := common.ParseTenantID(tenantIDStr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse tenant_id: %w", err)
+		}
+
+		colID, err := common.ParseCollectionID(collectionIDStr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse collection_id: %w", err)
+		}
+
+		mid, err := common.ParseMemberID(memberIDStr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse member_id: %w", err)
+		}
+
+		targetDateID, err := common.ParseTargetDateID(targetDateIDStr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse target_date_id: %w", err)
+		}
+
+		responseType, err := attendance.NewResponseType(responseStr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse response type: %w", err)
+		}
+
+		var availableFromPtr, availableToPtr *string
+		if availableFrom.Valid {
+			availableFromPtr = &availableFrom.String
+		}
+		if availableTo.Valid {
+			availableToPtr = &availableTo.String
+		}
+
+		resp, err := attendance.ReconstructAttendanceResponse(
+			responseID,
+			tid,
+			colID,
+			mid,
+			targetDateID,
+			responseType,
+			note,
+			availableFromPtr,
+			availableToPtr,
+			respondedAt,
+			createdAt,
+			updatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to reconstruct response: %w", err)
+		}
+
+		responses = append(responses, resp)
+	}
+
+	return responses, nil
+}
+
 // scanCollection is a helper to reconstruct an AttendanceCollection from DB row
 func (r *AttendanceRepository) scanCollection(
 	collectionIDStr, tenantIDStr, title, description, targetTypeStr, targetID,
