@@ -63,6 +63,13 @@ export default function ShiftAdjustment() {
         setCollection(collectionData);
         setResponses(responsesData || []);
 
+        // イベントに紐づいていない場合はエラー
+        if (collectionData.target_type !== 'event' || !collectionData.target_id) {
+          setError('この出欠確認はイベントに紐づけられていないため、シフト調整を行えません。');
+          setLoading(false);
+          return;
+        }
+
         // Set initial selected date if not set
         if (!selectedDateId && collectionData.target_dates && collectionData.target_dates.length > 0) {
           const sortedDates = [...collectionData.target_dates].sort(
@@ -71,7 +78,7 @@ export default function ShiftAdjustment() {
           setSelectedDateId(sortedDates[0].target_date_id);
         }
 
-        // Load business days if event-based
+        // Load business days for the linked event
         if (collectionData.target_id) {
           try {
             const bds = await getEventBusinessDays(collectionData.target_id);
