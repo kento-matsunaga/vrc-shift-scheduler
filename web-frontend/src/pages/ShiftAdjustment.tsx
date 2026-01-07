@@ -240,13 +240,13 @@ export default function ShiftAdjustment() {
     }
   };
 
-  // Get members already assigned to any slot
-  const assignedMemberIds = new Set(
-    slots.flatMap((s) => s.assignments.map((a) => a.member_id))
+  // Get members already assigned to any slot (member_id -> slot_name)
+  const assignedMemberSlots = new Map<string, string>(
+    slots.flatMap((s) => s.assignments.map((a) => [a.member_id, s.slot.slot_name] as [string, string]))
   );
 
   // Get available members (attending but not yet assigned)
-  const availableMembers = attendingMembers.filter((m) => !assignedMemberIds.has(m.memberId));
+  const availableMembers = attendingMembers.filter((m) => !assignedMemberSlots.has(m.memberId));
 
   if (loading) {
     return (
@@ -359,7 +359,8 @@ export default function ShiftAdjustment() {
           ) : (
             <div className="space-y-2">
               {attendingMembers.map((member) => {
-                const isAssigned = assignedMemberIds.has(member.memberId);
+                const assignedSlotName = assignedMemberSlots.get(member.memberId);
+                const isAssigned = !!assignedSlotName;
                 return (
                   <div
                     key={member.memberId}
@@ -372,7 +373,9 @@ export default function ShiftAdjustment() {
                         {member.memberName}
                       </span>
                       {isAssigned && (
-                        <span className="text-xs text-gray-400">配置済</span>
+                        <span className="text-xs text-gray-400 truncate max-w-[120px]" title={assignedSlotName}>
+                          {assignedSlotName}
+                        </span>
                       )}
                     </div>
                     {member.availableFrom || member.availableTo ? (
@@ -394,7 +397,7 @@ export default function ShiftAdjustment() {
               </div>
               <div className="flex justify-between">
                 <span>配置済:</span>
-                <span className="font-medium">{assignedMemberIds.size}名</span>
+                <span className="font-medium">{assignedMemberSlots.size}名</span>
               </div>
             </div>
           </div>
