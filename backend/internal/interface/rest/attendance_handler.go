@@ -8,19 +8,22 @@ import (
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/app/attendance"
 	domainAttendance "github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/attendance"
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
 	"github.com/go-chi/chi/v5"
 )
 
 // AttendanceHandler handles attendance-related HTTP requests
 type AttendanceHandler struct {
-	createCollectionUsecase     *attendance.CreateCollectionUsecase
-	submitResponseUsecase       *attendance.SubmitResponseUsecase
-	closeCollectionUsecase      *attendance.CloseCollectionUsecase
-	deleteCollectionUsecase     *attendance.DeleteCollectionUsecase
-	getCollectionUsecase        *attendance.GetCollectionUsecase
-	getCollectionByTokenUsecase *attendance.GetCollectionByTokenUsecase
-	getResponsesUsecase         *attendance.GetResponsesUsecase
-	listCollectionsUsecase      *attendance.ListCollectionsUsecase
+	createCollectionUsecase         *attendance.CreateCollectionUsecase
+	submitResponseUsecase           *attendance.SubmitResponseUsecase
+	closeCollectionUsecase          *attendance.CloseCollectionUsecase
+	deleteCollectionUsecase         *attendance.DeleteCollectionUsecase
+	getCollectionUsecase            *attendance.GetCollectionUsecase
+	getCollectionByTokenUsecase     *attendance.GetCollectionByTokenUsecase
+	getResponsesUsecase             *attendance.GetResponsesUsecase
+	listCollectionsUsecase          *attendance.ListCollectionsUsecase
+	getMemberResponsesUsecase       *attendance.GetMemberResponsesUsecase
+	getAllPublicResponsesUsecase    *attendance.GetAllPublicResponsesUsecase
 }
 
 // NewAttendanceHandler creates a new AttendanceHandler with injected usecases
@@ -33,35 +36,49 @@ func NewAttendanceHandler(
 	getCollectionByTokenUC *attendance.GetCollectionByTokenUsecase,
 	getResponsesUC *attendance.GetResponsesUsecase,
 	listCollectionsUC *attendance.ListCollectionsUsecase,
+	getMemberResponsesUC *attendance.GetMemberResponsesUsecase,
+	getAllPublicResponsesUC *attendance.GetAllPublicResponsesUsecase,
 ) *AttendanceHandler {
 	return &AttendanceHandler{
-		createCollectionUsecase:     createCollectionUC,
-		submitResponseUsecase:       submitResponseUC,
-		closeCollectionUsecase:      closeCollectionUC,
-		deleteCollectionUsecase:     deleteCollectionUC,
-		getCollectionUsecase:        getCollectionUC,
-		getCollectionByTokenUsecase: getCollectionByTokenUC,
-		getResponsesUsecase:         getResponsesUC,
-		listCollectionsUsecase:      listCollectionsUC,
+		createCollectionUsecase:         createCollectionUC,
+		submitResponseUsecase:           submitResponseUC,
+		closeCollectionUsecase:          closeCollectionUC,
+		deleteCollectionUsecase:         deleteCollectionUC,
+		getCollectionUsecase:            getCollectionUC,
+		getCollectionByTokenUsecase:     getCollectionByTokenUC,
+		getResponsesUsecase:             getResponsesUC,
+		listCollectionsUsecase:          listCollectionsUC,
+		getMemberResponsesUsecase:       getMemberResponsesUC,
+		getAllPublicResponsesUsecase:    getAllPublicResponsesUC,
 	}
+}
+
+// TargetDateRequest represents a target date in API requests
+type TargetDateRequest struct {
+	TargetDate string  `json:"target_date"` // ISO 8601 format
+	StartTime  *string `json:"start_time"`  // HH:MM format (optional)
+	EndTime    *string `json:"end_time"`    // HH:MM format (optional)
 }
 
 // CreateCollectionRequest represents the request body for creating an attendance collection
 type CreateCollectionRequest struct {
-	Title       string     `json:"title"`
-	Description string     `json:"description"`
-	TargetType  string     `json:"target_type"`  // "event" or "business_day"
-	TargetID    string     `json:"target_id"`    // optional
-	TargetDates []string   `json:"target_dates"` // ISO 8601 format array
-	Deadline    *time.Time `json:"deadline"`     // optional
-	GroupIDs    []string   `json:"group_ids"`    // optional: target group IDs
+	Title       string              `json:"title"`
+	Description string              `json:"description"`
+	TargetType  string              `json:"target_type"` // "event" or "business_day"
+	TargetID    string              `json:"target_id"`   // optional
+	TargetDates []TargetDateRequest `json:"target_dates"`
+	Deadline    *time.Time          `json:"deadline"`  // optional
+	GroupIDs    []string            `json:"group_ids"` // optional: target group IDs
+	RoleIDs     []string            `json:"role_ids"`  // optional: target role IDs
 }
 
 // TargetDateResponse represents a target date in API responses
 type TargetDateResponse struct {
-	TargetDateID string `json:"target_date_id"`
-	TargetDate   string `json:"target_date"` // ISO 8601 format
-	DisplayOrder int    `json:"display_order"`
+	TargetDateID string  `json:"target_date_id"`
+	TargetDate   string  `json:"target_date"`          // ISO 8601 format
+	StartTime    *string `json:"start_time,omitempty"` // HH:MM format (optional)
+	EndTime      *string `json:"end_time,omitempty"`   // HH:MM format (optional)
+	DisplayOrder int     `json:"display_order"`
 }
 
 // CollectionResponse represents an attendance collection in API responses
@@ -77,6 +94,7 @@ type CollectionResponse struct {
 	Status       string               `json:"status"`
 	Deadline     *time.Time           `json:"deadline,omitempty"`
 	GroupIDs     []string             `json:"group_ids,omitempty"` // Target group IDs
+	RoleIDs      []string             `json:"role_ids,omitempty"`  // Target role IDs
 	CreatedAt    time.Time            `json:"created_at"`
 	UpdatedAt    time.Time            `json:"updated_at"`
 }
@@ -151,15 +169,19 @@ func (h *AttendanceHandler) CreateCollection(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// Parse target dates from strings to time.Time
-	var targetDates []time.Time
-	for _, dateStr := range req.TargetDates {
-		parsedDate, err := time.Parse(time.RFC3339, dateStr)
+	// Parse target dates from request
+	var targetDates []attendance.TargetDateInput
+	for _, tdReq := range req.TargetDates {
+		parsedDate, err := time.Parse(time.RFC3339, tdReq.TargetDate)
 		if err != nil {
-			RespondBadRequest(w, "対象日の形式が正しくありません: "+dateStr)
+			RespondBadRequest(w, "対象日の形式が正しくありません: "+tdReq.TargetDate)
 			return
 		}
-		targetDates = append(targetDates, parsedDate)
+		targetDates = append(targetDates, attendance.TargetDateInput{
+			TargetDate: parsedDate,
+			StartTime:  tdReq.StartTime,
+			EndTime:    tdReq.EndTime,
+		})
 	}
 
 	// Usecase呼び出し
@@ -172,6 +194,7 @@ func (h *AttendanceHandler) CreateCollection(w http.ResponseWriter, r *http.Requ
 		TargetDates: targetDates,
 		Deadline:    req.Deadline,
 		GroupIDs:    req.GroupIDs,
+		RoleIDs:     req.RoleIDs,
 	})
 	if err != nil {
 		RespondDomainError(w, err)
@@ -230,6 +253,8 @@ func (h *AttendanceHandler) GetCollection(w http.ResponseWriter, r *http.Request
 		targetDateResponses = append(targetDateResponses, TargetDateResponse{
 			TargetDateID: td.TargetDateID,
 			TargetDate:   td.TargetDate.Format(time.RFC3339),
+			StartTime:    td.StartTime,
+			EndTime:      td.EndTime,
 			DisplayOrder: td.DisplayOrder,
 		})
 	}
@@ -248,6 +273,7 @@ func (h *AttendanceHandler) GetCollection(w http.ResponseWriter, r *http.Request
 			Status:       output.Status,
 			Deadline:     output.Deadline,
 			GroupIDs:     output.GroupIDs,
+			RoleIDs:      output.RoleIDs,
 			CreatedAt:    output.CreatedAt,
 			UpdatedAt:    output.UpdatedAt,
 		},
@@ -422,6 +448,8 @@ func (h *AttendanceHandler) GetCollectionByToken(w http.ResponseWriter, r *http.
 		targetDateResponses = append(targetDateResponses, TargetDateResponse{
 			TargetDateID: td.TargetDateID,
 			TargetDate:   td.TargetDate.Format(time.RFC3339),
+			StartTime:    td.StartTime,
+			EndTime:      td.EndTime,
 			DisplayOrder: td.DisplayOrder,
 		})
 	}
@@ -440,6 +468,7 @@ func (h *AttendanceHandler) GetCollectionByToken(w http.ResponseWriter, r *http.
 			Status:       output.Status,
 			Deadline:     output.Deadline,
 			GroupIDs:     output.GroupIDs,
+			RoleIDs:      output.RoleIDs,
 			CreatedAt:    output.CreatedAt,
 			UpdatedAt:    output.UpdatedAt,
 		},
@@ -545,6 +574,144 @@ func (h *AttendanceHandler) ListCollections(w http.ResponseWriter, r *http.Reque
 	RespondJSON(w, http.StatusOK, SuccessResponse{
 		Data: map[string]interface{}{
 			"collections": output.Collections,
+		},
+	})
+}
+
+// MemberResponseDTO represents a single response for a member (public API)
+type MemberResponseDTO struct {
+	TargetDateID  string  `json:"target_date_id"`
+	Response      string  `json:"response"`
+	Note          string  `json:"note"`
+	AvailableFrom *string `json:"available_from,omitempty"`
+	AvailableTo   *string `json:"available_to,omitempty"`
+}
+
+// GetMemberResponses handles GET /api/v1/public/attendance/:token/members/:member_id/responses
+// Public API（認証不要）- 特定メンバーの回答一覧を取得
+func (h *AttendanceHandler) GetMemberResponses(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// URLパラメータからtokenとmember_idを取得
+	token := chi.URLParam(r, "token")
+	if token == "" {
+		RespondNotFound(w, "出欠確認が見つかりません")
+		return
+	}
+
+	memberID := chi.URLParam(r, "member_id")
+	if memberID == "" {
+		RespondBadRequest(w, "member_id is required")
+		return
+	}
+
+	// Usecase呼び出し
+	output, err := h.getMemberResponsesUsecase.Execute(ctx, attendance.GetMemberResponsesInput{
+		PublicToken: token,
+		MemberID:    memberID,
+	})
+	if err != nil {
+		// エラー種別に応じて適切なレスポンスを返す
+		var domainErr *common.DomainError
+		if errors.As(err, &domainErr) {
+			switch domainErr.Code() {
+			case common.ErrInvalidInput:
+				RespondBadRequest(w, domainErr.Message)
+				return
+			case common.ErrNotFound:
+				RespondNotFound(w, "出欠確認が見つかりません")
+				return
+			}
+		}
+		// その他のエラーは内部エラーとして処理
+		RespondInternalError(w)
+		return
+	}
+
+	// DTOの変換
+	responses := make([]MemberResponseDTO, 0, len(output.Responses))
+	for _, resp := range output.Responses {
+		responses = append(responses, MemberResponseDTO{
+			TargetDateID:  resp.TargetDateID,
+			Response:      resp.Response,
+			Note:          resp.Note,
+			AvailableFrom: resp.AvailableFrom,
+			AvailableTo:   resp.AvailableTo,
+		})
+	}
+
+	// レスポンス
+	RespondJSON(w, http.StatusOK, SuccessResponse{
+		Data: map[string]interface{}{
+			"member_id": output.MemberID,
+			"responses": responses,
+		},
+	})
+}
+
+// PublicResponseDTO represents a single response for the public table view
+type PublicResponseDTO struct {
+	MemberID      string  `json:"member_id"`
+	MemberName    string  `json:"member_name"`
+	TargetDateID  string  `json:"target_date_id"`
+	Response      string  `json:"response"`
+	Note          string  `json:"note"`
+	AvailableFrom *string `json:"available_from,omitempty"`
+	AvailableTo   *string `json:"available_to,omitempty"`
+}
+
+// GetAllPublicResponses handles GET /api/v1/public/attendance/:token/responses
+// Public API（認証不要）- 全回答一覧を取得（調整さん形式の表示用）
+func (h *AttendanceHandler) GetAllPublicResponses(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// URLパラメータからtokenを取得
+	token := chi.URLParam(r, "token")
+	if token == "" {
+		RespondNotFound(w, "出欠確認が見つかりません")
+		return
+	}
+
+	// Usecase呼び出し
+	output, err := h.getAllPublicResponsesUsecase.Execute(ctx, attendance.GetAllPublicResponsesInput{
+		PublicToken: token,
+	})
+	if err != nil {
+		// エラー種別に応じて適切なレスポンスを返す
+		var domainErr *common.DomainError
+		if errors.As(err, &domainErr) {
+			switch domainErr.Code() {
+			case common.ErrInvalidInput:
+				RespondBadRequest(w, domainErr.Message)
+				return
+			case common.ErrNotFound:
+				RespondNotFound(w, "出欠確認が見つかりません")
+				return
+			}
+		}
+		// その他のエラーは内部エラーとして処理
+		RespondInternalError(w)
+		return
+	}
+
+	// DTOの変換
+	responses := make([]PublicResponseDTO, 0, len(output.Responses))
+	for _, resp := range output.Responses {
+		responses = append(responses, PublicResponseDTO{
+			MemberID:      resp.MemberID,
+			MemberName:    resp.MemberName,
+			TargetDateID:  resp.TargetDateID,
+			Response:      resp.Response,
+			Note:          resp.Note,
+			AvailableFrom: resp.AvailableFrom,
+			AvailableTo:   resp.AvailableTo,
+		})
+	}
+
+	// レスポンス
+	RespondJSON(w, http.StatusOK, SuccessResponse{
+		Data: map[string]interface{}{
+			"responses": responses,
 		},
 	})
 }

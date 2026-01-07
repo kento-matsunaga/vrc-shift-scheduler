@@ -104,6 +104,36 @@ func (r *RoleRepository) FindByID(ctx context.Context, tenantID common.TenantID,
 	)
 }
 
+// FindByIDs finds multiple roles by IDs within a tenant (batch fetch to avoid N+1)
+func (r *RoleRepository) FindByIDs(ctx context.Context, tenantID common.TenantID, roleIDs []common.RoleID) ([]*role.Role, error) {
+	if len(roleIDs) == 0 {
+		return []*role.Role{}, nil
+	}
+
+	// プレースホルダーを構築
+	placeholders := ""
+	args := make([]interface{}, 0, len(roleIDs)+1)
+	args = append(args, tenantID.String())
+
+	for i, roleID := range roleIDs {
+		if i > 0 {
+			placeholders += ", "
+		}
+		placeholders += fmt.Sprintf("$%d", i+2)
+		args = append(args, roleID.String())
+	}
+
+	query := fmt.Sprintf(`
+		SELECT
+			role_id, tenant_id, name, description, color,
+			display_order, created_at, updated_at, deleted_at
+		FROM roles
+		WHERE tenant_id = $1 AND role_id IN (%s) AND deleted_at IS NULL
+	`, placeholders)
+
+	return r.queryRoles(ctx, query, args...)
+}
+
 // FindByTenantID finds all roles within a tenant (deleted_at IS NULL)
 func (r *RoleRepository) FindByTenantID(ctx context.Context, tenantID common.TenantID) ([]*role.Role, error) {
 	query := `

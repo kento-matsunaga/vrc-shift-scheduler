@@ -11,7 +11,6 @@ import (
 
 // TemplateItemInput represents input for a template item
 type TemplateItemInput struct {
-	PositionID    shift.PositionID
 	SlotName      string
 	InstanceName  string
 	StartTime     time.Time
@@ -60,7 +59,6 @@ func (uc *CreateShiftTemplateUsecase) Execute(ctx context.Context, input CreateS
 	for _, itemInput := range input.Items {
 		item, err := shift.NewShiftSlotTemplateItem(
 			template.TemplateID(),
-			itemInput.PositionID,
 			itemInput.SlotName,
 			itemInput.InstanceName,
 			itemInput.StartTime,
@@ -178,7 +176,6 @@ func (uc *UpdateShiftTemplateUsecase) Execute(ctx context.Context, input UpdateS
 	for _, itemInput := range input.Items {
 		item, err := shift.NewShiftSlotTemplateItem(
 			template.TemplateID(),
-			itemInput.PositionID,
 			itemInput.SlotName,
 			itemInput.InstanceName,
 			itemInput.StartTime,
@@ -287,7 +284,6 @@ func (uc *SaveBusinessDayAsTemplateUsecase) Execute(ctx context.Context, input S
 	for _, slot := range slots {
 		item, err := shift.NewShiftSlotTemplateItem(
 			templateID,
-			slot.PositionID(),
 			slot.SlotName(),
 			slot.InstanceName(),
 			slot.StartTime(),

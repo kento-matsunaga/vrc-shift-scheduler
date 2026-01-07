@@ -4,9 +4,27 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
 )
+
+// ParseTimeFlexible parses time in HH:MM or HH:MM:SS format
+func ParseTimeFlexible(timeStr string) (time.Time, error) {
+	// まず HH:MM:SS 形式を試す
+	t, err := time.Parse("15:04:05", timeStr)
+	if err == nil {
+		return t, nil
+	}
+
+	// 次に HH:MM 形式を試す
+	t, err = time.Parse("15:04", timeStr)
+	if err == nil {
+		return t, nil
+	}
+
+	return time.Time{}, err
+}
 
 // Context keys are defined in middleware.go
 

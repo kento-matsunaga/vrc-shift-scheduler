@@ -130,38 +130,6 @@ func ParseMemberID(s string) (MemberID, error) {
 	return MemberID(s), nil
 }
 
-// PositionID represents a position identifier
-type PositionID string
-
-// NewPositionIDWithTime creates a new PositionID using the provided time.
-func NewPositionIDWithTime(t time.Time) PositionID {
-	return PositionID(NewULIDWithTime(t))
-}
-
-// NewPositionID creates a new PositionID using the current time.
-// Deprecated: Use NewPositionIDWithTime for better testability.
-func NewPositionID() PositionID {
-	return PositionID(NewULID())
-}
-
-func (id PositionID) String() string {
-	return string(id)
-}
-
-func (id PositionID) Validate() error {
-	if id == "" {
-		return NewValidationError("position_id is required", nil)
-	}
-	return ValidateULID(string(id))
-}
-
-func ParsePositionID(s string) (PositionID, error) {
-	if err := ValidateULID(s); err != nil {
-		return "", err
-	}
-	return PositionID(s), nil
-}
-
 // BusinessDayID represents a business day identifier
 type BusinessDayID string
 

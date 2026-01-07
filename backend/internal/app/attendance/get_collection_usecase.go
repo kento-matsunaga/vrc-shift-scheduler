@@ -53,6 +53,8 @@ func (u *GetCollectionUsecase) Execute(ctx context.Context, input GetCollectionI
 		targetDateDTOs = append(targetDateDTOs, TargetDateDTO{
 			TargetDateID: td.TargetDateID().String(),
 			TargetDate:   td.TargetDateValue(),
+			StartTime:    td.StartTime(),
+			EndTime:      td.EndTime(),
 			DisplayOrder: td.DisplayOrder(),
 		})
 	}
@@ -69,7 +71,19 @@ func (u *GetCollectionUsecase) Execute(ctx context.Context, input GetCollectionI
 		groupIDs = append(groupIDs, ga.GroupID().String())
 	}
 
-	// 6. Return output DTO
+	// 6. Find role assignments
+	roleAssignments, err := u.repo.FindRoleAssignmentsByCollectionID(ctx, collection.CollectionID())
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert role assignments to string array
+	var roleIDs []string
+	for _, ra := range roleAssignments {
+		roleIDs = append(roleIDs, ra.RoleID().String())
+	}
+
+	// 7. Return output DTO
 	return &GetCollectionOutput{
 		CollectionID: collection.CollectionID().String(),
 		TenantID:     collection.TenantID().String(),
@@ -82,6 +96,7 @@ func (u *GetCollectionUsecase) Execute(ctx context.Context, input GetCollectionI
 		Status:       collection.Status().String(),
 		Deadline:     collection.Deadline(),
 		GroupIDs:     groupIDs,
+		RoleIDs:      roleIDs,
 		CreatedAt:    collection.CreatedAt(),
 		UpdatedAt:    collection.UpdatedAt(),
 	}, nil

@@ -149,9 +149,9 @@ func (h *EventHandler) CreateEvent(w http.ResponseWriter, r *http.Request) {
 
 		// 開始時刻のパース
 		if req.DefaultStartTime != nil {
-			t, err := time.Parse("15:04:05", *req.DefaultStartTime)
+			t, err := ParseTimeFlexible(*req.DefaultStartTime)
 			if err != nil {
-				RespondBadRequest(w, "Invalid default_start_time format (expected HH:MM:SS)")
+				RespondBadRequest(w, "デフォルト開始時刻の形式が正しくありません（HH:MMまたはHH:MM:SS）")
 				return
 			}
 			defaultStartTime = &t
@@ -159,9 +159,9 @@ func (h *EventHandler) CreateEvent(w http.ResponseWriter, r *http.Request) {
 
 		// 終了時刻のパース
 		if req.DefaultEndTime != nil {
-			t, err := time.Parse("15:04:05", *req.DefaultEndTime)
+			t, err := ParseTimeFlexible(*req.DefaultEndTime)
 			if err != nil {
-				RespondBadRequest(w, "Invalid default_end_time format (expected HH:MM:SS)")
+				RespondBadRequest(w, "デフォルト終了時刻の形式が正しくありません（HH:MMまたはHH:MM:SS）")
 				return
 			}
 			defaultEndTime = &t

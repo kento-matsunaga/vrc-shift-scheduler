@@ -31,6 +31,10 @@ type AttendanceCollectionRepository interface {
 	// FindResponsesByMemberID は member の回答一覧を取得する（出席率計算用）
 	FindResponsesByMemberID(ctx context.Context, tenantID common.TenantID, memberID common.MemberID) ([]*AttendanceResponse, error)
 
+	// FindResponsesByCollectionIDAndMemberID は collection 内の特定 member の回答一覧を取得する（公開ページ用）
+	// tenant_id でスコープすることでクロステナントアクセスを防止
+	FindResponsesByCollectionIDAndMemberID(ctx context.Context, tenantID common.TenantID, collectionID common.CollectionID, memberID common.MemberID) ([]*AttendanceResponse, error)
+
 	// SaveTargetDates は対象日を保存する
 	SaveTargetDates(ctx context.Context, collectionID common.CollectionID, targetDates []*TargetDate) error
 
@@ -42,4 +46,10 @@ type AttendanceCollectionRepository interface {
 
 	// FindGroupAssignmentsByCollectionID は collection のグループ割り当て一覧を取得する
 	FindGroupAssignmentsByCollectionID(ctx context.Context, collectionID common.CollectionID) ([]*CollectionGroupAssignment, error)
+
+	// SaveRoleAssignments はロール割り当てを保存する（既存のものを全て削除してから保存）
+	SaveRoleAssignments(ctx context.Context, collectionID common.CollectionID, assignments []*CollectionRoleAssignment) error
+
+	// FindRoleAssignmentsByCollectionID は collection のロール割り当て一覧を取得する
+	FindRoleAssignmentsByCollectionID(ctx context.Context, collectionID common.CollectionID) ([]*CollectionRoleAssignment, error)
 }

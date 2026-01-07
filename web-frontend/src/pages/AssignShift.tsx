@@ -536,6 +536,28 @@ export default function AssignShift() {
             <p className="text-green-800 font-bold mb-2">✅ {success}</p>
             <p className="text-sm text-green-700">シフト枠一覧に戻っています...</p>
           </div>
+        ) : members.length === 0 ? (
+          /* メンバーが0人の場合の警告表示 */
+          <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-6 mb-6 text-center">
+            <div className="text-yellow-600 mb-3">
+              <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-bold text-yellow-800 mb-2">メンバーが登録されていません</h3>
+            <p className="text-yellow-700 mb-4">
+              シフト割り当てを行うには、先にメンバーを登録してください。
+            </p>
+            <Link
+              to="/members"
+              className="inline-flex items-center px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors"
+            >
+              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
+              メンバーを登録する
+            </Link>
+          </div>
         ) : (
           <form onSubmit={handleSubmit}>
             <div className="mb-6">
@@ -606,11 +628,7 @@ export default function AssignShift() {
               )}
 
               <div className="border border-gray-300 rounded-lg p-4 max-h-64 overflow-y-auto bg-white">
-                {members.length === 0 ? (
-                  <p className="text-sm text-red-600">
-                    メンバーが登録されていません。先にメンバーを登録してください。
-                  </p>
-                ) : filteredMembers.length === 0 ? (
+                {filteredMembers.length === 0 ? (
                   <p className="text-sm text-gray-600">
                     選択したロールのメンバーがいません。
                   </p>

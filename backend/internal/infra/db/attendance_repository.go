@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/attendance"
@@ -514,6 +515,123 @@ func (r *AttendanceRepository) FindResponsesByMemberID(ctx context.Context, tena
 	return responses, nil
 }
 
+// FindResponsesByCollectionIDAndMemberID は collection 内の特定 member の回答一覧を取得する
+// tenant_id でスコープすることでクロステナントアクセスを防止
+func (r *AttendanceRepository) FindResponsesByCollectionIDAndMemberID(ctx context.Context, tenantID common.TenantID, collectionID common.CollectionID, memberID common.MemberID) ([]*attendance.AttendanceResponse, error) {
+	query := `
+		SELECT
+			response_id, tenant_id, collection_id, member_id, target_date_id, response, note,
+			to_char(available_from, 'HH24:MI'), to_char(available_to, 'HH24:MI'), responded_at, created_at, updated_at
+		FROM attendance_responses
+		WHERE tenant_id = $1 AND collection_id = $2 AND member_id = $3
+		ORDER BY responded_at DESC
+	`
+
+	executor := GetTx(ctx, r.pool)
+
+	rows, err := executor.Query(ctx, query, tenantID.String(), collectionID.String(), memberID.String())
+	if err != nil {
+		return nil, fmt.Errorf("failed to find responses by collection and member: %w", err)
+	}
+	defer rows.Close()
+
+	var responses []*attendance.AttendanceResponse
+	for rows.Next() {
+		var (
+			responseIDStr   string
+			tenantIDStr     string
+			collectionIDStr string
+			memberIDStr     string
+			targetDateIDStr string
+			responseStr     string
+			note            string
+			availableFrom   sql.NullString
+			availableTo     sql.NullString
+			respondedAt     time.Time
+			createdAt       time.Time
+			updatedAt       time.Time
+		)
+
+		err := rows.Scan(
+			&responseIDStr,
+			&tenantIDStr,
+			&collectionIDStr,
+			&memberIDStr,
+			&targetDateIDStr,
+			&responseStr,
+			&note,
+			&availableFrom,
+			&availableTo,
+			&respondedAt,
+			&createdAt,
+			&updatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan response: %w", err)
+		}
+
+		responseID, err := common.ParseResponseID(responseIDStr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse response_id: %w", err)
+		}
+
+		tid, err := common.ParseTenantID(tenantIDStr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse tenant_id: %w", err)
+		}
+
+		colID, err := common.ParseCollectionID(collectionIDStr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse collection_id: %w", err)
+		}
+
+		mid, err := common.ParseMemberID(memberIDStr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse member_id: %w", err)
+		}
+
+		targetDateID, err := common.ParseTargetDateID(targetDateIDStr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse target_date_id: %w", err)
+		}
+
+		responseType, err := attendance.NewResponseType(responseStr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse response type: %w", err)
+		}
+
+		var availableFromPtr, availableToPtr *string
+		if availableFrom.Valid {
+			availableFromPtr = &availableFrom.String
+		}
+		if availableTo.Valid {
+			availableToPtr = &availableTo.String
+		}
+
+		resp, err := attendance.ReconstructAttendanceResponse(
+			responseID,
+			tid,
+			colID,
+			mid,
+			targetDateID,
+			responseType,
+			note,
+			availableFromPtr,
+			availableToPtr,
+			respondedAt,
+			createdAt,
+			updatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to reconstruct response: %w", err)
+		}
+
+		responses = append(responses, resp)
+	}
+
+	return responses, nil
+}
+
 // scanCollection is a helper to reconstruct an AttendanceCollection from DB row
 func (r *AttendanceRepository) scanCollection(
 	collectionIDStr, tenantIDStr, title, description, targetTypeStr, targetID,
@@ -591,8 +709,8 @@ func (r *AttendanceRepository) SaveTargetDates(ctx context.Context, collectionID
 
 	insertQuery := `
 		INSERT INTO attendance_target_dates (
-			target_date_id, collection_id, target_date, display_order, created_at
-		) VALUES ($1, $2, $3, $4, $5)
+			target_date_id, collection_id, target_date, start_time, end_time, display_order, created_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7)
 	`
 
 	for _, td := range targetDates {
@@ -600,6 +718,8 @@ func (r *AttendanceRepository) SaveTargetDates(ctx context.Context, collectionID
 			td.TargetDateID().String(),
 			td.CollectionID().String(),
 			td.TargetDateValue(),
+			td.StartTime(),
+			td.EndTime(),
 			td.DisplayOrder(),
 			td.CreatedAt(),
 		)
@@ -614,7 +734,9 @@ func (r *AttendanceRepository) SaveTargetDates(ctx context.Context, collectionID
 // FindTargetDatesByCollectionID finds all target dates for a collection
 func (r *AttendanceRepository) FindTargetDatesByCollectionID(ctx context.Context, collectionID common.CollectionID) ([]*attendance.TargetDate, error) {
 	query := `
-		SELECT target_date_id, collection_id, target_date, display_order, created_at
+		SELECT target_date_id, collection_id, target_date,
+		       to_char(start_time, 'HH24:MI'), to_char(end_time, 'HH24:MI'),
+		       display_order, created_at
 		FROM attendance_target_dates
 		WHERE collection_id = $1
 		ORDER BY display_order, target_date
@@ -631,12 +753,22 @@ func (r *AttendanceRepository) FindTargetDatesByCollectionID(ctx context.Context
 	for rows.Next() {
 		var targetDateIDStr, collectionIDStr string
 		var targetDate time.Time
+		var startTime, endTime sql.NullString
 		var displayOrder int
 		var createdAt time.Time
 
-		err := rows.Scan(&targetDateIDStr, &collectionIDStr, &targetDate, &displayOrder, &createdAt)
+		err := rows.Scan(&targetDateIDStr, &collectionIDStr, &targetDate, &startTime, &endTime, &displayOrder, &createdAt)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan target date: %w", err)
+		}
+
+		// Convert sql.NullString to *string
+		var startTimePtr, endTimePtr *string
+		if startTime.Valid {
+			startTimePtr = &startTime.String
+		}
+		if endTime.Valid {
+			endTimePtr = &endTime.String
 		}
 
 		targetDateID, err := common.ParseTargetDateID(targetDateIDStr)
@@ -649,7 +781,7 @@ func (r *AttendanceRepository) FindTargetDatesByCollectionID(ctx context.Context
 			return nil, fmt.Errorf("failed to parse collection_id: %w", err)
 		}
 
-		td, err := attendance.ReconstructTargetDate(targetDateID, parsedCollectionID, targetDate, displayOrder, createdAt)
+		td, err := attendance.ReconstructTargetDate(targetDateID, parsedCollectionID, targetDate, startTimePtr, endTimePtr, displayOrder, createdAt)
 		if err != nil {
 			return nil, fmt.Errorf("failed to reconstruct target date: %w", err)
 		}
@@ -739,6 +871,98 @@ func (r *AttendanceRepository) FindGroupAssignmentsByCollectionID(ctx context.Co
 		assignment, err := attendance.ReconstructCollectionGroupAssignment(parsedCollectionID, groupID, createdAt)
 		if err != nil {
 			return nil, fmt.Errorf("failed to reconstruct group assignment: %w", err)
+		}
+
+		assignments = append(assignments, assignment)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration error: %w", err)
+	}
+
+	return assignments, nil
+}
+
+// SaveRoleAssignments saves role assignments for a collection (deletes existing ones first)
+// Uses multi-row INSERT for atomicity and performance
+func (r *AttendanceRepository) SaveRoleAssignments(ctx context.Context, collectionID common.CollectionID, assignments []*attendance.CollectionRoleAssignment) error {
+	executor := GetTx(ctx, r.pool)
+
+	// 既存のロール割り当てを削除
+	deleteQuery := `DELETE FROM attendance_collection_role_assignments WHERE collection_id = $1`
+	_, err := executor.Exec(ctx, deleteQuery, collectionID.String())
+	if err != nil {
+		return fmt.Errorf("failed to delete old role assignments: %w", err)
+	}
+
+	// 新しいロール割り当てを挿入
+	if len(assignments) == 0 {
+		return nil
+	}
+
+	// マルチロー INSERT で一括挿入（部分的な失敗を防ぐ）
+	// VALUES ($1, $2, $3), ($4, $5, $6), ... の形式で構築
+	valueStrings := make([]string, 0, len(assignments))
+	args := make([]interface{}, 0, len(assignments)*3)
+
+	for i, a := range assignments {
+		valueStrings = append(valueStrings, fmt.Sprintf("($%d, $%d, $%d)", i*3+1, i*3+2, i*3+3))
+		args = append(args, a.CollectionID().String(), a.RoleID().String(), a.CreatedAt())
+	}
+
+	insertQuery := fmt.Sprintf(`
+		INSERT INTO attendance_collection_role_assignments (
+			collection_id, role_id, created_at
+		) VALUES %s
+	`, strings.Join(valueStrings, ", "))
+
+	_, err = executor.Exec(ctx, insertQuery, args...)
+	if err != nil {
+		return fmt.Errorf("failed to save role assignments: %w", err)
+	}
+
+	return nil
+}
+
+// FindRoleAssignmentsByCollectionID finds all role assignments for a collection
+func (r *AttendanceRepository) FindRoleAssignmentsByCollectionID(ctx context.Context, collectionID common.CollectionID) ([]*attendance.CollectionRoleAssignment, error) {
+	query := `
+		SELECT collection_id, role_id, created_at
+		FROM attendance_collection_role_assignments
+		WHERE collection_id = $1
+		ORDER BY created_at
+	`
+
+	executor := GetTx(ctx, r.pool)
+	rows, err := executor.Query(ctx, query, collectionID.String())
+	if err != nil {
+		return nil, fmt.Errorf("failed to query role assignments: %w", err)
+	}
+	defer rows.Close()
+
+	var assignments []*attendance.CollectionRoleAssignment
+	for rows.Next() {
+		var collectionIDStr, roleIDStr string
+		var createdAt time.Time
+
+		err := rows.Scan(&collectionIDStr, &roleIDStr, &createdAt)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan role assignment: %w", err)
+		}
+
+		parsedCollectionID, err := common.ParseCollectionID(collectionIDStr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse collection_id: %w", err)
+		}
+
+		roleID, err := common.ParseRoleID(roleIDStr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse role_id: %w", err)
+		}
+
+		assignment, err := attendance.ReconstructCollectionRoleAssignment(parsedCollectionID, roleID, createdAt)
+		if err != nil {
+			return nil, fmt.Errorf("failed to reconstruct role assignment: %w", err)
 		}
 
 		assignments = append(assignments, assignment)
