@@ -6,6 +6,8 @@ import {
   type AttendanceCollection,
 } from '../lib/api/attendanceApi';
 import { getMemberGroups, type MemberGroup } from '../lib/api/memberGroupApi';
+import { getEvents, getEventBusinessDays, type BusinessDay } from '../lib/api/eventApi';
+import type { Event } from '../types/api';
 import { listRoles, type Role } from '../lib/api/roleApi';
 import { MobileCard, CardHeader, CardField } from '../components/MobileCard';
 
@@ -30,12 +32,19 @@ export default function AttendanceList() {
   const [submittedDatesCount, setSubmittedDatesCount] = useState(0);
   const [memberGroups, setMemberGroups] = useState<MemberGroup[]>([]);
   const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
+  const [events, setEvents] = useState<Event[]>([]);
+  const [selectedEventId, setSelectedEventId] = useState<string>('');
+  const [loadingBusinessDays, setLoadingBusinessDays] = useState(false);
+  const [availableMonths, setAvailableMonths] = useState<string[]>([]); // "YYYY-MM" format
+  const [selectedMonths, setSelectedMonths] = useState<string[]>([]);
+  const [businessDaysCache, setBusinessDaysCache] = useState<BusinessDay[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>([]);
 
   useEffect(() => {
     loadCollections();
     loadMemberGroups();
+    loadEvents();
     loadRoles();
   }, []);
 
@@ -48,6 +57,15 @@ export default function AttendanceList() {
     }
   };
 
+  const loadEvents = async () => {
+    try {
+      const data = await getEvents({ is_active: true });
+      setEvents(data.events || []);
+    } catch (err) {
+      console.error('Failed to load events:', err);
+    }
+  };
+
   const loadRoles = async () => {
     try {
       const data = await listRoles();
@@ -56,6 +74,131 @@ export default function AttendanceList() {
       console.error('Failed to load roles:', err);
     }
   };
+
+  // イベント選択時に営業日を取得して利用可能な月を計算
+  const handleEventSelect = async (eventId: string) => {
+    setSelectedEventId(eventId);
+    setAvailableMonths([]);
+    setSelectedMonths([]);
+    setBusinessDaysCache([]);
+
+    if (!eventId) return;
+
+    setLoadingBusinessDays(true);
+    try {
+      const businessDays = await getEventBusinessDays(eventId, { is_active: true });
+
+      if (businessDays.length === 0) {
+        setError('選択したイベントに営業日が登録されていません');
+        return;
+      }
+
+      setBusinessDaysCache(businessDays);
+
+      // 営業日から利用可能な月を抽出（YYYY-MM形式）
+      const months = businessDays
+        .map((bd: BusinessDay) => bd.target_date.split('T')[0].substring(0, 7)) // YYYY-MM
+        .filter((month, index, self) => self.indexOf(month) === index) // 重複を除去
+        .sort();
+
+      setAvailableMonths(months);
+    } catch (err) {
+      console.error('Failed to load business days:', err);
+      setError('営業日の読み込みに失敗しました');
+    } finally {
+      setLoadingBusinessDays(false);
+    }
+  };
+
+  // 月の選択/解除
+  const toggleMonthSelection = (month: string) => {
+    setSelectedMonths((prev) =>
+      prev.includes(month)
+        ? prev.filter((m) => m !== month)
+        : [...prev, month]
+    );
+  };
+
+  // 全ての月を選択/解除
+  const toggleAllMonths = () => {
+    if (selectedMonths.length === availableMonths.length) {
+      setSelectedMonths([]);
+    } else {
+      setSelectedMonths([...availableMonths]);
+    }
+  };
+
+  // HH:MM:SS を HH:MM に変換するヘルパー関数
+  const formatTimeToHHMM = (time: string): string => {
+    if (!time) return '';
+    // HH:MM:SS -> HH:MM
+    return time.substring(0, 5);
+  };
+
+  // 選択された月の日程を追加
+  const handleAddSelectedDates = () => {
+    if (selectedMonths.length === 0) {
+      setError('追加する月を選択してください');
+      return;
+    }
+
+    // 選択された月に該当する営業日をフィルタリング（開始・終了時間も含む）
+    const filteredBusinessDays = businessDaysCache
+      .filter((bd: BusinessDay) => {
+        const dateStr = bd.target_date.split('T')[0]; // YYYY-MM-DD形式
+        return selectedMonths.some((month) => dateStr.startsWith(month));
+      })
+      .sort((a, b) => a.target_date.localeCompare(b.target_date));
+
+    if (filteredBusinessDays.length === 0) {
+      setError('選択した月に営業日がありません');
+      return;
+    }
+
+    // 既存の空でない日付を保持し、新しい日付を追加
+    const existingDates = targetDates.filter((d) => d.date.trim() !== '');
+    const existingDateStrings = existingDates.map((d) => d.date);
+    const newDates = filteredBusinessDays
+      .filter((bd: BusinessDay) => !existingDateStrings.includes(bd.target_date.split('T')[0]))
+      .map((bd: BusinessDay) => ({
+        date: bd.target_date.split('T')[0],
+        startTime: formatTimeToHHMM(bd.start_time),
+        endTime: formatTimeToHHMM(bd.end_time),
+      }));
+    const mergedDates = [...existingDates, ...newDates];
+
+    // 日付がない場合は少なくとも1つの空欄を保持
+    setTargetDates(mergedDates.length > 0 ? mergedDates : [{ date: '', startTime: '', endTime: '' }]);
+
+    // イベント名をタイトルに設定（タイトルが空の場合のみ）
+    if (!title.trim()) {
+      const event = events.find((e) => e.event_id === selectedEventId);
+      if (event) {
+        // 選択した月をタイトルに含める
+        const monthLabels = selectedMonths
+          .sort()
+          .map((m) => {
+            const month = m.split('-')[1];
+            return `${parseInt(month)}月`;
+          })
+          .join('・');
+        setTitle(`${event.event_name}（${monthLabels}）の出欠確認`);
+      }
+    }
+
+    // 選択をリセット
+    setSelectedMonths([]);
+    setAvailableMonths([]);
+    setBusinessDaysCache([]);
+    setSelectedEventId('');
+  };
+
+  // 月表示用のフォーマット関数
+  const formatMonth = (yearMonth: string): string => {
+    const [year, month] = yearMonth.split('-');
+    return `${year}年${parseInt(month)}月`;
+  };
+
 
   const loadCollections = async () => {
     try {
@@ -166,6 +309,10 @@ export default function AttendanceList() {
         { date: '', startTime: '', endTime: '' },
       ]);
       setSelectedGroupIds([]);
+      setSelectedEventId('');
+      setAvailableMonths([]);
+      setSelectedMonths([]);
+      setBusinessDaysCache([]);
       setSelectedRoleIds([]);
       setShowCreateForm(false);
 
@@ -263,6 +410,85 @@ export default function AttendanceList() {
                 disabled={submitting}
               />
             </div>
+
+            {events.length > 0 && (
+              <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  イベントから日程を取り込む
+                </label>
+                <p className="text-xs text-gray-500 mb-3">
+                  イベントを選択し、取り込む月を選んでください
+                </p>
+                <div className="space-y-3">
+                  <select
+                    value={selectedEventId}
+                    onChange={(e) => handleEventSelect(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent bg-white"
+                    disabled={submitting || loadingBusinessDays}
+                  >
+                    <option value="">イベントを選択...</option>
+                    {events.map((event) => (
+                      <option key={event.event_id} value={event.event_id}>
+                        {event.event_name}
+                      </option>
+                    ))}
+                  </select>
+
+                  {loadingBusinessDays && (
+                    <div className="text-sm text-blue-600">
+                      営業日を読み込み中...
+                    </div>
+                  )}
+
+                  {availableMonths.length > 0 && (
+                    <div className="bg-white border border-blue-200 rounded-md p-3">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-sm font-medium text-gray-700">
+                          取り込む月を選択
+                        </span>
+                        <button
+                          type="button"
+                          onClick={toggleAllMonths}
+                          className="text-xs text-blue-600 hover:text-blue-800"
+                        >
+                          {selectedMonths.length === availableMonths.length ? '全解除' : '全選択'}
+                        </button>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {availableMonths.map((month) => (
+                          <button
+                            key={month}
+                            type="button"
+                            onClick={() => toggleMonthSelection(month)}
+                            className={`px-3 py-1.5 rounded-md text-sm font-medium transition ${
+                              selectedMonths.includes(month)
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            }`}
+                          >
+                            {formatMonth(month)}
+                          </button>
+                        ))}
+                      </div>
+                      {selectedMonths.length > 0 && (
+                        <div className="mt-3 flex justify-between items-center">
+                          <span className="text-xs text-blue-600">
+                            {selectedMonths.length}ヶ月選択中
+                          </span>
+                          <button
+                            type="button"
+                            onClick={handleAddSelectedDates}
+                            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition text-sm"
+                          >
+                            選択した月の日程を追加
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
