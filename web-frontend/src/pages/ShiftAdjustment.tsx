@@ -10,6 +10,8 @@ import { getShiftSlots } from '../lib/api/shiftSlotApi';
 import { confirmAssignment, getAssignments, cancelAssignment } from '../lib/api/shiftAssignmentApi';
 import { getEventBusinessDays } from '../lib/api/eventApi';
 import { getActualAttendance } from '../lib/api/actualAttendanceApi';
+import { getMembers } from '../lib/api/memberApi';
+import { listRoles, type Role } from '../lib/api/roleApi';
 import { ApiClientError } from '../lib/apiClient';
 import type { ShiftSlot, ShiftAssignment, BusinessDay, RecentAttendanceResponse } from '../types/api';
 
@@ -49,6 +51,10 @@ export default function ShiftAdjustment() {
   const [actualAttendance, setActualAttendance] = useState<RecentAttendanceResponse | null>(null);
   // 未来の日付を含めるかどうか
   const [includeFuture, setIncludeFuture] = useState(false);
+  // ロールフィルター用
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [memberRoleMap, setMemberRoleMap] = useState<Map<string, string[]>>(new Map());
+  const [selectedRoleIds, setSelectedRoleIds] = useState<Set<string>>(new Set());
 
   // Load collection and responses
   useEffect(() => {
@@ -125,6 +131,30 @@ export default function ShiftAdjustment() {
 
     fetchActualAttendance();
   }, [collection?.target_id, includeFuture]);
+
+  // ロールとメンバーのロール情報を取得
+  useEffect(() => {
+    const fetchRolesAndMembers = async () => {
+      try {
+        const [rolesData, membersData] = await Promise.all([
+          listRoles(),
+          getMembers({ is_active: true }),
+        ]);
+        setRoles(rolesData);
+
+        // メンバーIDからロールIDsへのマップを作成
+        const roleMap = new Map<string, string[]>();
+        for (const member of membersData.members) {
+          roleMap.set(member.member_id, member.role_ids || []);
+        }
+        setMemberRoleMap(roleMap);
+      } catch {
+        // エラーでも続行
+      }
+    };
+
+    fetchRolesAndMembers();
+  }, []);
 
   // Load slots and assignments when date changes
   useEffect(() => {
@@ -420,6 +450,48 @@ export default function ShiftAdjustment() {
                   未来の日付を含める
                 </label>
               </div>
+              {/* ロールフィルター */}
+              {roles.length > 0 && (
+                <div className="mb-2 flex flex-wrap gap-1">
+                  {roles.map((role) => (
+                    <label
+                      key={role.role_id}
+                      className={`flex items-center text-xs px-2 py-1 rounded cursor-pointer border transition ${
+                        selectedRoleIds.has(role.role_id)
+                          ? 'bg-accent text-white border-accent'
+                          : 'bg-gray-100 text-gray-600 border-gray-300 hover:bg-gray-200'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedRoleIds.has(role.role_id)}
+                        onChange={(e) => {
+                          setSelectedRoleIds((prev) => {
+                            const next = new Set(prev);
+                            if (e.target.checked) {
+                              next.add(role.role_id);
+                            } else {
+                              next.delete(role.role_id);
+                            }
+                            return next;
+                          });
+                        }}
+                        className="sr-only"
+                      />
+                      {role.name}
+                    </label>
+                  ))}
+                  {selectedRoleIds.size > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedRoleIds(new Set())}
+                      className="text-xs text-gray-500 hover:text-gray-700 underline ml-1"
+                    >
+                      クリア
+                    </button>
+                  )}
+                </div>
+              )}
               <div className="overflow-x-auto">
                 <table className="min-w-full text-xs border-collapse border border-gray-300">
                   <thead>
@@ -439,7 +511,18 @@ export default function ShiftAdjustment() {
                   </thead>
                   <tbody>
                     {actualAttendance.member_attendances
-                      .filter((memberAtt) => attendingMembers.some((am) => am.memberId === memberAtt.member_id))
+                      .filter((memberAtt) => {
+                        // 参加者のみ表示
+                        const isAttending = attendingMembers.some((am) => am.memberId === memberAtt.member_id);
+                        if (!isAttending) return false;
+
+                        // ロールフィルター（選択がなければ全員表示）
+                        if (selectedRoleIds.size === 0) return true;
+
+                        // メンバーのロールと選択ロールの交差をチェック
+                        const memberRoles = memberRoleMap.get(memberAtt.member_id) || [];
+                        return memberRoles.some((roleId) => selectedRoleIds.has(roleId));
+                      })
                       .map((memberAtt) => (
                         <tr key={memberAtt.member_id} className="hover:bg-gray-50">
                           <td className="border border-gray-300 px-2 py-1 font-medium sticky left-0 bg-white z-10">
