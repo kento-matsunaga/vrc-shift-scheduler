@@ -63,11 +63,15 @@ func (h *ActualAttendanceHandler) GetRecentActualAttendance(w http.ResponseWrite
 		eventID = &eid
 	}
 
+	// include_future クエリパラメータの取得（デフォルト: false）
+	includeFuture := r.URL.Query().Get("include_future") == "true"
+
 	// Execute usecase
 	input := appactual.GetRecentActualAttendanceInput{
-		TenantID: tenantID,
-		EventID:  eventID,
-		Limit:    limit,
+		TenantID:      tenantID,
+		EventID:       eventID,
+		Limit:         limit,
+		IncludeFuture: includeFuture,
 	}
 
 	output, err := h.getRecentActualAttendanceUC.Execute(ctx, input)

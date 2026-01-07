@@ -26,9 +26,10 @@ type MemberAttendanceStatus struct {
 
 // GetRecentActualAttendanceInput represents the input for getting recent actual attendance
 type GetRecentActualAttendanceInput struct {
-	TenantID common.TenantID
-	EventID  *common.EventID // オプション: 指定された場合、このイベントの営業日のみフィルタリング
-	Limit    int
+	TenantID      common.TenantID
+	EventID       *common.EventID // オプション: 指定された場合、このイベントの営業日のみフィルタリング
+	Limit         int
+	IncludeFuture bool // trueの場合、未来の営業日も含める
 }
 
 // GetRecentActualAttendanceOutput represents the output for getting recent actual attendance
@@ -73,14 +74,14 @@ func (uc *GetRecentActualAttendanceUsecase) Execute(
 		limit = 10 // デフォルト
 	}
 
-	// 1. Get recent N business days (past only, oldest first)
+	// 1. Get recent N business days
 	var businessDays []*event.EventBusinessDay
 	var err error
 	if input.EventID != nil {
 		// イベントIDが指定された場合、そのイベントの営業日のみ取得
-		businessDays, err = uc.businessDayRepo.FindRecentByEventID(ctx, input.TenantID, *input.EventID, limit)
+		businessDays, err = uc.businessDayRepo.FindRecentByEventID(ctx, input.TenantID, *input.EventID, limit, input.IncludeFuture)
 	} else {
-		// 全営業日から取得
+		// 全営業日から取得（過去のみ）
 		businessDays, err = uc.businessDayRepo.FindRecentByTenantID(ctx, input.TenantID, limit)
 	}
 	if err != nil {

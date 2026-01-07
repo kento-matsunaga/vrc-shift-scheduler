@@ -10,10 +10,12 @@ import type { ApiResponse, RecentAttendanceResponse } from '../../types/api';
  *
  * @param params.limit - 取得する営業日数（デフォルト: 10）
  * @param params.event_id - イベントIDでフィルタリング（オプション）
+ * @param params.include_future - trueの場合、未来の営業日も含める（デフォルト: false）
  */
 export async function getActualAttendance(params?: {
   limit?: number;
   event_id?: string;
+  include_future?: boolean;
 }): Promise<RecentAttendanceResponse> {
   const res = await apiClient.get<ApiResponse<RecentAttendanceResponse>>('/api/v1/actual-attendance', params);
   return res.data;

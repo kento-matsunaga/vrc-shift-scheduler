@@ -47,6 +47,8 @@ export default function ShiftAdjustment() {
   const [selectedMembers, setSelectedMembers] = useState<Record<string, string>>({});
   // 本出席状況（参考用）
   const [actualAttendance, setActualAttendance] = useState<RecentAttendanceResponse | null>(null);
+  // 未来の日付を含めるかどうか
+  const [includeFuture, setIncludeFuture] = useState(false);
 
   // Load collection and responses
   useEffect(() => {
@@ -92,18 +94,6 @@ export default function ShiftAdjustment() {
           }
         }
 
-        // 本出席状況を取得（紐づいたイベントの営業日のみ）
-        if (collectionData.target_id) {
-          try {
-            const actualAttendanceData = await getActualAttendance({
-              limit: 10,
-              event_id: collectionData.target_id,
-            });
-            setActualAttendance(actualAttendanceData);
-          } catch {
-            // エラーでも続行
-          }
-        }
       } catch (err) {
         setError(err instanceof Error ? err.message : '取得に失敗しました');
       } finally {
@@ -113,6 +103,26 @@ export default function ShiftAdjustment() {
 
     fetchData();
   }, [collectionId, refreshKey]);
+
+  // 本出席状況を取得（includeFutureが変更されたら再取得）
+  useEffect(() => {
+    if (!collection?.target_id) return;
+
+    const fetchActualAttendance = async () => {
+      try {
+        const actualAttendanceData = await getActualAttendance({
+          limit: 10,
+          event_id: collection.target_id,
+          include_future: includeFuture,
+        });
+        setActualAttendance(actualAttendanceData);
+      } catch {
+        // エラーでも続行
+      }
+    };
+
+    fetchActualAttendance();
+  }, [collection?.target_id, includeFuture]);
 
   // Load slots and assignments when date changes
   useEffect(() => {
@@ -390,7 +400,18 @@ export default function ShiftAdjustment() {
           {/* 本出席状況（参考） */}
           {actualAttendance && actualAttendance.target_dates && actualAttendance.target_dates.length > 0 && attendingMembers.length > 0 && (
             <div className="mt-4 pt-4 border-t border-gray-200">
-              <h3 className="text-sm font-semibold text-gray-900 mb-2">直近の本出席状況（参考）</h3>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-semibold text-gray-900">直近の本出席状況（参考）</h3>
+                <label className="flex items-center text-xs text-gray-600 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={includeFuture}
+                    onChange={(e) => setIncludeFuture(e.target.checked)}
+                    className="mr-1.5 rounded border-gray-300 text-accent focus:ring-accent"
+                  />
+                  未来の日付を含める
+                </label>
+              </div>
               <div className="overflow-x-auto">
                 <table className="min-w-full text-xs border-collapse border border-gray-300">
                   <thead>
