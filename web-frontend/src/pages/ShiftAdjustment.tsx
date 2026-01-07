@@ -240,9 +240,12 @@ export default function ShiftAdjustment() {
     }
   };
 
-  // Get members already assigned to any slot (member_id -> slot_name)
+  // Get members already assigned to any slot (member_id -> "instance_name-slot_name")
   const assignedMemberSlots = new Map<string, string>(
-    slots.flatMap((s) => s.assignments.map((a) => [a.member_id, s.slot.slot_name] as [string, string]))
+    slots.flatMap((s) => s.assignments.map((a) => [
+      a.member_id,
+      `${s.slot.instance_name}-${s.slot.slot_name}`
+    ] as [string, string]))
   );
 
   // Get available members (attending but not yet assigned)
