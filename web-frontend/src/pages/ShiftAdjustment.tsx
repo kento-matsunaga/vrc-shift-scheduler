@@ -111,7 +111,9 @@ export default function ShiftAdjustment() {
     const fetchActualAttendance = async () => {
       try {
         const actualAttendanceData = await getActualAttendance({
-          limit: 10,
+          // 未来を含める場合はイベントの全営業日を表示（上限100件）
+          // 過去のみの場合は10件
+          limit: includeFuture ? 100 : 10,
           event_id: collection.target_id,
           include_future: includeFuture,
         });
