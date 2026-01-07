@@ -128,6 +128,13 @@ export default function AttendanceList() {
     }
   };
 
+  // HH:MM:SS を HH:MM に変換するヘルパー関数
+  const formatTimeToHHMM = (time: string): string => {
+    if (!time) return '';
+    // HH:MM:SS -> HH:MM
+    return time.substring(0, 5);
+  };
+
   // 選択された月の日程を追加
   const handleAddSelectedDates = () => {
     if (selectedMonths.length === 0) {
@@ -135,14 +142,15 @@ export default function AttendanceList() {
       return;
     }
 
-    // 選択された月に該当する営業日をフィルタリング
-    const dates = businessDaysCache
-      .map((bd: BusinessDay) => bd.target_date.split('T')[0]) // YYYY-MM-DD形式
-      .filter((date) => selectedMonths.some((month) => date.startsWith(month))) // 選択された月のみ
-      .filter((date, index, self) => self.indexOf(date) === index) // 重複を除去
-      .sort();
+    // 選択された月に該当する営業日をフィルタリング（開始・終了時間も含む）
+    const filteredBusinessDays = businessDaysCache
+      .filter((bd: BusinessDay) => {
+        const dateStr = bd.target_date.split('T')[0]; // YYYY-MM-DD形式
+        return selectedMonths.some((month) => dateStr.startsWith(month));
+      })
+      .sort((a, b) => a.target_date.localeCompare(b.target_date));
 
-    if (dates.length === 0) {
+    if (filteredBusinessDays.length === 0) {
       setError('選択した月に営業日がありません');
       return;
     }
@@ -150,9 +158,13 @@ export default function AttendanceList() {
     // 既存の空でない日付を保持し、新しい日付を追加
     const existingDates = targetDates.filter((d) => d.date.trim() !== '');
     const existingDateStrings = existingDates.map((d) => d.date);
-    const newDates = dates
-      .filter((d: string) => !existingDateStrings.includes(d))
-      .map((d: string) => ({ date: d, startTime: '', endTime: '' }));
+    const newDates = filteredBusinessDays
+      .filter((bd: BusinessDay) => !existingDateStrings.includes(bd.target_date.split('T')[0]))
+      .map((bd: BusinessDay) => ({
+        date: bd.target_date.split('T')[0],
+        startTime: formatTimeToHHMM(bd.start_time),
+        endTime: formatTimeToHHMM(bd.end_time),
+      }));
     const mergedDates = [...existingDates, ...newDates];
 
     // 日付がない場合は少なくとも1つの空欄を保持
