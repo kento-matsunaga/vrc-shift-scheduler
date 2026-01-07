@@ -8,8 +8,9 @@ import {
 } from '../lib/api/attendanceApi';
 import { getShiftSlots } from '../lib/api/shiftSlotApi';
 import { confirmAssignment, getAssignments, cancelAssignment } from '../lib/api/shiftAssignmentApi';
-import { getEventBusinessDays, type BusinessDay } from '../lib/api/eventApi';
-import type { ShiftSlot, ShiftAssignment } from '../types/api';
+import { getEventBusinessDays } from '../lib/api/eventApi';
+import { ApiClientError } from '../lib/apiClient';
+import type { ShiftSlot, ShiftAssignment, BusinessDay } from '../types/api';
 
 interface AttendingMember {
   memberId: string;
@@ -38,6 +39,11 @@ export default function ShiftAdjustment() {
   const [attendingMembers, setAttendingMembers] = useState<AttendingMember[]>([]);
   const [assigning, setAssigning] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  // アクションエラー/成功メッセージ（UI表示用）
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+  // スロットごとの選択メンバー（競合状態回避用）
+  const [selectedMembers, setSelectedMembers] = useState<Record<string, string>>({});
 
   // Load collection and responses
   useEffect(() => {
@@ -142,18 +148,38 @@ export default function ShiftAdjustment() {
     loadSlotsForDate();
   }, [selectedDateId, collection, businessDays, responses, refreshKey]);
 
-  const handleAssign = async (slotId: string, memberId: string) => {
+  // メッセージを一定時間後にクリア
+  const clearMessages = () => {
+    setTimeout(() => {
+      setActionError(null);
+      setActionSuccess(null);
+    }, 5000);
+  };
+
+  const handleAssign = async (slotId: string) => {
+    const memberId = selectedMembers[slotId];
     if (!memberId) return;
 
     setAssigning(slotId);
+    setActionError(null);
+    setActionSuccess(null);
+
     try {
       await confirmAssignment({
         slot_id: slotId,
         member_id: memberId,
       });
+      // 成功時に選択状態をクリアしてリフレッシュ
+      setSelectedMembers((prev) => ({ ...prev, [slotId]: '' }));
+      setActionSuccess('メンバーをアサインしました');
       setRefreshKey((k) => k + 1);
+      clearMessages();
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'アサインに失敗しました');
+      const message = err instanceof ApiClientError
+        ? err.getUserMessage()
+        : (err instanceof Error ? err.message : 'アサインに失敗しました');
+      setActionError(message);
+      clearMessages();
     } finally {
       setAssigning(null);
     }
@@ -162,11 +188,20 @@ export default function ShiftAdjustment() {
   const handleRemoveAssignment = async (assignmentId: string) => {
     if (!confirm('このアサインを取り消しますか？')) return;
 
+    setActionError(null);
+    setActionSuccess(null);
+
     try {
       await cancelAssignment(assignmentId);
+      setActionSuccess('アサインを取り消しました');
       setRefreshKey((k) => k + 1);
+      clearMessages();
     } catch (err) {
-      alert(err instanceof Error ? err.message : '取り消しに失敗しました');
+      const message = err instanceof ApiClientError
+        ? err.getUserMessage()
+        : (err instanceof Error ? err.message : '取り消しに失敗しました');
+      setActionError(message);
+      clearMessages();
     }
   };
 
@@ -222,6 +257,18 @@ export default function ShiftAdjustment() {
       <div className="bg-white rounded-lg shadow p-6 mb-6">
         <h1 className="text-2xl font-bold text-gray-900 mb-2">シフト調整</h1>
         <p className="text-gray-600">{collection.title}の出欠データをもとにシフトを調整</p>
+
+        {/* アクションメッセージ */}
+        {actionError && (
+          <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md">
+            <p className="text-red-800 text-sm">{actionError}</p>
+          </div>
+        )}
+        {actionSuccess && (
+          <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-md">
+            <p className="text-green-800 text-sm">{actionSuccess}</p>
+          </div>
+        )}
       </div>
 
       {/* 日付タブ */}
@@ -373,15 +420,16 @@ export default function ShiftAdjustment() {
                     {!isFull && (
                       <div className="flex gap-2">
                         <select
+                          aria-label={`${slot.slot_name}にアサインするメンバーを選択`}
                           className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-accent bg-white"
                           disabled={assigning === slot.slot_id || availableMembers.length === 0}
+                          value={selectedMembers[slot.slot_id] || ''}
                           onChange={(e) => {
-                            if (e.target.value) {
-                              handleAssign(slot.slot_id, e.target.value);
-                              e.target.value = '';
-                            }
+                            setSelectedMembers((prev) => ({
+                              ...prev,
+                              [slot.slot_id]: e.target.value,
+                            }));
                           }}
-                          defaultValue=""
                         >
                           <option value="">
                             {availableMembers.length === 0 ? '未配置メンバーなし' : 'メンバーを選択...'}
@@ -395,11 +443,14 @@ export default function ShiftAdjustment() {
                             </option>
                           ))}
                         </select>
-                        {assigning === slot.slot_id && (
-                          <div className="flex items-center text-gray-500 text-sm">
-                            処理中...
-                          </div>
-                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleAssign(slot.slot_id)}
+                          disabled={assigning === slot.slot_id || !selectedMembers[slot.slot_id]}
+                          className="px-4 py-2 bg-accent text-white rounded-md hover:bg-accent-dark transition text-sm disabled:bg-gray-400 disabled:cursor-not-allowed"
+                        >
+                          {assigning === slot.slot_id ? '処理中...' : '追加'}
+                        </button>
                       </div>
                     )}
                   </div>

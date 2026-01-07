@@ -1,5 +1,5 @@
 import { apiClient } from '../apiClient';
-import type { ApiResponse, Event, EventListResponse, GenerateBusinessDaysResponse } from '../../types/api';
+import type { ApiResponse, Event, EventListResponse, GenerateBusinessDaysResponse, BusinessDay } from '../../types/api';
 
 /**
  * Event 作成リクエストの型
@@ -101,21 +101,8 @@ export async function updateEventGroupAssignments(
   return res.data;
 }
 
-/**
- * 営業日の型
- */
-export interface BusinessDay {
-  business_day_id: string;
-  tenant_id: string;
-  event_id: string;
-  target_date: string; // YYYY-MM-DD
-  start_time: string; // HH:MM:SS
-  end_time: string; // HH:MM:SS
-  occurrence_type: 'recurring' | 'special';
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-}
+// BusinessDay 型は types/api.ts から re-export
+export type { BusinessDay };
 
 /**
  * イベントの営業日一覧を取得
