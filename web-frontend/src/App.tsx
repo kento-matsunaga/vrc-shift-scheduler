@@ -13,6 +13,7 @@ import RoleGroupList from './pages/RoleGroupList';
 import MemberGroupList from './pages/MemberGroupList';
 import AttendanceList from './pages/AttendanceList';
 import AttendanceDetail from './pages/AttendanceDetail';
+import ShiftAdjustment from './pages/ShiftAdjustment';
 import ScheduleList from './pages/ScheduleList';
 import ScheduleDetail from './pages/ScheduleDetail';
 import TemplateList from './pages/TemplateList';
@@ -101,6 +102,7 @@ function App() {
         <Route path="groups" element={<MemberGroupList />} />
         <Route path="attendance" element={<AttendanceList />} />
         <Route path="attendance/:collectionId" element={<AttendanceDetail />} />
+        <Route path="attendance/:collectionId/shift-adjustment" element={<ShiftAdjustment />} />
         <Route path="schedules" element={<ScheduleList />} />
         <Route path="schedules/:scheduleId" element={<ScheduleDetail />} />
         <Route path="admin/invite" element={<AdminInvitation />} />

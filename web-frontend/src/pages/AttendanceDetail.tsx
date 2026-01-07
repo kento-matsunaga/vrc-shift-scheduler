@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   getAttendanceCollection,
   getAttendanceResponses,
@@ -18,6 +18,7 @@ type SortDirection = 'asc' | 'desc';
 
 export default function AttendanceDetail() {
   const { collectionId } = useParams<{ collectionId: string }>();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [collection, setCollection] = useState<AttendanceCollectionType | null>(null);
@@ -353,6 +354,15 @@ export default function AttendanceDetail() {
                 className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition disabled:bg-gray-400 text-sm"
               >
                 {closing ? '処理中...' : '締め切る'}
+              </button>
+            )}
+            {/* シフト調整ボタン: イベントに紐づけられた出欠確認が締め切られた場合のみ表示 */}
+            {collection.status === 'closed' && collection.target_type === 'event' && collection.target_id && (
+              <button
+                onClick={() => navigate(`/attendance/${collectionId}/shift-adjustment`)}
+                className="px-4 py-2 bg-accent text-white rounded-md hover:bg-accent-dark transition text-sm"
+              >
+                シフト調整
               </button>
             )}
           </div>

@@ -117,6 +117,10 @@ func (m *MockBusinessDayRepository) FindRecentByTenantID(ctx context.Context, te
 	return nil, nil
 }
 
+func (m *MockBusinessDayRepository) FindRecentByEventID(ctx context.Context, tenantID common.TenantID, eventID common.EventID, limit int, includeFuture bool) ([]*event.EventBusinessDay, error) {
+	return nil, nil
+}
+
 // =====================================================
 // CreateEventUsecase Tests
 // =====================================================
