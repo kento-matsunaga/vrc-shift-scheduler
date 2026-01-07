@@ -113,6 +113,10 @@ func (m *MockAttendanceCollectionRepository) FindRoleAssignmentsByCollectionID(c
 	return nil, nil
 }
 
+func (m *MockAttendanceCollectionRepository) FindResponsesByCollectionIDAndMemberID(ctx context.Context, tenantID common.TenantID, collectionID common.CollectionID, memberID common.MemberID) ([]*attendance.AttendanceResponse, error) {
+	return nil, nil
+}
+
 // =====================================================
 // Mock Role Repository
 // =====================================================

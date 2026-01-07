@@ -132,6 +132,27 @@ type GetResponsesOutput struct {
 	Responses    []ResponseDTO `json:"responses"`
 }
 
+// GetMemberResponsesInput represents the input for getting a member's responses (public API)
+type GetMemberResponsesInput struct {
+	PublicToken string // from URL path
+	MemberID    string // from URL path
+}
+
+// MemberResponseDTO represents a single response for a specific member
+type MemberResponseDTO struct {
+	TargetDateID  string  `json:"target_date_id"`
+	Response      string  `json:"response"`
+	Note          string  `json:"note"`
+	AvailableFrom *string `json:"available_from,omitempty"`
+	AvailableTo   *string `json:"available_to,omitempty"`
+}
+
+// GetMemberResponsesOutput represents the output for getting a member's responses
+type GetMemberResponsesOutput struct {
+	MemberID  string              `json:"member_id"`
+	Responses []MemberResponseDTO `json:"responses"`
+}
+
 // DeleteCollectionInput represents the input for deleting an attendance collection
 type DeleteCollectionInput struct {
 	TenantID     string // from JWT context (管理API)

@@ -170,6 +170,33 @@ export async function submitAttendanceResponse(
   return response.data;
 }
 
+/**
+ * メンバーの既存回答を取得（公開）
+ */
+export interface MemberAttendanceResponse {
+  target_date_id: string;
+  response: 'attending' | 'absent' | 'undecided';
+  note: string;
+  available_from?: string;
+  available_to?: string;
+}
+
+export interface MemberResponsesResult {
+  member_id: string;
+  responses: MemberAttendanceResponse[];
+}
+
+export async function getMemberAttendanceResponses(
+  token: string,
+  memberId: string
+): Promise<MemberResponsesResult> {
+  const response = await publicRequest<{ data: MemberResponsesResult }>(
+    'GET',
+    `/api/v1/public/attendance/${token}/members/${memberId}/responses`
+  );
+  return response.data;
+}
+
 // ==========================================
 // 日程調整 公開API
 // ==========================================

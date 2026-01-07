@@ -31,6 +31,10 @@ type AttendanceCollectionRepository interface {
 	// FindResponsesByMemberID は member の回答一覧を取得する（出席率計算用）
 	FindResponsesByMemberID(ctx context.Context, tenantID common.TenantID, memberID common.MemberID) ([]*AttendanceResponse, error)
 
+	// FindResponsesByCollectionIDAndMemberID は collection 内の特定 member の回答一覧を取得する（公開ページ用）
+	// tenant_id でスコープすることでクロステナントアクセスを防止
+	FindResponsesByCollectionIDAndMemberID(ctx context.Context, tenantID common.TenantID, collectionID common.CollectionID, memberID common.MemberID) ([]*AttendanceResponse, error)
+
 	// SaveTargetDates は対象日を保存する
 	SaveTargetDates(ctx context.Context, collectionID common.CollectionID, targetDates []*TargetDate) error
 
