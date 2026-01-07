@@ -9,8 +9,9 @@ import {
 import { getShiftSlots } from '../lib/api/shiftSlotApi';
 import { confirmAssignment, getAssignments, cancelAssignment } from '../lib/api/shiftAssignmentApi';
 import { getEventBusinessDays } from '../lib/api/eventApi';
+import { getActualAttendance } from '../lib/api/actualAttendanceApi';
 import { ApiClientError } from '../lib/apiClient';
-import type { ShiftSlot, ShiftAssignment, BusinessDay } from '../types/api';
+import type { ShiftSlot, ShiftAssignment, BusinessDay, RecentAttendanceResponse } from '../types/api';
 
 interface AttendingMember {
   memberId: string;
@@ -44,6 +45,8 @@ export default function ShiftAdjustment() {
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
   // スロットごとの選択メンバー（競合状態回避用）
   const [selectedMembers, setSelectedMembers] = useState<Record<string, string>>({});
+  // 本出席状況（参考用）
+  const [actualAttendance, setActualAttendance] = useState<RecentAttendanceResponse | null>(null);
 
   // Load collection and responses
   useEffect(() => {
@@ -87,6 +90,14 @@ export default function ShiftAdjustment() {
             // Event might not exist or no business days
             setBusinessDays([]);
           }
+        }
+
+        // 本出席状況を取得
+        try {
+          const actualAttendanceData = await getActualAttendance({ limit: 30 });
+          setActualAttendance(actualAttendanceData);
+        } catch {
+          // エラーでも続行
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : '取得に失敗しました');
@@ -370,6 +381,60 @@ export default function ShiftAdjustment() {
               </div>
             </div>
           </div>
+
+          {/* 本出席状況（参考） */}
+          {actualAttendance && actualAttendance.target_dates && actualAttendance.target_dates.length > 0 && attendingMembers.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <h3 className="text-sm font-semibold text-gray-900 mb-2">直近の本出席状況（参考）</h3>
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-xs border-collapse border border-gray-300">
+                  <thead>
+                    <tr className="bg-gray-100">
+                      <th className="border border-gray-300 px-2 py-1 text-left font-semibold sticky left-0 bg-gray-100 z-10">
+                        メンバー
+                      </th>
+                      {actualAttendance.target_dates.map((td) => (
+                        <th key={td.target_date_id} className="border border-gray-300 px-2 py-1 text-center font-semibold whitespace-nowrap">
+                          {new Date(td.target_date).toLocaleDateString('ja-JP', {
+                            month: 'numeric',
+                            day: 'numeric',
+                          })}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {actualAttendance.member_attendances
+                      .filter((memberAtt) => attendingMembers.some((am) => am.memberId === memberAtt.member_id))
+                      .map((memberAtt) => (
+                        <tr key={memberAtt.member_id} className="hover:bg-gray-50">
+                          <td className="border border-gray-300 px-2 py-1 font-medium sticky left-0 bg-white z-10">
+                            {memberAtt.member_name}
+                          </td>
+                          {actualAttendance.target_dates.map((td) => {
+                            const status = memberAtt.attendance_map[td.target_date_id] || '';
+                            let symbol = '×';
+                            let color = 'text-red-600';
+                            if (status === 'attended') {
+                              symbol = '○';
+                              color = 'text-green-600';
+                            }
+                            return (
+                              <td key={td.target_date_id} className={`border border-gray-300 px-2 py-1 text-center ${color} font-bold`}>
+                                {symbol}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                ○: シフト割り当てあり、×: シフト割り当てなし
+              </p>
+            </div>
+          )}
         </div>
 
         {/* 右: シフト枠 */}
