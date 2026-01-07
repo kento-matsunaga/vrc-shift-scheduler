@@ -2,6 +2,7 @@ package schedule
 
 import (
 	"context"
+	"log"
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/member"
@@ -64,18 +65,32 @@ func (u *GetAllPublicResponsesUsecase) Execute(ctx context.Context, input GetAll
 		return nil, err
 	}
 
-	// 4. Convert to DTOs with member names
+	// 4. Get all members at once to avoid N+1 query
+	members, err := u.memberRepo.FindByTenantID(ctx, sched.TenantID())
+	if err != nil {
+		log.Printf("[WARN] Failed to fetch members for tenant %s: %v", sched.TenantID().String(), err)
+		members = []*member.Member{} // Continue with empty members
+	}
+
+	// Build member name map for O(1) lookup
+	memberNameMap := make(map[string]string, len(members))
+	for _, m := range members {
+		memberNameMap[m.MemberID().String()] = m.DisplayName()
+	}
+
+	// 5. Convert to DTOs with member names
 	responseDTOs := make([]PublicScheduleResponseDTO, 0, len(responses))
 	for _, resp := range responses {
-		// Get member info
-		memberName := resp.MemberID().String() // Default to ID
-		memberInfo, err := u.memberRepo.FindByID(ctx, sched.TenantID(), resp.MemberID())
-		if err == nil {
-			memberName = memberInfo.DisplayName()
+		memberIDStr := resp.MemberID().String()
+		memberName := memberIDStr // Default to ID
+		if name, ok := memberNameMap[memberIDStr]; ok {
+			memberName = name
+		} else {
+			log.Printf("[WARN] Member %s not found in tenant %s", memberIDStr, sched.TenantID().String())
 		}
 
 		responseDTOs = append(responseDTOs, PublicScheduleResponseDTO{
-			MemberID:     resp.MemberID().String(),
+			MemberID:     memberIDStr,
 			MemberName:   memberName,
 			CandidateID:  resp.CandidateID().String(),
 			Availability: resp.Availability().String(),
