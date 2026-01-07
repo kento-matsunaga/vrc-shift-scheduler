@@ -492,7 +492,7 @@ export default function ShiftAdjustment() {
                   <div key={slot.slot_id} className="bg-white rounded-lg shadow p-4">
                     <div className="flex justify-between items-start mb-3">
                       <div>
-                        <h3 className="font-semibold text-gray-900">{slot.slot_name}</h3>
+                        <h3 className="font-semibold text-gray-900">{slot.instance_name}-{slot.slot_name}</h3>
                         <div className="text-sm text-gray-500">
                           {slot.start_time?.substring(0, 5)} - {slot.end_time?.substring(0, 5)}
                         </div>
@@ -526,7 +526,7 @@ export default function ShiftAdjustment() {
                     {!isFull && (
                       <div className="flex gap-2">
                         <select
-                          aria-label={`${slot.slot_name}にアサインするメンバーを選択`}
+                          aria-label={`${slot.instance_name}-${slot.slot_name}にアサインするメンバーを選択`}
                           className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-accent bg-white"
                           disabled={assigning === slot.slot_id || availableMembers.length === 0}
                           value={selectedMembers[slot.slot_id] || ''}
