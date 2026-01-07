@@ -9,6 +9,7 @@ import {
   type ScheduleResponseInput,
   PublicApiError,
 } from '../../lib/api/publicApi';
+import SearchableSelect from '../../components/SearchableSelect';
 
 export default function ScheduleResponse() {
   const { token } = useParams<{ token: string }>();
@@ -263,20 +264,16 @@ export default function ScheduleResponse() {
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 お名前 <span className="text-red-500">*</span>
               </label>
-              <select
+              <SearchableSelect
+                options={members.map((member) => ({
+                  value: member.member_id,
+                  label: member.display_name,
+                }))}
                 value={selectedMemberId}
-                onChange={(e) => setSelectedMemberId(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent"
-                required
+                onChange={setSelectedMemberId}
+                placeholder="名前を検索して選択..."
                 disabled={schedule?.status !== 'open'}
-              >
-                <option value="">選択してください</option>
-                {members.map((member) => (
-                  <option key={member.member_id} value={member.member_id}>
-                    {member.display_name}
-                  </option>
-                ))}
-              </select>
+              />
               <p className="mt-1 text-xs text-gray-500">
                 お名前が見つからない場合は、管理者にお問い合わせください
               </p>
