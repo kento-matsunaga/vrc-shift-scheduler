@@ -92,12 +92,17 @@ export default function ShiftAdjustment() {
           }
         }
 
-        // 本出席状況を取得
-        try {
-          const actualAttendanceData = await getActualAttendance({ limit: 30 });
-          setActualAttendance(actualAttendanceData);
-        } catch {
-          // エラーでも続行
+        // 本出席状況を取得（紐づいたイベントの営業日のみ）
+        if (collectionData.target_id) {
+          try {
+            const actualAttendanceData = await getActualAttendance({
+              limit: 10,
+              event_id: collectionData.target_id,
+            });
+            setActualAttendance(actualAttendanceData);
+          } catch {
+            // エラーでも続行
+          }
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : '取得に失敗しました');
