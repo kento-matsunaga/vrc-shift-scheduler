@@ -9,6 +9,7 @@ import {
 } from '../lib/api/attendanceApi';
 import { getMembers } from '../lib/api';
 import { getMemberGroups, getMemberGroupDetail, type MemberGroup } from '../lib/api/memberGroupApi';
+import { listRoles, type Role } from '../lib/api/roleApi';
 import type { Member } from '../types/api';
 
 export default function AttendanceDetail() {
@@ -19,6 +20,7 @@ export default function AttendanceDetail() {
   const [responses, setResponses] = useState<AttendanceResponse[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [appliedGroups, setAppliedGroups] = useState<MemberGroup[]>([]);
+  const [appliedRoles, setAppliedRoles] = useState<Role[]>([]);
   const [closing, setClosing] = useState(false);
   const [publicUrl, setPublicUrl] = useState('');
   const [copied, setCopied] = useState(false);
@@ -33,42 +35,75 @@ export default function AttendanceDetail() {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const [collectionData, responsesData, membersData, allGroups] = await Promise.all([
+        const [collectionData, responsesData, membersData, allGroups, allRoles] = await Promise.all([
           getAttendanceCollection(collectionId),
           getAttendanceResponses(collectionId),
           getMembers({ is_active: true }),
           getMemberGroups(),
+          listRoles(),
         ]);
         setCollection(collectionData);
         setResponses(responsesData || []);
 
-        // グループIDが設定されている場合、そのグループに属するメンバーのみを表示
         const groupIds = collectionData.group_ids || [];
-        if (groupIds.length > 0) {
-          // 適用グループ情報を取得
+        const roleIds = collectionData.role_ids || [];
+        const hasGroupFilter = groupIds.length > 0;
+        const hasRoleFilter = roleIds.length > 0;
+
+        // グループでフィルタリング
+        let allowedMemberIdsByGroup: Set<string> | null = null;
+        if (hasGroupFilter) {
           const groups = (allGroups.groups || []).filter((g: MemberGroup) => groupIds.includes(g.group_id));
           setAppliedGroups(groups);
 
-          // グループに属するメンバーIDを集める
-          const allowedMemberIds = new Set<string>();
+          allowedMemberIdsByGroup = new Set<string>();
           for (const groupId of groupIds) {
             try {
               const groupDetail = await getMemberGroupDetail(groupId);
-              (groupDetail.member_ids || []).forEach((memberId: string) => allowedMemberIds.add(memberId));
+              (groupDetail.member_ids || []).forEach((memberId: string) => allowedMemberIdsByGroup!.add(memberId));
             } catch (e) {
               console.error('Failed to fetch group members:', e);
             }
           }
-
-          // フィルタリング
-          const filteredMembers = (membersData.members || []).filter((m: Member) =>
-            allowedMemberIds.has(m.member_id)
-          );
-          setMembers(filteredMembers);
         } else {
           setAppliedGroups([]);
-          setMembers(membersData.members || []);
         }
+
+        // ロールでフィルタリング
+        let allowedMemberIdsByRole: Set<string> | null = null;
+        if (hasRoleFilter) {
+          const roles = allRoles.filter((r: Role) => roleIds.includes(r.role_id));
+          setAppliedRoles(roles);
+
+          allowedMemberIdsByRole = new Set<string>();
+          (membersData.members || []).forEach((member: Member) => {
+            if (member.role_ids && member.role_ids.some(rid => roleIds.includes(rid))) {
+              allowedMemberIdsByRole!.add(member.member_id);
+            }
+          });
+        } else {
+          setAppliedRoles([]);
+        }
+
+        // AND条件でフィルタリング
+        let filteredMembers = membersData.members || [];
+        if (allowedMemberIdsByGroup !== null && allowedMemberIdsByRole !== null) {
+          // 両方指定: AND条件
+          filteredMembers = filteredMembers.filter((m: Member) =>
+            allowedMemberIdsByGroup!.has(m.member_id) && allowedMemberIdsByRole!.has(m.member_id)
+          );
+        } else if (allowedMemberIdsByGroup !== null) {
+          // グループのみ
+          filteredMembers = filteredMembers.filter((m: Member) =>
+            allowedMemberIdsByGroup!.has(m.member_id)
+          );
+        } else if (allowedMemberIdsByRole !== null) {
+          // ロールのみ
+          filteredMembers = filteredMembers.filter((m: Member) =>
+            allowedMemberIdsByRole!.has(m.member_id)
+          );
+        }
+        setMembers(filteredMembers);
 
         const baseUrl = window.location.origin;
         const url = `${baseUrl}/p/attendance/${collectionData.public_token}`;
@@ -297,10 +332,36 @@ export default function AttendanceDetail() {
                 </span>
               ))}
             </div>
-            <p className="text-xs text-gray-500 mt-2">
-              上記グループに属するメンバーのみが回答対象です
-            </p>
           </div>
+        )}
+
+        {/* 対象ロール */}
+        {appliedRoles.length > 0 && (
+          <div className={`pt-4 ${appliedGroups.length === 0 ? 'border-t border-gray-200' : ''} mb-4`}>
+            <h3 className="text-sm font-semibold text-gray-900 mb-2">対象ロール</h3>
+            <div className="flex flex-wrap gap-2">
+              {appliedRoles.map((role) => (
+                <span
+                  key={role.role_id}
+                  className="px-3 py-1 rounded-full text-sm font-medium text-white"
+                  style={{ backgroundColor: role.color || '#6366f1' }}
+                >
+                  {role.name}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* フィルタ説明 */}
+        {(appliedGroups.length > 0 || appliedRoles.length > 0) && (
+          <p className="text-xs text-gray-500 mb-4">
+            {appliedGroups.length > 0 && appliedRoles.length > 0
+              ? '上記グループに属し、かつ上記ロールを持つメンバーのみが回答対象です'
+              : appliedGroups.length > 0
+                ? '上記グループに属するメンバーのみが回答対象です'
+                : '上記ロールを持つメンバーのみが回答対象です'}
+          </p>
         )}
 
         {/* 公開URL */}

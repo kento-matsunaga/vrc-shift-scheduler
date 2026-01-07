@@ -9,11 +9,12 @@ import (
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/shift"
 )
 
+// commonを使用しているのでインポートを維持
+
 // CreateShiftSlotInput represents the input for creating a shift slot
 type CreateShiftSlotInput struct {
 	TenantID      common.TenantID
 	BusinessDayID event.BusinessDayID
-	PositionID    shift.PositionID
 	SlotName      string
 	InstanceName  string
 	StartTime     time.Time
@@ -52,7 +53,6 @@ func (uc *CreateShiftSlotUsecase) Execute(ctx context.Context, input CreateShift
 		time.Now(),
 		input.TenantID,
 		input.BusinessDayID,
-		input.PositionID,
 		input.SlotName,
 		input.InstanceName,
 		input.StartTime,

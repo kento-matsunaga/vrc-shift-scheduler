@@ -249,9 +249,6 @@ function CreateShiftSlotModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // デフォルトのポジションID（バックエンドで自動作成されるため、固定値を使用）
-  const defaultPositionId = '01KCMHNFRVKWY3SY44BXSBNVTT';
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -275,7 +272,6 @@ function CreateShiftSlotModal({
 
     try {
       await createShiftSlot(businessDayId, {
-        position_id: defaultPositionId,
         slot_name: slotName.trim(),
         instance_name: instanceName.trim(),
         start_time: startTime,

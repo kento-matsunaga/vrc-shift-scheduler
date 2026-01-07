@@ -24,7 +24,6 @@ type ShiftSlotTemplate struct {
 type ShiftSlotTemplateItem struct {
 	itemID        common.ShiftSlotTemplateItemID
 	templateID    common.ShiftSlotTemplateID
-	positionID    PositionID
 	slotName      string
 	instanceName  string
 	startTime     time.Time
@@ -82,7 +81,6 @@ func NewShiftSlotTemplate(
 // NewShiftSlotTemplateItem creates a new shift slot template item
 func NewShiftSlotTemplateItem(
 	templateID common.ShiftSlotTemplateID,
-	positionID PositionID,
 	slotName string,
 	instanceName string,
 	startTime time.Time,
@@ -92,10 +90,6 @@ func NewShiftSlotTemplateItem(
 ) (*ShiftSlotTemplateItem, error) {
 	if err := templateID.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid template_id: %w", err)
-	}
-
-	if err := positionID.Validate(); err != nil {
-		return nil, fmt.Errorf("invalid position_id: %w", err)
 	}
 
 	if slotName == "" {
@@ -110,7 +104,6 @@ func NewShiftSlotTemplateItem(
 	item := &ShiftSlotTemplateItem{
 		itemID:        common.NewShiftSlotTemplateItemID(),
 		templateID:    templateID,
-		positionID:    positionID,
 		slotName:      slotName,
 		instanceName:  instanceName,
 		startTime:     startTime,
@@ -153,7 +146,6 @@ func ReconstituteShiftSlotTemplate(
 func ReconstituteShiftSlotTemplateItem(
 	itemID common.ShiftSlotTemplateItemID,
 	templateID common.ShiftSlotTemplateID,
-	positionID PositionID,
 	slotName string,
 	instanceName string,
 	startTime time.Time,
@@ -166,7 +158,6 @@ func ReconstituteShiftSlotTemplateItem(
 	return &ShiftSlotTemplateItem{
 		itemID:        itemID,
 		templateID:    templateID,
-		positionID:    positionID,
 		slotName:      slotName,
 		instanceName:  instanceName,
 		startTime:     startTime,
@@ -251,10 +242,6 @@ func (i *ShiftSlotTemplateItem) ItemID() common.ShiftSlotTemplateItemID {
 
 func (i *ShiftSlotTemplateItem) TemplateID() common.ShiftSlotTemplateID {
 	return i.templateID
-}
-
-func (i *ShiftSlotTemplateItem) PositionID() PositionID {
-	return i.positionID
 }
 
 func (i *ShiftSlotTemplateItem) SlotName() string {

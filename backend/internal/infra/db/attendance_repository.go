@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/attendance"
@@ -591,8 +592,8 @@ func (r *AttendanceRepository) SaveTargetDates(ctx context.Context, collectionID
 
 	insertQuery := `
 		INSERT INTO attendance_target_dates (
-			target_date_id, collection_id, target_date, display_order, created_at
-		) VALUES ($1, $2, $3, $4, $5)
+			target_date_id, collection_id, target_date, start_time, end_time, display_order, created_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7)
 	`
 
 	for _, td := range targetDates {
@@ -600,6 +601,8 @@ func (r *AttendanceRepository) SaveTargetDates(ctx context.Context, collectionID
 			td.TargetDateID().String(),
 			td.CollectionID().String(),
 			td.TargetDateValue(),
+			td.StartTime(),
+			td.EndTime(),
 			td.DisplayOrder(),
 			td.CreatedAt(),
 		)
@@ -614,7 +617,9 @@ func (r *AttendanceRepository) SaveTargetDates(ctx context.Context, collectionID
 // FindTargetDatesByCollectionID finds all target dates for a collection
 func (r *AttendanceRepository) FindTargetDatesByCollectionID(ctx context.Context, collectionID common.CollectionID) ([]*attendance.TargetDate, error) {
 	query := `
-		SELECT target_date_id, collection_id, target_date, display_order, created_at
+		SELECT target_date_id, collection_id, target_date,
+		       to_char(start_time, 'HH24:MI'), to_char(end_time, 'HH24:MI'),
+		       display_order, created_at
 		FROM attendance_target_dates
 		WHERE collection_id = $1
 		ORDER BY display_order, target_date
@@ -631,12 +636,22 @@ func (r *AttendanceRepository) FindTargetDatesByCollectionID(ctx context.Context
 	for rows.Next() {
 		var targetDateIDStr, collectionIDStr string
 		var targetDate time.Time
+		var startTime, endTime sql.NullString
 		var displayOrder int
 		var createdAt time.Time
 
-		err := rows.Scan(&targetDateIDStr, &collectionIDStr, &targetDate, &displayOrder, &createdAt)
+		err := rows.Scan(&targetDateIDStr, &collectionIDStr, &targetDate, &startTime, &endTime, &displayOrder, &createdAt)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan target date: %w", err)
+		}
+
+		// Convert sql.NullString to *string
+		var startTimePtr, endTimePtr *string
+		if startTime.Valid {
+			startTimePtr = &startTime.String
+		}
+		if endTime.Valid {
+			endTimePtr = &endTime.String
 		}
 
 		targetDateID, err := common.ParseTargetDateID(targetDateIDStr)
@@ -649,7 +664,7 @@ func (r *AttendanceRepository) FindTargetDatesByCollectionID(ctx context.Context
 			return nil, fmt.Errorf("failed to parse collection_id: %w", err)
 		}
 
-		td, err := attendance.ReconstructTargetDate(targetDateID, parsedCollectionID, targetDate, displayOrder, createdAt)
+		td, err := attendance.ReconstructTargetDate(targetDateID, parsedCollectionID, targetDate, startTimePtr, endTimePtr, displayOrder, createdAt)
 		if err != nil {
 			return nil, fmt.Errorf("failed to reconstruct target date: %w", err)
 		}
@@ -739,6 +754,98 @@ func (r *AttendanceRepository) FindGroupAssignmentsByCollectionID(ctx context.Co
 		assignment, err := attendance.ReconstructCollectionGroupAssignment(parsedCollectionID, groupID, createdAt)
 		if err != nil {
 			return nil, fmt.Errorf("failed to reconstruct group assignment: %w", err)
+		}
+
+		assignments = append(assignments, assignment)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration error: %w", err)
+	}
+
+	return assignments, nil
+}
+
+// SaveRoleAssignments saves role assignments for a collection (deletes existing ones first)
+// Uses multi-row INSERT for atomicity and performance
+func (r *AttendanceRepository) SaveRoleAssignments(ctx context.Context, collectionID common.CollectionID, assignments []*attendance.CollectionRoleAssignment) error {
+	executor := GetTx(ctx, r.pool)
+
+	// 既存のロール割り当てを削除
+	deleteQuery := `DELETE FROM attendance_collection_role_assignments WHERE collection_id = $1`
+	_, err := executor.Exec(ctx, deleteQuery, collectionID.String())
+	if err != nil {
+		return fmt.Errorf("failed to delete old role assignments: %w", err)
+	}
+
+	// 新しいロール割り当てを挿入
+	if len(assignments) == 0 {
+		return nil
+	}
+
+	// マルチロー INSERT で一括挿入（部分的な失敗を防ぐ）
+	// VALUES ($1, $2, $3), ($4, $5, $6), ... の形式で構築
+	valueStrings := make([]string, 0, len(assignments))
+	args := make([]interface{}, 0, len(assignments)*3)
+
+	for i, a := range assignments {
+		valueStrings = append(valueStrings, fmt.Sprintf("($%d, $%d, $%d)", i*3+1, i*3+2, i*3+3))
+		args = append(args, a.CollectionID().String(), a.RoleID().String(), a.CreatedAt())
+	}
+
+	insertQuery := fmt.Sprintf(`
+		INSERT INTO attendance_collection_role_assignments (
+			collection_id, role_id, created_at
+		) VALUES %s
+	`, strings.Join(valueStrings, ", "))
+
+	_, err = executor.Exec(ctx, insertQuery, args...)
+	if err != nil {
+		return fmt.Errorf("failed to save role assignments: %w", err)
+	}
+
+	return nil
+}
+
+// FindRoleAssignmentsByCollectionID finds all role assignments for a collection
+func (r *AttendanceRepository) FindRoleAssignmentsByCollectionID(ctx context.Context, collectionID common.CollectionID) ([]*attendance.CollectionRoleAssignment, error) {
+	query := `
+		SELECT collection_id, role_id, created_at
+		FROM attendance_collection_role_assignments
+		WHERE collection_id = $1
+		ORDER BY created_at
+	`
+
+	executor := GetTx(ctx, r.pool)
+	rows, err := executor.Query(ctx, query, collectionID.String())
+	if err != nil {
+		return nil, fmt.Errorf("failed to query role assignments: %w", err)
+	}
+	defer rows.Close()
+
+	var assignments []*attendance.CollectionRoleAssignment
+	for rows.Next() {
+		var collectionIDStr, roleIDStr string
+		var createdAt time.Time
+
+		err := rows.Scan(&collectionIDStr, &roleIDStr, &createdAt)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan role assignment: %w", err)
+		}
+
+		parsedCollectionID, err := common.ParseCollectionID(collectionIDStr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse collection_id: %w", err)
+		}
+
+		roleID, err := common.ParseRoleID(roleIDStr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse role_id: %w", err)
+		}
+
+		assignment, err := attendance.ReconstructCollectionRoleAssignment(parsedCollectionID, roleID, createdAt)
+		if err != nil {
+			return nil, fmt.Errorf("failed to reconstruct role assignment: %w", err)
 		}
 
 		assignments = append(assignments, assignment)

@@ -306,7 +306,7 @@ func TestAttendanceRepository_UpsertResponse(t *testing.T) {
 	}
 
 	// 対象日を作成
-	targetDate, err := attendance.NewTargetDate(now, collection.CollectionID(), now.Add(24*time.Hour), 1)
+	targetDate, err := attendance.NewTargetDate(now, collection.CollectionID(), now.Add(24*time.Hour), nil, nil, 1)
 	if err != nil {
 		t.Fatalf("Failed to create target date: %v", err)
 	}
@@ -430,7 +430,7 @@ func TestAttendanceRepository_FindResponsesByMemberID(t *testing.T) {
 		}
 
 		// 対象日を作成
-		targetDate, err := attendance.NewTargetDate(now, collection.CollectionID(), now.Add(time.Duration(i+1)*24*time.Hour), 1)
+		targetDate, err := attendance.NewTargetDate(now, collection.CollectionID(), now.Add(time.Duration(i+1)*24*time.Hour), nil, nil, 1)
 		if err != nil {
 			t.Fatalf("Failed to create target date %d: %v", i, err)
 		}
@@ -512,6 +512,8 @@ func TestAttendanceRepository_SaveTargetDates(t *testing.T) {
 			now,
 			collection.CollectionID(),
 			now.Add(time.Duration(i+1)*24*time.Hour),
+			nil,
+			nil,
 			i+1,
 		)
 		if err != nil {
@@ -537,7 +539,7 @@ func TestAttendanceRepository_SaveTargetDates(t *testing.T) {
 	}
 
 	// 新しい対象日で上書き（1つだけ）
-	newTargetDate, err := attendance.NewTargetDate(now, collection.CollectionID(), now.Add(10*24*time.Hour), 1)
+	newTargetDate, err := attendance.NewTargetDate(now, collection.CollectionID(), now.Add(10*24*time.Hour), nil, nil, 1)
 	if err != nil {
 		t.Fatalf("Failed to create new target date: %v", err)
 	}

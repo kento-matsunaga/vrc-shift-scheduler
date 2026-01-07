@@ -186,11 +186,11 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			appshift.NewCancelAssignmentUsecase(assignmentRepo),
 		)
 
-		// AttendanceHandler dependencies (reusing attendanceRepo, memberRepo)
+		// AttendanceHandler dependencies (reusing attendanceRepo, memberRepo, roleRepo)
 		systemClock := &clock.RealClock{}
 		txManager := db.NewPgxTxManager(dbPool)
 		attendanceHandler := NewAttendanceHandler(
-			appattendance.NewCreateCollectionUsecase(attendanceRepo, systemClock),
+			appattendance.NewCreateCollectionUsecase(attendanceRepo, roleRepo, systemClock),
 			appattendance.NewSubmitResponseUsecase(attendanceRepo, txManager, systemClock),
 			appattendance.NewCloseCollectionUsecase(attendanceRepo, systemClock),
 			appattendance.NewDeleteCollectionUsecase(attendanceRepo, systemClock),
@@ -547,8 +547,9 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 	r.Route("/api/v1/public/attendance", func(r chi.Router) {
 		publicAttendanceRepoForHandler := db.NewAttendanceRepository(dbPool)
 		publicMemberRepoForAttendance := db.NewMemberRepository(dbPool)
+		publicRoleRepoForAttendance := db.NewRoleRepository(dbPool)
 		publicAttendanceHandler := NewAttendanceHandler(
-			appattendance.NewCreateCollectionUsecase(publicAttendanceRepoForHandler, publicClock),
+			appattendance.NewCreateCollectionUsecase(publicAttendanceRepoForHandler, publicRoleRepoForAttendance, publicClock),
 			appattendance.NewSubmitResponseUsecase(publicAttendanceRepoForHandler, publicTxManager, publicClock),
 			appattendance.NewCloseCollectionUsecase(publicAttendanceRepoForHandler, publicClock),
 			appattendance.NewDeleteCollectionUsecase(publicAttendanceRepoForHandler, publicClock),
@@ -581,6 +582,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 	// 公開ページ用メンバー一覧API（認証不要）
 	// NOTE: MVPでは簡易実装としてテナントIDを指定してメンバー一覧を取得可能
 	// group_ids パラメータで対象グループを指定可能（カンマ区切り）
+	// role_ids パラメータで対象ロールを指定可能（カンマ区切り）
 	publicMemberRepo := db.NewMemberRepository(dbPool)
 	publicMemberRoleRepo := db.NewMemberRoleRepository(dbPool)
 	publicAttendanceRepo := db.NewAttendanceRepository(dbPool)
@@ -602,12 +604,14 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			return
 		}
 
+		var allowedMemberIDsByGroup map[string]struct{}
+		var allowedMemberIDsByRole map[string]struct{}
+
 		// group_ids パラメータの取得（カンマ区切り）
 		groupIDsParam := r.URL.Query().Get("group_ids")
-		var allowedMemberIDs map[string]struct{}
 		if groupIDsParam != "" {
 			groupIDStrs := strings.Split(groupIDsParam, ",")
-			allowedMemberIDs = make(map[string]struct{})
+			allowedMemberIDsByGroup = make(map[string]struct{})
 
 			// 各グループからメンバーIDを取得
 			for _, gidStr := range groupIDStrs {
@@ -624,9 +628,52 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 					continue
 				}
 				for _, mid := range memberIDs {
-					allowedMemberIDs[mid.String()] = struct{}{}
+					allowedMemberIDsByGroup[mid.String()] = struct{}{}
 				}
 			}
+		}
+
+		// role_ids パラメータの取得（カンマ区切り）
+		roleIDsParam := r.URL.Query().Get("role_ids")
+		if roleIDsParam != "" {
+			roleIDStrs := strings.Split(roleIDsParam, ",")
+			allowedMemberIDsByRole = make(map[string]struct{})
+
+			// 各ロールからメンバーIDを取得
+			for _, ridStr := range roleIDStrs {
+				ridStr = strings.TrimSpace(ridStr)
+				if ridStr == "" {
+					continue
+				}
+				rid, err := common.ParseRoleID(ridStr)
+				if err != nil {
+					continue
+				}
+				memberIDs, err := publicMemberRoleRepo.FindMemberIDsByRoleID(r.Context(), rid)
+				if err != nil {
+					continue
+				}
+				for _, mid := range memberIDs {
+					allowedMemberIDsByRole[mid.String()] = struct{}{}
+				}
+			}
+		}
+
+		// グループとロールの両方が指定されている場合は交差（AND条件）
+		// どちらか一方のみ指定の場合はそのフィルタを使用
+		var allowedMemberIDs map[string]struct{}
+		if allowedMemberIDsByGroup != nil && allowedMemberIDsByRole != nil {
+			// 両方指定：交差を取る（AND条件）
+			allowedMemberIDs = make(map[string]struct{})
+			for mid := range allowedMemberIDsByGroup {
+				if _, ok := allowedMemberIDsByRole[mid]; ok {
+					allowedMemberIDs[mid] = struct{}{}
+				}
+			}
+		} else if allowedMemberIDsByGroup != nil {
+			allowedMemberIDs = allowedMemberIDsByGroup
+		} else if allowedMemberIDsByRole != nil {
+			allowedMemberIDs = allowedMemberIDsByRole
 		}
 
 		// Contextにテナント情報とフィルター用メンバーIDを設定

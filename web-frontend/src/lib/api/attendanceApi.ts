@@ -1,6 +1,15 @@
 import type { ApiResponse } from '../../types/api';
 
 /**
+ * 対象日入力（リクエスト用）
+ */
+export interface TargetDateInput {
+  target_date: string; // ISO 8601 format
+  start_time?: string; // HH:MM format (optional)
+  end_time?: string;   // HH:MM format (optional)
+}
+
+/**
  * 出欠確認作成リクエスト
  */
 export interface CreateAttendanceRequest {
@@ -8,17 +17,20 @@ export interface CreateAttendanceRequest {
   description: string;
   target_type: 'event' | 'business_day';
   target_id?: string;
-  target_dates?: string[]; // ISO 8601 format array
+  target_dates?: TargetDateInput[]; // ISO 8601 format array with optional start/end time
   deadline?: string; // ISO 8601 format
   group_ids?: string[]; // optional: target member group IDs
+  role_ids?: string[]; // optional: target role IDs
 }
 
 /**
- * 対象日
+ * 対象日（レスポンス用）
  */
 export interface TargetDate {
   target_date_id: string;
   target_date: string;
+  start_time?: string; // HH:MM format (optional)
+  end_time?: string;   // HH:MM format (optional)
   display_order: number;
 }
 
@@ -39,6 +51,7 @@ export interface AttendanceCollection {
   target_date_count?: number;
   response_count?: number;
   group_ids?: string[]; // 対象グループIDs
+  role_ids?: string[]; // 対象ロールIDs
   created_at: string;
   updated_at: string;
 }
