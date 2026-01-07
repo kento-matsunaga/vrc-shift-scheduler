@@ -197,6 +197,33 @@ export async function getMemberAttendanceResponses(
   return response.data;
 }
 
+/**
+ * 全回答一覧を取得（公開ページ用 - 調整さん形式の表示）
+ */
+export interface PublicAttendanceResponse {
+  member_id: string;
+  member_name: string;
+  target_date_id: string;
+  response: 'attending' | 'absent' | 'undecided';
+  note: string;
+  available_from?: string;
+  available_to?: string;
+}
+
+export interface AllResponsesResult {
+  responses: PublicAttendanceResponse[];
+}
+
+export async function getAllAttendanceResponses(
+  token: string
+): Promise<AllResponsesResult> {
+  const response = await publicRequest<{ data: AllResponsesResult }>(
+    'GET',
+    `/api/v1/public/attendance/${token}/responses`
+  );
+  return response.data;
+}
+
 // ==========================================
 // 日程調整 公開API
 // ==========================================
@@ -260,6 +287,31 @@ export async function submitScheduleResponse(
     'POST',
     `/api/v1/public/schedules/${token}/responses`,
     data
+  );
+  return response.data;
+}
+
+/**
+ * 全回答一覧を取得（公開ページ用 - 調整さん形式の表示）
+ */
+export interface PublicScheduleResponse {
+  member_id: string;
+  member_name: string;
+  candidate_id: string;
+  availability: 'available' | 'unavailable' | 'maybe';
+  note: string;
+}
+
+export interface AllScheduleResponsesResult {
+  responses: PublicScheduleResponse[];
+}
+
+export async function getAllScheduleResponses(
+  token: string
+): Promise<AllScheduleResponsesResult> {
+  const response = await publicRequest<{ data: AllScheduleResponsesResult }>(
+    'GET',
+    `/api/v1/public/schedules/${token}/responses`
   );
   return response.data;
 }

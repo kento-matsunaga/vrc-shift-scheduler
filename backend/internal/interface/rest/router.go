@@ -199,6 +199,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			appattendance.NewGetResponsesUsecase(attendanceRepo, memberRepo),
 			appattendance.NewListCollectionsUsecase(attendanceRepo),
 			appattendance.NewGetMemberResponsesUsecase(attendanceRepo),
+			appattendance.NewGetAllPublicResponsesUsecase(attendanceRepo, memberRepo),
 		)
 
 		// ActualAttendanceHandler dependencies (reusing memberRepo, businessDayRepo, assignmentRepo)
@@ -363,6 +364,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			appschedule.NewGetScheduleByTokenUsecase(scheduleRepo),
 			appschedule.NewGetResponsesUsecase(scheduleRepo),
 			appschedule.NewListSchedulesUsecase(scheduleRepo),
+			appschedule.NewGetAllPublicResponsesUsecase(scheduleRepo, memberRepo),
 		)
 		r.Route("/schedules", func(r chi.Router) {
 			r.Get("/", scheduleHandler.ListSchedules)
@@ -559,14 +561,17 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			appattendance.NewGetResponsesUsecase(publicAttendanceRepoForHandler, publicMemberRepoForAttendance),
 			appattendance.NewListCollectionsUsecase(publicAttendanceRepoForHandler),
 			appattendance.NewGetMemberResponsesUsecase(publicAttendanceRepoForHandler),
+			appattendance.NewGetAllPublicResponsesUsecase(publicAttendanceRepoForHandler, publicMemberRepoForAttendance),
 		)
 		r.Get("/{token}", publicAttendanceHandler.GetCollectionByToken)
 		r.Post("/{token}/responses", publicAttendanceHandler.SubmitResponse)
 		r.Get("/{token}/members/{member_id}/responses", publicAttendanceHandler.GetMemberResponses)
+		r.Get("/{token}/responses", publicAttendanceHandler.GetAllPublicResponses)
 	})
 
 	r.Route("/api/v1/public/schedules", func(r chi.Router) {
 		publicScheduleRepo := db.NewScheduleRepository(dbPool)
+		publicScheduleMemberRepo := db.NewMemberRepository(dbPool)
 		publicScheduleHandler := NewScheduleHandler(
 			appschedule.NewCreateScheduleUsecase(publicScheduleRepo, publicClock),
 			appschedule.NewSubmitResponseUsecase(publicScheduleRepo, publicTxManager, publicClock),
@@ -577,9 +582,11 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			appschedule.NewGetScheduleByTokenUsecase(publicScheduleRepo),
 			appschedule.NewGetResponsesUsecase(publicScheduleRepo),
 			appschedule.NewListSchedulesUsecase(publicScheduleRepo),
+			appschedule.NewGetAllPublicResponsesUsecase(publicScheduleRepo, publicScheduleMemberRepo),
 		)
 		r.Get("/{token}", publicScheduleHandler.GetScheduleByToken)
 		r.Post("/{token}/responses", publicScheduleHandler.SubmitResponse)
+		r.Get("/{token}/responses", publicScheduleHandler.GetAllPublicResponses)
 	})
 
 	// 公開ページ用メンバー一覧API（認証不要）

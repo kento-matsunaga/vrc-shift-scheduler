@@ -4,12 +4,15 @@ import {
   getScheduleByToken,
   getMembers,
   submitScheduleResponse,
+  getAllScheduleResponses,
   type DateSchedule,
   type Member,
   type ScheduleResponseInput,
+  type PublicScheduleResponse,
   PublicApiError,
 } from '../../lib/api/publicApi';
 import SearchableSelect from '../../components/SearchableSelect';
+import ScheduleResponseTable from '../../components/ScheduleResponseTable';
 
 export default function ScheduleResponse() {
   const { token } = useParams<{ token: string }>();
@@ -23,6 +26,10 @@ export default function ScheduleResponse() {
   const [responses, setResponses] = useState<Record<string, { availability: 'available' | 'unavailable' | 'maybe'; note: string }>>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+
+  // 全回答一覧（調整さん形式表示用）
+  const [allResponses, setAllResponses] = useState<PublicScheduleResponse[]>([]);
+  const [loadingAllResponses, setLoadingAllResponses] = useState(false);
 
   useEffect(() => {
     if (!token) {
@@ -59,6 +66,18 @@ export default function ScheduleResponse() {
           };
         });
         setResponses(initialResponses);
+
+        // 全回答一覧を取得
+        setLoadingAllResponses(true);
+        try {
+          const allResponsesData = await getAllScheduleResponses(token);
+          setAllResponses(allResponsesData.responses || []);
+        } catch {
+          // 回答一覧の取得に失敗してもエラー表示はしない
+          console.warn('Failed to load all responses');
+        } finally {
+          setLoadingAllResponses(false);
+        }
       } catch (err) {
         if (err instanceof PublicApiError) {
           if (err.isNotFound()) {
@@ -120,6 +139,14 @@ export default function ScheduleResponse() {
       console.log('Submitting schedule response:', requestData);
 
       await submitScheduleResponse(token, requestData);
+
+      // 送信成功後に全回答を再取得
+      try {
+        const allResponsesData = await getAllScheduleResponses(token);
+        setAllResponses(allResponsesData.responses || []);
+      } catch {
+        // 回答一覧の取得に失敗してもエラー表示はしない
+      }
 
       setSubmitted(true);
     } catch (err) {
@@ -380,6 +407,21 @@ export default function ScheduleResponse() {
               {submitting ? '送信中...' : '回答を送信'}
             </button>
           </form>
+        </div>
+
+        {/* 回答一覧（調整さん形式） */}
+        <div className="bg-white rounded-lg shadow-md p-6 mt-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">
+            回答一覧
+          </h2>
+          {loadingAllResponses ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-accent"></div>
+              <span className="ml-3 text-gray-600">読み込み中...</span>
+            </div>
+          ) : (
+            <ScheduleResponseTable candidates={schedule?.candidates || []} responses={allResponses} />
+          )}
         </div>
       </div>
     </div>
