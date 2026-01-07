@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import {
   getAttendanceCollection,
@@ -94,8 +94,9 @@ export default function ShiftAdjustment() {
           try {
             const bds = await getEventBusinessDays(collectionData.target_id);
             setBusinessDays(bds || []);
-          } catch {
-            // Event might not exist or no business days
+          } catch (err) {
+            console.error('Failed to load business days:', err);
+            setActionError('イベントの営業日を読み込めませんでした。シフト枠が表示されない可能性があります。');
             setBusinessDays([]);
           }
         }
@@ -123,7 +124,12 @@ export default function ShiftAdjustment() {
           event_id: collection.target_id,
           include_future: includeFuture,
         });
-        setActualAttendance(actualAttendanceData);
+        // 空配列の場合はnullを設定して不要な描画を避ける
+        if (actualAttendanceData.target_dates && actualAttendanceData.target_dates.length > 0) {
+          setActualAttendance(actualAttendanceData);
+        } else {
+          setActualAttendance(null);
+        }
       } catch {
         // エラーでも続行
       }
@@ -155,6 +161,11 @@ export default function ShiftAdjustment() {
 
     fetchRolesAndMembers();
   }, []);
+
+  // refreshKey変更時にselectedMembersをリセット（競合状態回避）
+  useEffect(() => {
+    setSelectedMembers({});
+  }, [refreshKey]);
 
   // Load slots and assignments when date changes
   useEffect(() => {
@@ -271,15 +282,21 @@ export default function ShiftAdjustment() {
   };
 
   // Get members already assigned to any slot (member_id -> "instance_name-slot_name")
-  const assignedMemberSlots = new Map<string, string>(
-    slots.flatMap((s) => s.assignments.map((a) => [
-      a.member_id,
-      `${s.slot.instance_name}-${s.slot.slot_name}`
-    ] as [string, string]))
+  const assignedMemberSlots = useMemo(
+    () => new Map<string, string>(
+      slots.flatMap((s) => s.assignments.map((a) => [
+        a.member_id,
+        `${s.slot.instance_name}-${s.slot.slot_name}`
+      ] as [string, string]))
+    ),
+    [slots]
   );
 
   // Get available members (attending but not yet assigned)
-  const availableMembers = attendingMembers.filter((m) => !assignedMemberSlots.has(m.memberId));
+  const availableMembers = useMemo(
+    () => attendingMembers.filter((m) => !assignedMemberSlots.has(m.memberId)),
+    [attendingMembers, assignedMemberSlots]
+  );
 
   if (loading) {
     return (
