@@ -14,15 +14,16 @@ import (
 )
 
 type ScheduleHandler struct {
-	createScheduleUsecase     *schedule.CreateScheduleUsecase
-	submitResponseUsecase     *schedule.SubmitResponseUsecase
-	decideScheduleUsecase     *schedule.DecideScheduleUsecase
-	closeScheduleUsecase      *schedule.CloseScheduleUsecase
-	deleteScheduleUsecase     *schedule.DeleteScheduleUsecase
-	getScheduleUsecase        *schedule.GetScheduleUsecase
-	getScheduleByTokenUsecase *schedule.GetScheduleByTokenUsecase
-	getResponsesUsecase       *schedule.GetResponsesUsecase
-	listSchedulesUsecase      *schedule.ListSchedulesUsecase
+	createScheduleUsecase          *schedule.CreateScheduleUsecase
+	submitResponseUsecase          *schedule.SubmitResponseUsecase
+	decideScheduleUsecase          *schedule.DecideScheduleUsecase
+	closeScheduleUsecase           *schedule.CloseScheduleUsecase
+	deleteScheduleUsecase          *schedule.DeleteScheduleUsecase
+	getScheduleUsecase             *schedule.GetScheduleUsecase
+	getScheduleByTokenUsecase      *schedule.GetScheduleByTokenUsecase
+	getResponsesUsecase            *schedule.GetResponsesUsecase
+	listSchedulesUsecase           *schedule.ListSchedulesUsecase
+	getAllPublicResponsesUsecase   *schedule.GetAllPublicResponsesUsecase
 }
 
 // NewScheduleHandler creates a new ScheduleHandler with injected usecases
@@ -36,17 +37,19 @@ func NewScheduleHandler(
 	getScheduleByTokenUC *schedule.GetScheduleByTokenUsecase,
 	getResponsesUC *schedule.GetResponsesUsecase,
 	listSchedulesUC *schedule.ListSchedulesUsecase,
+	getAllPublicResponsesUC *schedule.GetAllPublicResponsesUsecase,
 ) *ScheduleHandler {
 	return &ScheduleHandler{
-		createScheduleUsecase:     createScheduleUC,
-		submitResponseUsecase:     submitResponseUC,
-		decideScheduleUsecase:     decideScheduleUC,
-		closeScheduleUsecase:      closeScheduleUC,
-		deleteScheduleUsecase:     deleteScheduleUC,
-		getScheduleUsecase:        getScheduleUC,
-		getScheduleByTokenUsecase: getScheduleByTokenUC,
-		getResponsesUsecase:       getResponsesUC,
-		listSchedulesUsecase:      listSchedulesUC,
+		createScheduleUsecase:          createScheduleUC,
+		submitResponseUsecase:          submitResponseUC,
+		decideScheduleUsecase:          decideScheduleUC,
+		closeScheduleUsecase:           closeScheduleUC,
+		deleteScheduleUsecase:          deleteScheduleUC,
+		getScheduleUsecase:             getScheduleUC,
+		getScheduleByTokenUsecase:      getScheduleByTokenUC,
+		getResponsesUsecase:            getResponsesUC,
+		listSchedulesUsecase:           listSchedulesUC,
+		getAllPublicResponsesUsecase:   getAllPublicResponsesUC,
 	}
 }
 
@@ -691,4 +694,67 @@ func (h *ScheduleHandler) SubmitResponse(w http.ResponseWriter, r *http.Request)
 	}
 
 	RespondJSON(w, http.StatusOK, resp)
+}
+
+// PublicScheduleResponseDTO represents a single response for the public table view
+type PublicScheduleResponseDTO struct {
+	MemberID     string `json:"member_id"`
+	MemberName   string `json:"member_name"`
+	CandidateID  string `json:"candidate_id"`
+	Availability string `json:"availability"`
+	Note         string `json:"note"`
+}
+
+// GetAllPublicResponses handles GET /api/v1/public/schedules/:token/responses
+// Public API（認証不要）- 全回答一覧を取得（調整さん形式の表示用）
+func (h *ScheduleHandler) GetAllPublicResponses(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// URLパラメータからtokenを取得
+	token := chi.URLParam(r, "token")
+	if token == "" {
+		RespondNotFound(w, "日程調整が見つかりません")
+		return
+	}
+
+	// Usecase呼び出し
+	output, err := h.getAllPublicResponsesUsecase.Execute(ctx, schedule.GetAllPublicResponsesInput{
+		PublicToken: token,
+	})
+	if err != nil {
+		// エラー種別に応じて適切なレスポンスを返す
+		var domainErr *common.DomainError
+		if errors.As(err, &domainErr) {
+			switch domainErr.Code() {
+			case common.ErrInvalidInput:
+				RespondBadRequest(w, domainErr.Message)
+				return
+			case common.ErrNotFound:
+				RespondNotFound(w, "日程調整が見つかりません")
+				return
+			}
+		}
+		// その他のエラーは内部エラーとして処理
+		RespondInternalError(w)
+		return
+	}
+
+	// DTOの変換
+	responses := make([]PublicScheduleResponseDTO, 0, len(output.Responses))
+	for _, resp := range output.Responses {
+		responses = append(responses, PublicScheduleResponseDTO{
+			MemberID:     resp.MemberID,
+			MemberName:   resp.MemberName,
+			CandidateID:  resp.CandidateID,
+			Availability: resp.Availability,
+			Note:         resp.Note,
+		})
+	}
+
+	// レスポンス
+	RespondJSON(w, http.StatusOK, SuccessResponse{
+		Data: map[string]interface{}{
+			"responses": responses,
+		},
+	})
 }

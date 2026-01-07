@@ -14,15 +14,16 @@ import (
 
 // AttendanceHandler handles attendance-related HTTP requests
 type AttendanceHandler struct {
-	createCollectionUsecase      *attendance.CreateCollectionUsecase
-	submitResponseUsecase        *attendance.SubmitResponseUsecase
-	closeCollectionUsecase       *attendance.CloseCollectionUsecase
-	deleteCollectionUsecase      *attendance.DeleteCollectionUsecase
-	getCollectionUsecase         *attendance.GetCollectionUsecase
-	getCollectionByTokenUsecase  *attendance.GetCollectionByTokenUsecase
-	getResponsesUsecase          *attendance.GetResponsesUsecase
-	listCollectionsUsecase       *attendance.ListCollectionsUsecase
-	getMemberResponsesUsecase    *attendance.GetMemberResponsesUsecase
+	createCollectionUsecase         *attendance.CreateCollectionUsecase
+	submitResponseUsecase           *attendance.SubmitResponseUsecase
+	closeCollectionUsecase          *attendance.CloseCollectionUsecase
+	deleteCollectionUsecase         *attendance.DeleteCollectionUsecase
+	getCollectionUsecase            *attendance.GetCollectionUsecase
+	getCollectionByTokenUsecase     *attendance.GetCollectionByTokenUsecase
+	getResponsesUsecase             *attendance.GetResponsesUsecase
+	listCollectionsUsecase          *attendance.ListCollectionsUsecase
+	getMemberResponsesUsecase       *attendance.GetMemberResponsesUsecase
+	getAllPublicResponsesUsecase    *attendance.GetAllPublicResponsesUsecase
 }
 
 // NewAttendanceHandler creates a new AttendanceHandler with injected usecases
@@ -36,17 +37,19 @@ func NewAttendanceHandler(
 	getResponsesUC *attendance.GetResponsesUsecase,
 	listCollectionsUC *attendance.ListCollectionsUsecase,
 	getMemberResponsesUC *attendance.GetMemberResponsesUsecase,
+	getAllPublicResponsesUC *attendance.GetAllPublicResponsesUsecase,
 ) *AttendanceHandler {
 	return &AttendanceHandler{
-		createCollectionUsecase:      createCollectionUC,
-		submitResponseUsecase:        submitResponseUC,
-		closeCollectionUsecase:       closeCollectionUC,
-		deleteCollectionUsecase:      deleteCollectionUC,
-		getCollectionUsecase:         getCollectionUC,
-		getCollectionByTokenUsecase:  getCollectionByTokenUC,
-		getResponsesUsecase:          getResponsesUC,
-		listCollectionsUsecase:       listCollectionsUC,
-		getMemberResponsesUsecase:    getMemberResponsesUC,
+		createCollectionUsecase:         createCollectionUC,
+		submitResponseUsecase:           submitResponseUC,
+		closeCollectionUsecase:          closeCollectionUC,
+		deleteCollectionUsecase:         deleteCollectionUC,
+		getCollectionUsecase:            getCollectionUC,
+		getCollectionByTokenUsecase:     getCollectionByTokenUC,
+		getResponsesUsecase:             getResponsesUC,
+		listCollectionsUsecase:          listCollectionsUC,
+		getMemberResponsesUsecase:       getMemberResponsesUC,
+		getAllPublicResponsesUsecase:    getAllPublicResponsesUC,
 	}
 }
 
@@ -641,6 +644,73 @@ func (h *AttendanceHandler) GetMemberResponses(w http.ResponseWriter, r *http.Re
 	RespondJSON(w, http.StatusOK, SuccessResponse{
 		Data: map[string]interface{}{
 			"member_id": output.MemberID,
+			"responses": responses,
+		},
+	})
+}
+
+// PublicResponseDTO represents a single response for the public table view
+type PublicResponseDTO struct {
+	MemberID      string  `json:"member_id"`
+	MemberName    string  `json:"member_name"`
+	TargetDateID  string  `json:"target_date_id"`
+	Response      string  `json:"response"`
+	Note          string  `json:"note"`
+	AvailableFrom *string `json:"available_from,omitempty"`
+	AvailableTo   *string `json:"available_to,omitempty"`
+}
+
+// GetAllPublicResponses handles GET /api/v1/public/attendance/:token/responses
+// Public API（認証不要）- 全回答一覧を取得（調整さん形式の表示用）
+func (h *AttendanceHandler) GetAllPublicResponses(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// URLパラメータからtokenを取得
+	token := chi.URLParam(r, "token")
+	if token == "" {
+		RespondNotFound(w, "出欠確認が見つかりません")
+		return
+	}
+
+	// Usecase呼び出し
+	output, err := h.getAllPublicResponsesUsecase.Execute(ctx, attendance.GetAllPublicResponsesInput{
+		PublicToken: token,
+	})
+	if err != nil {
+		// エラー種別に応じて適切なレスポンスを返す
+		var domainErr *common.DomainError
+		if errors.As(err, &domainErr) {
+			switch domainErr.Code() {
+			case common.ErrInvalidInput:
+				RespondBadRequest(w, domainErr.Message)
+				return
+			case common.ErrNotFound:
+				RespondNotFound(w, "出欠確認が見つかりません")
+				return
+			}
+		}
+		// その他のエラーは内部エラーとして処理
+		RespondInternalError(w)
+		return
+	}
+
+	// DTOの変換
+	responses := make([]PublicResponseDTO, 0, len(output.Responses))
+	for _, resp := range output.Responses {
+		responses = append(responses, PublicResponseDTO{
+			MemberID:      resp.MemberID,
+			MemberName:    resp.MemberName,
+			TargetDateID:  resp.TargetDateID,
+			Response:      resp.Response,
+			Note:          resp.Note,
+			AvailableFrom: resp.AvailableFrom,
+			AvailableTo:   resp.AvailableTo,
+		})
+	}
+
+	// レスポンス
+	RespondJSON(w, http.StatusOK, SuccessResponse{
+		Data: map[string]interface{}{
 			"responses": responses,
 		},
 	})
