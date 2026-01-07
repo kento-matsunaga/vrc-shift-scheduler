@@ -258,7 +258,7 @@ func (r *EventBusinessDayRepository) FindRecentByTenantID(ctx context.Context, t
 	return r.queryBusinessDays(ctx, query, tenantID.String(), limit)
 }
 
-// FindRecentByEventID finds recent N business days for a specific event (past only, oldest first)
+// FindRecentByEventID finds N business days for a specific event (including future dates, oldest first)
 func (r *EventBusinessDayRepository) FindRecentByEventID(ctx context.Context, tenantID common.TenantID, eventID common.EventID, limit int) ([]*event.EventBusinessDay, error) {
 	query := `
 		SELECT
@@ -269,7 +269,6 @@ func (r *EventBusinessDayRepository) FindRecentByEventID(ctx context.Context, te
 		WHERE tenant_id = $1
 		  AND event_id = $2
 		  AND deleted_at IS NULL
-		  AND target_date <= CURRENT_DATE
 		ORDER BY target_date ASC
 		LIMIT $3
 	`
