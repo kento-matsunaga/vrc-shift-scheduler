@@ -68,8 +68,8 @@ func (u *CreateCollectionUsecase) Execute(ctx context.Context, input CreateColle
 	// 5. Save target dates if provided
 	if len(input.TargetDates) > 0 {
 		var targetDates []*attendance.TargetDate
-		for i, date := range input.TargetDates {
-			td, err := attendance.NewTargetDate(now, collection.CollectionID(), date, i)
+		for i, dateInput := range input.TargetDates {
+			td, err := attendance.NewTargetDate(now, collection.CollectionID(), dateInput.TargetDate, dateInput.StartTime, dateInput.EndTime, i)
 			if err != nil {
 				return nil, err
 			}

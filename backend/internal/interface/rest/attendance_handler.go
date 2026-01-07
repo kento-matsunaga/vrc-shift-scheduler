@@ -46,23 +46,32 @@ func NewAttendanceHandler(
 	}
 }
 
+// TargetDateRequest represents a target date in API requests
+type TargetDateRequest struct {
+	TargetDate string  `json:"target_date"` // ISO 8601 format
+	StartTime  *string `json:"start_time"`  // HH:MM format (optional)
+	EndTime    *string `json:"end_time"`    // HH:MM format (optional)
+}
+
 // CreateCollectionRequest represents the request body for creating an attendance collection
 type CreateCollectionRequest struct {
-	Title       string     `json:"title"`
-	Description string     `json:"description"`
-	TargetType  string     `json:"target_type"`  // "event" or "business_day"
-	TargetID    string     `json:"target_id"`    // optional
-	TargetDates []string   `json:"target_dates"` // ISO 8601 format array
-	Deadline    *time.Time `json:"deadline"`     // optional
-	GroupIDs    []string   `json:"group_ids"`    // optional: target group IDs
-	RoleIDs     []string   `json:"role_ids"`     // optional: target role IDs
+	Title       string              `json:"title"`
+	Description string              `json:"description"`
+	TargetType  string              `json:"target_type"` // "event" or "business_day"
+	TargetID    string              `json:"target_id"`   // optional
+	TargetDates []TargetDateRequest `json:"target_dates"`
+	Deadline    *time.Time          `json:"deadline"`  // optional
+	GroupIDs    []string            `json:"group_ids"` // optional: target group IDs
+	RoleIDs     []string            `json:"role_ids"`  // optional: target role IDs
 }
 
 // TargetDateResponse represents a target date in API responses
 type TargetDateResponse struct {
-	TargetDateID string `json:"target_date_id"`
-	TargetDate   string `json:"target_date"` // ISO 8601 format
-	DisplayOrder int    `json:"display_order"`
+	TargetDateID string  `json:"target_date_id"`
+	TargetDate   string  `json:"target_date"`          // ISO 8601 format
+	StartTime    *string `json:"start_time,omitempty"` // HH:MM format (optional)
+	EndTime      *string `json:"end_time,omitempty"`   // HH:MM format (optional)
+	DisplayOrder int     `json:"display_order"`
 }
 
 // CollectionResponse represents an attendance collection in API responses
@@ -153,15 +162,19 @@ func (h *AttendanceHandler) CreateCollection(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// Parse target dates from strings to time.Time
-	var targetDates []time.Time
-	for _, dateStr := range req.TargetDates {
-		parsedDate, err := time.Parse(time.RFC3339, dateStr)
+	// Parse target dates from request
+	var targetDates []attendance.TargetDateInput
+	for _, tdReq := range req.TargetDates {
+		parsedDate, err := time.Parse(time.RFC3339, tdReq.TargetDate)
 		if err != nil {
-			RespondBadRequest(w, "対象日の形式が正しくありません: "+dateStr)
+			RespondBadRequest(w, "対象日の形式が正しくありません: "+tdReq.TargetDate)
 			return
 		}
-		targetDates = append(targetDates, parsedDate)
+		targetDates = append(targetDates, attendance.TargetDateInput{
+			TargetDate: parsedDate,
+			StartTime:  tdReq.StartTime,
+			EndTime:    tdReq.EndTime,
+		})
 	}
 
 	// Usecase呼び出し
@@ -233,6 +246,8 @@ func (h *AttendanceHandler) GetCollection(w http.ResponseWriter, r *http.Request
 		targetDateResponses = append(targetDateResponses, TargetDateResponse{
 			TargetDateID: td.TargetDateID,
 			TargetDate:   td.TargetDate.Format(time.RFC3339),
+			StartTime:    td.StartTime,
+			EndTime:      td.EndTime,
 			DisplayOrder: td.DisplayOrder,
 		})
 	}
@@ -426,6 +441,8 @@ func (h *AttendanceHandler) GetCollectionByToken(w http.ResponseWriter, r *http.
 		targetDateResponses = append(targetDateResponses, TargetDateResponse{
 			TargetDateID: td.TargetDateID,
 			TargetDate:   td.TargetDate.Format(time.RFC3339),
+			StartTime:    td.StartTime,
+			EndTime:      td.EndTime,
 			DisplayOrder: td.DisplayOrder,
 		})
 	}

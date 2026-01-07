@@ -75,6 +75,8 @@ async function publicRequest<T>(
 export interface TargetDate {
   target_date_id: string;
   target_date: string; // ISO 8601 format
+  start_time?: string; // HH:MM format (optional)
+  end_time?: string;   // HH:MM format (optional)
   display_order: number;
 }
 
