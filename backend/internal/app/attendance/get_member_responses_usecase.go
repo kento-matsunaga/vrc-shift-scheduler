@@ -39,7 +39,8 @@ func (u *GetMemberResponsesUsecase) Execute(ctx context.Context, input GetMember
 	}
 
 	// Get responses for this member in this collection
-	responses, err := u.repo.FindResponsesByCollectionIDAndMemberID(ctx, collection.CollectionID(), memberID)
+	// tenant_id でスコープしてクロステナントアクセスを防止
+	responses, err := u.repo.FindResponsesByCollectionIDAndMemberID(ctx, collection.TenantID(), collection.CollectionID(), memberID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find member responses: %w", err)
 	}

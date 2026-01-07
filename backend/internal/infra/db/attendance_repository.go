@@ -516,19 +516,20 @@ func (r *AttendanceRepository) FindResponsesByMemberID(ctx context.Context, tena
 }
 
 // FindResponsesByCollectionIDAndMemberID は collection 内の特定 member の回答一覧を取得する
-func (r *AttendanceRepository) FindResponsesByCollectionIDAndMemberID(ctx context.Context, collectionID common.CollectionID, memberID common.MemberID) ([]*attendance.AttendanceResponse, error) {
+// tenant_id でスコープすることでクロステナントアクセスを防止
+func (r *AttendanceRepository) FindResponsesByCollectionIDAndMemberID(ctx context.Context, tenantID common.TenantID, collectionID common.CollectionID, memberID common.MemberID) ([]*attendance.AttendanceResponse, error) {
 	query := `
 		SELECT
 			response_id, tenant_id, collection_id, member_id, target_date_id, response, note,
 			to_char(available_from, 'HH24:MI'), to_char(available_to, 'HH24:MI'), responded_at, created_at, updated_at
 		FROM attendance_responses
-		WHERE collection_id = $1 AND member_id = $2
+		WHERE tenant_id = $1 AND collection_id = $2 AND member_id = $3
 		ORDER BY responded_at DESC
 	`
 
 	executor := GetTx(ctx, r.pool)
 
-	rows, err := executor.Query(ctx, query, collectionID.String(), memberID.String())
+	rows, err := executor.Query(ctx, query, tenantID.String(), collectionID.String(), memberID.String())
 	if err != nil {
 		return nil, fmt.Errorf("failed to find responses by collection and member: %w", err)
 	}

@@ -8,6 +8,7 @@ import (
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/app/attendance"
 	domainAttendance "github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/attendance"
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -607,7 +608,20 @@ func (h *AttendanceHandler) GetMemberResponses(w http.ResponseWriter, r *http.Re
 		MemberID:    memberID,
 	})
 	if err != nil {
-		RespondNotFound(w, "出欠確認が見つかりません")
+		// エラー種別に応じて適切なレスポンスを返す
+		var domainErr *common.DomainError
+		if errors.As(err, &domainErr) {
+			switch domainErr.Code() {
+			case common.ErrInvalidInput:
+				RespondBadRequest(w, domainErr.Message)
+				return
+			case common.ErrNotFound:
+				RespondNotFound(w, "出欠確認が見つかりません")
+				return
+			}
+		}
+		// その他のエラーは内部エラーとして処理
+		RespondInternalError(w)
 		return
 	}
 
