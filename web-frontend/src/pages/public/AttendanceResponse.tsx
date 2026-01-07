@@ -55,7 +55,6 @@ export default function AttendanceResponse() {
 
         // 出欠確認情報を取得
         const collectionData = await getAttendanceByToken(token);
-        console.log('Attendance collection data:', collectionData);
         setCollection(collectionData);
 
         // メンバー一覧を取得（グループとロールでフィルタリング）
