@@ -58,6 +58,23 @@ export interface BusinessDayListResponse {
   count: number;
 }
 
+// Instance 関連
+export interface Instance {
+  instance_id: string;
+  tenant_id: string;
+  event_id: string;
+  name: string;
+  display_order: number;
+  max_members: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface InstanceListResponse {
+  instances: Instance[];
+  count: number;
+}
+
 // ShiftSlot 関連
 export interface ShiftSlot {
   slot_id: string;
@@ -65,6 +82,7 @@ export interface ShiftSlot {
   business_day_id: string;
   slot_name: string;
   instance_name: string;
+  instance_id?: string; // インスタンスへの参照（FK）
   start_time: string; // HH:MM:SS
   end_time: string; // HH:MM:SS
   required_count: number;
