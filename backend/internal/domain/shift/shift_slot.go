@@ -41,14 +41,16 @@ func ParseSlotID(s string) (SlotID, error) {
 
 // ShiftSlot represents a shift slot entity (独立したエンティティ)
 // EventBusinessDay に属するが、EventBusinessDay集約には含まれない
+// Instance に紐づく（instanceID で参照、移行期間中は instanceName も保持）
 type ShiftSlot struct {
 	slotID        SlotID
 	tenantID      common.TenantID
 	businessDayID event.BusinessDayID
+	instanceID    *InstanceID // インスタンスへの参照（FK）- nullable for migration
 	slotName      string
-	instanceName  string
-	startTime     time.Time // TIME型として扱う（HH:MM:SS）
-	endTime       time.Time // TIME型として扱う（HH:MM:SS）
+	instanceName  string      // Deprecated: 移行完了後に削除予定。instanceID を使用してください。
+	startTime     time.Time   // TIME型として扱う（HH:MM:SS）
+	endTime       time.Time   // TIME型として扱う（HH:MM:SS）
 	requiredCount int
 	priority      int
 	createdAt     time.Time
@@ -94,6 +96,7 @@ func ReconstructShiftSlot(
 	slotID SlotID,
 	tenantID common.TenantID,
 	businessDayID event.BusinessDayID,
+	instanceID *InstanceID,
 	slotName string,
 	instanceName string,
 	startTime time.Time,
@@ -108,6 +111,7 @@ func ReconstructShiftSlot(
 		slotID:        slotID,
 		tenantID:      tenantID,
 		businessDayID: businessDayID,
+		instanceID:    instanceID,
 		slotName:      slotName,
 		instanceName:  instanceName,
 		startTime:     truncateToTime(startTime),
@@ -182,6 +186,13 @@ func (s *ShiftSlot) SlotName() string {
 	return s.slotName
 }
 
+// InstanceID returns the instance ID if set
+func (s *ShiftSlot) InstanceID() *InstanceID {
+	return s.instanceID
+}
+
+// InstanceName returns the instance name (deprecated, use InstanceID instead)
+// Deprecated: 移行完了後に削除予定。InstanceID() を使用してください。
 func (s *ShiftSlot) InstanceName() string {
 	return s.instanceName
 }
@@ -246,6 +257,12 @@ func (s *ShiftSlot) UpdateRequiredCount(requiredCount int) error {
 // UpdatePriority updates the priority
 func (s *ShiftSlot) UpdatePriority(priority int) {
 	s.priority = priority
+	s.updatedAt = time.Now()
+}
+
+// SetInstanceID sets the instance ID (for data migration)
+func (s *ShiftSlot) SetInstanceID(instanceID InstanceID) {
+	s.instanceID = &instanceID
 	s.updatedAt = time.Now()
 }
 
