@@ -6,10 +6,10 @@
 -- shift_slotsをevent_business_daysと結合して、event_idごとにユニークなinstance_nameを取得
 INSERT INTO instances (instance_id, tenant_id, event_id, name, display_order, max_members, created_at, updated_at, deleted_at)
 SELECT
-    -- ULIDの代わりにUUIDを使用（PostgreSQL標準機能）
     -- ULIDフォーマット: 26文字の英数字（Crockford's Base32）
-    -- ここではgen_random_uuid()でUUIDを生成し、適切な形式に変換
-    UPPER(REPLACE(gen_random_uuid()::text, '-', '')) AS instance_id,
+    -- PostgreSQLのgen_random_uuid()でUUIDを生成し、26文字に切り詰め
+    -- 移行用のIDとしては十分な一意性を持つ
+    SUBSTRING(UPPER(REPLACE(gen_random_uuid()::text, '-', '')), 1, 26) AS instance_id,
     ss.tenant_id,
     ebd.event_id,
     ss.instance_name AS name,
@@ -33,11 +33,11 @@ ON CONFLICT DO NOTHING;
 UPDATE shift_slots ss
 SET instance_id = i.instance_id,
     updated_at = NOW()
-FROM event_business_days ebd
-INNER JOIN instances i ON ebd.event_id = i.event_id
-                      AND ebd.tenant_id = i.tenant_id
-                      AND ss.instance_name = i.name
+FROM event_business_days ebd, instances i
 WHERE ss.business_day_id = ebd.business_day_id
+  AND ebd.event_id = i.event_id
+  AND ebd.tenant_id = i.tenant_id
+  AND ss.instance_name = i.name
   AND ss.instance_name IS NOT NULL
   AND ss.instance_name != ''
   AND ss.deleted_at IS NULL
