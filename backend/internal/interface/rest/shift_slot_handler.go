@@ -43,19 +43,20 @@ type CreateShiftSlotRequest struct {
 
 // ShiftSlotResponse represents a shift slot in API responses
 type ShiftSlotResponse struct {
-	SlotID        string `json:"slot_id"`
-	TenantID      string `json:"tenant_id"`
-	BusinessDayID string `json:"business_day_id"`
-	SlotName      string `json:"slot_name"`
-	InstanceName  string `json:"instance_name"`
-	StartTime     string `json:"start_time"`
-	EndTime       string `json:"end_time"`
-	RequiredCount int    `json:"required_count"`
-	AssignedCount int    `json:"assigned_count"` // 実際の割り当て数
-	Priority      int    `json:"priority"`
-	IsOvernight   bool   `json:"is_overnight"`
-	CreatedAt     string `json:"created_at"`
-	UpdatedAt     string `json:"updated_at"`
+	SlotID        string  `json:"slot_id"`
+	TenantID      string  `json:"tenant_id"`
+	BusinessDayID string  `json:"business_day_id"`
+	SlotName      string  `json:"slot_name"`
+	InstanceName  string  `json:"instance_name"`
+	InstanceID    *string `json:"instance_id,omitempty"` // インスタンスへの参照（FK）
+	StartTime     string  `json:"start_time"`
+	EndTime       string  `json:"end_time"`
+	RequiredCount int     `json:"required_count"`
+	AssignedCount int     `json:"assigned_count"` // 実際の割り当て数
+	Priority      int     `json:"priority"`
+	IsOvernight   bool    `json:"is_overnight"`
+	CreatedAt     string  `json:"created_at"`
+	UpdatedAt     string  `json:"updated_at"`
 }
 
 // CreateShiftSlot handles POST /api/v1/business-days/:business_day_id/shift-slots
@@ -157,6 +158,10 @@ func (h *ShiftSlotHandler) CreateShiftSlot(w http.ResponseWriter, r *http.Reques
 		CreatedAt:     newSlot.CreatedAt().Format("2006-01-02T15:04:05Z07:00"),
 		UpdatedAt:     newSlot.UpdatedAt().Format("2006-01-02T15:04:05Z07:00"),
 	}
+	if newSlot.InstanceID() != nil {
+		instanceIDStr := newSlot.InstanceID().String()
+		resp.InstanceID = &instanceIDStr
+	}
 
 	writeSuccess(w, http.StatusCreated, resp)
 }
@@ -200,7 +205,7 @@ func (h *ShiftSlotHandler) GetShiftSlots(w http.ResponseWriter, r *http.Request)
 	// レスポンス構築
 	slotResponses := make([]ShiftSlotResponse, 0, len(slots))
 	for _, s := range slots {
-		slotResponses = append(slotResponses, ShiftSlotResponse{
+		resp := ShiftSlotResponse{
 			SlotID:        s.Slot.SlotID().String(),
 			TenantID:      s.Slot.TenantID().String(),
 			BusinessDayID: s.Slot.BusinessDayID().String(),
@@ -214,7 +219,12 @@ func (h *ShiftSlotHandler) GetShiftSlots(w http.ResponseWriter, r *http.Request)
 			IsOvernight:   s.Slot.IsOvernight(),
 			CreatedAt:     s.Slot.CreatedAt().Format("2006-01-02T15:04:05Z07:00"),
 			UpdatedAt:     s.Slot.UpdatedAt().Format("2006-01-02T15:04:05Z07:00"),
-		})
+		}
+		if s.Slot.InstanceID() != nil {
+			instanceIDStr := s.Slot.InstanceID().String()
+			resp.InstanceID = &instanceIDStr
+		}
+		slotResponses = append(slotResponses, resp)
 	}
 
 	writeSuccess(w, http.StatusOK, map[string]interface{}{
@@ -274,6 +284,10 @@ func (h *ShiftSlotHandler) GetShiftSlotDetail(w http.ResponseWriter, r *http.Req
 		IsOvernight:   result.Slot.IsOvernight(),
 		CreatedAt:     result.Slot.CreatedAt().Format("2006-01-02T15:04:05Z07:00"),
 		UpdatedAt:     result.Slot.UpdatedAt().Format("2006-01-02T15:04:05Z07:00"),
+	}
+	if result.Slot.InstanceID() != nil {
+		instanceIDStr := result.Slot.InstanceID().String()
+		resp.InstanceID = &instanceIDStr
 	}
 
 	writeSuccess(w, http.StatusOK, resp)

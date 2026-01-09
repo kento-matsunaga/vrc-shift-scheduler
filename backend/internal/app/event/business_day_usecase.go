@@ -26,6 +26,7 @@ type CreateBusinessDayUsecase struct {
 	eventRepo       event.EventRepository
 	templateRepo    shift.ShiftSlotTemplateRepository
 	slotRepo        shift.ShiftSlotRepository
+	instanceRepo    shift.InstanceRepository
 }
 
 // NewCreateBusinessDayUsecase creates a new CreateBusinessDayUsecase
@@ -34,12 +35,14 @@ func NewCreateBusinessDayUsecase(
 	eventRepo event.EventRepository,
 	templateRepo shift.ShiftSlotTemplateRepository,
 	slotRepo shift.ShiftSlotRepository,
+	instanceRepo shift.InstanceRepository,
 ) *CreateBusinessDayUsecase {
 	return &CreateBusinessDayUsecase{
 		businessDayRepo: businessDayRepo,
 		eventRepo:       eventRepo,
 		templateRepo:    templateRepo,
 		slotRepo:        slotRepo,
+		instanceRepo:    instanceRepo,
 	}
 }
 
@@ -97,8 +100,49 @@ func (uc *CreateBusinessDayUsecase) Execute(ctx context.Context, input CreateBus
 
 // createShiftSlotsFromTemplate creates shift slots from a template for a business day
 func (uc *CreateBusinessDayUsecase) createShiftSlotsFromTemplate(ctx context.Context, businessDay *event.EventBusinessDay, template *shift.ShiftSlotTemplate) error {
+	// インスタンス名から Instance エンティティへのマッピングをキャッシュ
+	instanceCache := make(map[string]*shift.Instance)
+	displayOrderCounter := 0
+
 	// テンプレートの各アイテムからシフト枠を作成
 	for _, item := range template.Items() {
+		// インスタンス名が指定されている場合、Instance エンティティを取得または作成
+		var instance *shift.Instance
+		instanceName := item.InstanceName()
+		if instanceName != "" {
+			if cached, ok := instanceCache[instanceName]; ok {
+				instance = cached
+			} else {
+				// 既存のインスタンスを検索
+				existing, err := uc.instanceRepo.FindByEventIDAndName(ctx, businessDay.TenantID(), template.EventID(), instanceName)
+				if err != nil {
+					return err
+				}
+				if existing != nil {
+					instance = existing
+				} else {
+					// 新規作成
+					newInstance, err := shift.NewInstance(
+						time.Now(),
+						businessDay.TenantID(),
+						template.EventID(),
+						instanceName,
+						displayOrderCounter,
+						nil,
+					)
+					if err != nil {
+						return err
+					}
+					if err := uc.instanceRepo.Save(ctx, newInstance); err != nil {
+						return err
+					}
+					instance = newInstance
+					displayOrderCounter++
+				}
+				instanceCache[instanceName] = instance
+			}
+		}
+
 		// テンプレートの時刻を営業日の日付と組み合わせてDateTimeを作成
 		startDateTime := time.Date(
 			businessDay.TargetDate().Year(),
@@ -136,6 +180,11 @@ func (uc *CreateBusinessDayUsecase) createShiftSlotsFromTemplate(ctx context.Con
 		)
 		if err != nil {
 			return err
+		}
+
+		// Instance が存在する場合、instanceID を設定
+		if instance != nil {
+			shiftSlot.SetInstanceID(instance.InstanceID())
 		}
 
 		// シフト枠を保存
@@ -227,6 +276,7 @@ type ApplyTemplateUsecase struct {
 	businessDayRepo event.EventBusinessDayRepository
 	templateRepo    shift.ShiftSlotTemplateRepository
 	slotRepo        shift.ShiftSlotRepository
+	instanceRepo    shift.InstanceRepository
 }
 
 // NewApplyTemplateUsecase creates a new ApplyTemplateUsecase
@@ -234,11 +284,13 @@ func NewApplyTemplateUsecase(
 	businessDayRepo event.EventBusinessDayRepository,
 	templateRepo shift.ShiftSlotTemplateRepository,
 	slotRepo shift.ShiftSlotRepository,
+	instanceRepo shift.InstanceRepository,
 ) *ApplyTemplateUsecase {
 	return &ApplyTemplateUsecase{
 		businessDayRepo: businessDayRepo,
 		templateRepo:    templateRepo,
 		slotRepo:        slotRepo,
+		instanceRepo:    instanceRepo,
 	}
 }
 
@@ -266,8 +318,49 @@ func (uc *ApplyTemplateUsecase) Execute(ctx context.Context, input ApplyTemplate
 
 // createShiftSlotsFromTemplate creates shift slots from a template for a business day
 func (uc *ApplyTemplateUsecase) createShiftSlotsFromTemplate(ctx context.Context, businessDay *event.EventBusinessDay, template *shift.ShiftSlotTemplate) error {
+	// インスタンス名から Instance エンティティへのマッピングをキャッシュ
+	instanceCache := make(map[string]*shift.Instance)
+	displayOrderCounter := 0
+
 	// テンプレートの各アイテムからシフト枠を作成
 	for _, item := range template.Items() {
+		// インスタンス名が指定されている場合、Instance エンティティを取得または作成
+		var instance *shift.Instance
+		instanceName := item.InstanceName()
+		if instanceName != "" {
+			if cached, ok := instanceCache[instanceName]; ok {
+				instance = cached
+			} else {
+				// 既存のインスタンスを検索
+				existing, err := uc.instanceRepo.FindByEventIDAndName(ctx, businessDay.TenantID(), template.EventID(), instanceName)
+				if err != nil {
+					return err
+				}
+				if existing != nil {
+					instance = existing
+				} else {
+					// 新規作成
+					newInstance, err := shift.NewInstance(
+						time.Now(),
+						businessDay.TenantID(),
+						template.EventID(),
+						instanceName,
+						displayOrderCounter,
+						nil,
+					)
+					if err != nil {
+						return err
+					}
+					if err := uc.instanceRepo.Save(ctx, newInstance); err != nil {
+						return err
+					}
+					instance = newInstance
+					displayOrderCounter++
+				}
+				instanceCache[instanceName] = instance
+			}
+		}
+
 		// テンプレートの時刻を営業日の日付と組み合わせてDateTimeを作成
 		startDateTime := time.Date(
 			businessDay.TargetDate().Year(),
@@ -305,6 +398,11 @@ func (uc *ApplyTemplateUsecase) createShiftSlotsFromTemplate(ctx context.Context
 		)
 		if err != nil {
 			return err
+		}
+
+		// Instance が存在する場合、instanceID を設定
+		if instance != nil {
+			shiftSlot.SetInstanceID(instance.InstanceID())
 		}
 
 		// シフト枠を保存

@@ -88,6 +88,50 @@ func (m *MockShiftSlotRepository) Delete(ctx context.Context, tenantID common.Te
 	return nil
 }
 
+// MockInstanceRepository is a mock implementation of shift.InstanceRepository
+type MockInstanceRepository struct {
+	saveFunc              func(ctx context.Context, instance *shift.Instance) error
+	findByIDFunc          func(ctx context.Context, tenantID common.TenantID, instanceID shift.InstanceID) (*shift.Instance, error)
+	findByEventIDFunc     func(ctx context.Context, tenantID common.TenantID, eventID common.EventID) ([]*shift.Instance, error)
+	findByEventIDAndNameFunc func(ctx context.Context, tenantID common.TenantID, eventID common.EventID, name string) (*shift.Instance, error)
+	deleteFunc            func(ctx context.Context, tenantID common.TenantID, instanceID shift.InstanceID) error
+}
+
+func (m *MockInstanceRepository) Save(ctx context.Context, instance *shift.Instance) error {
+	if m.saveFunc != nil {
+		return m.saveFunc(ctx, instance)
+	}
+	return nil
+}
+
+func (m *MockInstanceRepository) FindByID(ctx context.Context, tenantID common.TenantID, instanceID shift.InstanceID) (*shift.Instance, error) {
+	if m.findByIDFunc != nil {
+		return m.findByIDFunc(ctx, tenantID, instanceID)
+	}
+	return nil, errors.New("not implemented")
+}
+
+func (m *MockInstanceRepository) FindByEventID(ctx context.Context, tenantID common.TenantID, eventID common.EventID) ([]*shift.Instance, error) {
+	if m.findByEventIDFunc != nil {
+		return m.findByEventIDFunc(ctx, tenantID, eventID)
+	}
+	return nil, errors.New("not implemented")
+}
+
+func (m *MockInstanceRepository) FindByEventIDAndName(ctx context.Context, tenantID common.TenantID, eventID common.EventID, name string) (*shift.Instance, error) {
+	if m.findByEventIDAndNameFunc != nil {
+		return m.findByEventIDAndNameFunc(ctx, tenantID, eventID, name)
+	}
+	return nil, nil // Not found is not an error
+}
+
+func (m *MockInstanceRepository) Delete(ctx context.Context, tenantID common.TenantID, instanceID shift.InstanceID) error {
+	if m.deleteFunc != nil {
+		return m.deleteFunc(ctx, tenantID, instanceID)
+	}
+	return nil
+}
+
 // =====================================================
 // Test Helper Functions
 // =====================================================
@@ -135,7 +179,8 @@ func TestCreateBusinessDayUsecase_Execute_Success(t *testing.T) {
 	templateRepo := &MockShiftSlotTemplateRepository{}
 	slotRepo := &MockShiftSlotRepository{}
 
-	usecase := appevent.NewCreateBusinessDayUsecase(bdRepo, eventRepo, templateRepo, slotRepo)
+	instanceRepo := &MockInstanceRepository{}
+	usecase := appevent.NewCreateBusinessDayUsecase(bdRepo, eventRepo, templateRepo, slotRepo, instanceRepo)
 
 	targetDate := now.AddDate(0, 0, 7)
 	startTime := time.Date(targetDate.Year(), targetDate.Month(), targetDate.Day(), 20, 0, 0, 0, time.Local)
@@ -185,7 +230,8 @@ func TestCreateBusinessDayUsecase_Execute_ErrorWhenEventNotFound(t *testing.T) {
 	templateRepo := &MockShiftSlotTemplateRepository{}
 	slotRepo := &MockShiftSlotRepository{}
 
-	usecase := appevent.NewCreateBusinessDayUsecase(bdRepo, eventRepo, templateRepo, slotRepo)
+	instanceRepo := &MockInstanceRepository{}
+	usecase := appevent.NewCreateBusinessDayUsecase(bdRepo, eventRepo, templateRepo, slotRepo, instanceRepo)
 
 	targetDate := now.AddDate(0, 0, 7)
 	startTime := time.Date(targetDate.Year(), targetDate.Month(), targetDate.Day(), 20, 0, 0, 0, time.Local)
@@ -230,7 +276,8 @@ func TestCreateBusinessDayUsecase_Execute_ErrorWhenDuplicate(t *testing.T) {
 	templateRepo := &MockShiftSlotTemplateRepository{}
 	slotRepo := &MockShiftSlotRepository{}
 
-	usecase := appevent.NewCreateBusinessDayUsecase(bdRepo, eventRepo, templateRepo, slotRepo)
+	instanceRepo := &MockInstanceRepository{}
+	usecase := appevent.NewCreateBusinessDayUsecase(bdRepo, eventRepo, templateRepo, slotRepo, instanceRepo)
 
 	targetDate := now.AddDate(0, 0, 7)
 	startTime := time.Date(targetDate.Year(), targetDate.Month(), targetDate.Day(), 20, 0, 0, 0, time.Local)
@@ -278,7 +325,8 @@ func TestCreateBusinessDayUsecase_Execute_ErrorWhenSaveFails(t *testing.T) {
 	templateRepo := &MockShiftSlotTemplateRepository{}
 	slotRepo := &MockShiftSlotRepository{}
 
-	usecase := appevent.NewCreateBusinessDayUsecase(bdRepo, eventRepo, templateRepo, slotRepo)
+	instanceRepo := &MockInstanceRepository{}
+	usecase := appevent.NewCreateBusinessDayUsecase(bdRepo, eventRepo, templateRepo, slotRepo, instanceRepo)
 
 	targetDate := now.AddDate(0, 0, 7)
 	startTime := time.Date(targetDate.Year(), targetDate.Month(), targetDate.Day(), 20, 0, 0, 0, time.Local)
@@ -536,7 +584,8 @@ func TestApplyTemplateUsecase_Execute_Success(t *testing.T) {
 		},
 	}
 
-	usecase := appevent.NewApplyTemplateUsecase(bdRepoWithFindByID, templateRepo, slotRepo)
+	instanceRepo := &MockInstanceRepository{}
+	usecase := appevent.NewApplyTemplateUsecase(bdRepoWithFindByID, templateRepo, slotRepo, instanceRepo)
 
 	input := appevent.ApplyTemplateInput{
 		TenantID:      tenantID,
@@ -571,7 +620,8 @@ func TestApplyTemplateUsecase_Execute_ErrorWhenBusinessDayNotFound(t *testing.T)
 	templateRepo := &MockShiftSlotTemplateRepository{}
 	slotRepo := &MockShiftSlotRepository{}
 
-	usecase := appevent.NewApplyTemplateUsecase(bdRepoWithFindByID, templateRepo, slotRepo)
+	instanceRepo := &MockInstanceRepository{}
+	usecase := appevent.NewApplyTemplateUsecase(bdRepoWithFindByID, templateRepo, slotRepo, instanceRepo)
 
 	input := appevent.ApplyTemplateInput{
 		TenantID:      tenantID,
@@ -608,7 +658,8 @@ func TestApplyTemplateUsecase_Execute_ErrorWhenTemplateNotFound(t *testing.T) {
 
 	slotRepo := &MockShiftSlotRepository{}
 
-	usecase := appevent.NewApplyTemplateUsecase(bdRepoWithFindByID, templateRepo, slotRepo)
+	instanceRepo := &MockInstanceRepository{}
+	usecase := appevent.NewApplyTemplateUsecase(bdRepoWithFindByID, templateRepo, slotRepo, instanceRepo)
 
 	input := appevent.ApplyTemplateInput{
 		TenantID:      tenantID,

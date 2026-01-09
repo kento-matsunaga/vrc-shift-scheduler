@@ -125,11 +125,21 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		// BusinessDayHandler dependencies
 		slotRepo := db.NewShiftSlotRepository(dbPool)
 		templateRepo := db.NewShiftSlotTemplateRepository(dbPool)
+		instanceRepo := db.NewInstanceRepository(dbPool)
 		businessDayHandler := NewBusinessDayHandler(
-			appevent.NewCreateBusinessDayUsecase(businessDayRepo, eventRepo, templateRepo, slotRepo),
+			appevent.NewCreateBusinessDayUsecase(businessDayRepo, eventRepo, templateRepo, slotRepo, instanceRepo),
 			appevent.NewListBusinessDaysUsecase(businessDayRepo),
 			appevent.NewGetBusinessDayUsecase(businessDayRepo),
-			appevent.NewApplyTemplateUsecase(businessDayRepo, templateRepo, slotRepo),
+			appevent.NewApplyTemplateUsecase(businessDayRepo, templateRepo, slotRepo, instanceRepo),
+		)
+
+		// InstanceHandler dependencies
+		instanceHandler := NewInstanceHandler(
+			appshift.NewCreateInstanceUsecase(instanceRepo, eventRepo),
+			appshift.NewListInstancesUsecase(instanceRepo),
+			appshift.NewGetInstanceUsecase(instanceRepo),
+			appshift.NewUpdateInstanceUsecase(instanceRepo),
+			appshift.NewDeleteInstanceUsecase(instanceRepo),
 		)
 
 		// RoleHandler dependencies (needed by MemberHandler too)
@@ -248,6 +258,17 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			r.Get("/{event_id}/templates/{template_id}", shiftTemplateHandler.GetTemplate)
 			r.With(permissionChecker.RequirePermission(tenant.PermissionEditEvent)).Put("/{event_id}/templates/{template_id}", shiftTemplateHandler.UpdateTemplate)
 			r.With(permissionChecker.RequirePermission(tenant.PermissionDeleteEvent)).Delete("/{event_id}/templates/{template_id}", shiftTemplateHandler.DeleteTemplate)
+
+			// Event配下のInstance
+			r.With(permissionChecker.RequirePermission(tenant.PermissionEditEvent)).Post("/{event_id}/instances", instanceHandler.CreateInstance)
+			r.Get("/{event_id}/instances", instanceHandler.GetInstances)
+		})
+
+		// Instance API
+		r.Route("/instances", func(r chi.Router) {
+			r.Get("/{instance_id}", instanceHandler.GetInstance)
+			r.With(permissionChecker.RequirePermission(tenant.PermissionEditEvent)).Put("/{instance_id}", instanceHandler.UpdateInstance)
+			r.With(permissionChecker.RequirePermission(tenant.PermissionEditEvent)).Delete("/{instance_id}", instanceHandler.DeleteInstance)
 		})
 
 		// BusinessDay API

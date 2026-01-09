@@ -2,15 +2,24 @@ import { useState, useEffect } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { getBusinessDayDetail, getShiftSlots, createShiftSlot, getAssignments, applyTemplateToBusinessDay } from '../lib/api';
 import { listTemplates } from '../lib/api/templateApi';
+import { listInstances } from '../lib/api/instanceApi';
 import type { BusinessDay, ShiftSlot, ShiftAssignment, Template } from '../types/api';
+import type { Instance } from '../lib/api/instanceApi';
 import { ApiClientError } from '../lib/apiClient';
+
+interface InstanceWithSlots {
+  instance: Instance | null; // null for slots without instance
+  slots: ShiftSlot[];
+}
 
 export default function ShiftSlotList() {
   const { businessDayId } = useParams<{ businessDayId: string }>();
   const navigate = useNavigate();
   const [businessDay, setBusinessDay] = useState<BusinessDay | null>(null);
   const [shiftSlots, setShiftSlots] = useState<ShiftSlot[]>([]);
+  const [instances, setInstances] = useState<Instance[]>([]);
   const [slotAssignments, setSlotAssignments] = useState<Record<string, ShiftAssignment[]>>({});
+  const [expandedInstances, setExpandedInstances] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -34,6 +43,16 @@ export default function ShiftSlotList() {
       setBusinessDay(businessDayData);
       setShiftSlots(shiftSlotsData.shift_slots || []);
 
+      // イベントのインスタンス一覧を取得
+      if (businessDayData.event_id) {
+        try {
+          const instancesData = await listInstances(businessDayData.event_id);
+          setInstances(instancesData || []);
+        } catch {
+          setInstances([]);
+        }
+      }
+
       // 各シフト枠の割り当てを取得
       const assignmentsMap: Record<string, ShiftAssignment[]> = {};
       await Promise.all(
@@ -41,12 +60,23 @@ export default function ShiftSlotList() {
           try {
             const assignmentsData = await getAssignments({ slot_id: slot.slot_id, assignment_status: 'confirmed' });
             assignmentsMap[slot.slot_id] = assignmentsData.assignments || [];
-          } catch (err) {
+          } catch {
             assignmentsMap[slot.slot_id] = [];
           }
         })
       );
       setSlotAssignments(assignmentsMap);
+
+      // 最初は全てのインスタンスを展開
+      const allInstanceIds = new Set<string>();
+      shiftSlotsData.shift_slots.forEach((slot) => {
+        if (slot.instance_id) {
+          allInstanceIds.add(slot.instance_id);
+        } else {
+          allInstanceIds.add('__no_instance__');
+        }
+      });
+      setExpandedInstances(allInstanceIds);
     } catch (err) {
       if (err instanceof ApiClientError) {
         setError(err.getUserMessage());
@@ -62,6 +92,48 @@ export default function ShiftSlotList() {
   const handleCreateSuccess = () => {
     setShowCreateModal(false);
     loadData();
+  };
+
+  const toggleInstance = (instanceId: string) => {
+    setExpandedInstances((prev) => {
+      const next = new Set(prev);
+      if (next.has(instanceId)) {
+        next.delete(instanceId);
+      } else {
+        next.add(instanceId);
+      }
+      return next;
+    });
+  };
+
+  // シフト枠をインスタンスごとにグループ化
+  const groupSlotsByInstance = (): InstanceWithSlots[] => {
+    const instanceMap = new Map<string, Instance>();
+    instances.forEach((inst) => instanceMap.set(inst.instance_id, inst));
+
+    const groups = new Map<string, InstanceWithSlots>();
+
+    shiftSlots.forEach((slot) => {
+      const instanceId = slot.instance_id || '__no_instance__';
+      if (!groups.has(instanceId)) {
+        groups.set(instanceId, {
+          instance: slot.instance_id ? instanceMap.get(slot.instance_id) || null : null,
+          slots: [],
+        });
+      }
+      groups.get(instanceId)!.slots.push(slot);
+    });
+
+    // インスタンスの表示順でソート
+    const result = Array.from(groups.values());
+    result.sort((a, b) => {
+      if (a.instance === null && b.instance === null) return 0;
+      if (a.instance === null) return 1;
+      if (b.instance === null) return -1;
+      return a.instance.display_order - b.instance.display_order;
+    });
+
+    return result;
   };
 
   if (loading) {
@@ -80,6 +152,8 @@ export default function ShiftSlotList() {
       </div>
     );
   }
+
+  const instanceGroups = groupSlotsByInstance();
 
   return (
     <div>
@@ -133,7 +207,7 @@ export default function ShiftSlotList() {
             テンプレートから追加
           </button>
           <button onClick={() => setShowCreateModal(true)} className="btn-primary">
-            ＋ シフト枠を追加
+            + シフト枠を追加
           </button>
         </div>
       </div>
@@ -153,53 +227,105 @@ export default function ShiftSlotList() {
         </div>
       ) : (
         <div className="space-y-4">
-          {shiftSlots.map((slot) => {
-            const assignments = slotAssignments[slot.slot_id] || [];
+          {instanceGroups.map((group) => {
+            const instanceId = group.instance?.instance_id || '__no_instance__';
+            const isExpanded = expandedInstances.has(instanceId);
+            const instanceName = group.instance?.name || '未分類';
+
+            // インスタンス内の統計
+            const totalRequired = group.slots.reduce((sum, slot) => sum + slot.required_count, 0);
+            const totalAssigned = group.slots.reduce((sum, slot) => sum + (slot.assigned_count || 0), 0);
+
             return (
-              <div key={slot.slot_id} className="card">
-                <div className="flex justify-between items-start">
-                  <div className="flex-1">
-                    <h3 className="text-lg font-bold text-gray-900">
-                      {slot.slot_name} - {slot.instance_name}
-                    </h3>
-                    <p className="text-sm text-gray-600 mt-1">
-                      {slot.start_time.slice(0, 5)} 〜 {slot.end_time.slice(0, 5)}
-                      {slot.is_overnight && ' （深夜営業）'}
-                    </p>
-                    <div className="mt-2">
-                      <span
-                        className={`inline-block px-2 py-1 text-xs font-semibold rounded ${
-                          (slot.assigned_count || 0) >= slot.required_count
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-yellow-100 text-yellow-800'
-                        }`}
-                      >
-                        {slot.assigned_count || 0} / {slot.required_count} 人
-                      </span>
+              <div key={instanceId} className="card p-0 overflow-hidden">
+                {/* インスタンスヘッダー（クリックで開閉） */}
+                <button
+                  onClick={() => toggleInstance(instanceId)}
+                  className="w-full px-6 py-4 flex items-center justify-between bg-gray-50 hover:bg-gray-100 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <svg
+                      className={`w-5 h-5 text-gray-500 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                    <div className="text-left">
+                      <h3 className="text-lg font-bold text-gray-900">{instanceName}</h3>
+                      <p className="text-sm text-gray-500">
+                        {group.slots.length}個の役職
+                      </p>
                     </div>
-                    {assignments.length > 0 && (
-                      <div className="mt-3">
-                        <p className="text-xs text-gray-500 mb-1">割り当て済み:</p>
-                        <div className="flex flex-wrap gap-1">
-                          {assignments.map((assignment) => (
-                            <span
-                              key={assignment.assignment_id}
-                              className="inline-block px-2 py-1 bg-accent/10 text-accent-dark rounded text-xs"
-                            >
-                              {assignment.member_display_name || assignment.member_id}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
                   </div>
-                  <button
-                    onClick={() => navigate(`/shift-slots/${slot.slot_id}/assign`)}
-                    className="btn-primary ml-4"
-                  >
-                    {(slot.assigned_count || 0) >= slot.required_count ? '編集' : '割り当て'}
-                  </button>
-                </div>
+                  <div className="flex items-center gap-3">
+                    <span
+                      className={`px-3 py-1 text-sm font-semibold rounded-full ${
+                        totalAssigned >= totalRequired
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-yellow-100 text-yellow-800'
+                      }`}
+                    >
+                      {totalAssigned} / {totalRequired} 人
+                    </span>
+                  </div>
+                </button>
+
+                {/* シフト枠リスト（展開時のみ表示） */}
+                {isExpanded && (
+                  <div className="divide-y divide-gray-100">
+                    {group.slots.map((slot) => {
+                      const assignments = slotAssignments[slot.slot_id] || [];
+                      return (
+                        <div key={slot.slot_id} className="px-6 py-4 hover:bg-gray-50">
+                          <div className="flex justify-between items-start">
+                            <div className="flex-1">
+                              <h4 className="text-base font-semibold text-gray-900">
+                                {slot.slot_name}
+                              </h4>
+                              <p className="text-sm text-gray-600 mt-1">
+                                {slot.start_time.slice(0, 5)} 〜 {slot.end_time.slice(0, 5)}
+                                {slot.is_overnight && ' （深夜営業）'}
+                              </p>
+                              <div className="mt-2">
+                                <span
+                                  className={`inline-block px-2 py-1 text-xs font-semibold rounded ${
+                                    (slot.assigned_count || 0) >= slot.required_count
+                                      ? 'bg-green-100 text-green-800'
+                                      : 'bg-yellow-100 text-yellow-800'
+                                  }`}
+                                >
+                                  {slot.assigned_count || 0} / {slot.required_count} 人
+                                </span>
+                              </div>
+                              {assignments.length > 0 && (
+                                <div className="mt-3">
+                                  <div className="flex flex-wrap gap-1">
+                                    {assignments.map((assignment) => (
+                                      <span
+                                        key={assignment.assignment_id}
+                                        className="inline-block px-2 py-1 bg-accent/10 text-accent-dark rounded text-xs"
+                                      >
+                                        {assignment.member_display_name || assignment.member_id}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                            <button
+                              onClick={() => navigate(`/shift-slots/${slot.slot_id}/assign`)}
+                              className="btn-primary ml-4 text-sm"
+                            >
+                              {(slot.assigned_count || 0) >= slot.required_count ? '編集' : '割り当て'}
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             );
           })}
@@ -207,9 +333,10 @@ export default function ShiftSlotList() {
       )}
 
       {/* シフト枠作成モーダル */}
-      {showCreateModal && businessDayId && (
+      {showCreateModal && businessDayId && businessDay && (
         <CreateShiftSlotModal
           businessDayId={businessDayId}
+          instances={instances}
           onClose={() => setShowCreateModal(false)}
           onSuccess={handleCreateSuccess}
         />
@@ -234,14 +361,17 @@ export default function ShiftSlotList() {
 // シフト枠作成モーダルコンポーネント
 function CreateShiftSlotModal({
   businessDayId,
+  instances,
   onClose,
   onSuccess,
 }: {
   businessDayId: string;
+  instances: Instance[];
   onClose: () => void;
   onSuccess: () => void;
 }) {
   const [slotName, setSlotName] = useState('');
+  const [selectedInstanceId, setSelectedInstanceId] = useState('');
   const [instanceName, setInstanceName] = useState('');
   const [startTime, setStartTime] = useState('21:30');
   const [endTime, setEndTime] = useState('23:00');
@@ -249,12 +379,26 @@ function CreateShiftSlotModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // 選択されたインスタンスが変更されたらinstanceNameを更新
+  useEffect(() => {
+    if (selectedInstanceId === '__new__') {
+      setInstanceName('');
+    } else if (selectedInstanceId) {
+      const instance = instances.find((i) => i.instance_id === selectedInstanceId);
+      if (instance) {
+        setInstanceName(instance.name);
+      }
+    }
+  }, [selectedInstanceId, instances]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
-    if (!slotName.trim() || !instanceName.trim()) {
-      setError('役職名とインスタンス名を入力してください');
+    const finalInstanceName = selectedInstanceId === '__new__' ? instanceName.trim() : instanceName;
+
+    if (!slotName.trim() || !finalInstanceName) {
+      setError('役職名とインスタンスを入力してください');
       return;
     }
 
@@ -273,7 +417,7 @@ function CreateShiftSlotModal({
     try {
       await createShiftSlot(businessDayId, {
         slot_name: slotName.trim(),
-        instance_name: instanceName.trim(),
+        instance_name: finalInstanceName,
         start_time: startTime,
         end_time: endTime,
         required_count: requiredCount,
@@ -298,6 +442,44 @@ function CreateShiftSlotModal({
 
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
+            <label htmlFor="instanceSelect" className="label">
+              インスタンス <span className="text-red-500">*</span>
+            </label>
+            {instances.length > 0 ? (
+              <select
+                id="instanceSelect"
+                value={selectedInstanceId}
+                onChange={(e) => setSelectedInstanceId(e.target.value)}
+                className="input-field"
+                disabled={loading}
+              >
+                <option value="">インスタンスを選択してください</option>
+                {instances.map((instance) => (
+                  <option key={instance.instance_id} value={instance.instance_id}>
+                    {instance.name}
+                  </option>
+                ))}
+                <option value="__new__">+ 新しいインスタンスを作成</option>
+              </select>
+            ) : (
+              <>
+                <input type="hidden" value="__new__" />
+                <p className="text-sm text-gray-500 mb-2">インスタンスがまだありません。新規作成してください。</p>
+              </>
+            )}
+            {(selectedInstanceId === '__new__' || instances.length === 0) && (
+              <input
+                type="text"
+                value={instanceName}
+                onChange={(e) => setInstanceName(e.target.value)}
+                placeholder="新しいインスタンス名（例: 第一インスタンス）"
+                className="input-field mt-2"
+                disabled={loading}
+              />
+            )}
+          </div>
+
+          <div className="mb-4">
             <label htmlFor="slotName" className="label">
               役職名 <span className="text-red-500">*</span>
             </label>
@@ -306,25 +488,10 @@ function CreateShiftSlotModal({
               id="slotName"
               value={slotName}
               onChange={(e) => setSlotName(e.target.value)}
-              placeholder="例: 受付、案内、配信、MC など"
+              placeholder="例: インスタンスリーダー、サポート、MC など"
               className="input-field"
               disabled={loading}
               autoFocus
-            />
-          </div>
-
-          <div className="mb-4">
-            <label htmlFor="instanceName" className="label">
-              インスタンス名 <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              id="instanceName"
-              value={instanceName}
-              onChange={(e) => setInstanceName(e.target.value)}
-              placeholder="例: 受付1"
-              className="input-field"
-              disabled={loading}
             />
           </div>
 
@@ -390,7 +557,7 @@ function CreateShiftSlotModal({
             <button
               type="submit"
               className="flex-1 btn-primary"
-              disabled={loading || !slotName.trim() || !instanceName.trim()}
+              disabled={loading || !slotName.trim() || (!instanceName && selectedInstanceId !== '__new__')}
             >
               {loading ? '作成中...' : '作成'}
             </button>
@@ -524,7 +691,7 @@ function ApplyTemplateModal({
                   <p className="text-xs font-semibold text-accent-dark">作成されるシフト枠:</p>
                   {(selectedTemplate.items || []).map((item, index) => (
                     <div key={index} className="text-xs text-accent-dark">
-                      • {item.slot_name} ({item.instance_name}) - {item.start_time.substring(0, 5)}~
+                      ・ {item.instance_name} / {item.slot_name} - {item.start_time.substring(0, 5)}~
                       {item.end_time.substring(0, 5)} ({item.required_count}名)
                     </div>
                   ))}
@@ -561,4 +728,3 @@ function ApplyTemplateModal({
     </div>
   );
 }
-
