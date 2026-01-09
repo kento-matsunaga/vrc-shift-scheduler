@@ -188,6 +188,35 @@ export async function closeAttendanceCollection(collectionId: string): Promise<v
 }
 
 /**
+ * 出欠確認を削除
+ * 成功時: 204 No Content（レスポンスボディなし）
+ */
+export async function deleteAttendanceCollection(collectionId: string): Promise<void> {
+  const baseURL = import.meta.env.VITE_API_BASE_URL || '';
+  const token = localStorage.getItem('auth_token');
+
+  if (!token) {
+    throw new Error('認証が必要です。ログインしてください。');
+  }
+
+  const response = await fetch(
+    `${baseURL}/api/v1/attendance/collections/${collectionId}`,
+    {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`出欠確認の削除に失敗しました: ${text || response.statusText}`);
+  }
+}
+
+
+/**
  * 出欠回答一覧を取得
  */
 export async function getAttendanceResponses(

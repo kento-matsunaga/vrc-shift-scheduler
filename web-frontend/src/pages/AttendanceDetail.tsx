@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   getAttendanceCollection,
   getAttendanceResponses,
   closeAttendanceCollection,
+  deleteAttendanceCollection,
   type AttendanceCollection as AttendanceCollectionType,
   type AttendanceResponse,
 } from '../lib/api/attendanceApi';
@@ -14,6 +15,7 @@ import type { Member } from '../types/api';
 
 export default function AttendanceDetail() {
   const { collectionId } = useParams<{ collectionId: string }>();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [collection, setCollection] = useState<AttendanceCollectionType | null>(null);
@@ -22,6 +24,7 @@ export default function AttendanceDetail() {
   const [appliedGroups, setAppliedGroups] = useState<MemberGroup[]>([]);
   const [appliedRoles, setAppliedRoles] = useState<Role[]>([]);
   const [closing, setClosing] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [publicUrl, setPublicUrl] = useState('');
   const [copied, setCopied] = useState(false);
 
@@ -132,6 +135,22 @@ export default function AttendanceDetail() {
       alert(err instanceof Error ? err.message : '締切に失敗しました');
     } finally {
       setClosing(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!collectionId) return;
+    if (!confirm('この出欠確認を削除しますか？この操作は取り消せません。')) return;
+
+    try {
+      setDeleting(true);
+      await deleteAttendanceCollection(collectionId);
+      alert('出欠確認を削除しました');
+      navigate('/attendance');
+    } catch (err) {
+      alert(err instanceof Error ? err.message : '削除に失敗しました');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -281,6 +300,13 @@ export default function AttendanceDetail() {
                 {closing ? '処理中...' : '締め切る'}
               </button>
             )}
+            <button
+              onClick={handleDelete}
+              disabled={deleting}
+              className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition disabled:bg-red-400 text-sm"
+            >
+              {deleting ? '削除中...' : '削除'}
+            </button>
           </div>
         </div>
 
