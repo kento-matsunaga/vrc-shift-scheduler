@@ -125,11 +125,21 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		// BusinessDayHandler dependencies
 		slotRepo := db.NewShiftSlotRepository(dbPool)
 		templateRepo := db.NewShiftSlotTemplateRepository(dbPool)
+		instanceRepo := db.NewInstanceRepository(dbPool)
 		businessDayHandler := NewBusinessDayHandler(
-			appevent.NewCreateBusinessDayUsecase(businessDayRepo, eventRepo, templateRepo, slotRepo),
+			appevent.NewCreateBusinessDayUsecase(businessDayRepo, eventRepo, templateRepo, slotRepo, instanceRepo),
 			appevent.NewListBusinessDaysUsecase(businessDayRepo),
 			appevent.NewGetBusinessDayUsecase(businessDayRepo),
-			appevent.NewApplyTemplateUsecase(businessDayRepo, templateRepo, slotRepo),
+			appevent.NewApplyTemplateUsecase(businessDayRepo, templateRepo, slotRepo, instanceRepo),
+		)
+
+		// InstanceHandler dependencies
+		instanceHandler := NewInstanceHandler(
+			appshift.NewCreateInstanceUsecase(instanceRepo, eventRepo),
+			appshift.NewListInstancesUsecase(instanceRepo),
+			appshift.NewGetInstanceUsecase(instanceRepo),
+			appshift.NewUpdateInstanceUsecase(instanceRepo),
+			appshift.NewDeleteInstanceUsecase(instanceRepo),
 		)
 
 		// RoleHandler dependencies (needed by MemberHandler too)
@@ -198,6 +208,8 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			appattendance.NewGetCollectionByTokenUsecase(attendanceRepo),
 			appattendance.NewGetResponsesUsecase(attendanceRepo, memberRepo),
 			appattendance.NewListCollectionsUsecase(attendanceRepo),
+			appattendance.NewGetMemberResponsesUsecase(attendanceRepo),
+			appattendance.NewGetAllPublicResponsesUsecase(attendanceRepo, memberRepo),
 		)
 
 		// ActualAttendanceHandler dependencies (reusing memberRepo, businessDayRepo, assignmentRepo)
@@ -246,6 +258,17 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			r.Get("/{event_id}/templates/{template_id}", shiftTemplateHandler.GetTemplate)
 			r.With(permissionChecker.RequirePermission(tenant.PermissionEditEvent)).Put("/{event_id}/templates/{template_id}", shiftTemplateHandler.UpdateTemplate)
 			r.With(permissionChecker.RequirePermission(tenant.PermissionDeleteEvent)).Delete("/{event_id}/templates/{template_id}", shiftTemplateHandler.DeleteTemplate)
+
+			// Event配下のInstance
+			r.With(permissionChecker.RequirePermission(tenant.PermissionEditEvent)).Post("/{event_id}/instances", instanceHandler.CreateInstance)
+			r.Get("/{event_id}/instances", instanceHandler.GetInstances)
+		})
+
+		// Instance API
+		r.Route("/instances", func(r chi.Router) {
+			r.Get("/{instance_id}", instanceHandler.GetInstance)
+			r.With(permissionChecker.RequirePermission(tenant.PermissionEditEvent)).Put("/{instance_id}", instanceHandler.UpdateInstance)
+			r.With(permissionChecker.RequirePermission(tenant.PermissionEditEvent)).Delete("/{instance_id}", instanceHandler.DeleteInstance)
 		})
 
 		// BusinessDay API
@@ -362,6 +385,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			appschedule.NewGetScheduleByTokenUsecase(scheduleRepo),
 			appschedule.NewGetResponsesUsecase(scheduleRepo),
 			appschedule.NewListSchedulesUsecase(scheduleRepo),
+			appschedule.NewGetAllPublicResponsesUsecase(scheduleRepo, memberRepo),
 		)
 		r.Route("/schedules", func(r chi.Router) {
 			r.Get("/", scheduleHandler.ListSchedules)
@@ -557,13 +581,18 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			appattendance.NewGetCollectionByTokenUsecase(publicAttendanceRepoForHandler),
 			appattendance.NewGetResponsesUsecase(publicAttendanceRepoForHandler, publicMemberRepoForAttendance),
 			appattendance.NewListCollectionsUsecase(publicAttendanceRepoForHandler),
+			appattendance.NewGetMemberResponsesUsecase(publicAttendanceRepoForHandler),
+			appattendance.NewGetAllPublicResponsesUsecase(publicAttendanceRepoForHandler, publicMemberRepoForAttendance),
 		)
 		r.Get("/{token}", publicAttendanceHandler.GetCollectionByToken)
 		r.Post("/{token}/responses", publicAttendanceHandler.SubmitResponse)
+		r.Get("/{token}/members/{member_id}/responses", publicAttendanceHandler.GetMemberResponses)
+		r.Get("/{token}/responses", publicAttendanceHandler.GetAllPublicResponses)
 	})
 
 	r.Route("/api/v1/public/schedules", func(r chi.Router) {
 		publicScheduleRepo := db.NewScheduleRepository(dbPool)
+		publicScheduleMemberRepo := db.NewMemberRepository(dbPool)
 		publicScheduleHandler := NewScheduleHandler(
 			appschedule.NewCreateScheduleUsecase(publicScheduleRepo, publicClock),
 			appschedule.NewSubmitResponseUsecase(publicScheduleRepo, publicTxManager, publicClock),
@@ -574,9 +603,11 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			appschedule.NewGetScheduleByTokenUsecase(publicScheduleRepo),
 			appschedule.NewGetResponsesUsecase(publicScheduleRepo),
 			appschedule.NewListSchedulesUsecase(publicScheduleRepo),
+			appschedule.NewGetAllPublicResponsesUsecase(publicScheduleRepo, publicScheduleMemberRepo),
 		)
 		r.Get("/{token}", publicScheduleHandler.GetScheduleByToken)
 		r.Post("/{token}/responses", publicScheduleHandler.SubmitResponse)
+		r.Get("/{token}/responses", publicScheduleHandler.GetAllPublicResponses)
 	})
 
 	// 公開ページ用メンバー一覧API（認証不要）

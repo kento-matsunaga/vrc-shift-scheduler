@@ -186,11 +186,10 @@ export default function AttendanceList() {
       }
     }
 
-    // 選択をリセット
+    // 月選択のみリセット（selectedEventIdは保持してシフト調整に使用）
     setSelectedMonths([]);
     setAvailableMonths([]);
     setBusinessDaysCache([]);
-    setSelectedEventId('');
   };
 
   // 月表示用のフォーマット関数
@@ -281,10 +280,13 @@ export default function AttendanceList() {
     try {
       setSubmittedDatesCount(validDates.length);
 
+      // イベントが選択されている場合は target_type: 'event' で target_id にイベントIDを設定
+      // これによりシフト調整機能で使用可能になる
       const result = await createAttendanceCollection({
         title: title.trim(),
         description: description.trim(),
-        target_type: 'business_day',
+        target_type: selectedEventId ? 'event' : 'business_day',
+        target_id: selectedEventId || undefined,
         target_dates: validDates.map((d) => ({
           target_date: new Date(d.date).toISOString(),
           start_time: d.startTime || undefined,

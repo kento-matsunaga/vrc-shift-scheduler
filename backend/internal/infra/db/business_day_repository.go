@@ -258,6 +258,43 @@ func (r *EventBusinessDayRepository) FindRecentByTenantID(ctx context.Context, t
 	return r.queryBusinessDays(ctx, query, tenantID.String(), limit)
 }
 
+// FindRecentByEventID finds N business days for a specific event
+// If includeFuture is false, only past dates are returned
+// If includeFuture is true, all dates including future are returned
+func (r *EventBusinessDayRepository) FindRecentByEventID(ctx context.Context, tenantID common.TenantID, eventID common.EventID, limit int, includeFuture bool) ([]*event.EventBusinessDay, error) {
+	var query string
+	if includeFuture {
+		query = `
+			SELECT
+				business_day_id, tenant_id, event_id, target_date, start_time, end_time,
+				occurrence_type, recurring_pattern_id, is_active, valid_from, valid_to,
+				created_at, updated_at, deleted_at
+			FROM event_business_days
+			WHERE tenant_id = $1
+			  AND event_id = $2
+			  AND deleted_at IS NULL
+			ORDER BY target_date ASC
+			LIMIT $3
+		`
+	} else {
+		query = `
+			SELECT
+				business_day_id, tenant_id, event_id, target_date, start_time, end_time,
+				occurrence_type, recurring_pattern_id, is_active, valid_from, valid_to,
+				created_at, updated_at, deleted_at
+			FROM event_business_days
+			WHERE tenant_id = $1
+			  AND event_id = $2
+			  AND deleted_at IS NULL
+			  AND target_date <= CURRENT_DATE
+			ORDER BY target_date ASC
+			LIMIT $3
+		`
+	}
+
+	return r.queryBusinessDays(ctx, query, tenantID.String(), eventID.String(), limit)
+}
+
 // queryBusinessDays executes a query and returns a list of business days
 func (r *EventBusinessDayRepository) queryBusinessDays(ctx context.Context, query string, args ...interface{}) ([]*event.EventBusinessDay, error) {
 	rows, err := r.db.Query(ctx, query, args...)

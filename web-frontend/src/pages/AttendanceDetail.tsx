@@ -13,6 +13,10 @@ import { getMemberGroups, getMemberGroupDetail, type MemberGroup } from '../lib/
 import { listRoles, type Role } from '../lib/api/roleApi';
 import type { Member } from '../types/api';
 
+// ソートの種類
+type SortKey = 'name' | 'attending_count' | 'date_attending';
+type SortDirection = 'asc' | 'desc';
+
 export default function AttendanceDetail() {
   const { collectionId } = useParams<{ collectionId: string }>();
   const navigate = useNavigate();
@@ -27,6 +31,14 @@ export default function AttendanceDetail() {
   const [deleting, setDeleting] = useState(false);
   const [publicUrl, setPublicUrl] = useState('');
   const [copied, setCopied] = useState(false);
+
+  // ソート状態
+  const [sortKey, setSortKey] = useState<SortKey>('name');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const [sortTargetDateId, setSortTargetDateId] = useState<string | null>(null);
+
+  // フィルタ状態
+  const [filterRoleId, setFilterRoleId] = useState<string>('');
 
   useEffect(() => {
     if (!collectionId) {
@@ -247,6 +259,68 @@ export default function AttendanceDetail() {
     noteMap.set(memberId, data.note);
   });
 
+  // ソート・フィルタリング処理
+  const sortedAndFilteredMembers = [...members]
+    // ロールでフィルタ
+    .filter((member) => {
+      if (!filterRoleId) return true;
+      return member.role_ids?.includes(filterRoleId);
+    })
+    // ソート
+    .sort((a, b) => {
+      let comparison = 0;
+
+      if (sortKey === 'name') {
+        // 名前でソート（日本語対応）
+        comparison = a.display_name.localeCompare(b.display_name, 'ja');
+      } else if (sortKey === 'attending_count') {
+        // 全体の参加数でソート
+        const aCount = sortedTargetDates.filter(
+          (td) => responseMap.get(a.member_id)?.get(td.target_date_id) === 'attending'
+        ).length;
+        const bCount = sortedTargetDates.filter(
+          (td) => responseMap.get(b.member_id)?.get(td.target_date_id) === 'attending'
+        ).length;
+        comparison = aCount - bCount;
+      } else if (sortKey === 'date_attending' && sortTargetDateId) {
+        // 特定の日付の参加状態でソート
+        const aResponse = responseMap.get(a.member_id)?.get(sortTargetDateId);
+        const bResponse = responseMap.get(b.member_id)?.get(sortTargetDateId);
+        const order = { attending: 0, undecided: 1, absent: 2, undefined: 3 };
+        const aOrder = aResponse ? order[aResponse] : order.undefined;
+        const bOrder = bResponse ? order[bResponse] : order.undefined;
+        comparison = aOrder - bOrder;
+      }
+
+      return sortDirection === 'asc' ? comparison : -comparison;
+    });
+
+  // ソートハンドラ
+  const handleSort = (key: SortKey, targetDateId?: string) => {
+    if (key === 'date_attending' && targetDateId) {
+      if (sortKey === 'date_attending' && sortTargetDateId === targetDateId) {
+        setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+      } else {
+        setSortKey('date_attending');
+        setSortTargetDateId(targetDateId);
+        setSortDirection('asc');
+      }
+    } else if (key === sortKey && key !== 'date_attending') {
+      setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(key);
+      setSortTargetDateId(null);
+      setSortDirection('asc');
+    }
+  };
+
+  // ソートアイコン
+  const SortIcon = ({ active, direction }: { active: boolean; direction: SortDirection }) => (
+    <span className={`ml-1 inline-block ${active ? 'text-accent' : 'text-gray-400'}`}>
+      {direction === 'asc' ? '↑' : '↓'}
+    </span>
+  );
+
   // Calculate stats for each target date
   const dateStats = sortedTargetDates.map((targetDate) => {
     const attendingCount = responses.filter(
@@ -307,6 +381,15 @@ export default function AttendanceDetail() {
             >
               {deleting ? '削除中...' : '削除'}
             </button>
+            {/* シフト調整ボタン: イベントに紐づけられた出欠確認が締め切られた場合のみ表示 */}
+            {collection.status === 'closed' && collection.target_type === 'event' && collection.target_id && (
+              <button
+                onClick={() => navigate(`/attendance/${collectionId}/shift-adjustment`)}
+                className="px-4 py-2 bg-accent text-white rounded-md hover:bg-accent-dark transition text-sm"
+              >
+                シフト調整
+              </button>
+            )}
           </div>
         </div>
 
@@ -413,33 +496,98 @@ export default function AttendanceDetail() {
       {/* 出欠確認表（調整さん形式） */}
       <div className="bg-white rounded-lg shadow overflow-hidden mb-6">
         <div className="px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">出欠確認状況</h2>
-          <p className="text-sm text-gray-600 mt-1">
-            ○: 参加、△: 未定、×: 不参加、-: 未回答
-          </p>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">出欠確認状況</h2>
+              <p className="text-sm text-gray-600 mt-1">
+                ○: 参加、△: 未定、×: 不参加、-: 未回答
+              </p>
+            </div>
+            {/* ソート・フィルタコントロール */}
+            <div className="flex flex-wrap items-center gap-2">
+              {/* ロールフィルタ */}
+              {appliedRoles.length > 0 && (
+                <select
+                  value={filterRoleId}
+                  onChange={(e) => setFilterRoleId(e.target.value)}
+                  className="px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent"
+                >
+                  <option value="">全てのロール</option>
+                  {appliedRoles.map((role) => (
+                    <option key={role.role_id} value={role.role_id}>
+                      {role.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+              {/* ソート選択 */}
+              <select
+                value={sortKey === 'date_attending' ? `date_${sortTargetDateId}` : sortKey}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (value === 'name') {
+                    handleSort('name');
+                  } else if (value === 'attending_count') {
+                    handleSort('attending_count');
+                  } else if (value.startsWith('date_')) {
+                    handleSort('date_attending', value.replace('date_', ''));
+                  }
+                }}
+                className="px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent"
+              >
+                <option value="name">名前順</option>
+                <option value="attending_count">参加数順</option>
+                {sortedTargetDates.map((td) => (
+                  <option key={td.target_date_id} value={`date_${td.target_date_id}`}>
+                    {new Date(td.target_date).toLocaleDateString('ja-JP', { month: '2-digit', day: '2-digit' })}の参加状況
+                  </option>
+                ))}
+              </select>
+              {/* 昇順・降順 */}
+              <button
+                onClick={() => setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
+                className="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-accent"
+                title={sortDirection === 'asc' ? '昇順' : '降順'}
+              >
+                {sortDirection === 'asc' ? '↑ 昇順' : '↓ 降順'}
+              </button>
+            </div>
+          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50 z-10">
-                  メンバー
+                <th
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50 z-10 cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('name')}
+                >
+                  <span className="flex items-center">
+                    メンバー
+                    <SortIcon active={sortKey === 'name'} direction={sortDirection} />
+                  </span>
                 </th>
                 {sortedTargetDates.map((targetDate) => (
                   <th
                     key={targetDate.target_date_id}
-                    className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[100px]"
+                    className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[100px] cursor-pointer hover:bg-gray-100"
+                    onClick={() => handleSort('date_attending', targetDate.target_date_id)}
                   >
-                    <div>
-                      {new Date(targetDate.target_date).toLocaleDateString('ja-JP', {
-                        month: '2-digit',
-                        day: '2-digit',
-                      })}
-                    </div>
-                    <div className="text-xs font-normal normal-case text-gray-400">
-                      {new Date(targetDate.target_date).toLocaleDateString('ja-JP', {
-                        weekday: 'short',
-                      })}
+                    <div className="flex flex-col items-center">
+                      <span className="flex items-center">
+                        {new Date(targetDate.target_date).toLocaleDateString('ja-JP', {
+                          month: '2-digit',
+                          day: '2-digit',
+                        })}
+                        {sortKey === 'date_attending' && sortTargetDateId === targetDate.target_date_id && (
+                          <SortIcon active={true} direction={sortDirection} />
+                        )}
+                      </span>
+                      <span className="text-xs font-normal normal-case text-gray-400">
+                        {new Date(targetDate.target_date).toLocaleDateString('ja-JP', {
+                          weekday: 'short',
+                        })}
+                      </span>
                     </div>
                   </th>
                 ))}
@@ -449,14 +597,14 @@ export default function AttendanceDetail() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {members.length === 0 ? (
+              {sortedAndFilteredMembers.length === 0 ? (
                 <tr>
                   <td colSpan={sortedTargetDates.length + 2} className="px-6 py-12 text-center text-gray-500">
-                    メンバーがいません
+                    {members.length === 0 ? 'メンバーがいません' : 'フィルタ条件に一致するメンバーがいません'}
                   </td>
                 </tr>
               ) : (
-                members.map((member) => {
+                sortedAndFilteredMembers.map((member) => {
                   const memberResponses = responseMap.get(member.member_id);
                   const memberNote = noteMap.get(member.member_id);
                   return (

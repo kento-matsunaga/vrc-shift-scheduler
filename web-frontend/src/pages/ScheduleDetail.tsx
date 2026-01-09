@@ -12,6 +12,10 @@ interface Candidate {
   end_time?: string;
 }
 
+// ソートの種類
+type SortKey = 'name' | 'available_count' | 'date_available';
+type SortDirection = 'asc' | 'desc';
+
 export default function ScheduleDetail() {
   const { scheduleId } = useParams<{ scheduleId: string }>();
   const navigate = useNavigate();
@@ -24,6 +28,11 @@ export default function ScheduleDetail() {
   const [publicUrl, setPublicUrl] = useState('');
   const [copied, setCopied] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  // ソート状態
+  const [sortKey, setSortKey] = useState<SortKey>('name');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const [sortCandidateId, setSortCandidateId] = useState<string | null>(null);
 
   useEffect(() => {
     if (scheduleId) {
@@ -163,6 +172,61 @@ export default function ScheduleDetail() {
     responseMap.get(resp.member_id)!.set(resp.candidate_id, resp.availability);
   });
 
+  // ソート・フィルタリング処理
+  const sortedMembers = [...members].sort((a, b) => {
+    let comparison = 0;
+
+    if (sortKey === 'name') {
+      // 名前でソート（日本語対応）
+      comparison = a.display_name.localeCompare(b.display_name, 'ja');
+    } else if (sortKey === 'available_count') {
+      // 全体の参加可能数でソート
+      const aCount = candidates.filter(
+        (c) => responseMap.get(a.member_id)?.get(c.candidate_id) === 'available'
+      ).length;
+      const bCount = candidates.filter(
+        (c) => responseMap.get(b.member_id)?.get(c.candidate_id) === 'available'
+      ).length;
+      comparison = aCount - bCount;
+    } else if (sortKey === 'date_available' && sortCandidateId) {
+      // 特定の日付の参加可能状態でソート
+      const aAvailability = responseMap.get(a.member_id)?.get(sortCandidateId);
+      const bAvailability = responseMap.get(b.member_id)?.get(sortCandidateId);
+      const order = { available: 0, maybe: 1, unavailable: 2, undefined: 3 };
+      const aOrder = aAvailability ? order[aAvailability] : order.undefined;
+      const bOrder = bAvailability ? order[bAvailability] : order.undefined;
+      comparison = aOrder - bOrder;
+    }
+
+    return sortDirection === 'asc' ? comparison : -comparison;
+  });
+
+  // ソートハンドラ
+  const handleSort = (key: SortKey, candidateId?: string) => {
+    if (key === 'date_available' && candidateId) {
+      if (sortKey === 'date_available' && sortCandidateId === candidateId) {
+        setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+      } else {
+        setSortKey('date_available');
+        setSortCandidateId(candidateId);
+        setSortDirection('asc');
+      }
+    } else if (key === sortKey && key !== 'date_available') {
+      setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(key);
+      setSortCandidateId(null);
+      setSortDirection('asc');
+    }
+  };
+
+  // ソートアイコン
+  const SortIcon = ({ active, direction }: { active: boolean; direction: SortDirection }) => (
+    <span className={`ml-1 inline-block ${active ? 'text-accent' : 'text-gray-400'}`}>
+      {direction === 'asc' ? '↑' : '↓'}
+    </span>
+  );
+
   // Calculate stats for each candidate
   const candidateStats = candidates.map((candidate) => {
     const availableCount = responses.filter(
@@ -294,60 +358,108 @@ export default function ScheduleDetail() {
       {/* 日程調整表（調整さん形式） */}
       <div className="bg-white rounded-lg shadow overflow-hidden mb-6">
         <div className="px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">回答状況</h2>
-          <p className="text-sm text-gray-600 mt-1">
-            ○: 参加可能、△: 不確定、×: 参加不可、-: 未回答
-          </p>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">回答状況</h2>
+              <p className="text-sm text-gray-600 mt-1">
+                ○: 参加可能、△: 不確定、×: 参加不可、-: 未回答
+              </p>
+            </div>
+            {/* ソートコントロール */}
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                value={sortKey === 'date_available' ? `date_${sortCandidateId}` : sortKey}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (value === 'name') {
+                    handleSort('name');
+                  } else if (value === 'available_count') {
+                    handleSort('available_count');
+                  } else if (value.startsWith('date_')) {
+                    handleSort('date_available', value.replace('date_', ''));
+                  }
+                }}
+                className="px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent"
+              >
+                <option value="name">名前順</option>
+                <option value="available_count">参加可能数順</option>
+                {candidates.map((c) => (
+                  <option key={c.candidate_id} value={`date_${c.candidate_id}`}>
+                    {new Date(c.date).toLocaleDateString('ja-JP', { month: '2-digit', day: '2-digit' })}の参加状況
+                  </option>
+                ))}
+              </select>
+              <button
+                onClick={() => setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
+                className="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-accent"
+                title={sortDirection === 'asc' ? '昇順' : '降順'}
+              >
+                {sortDirection === 'asc' ? '↑ 昇順' : '↓ 降順'}
+              </button>
+            </div>
+          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50 z-10">
-                  メンバー
+                <th
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50 z-10 cursor-pointer hover:bg-gray-100"
+                  onClick={() => handleSort('name')}
+                >
+                  <span className="flex items-center">
+                    メンバー
+                    <SortIcon active={sortKey === 'name'} direction={sortDirection} />
+                  </span>
                 </th>
                 {candidates.map((candidate) => (
                   <th
                     key={candidate.candidate_id}
-                    className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]"
+                    className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px] cursor-pointer hover:bg-gray-100"
+                    onClick={() => handleSort('date_available', candidate.candidate_id)}
                   >
-                    <div>
-                      {new Date(candidate.date).toLocaleDateString('ja-JP', {
-                        month: '2-digit',
-                        day: '2-digit',
-                      })}
-                    </div>
-                    <div className="text-xs font-normal normal-case text-gray-400">
-                      {new Date(candidate.date).toLocaleDateString('ja-JP', {
-                        weekday: 'short',
-                      })}
-                    </div>
-                    {candidate.start_time && candidate.end_time && (
-                      <div className="text-xs font-normal normal-case text-gray-400 mt-1">
-                        {new Date(candidate.start_time).toLocaleTimeString('ja-JP', {
-                          hour: '2-digit',
-                          minute: '2-digit',
+                    <div className="flex flex-col items-center">
+                      <span className="flex items-center">
+                        {new Date(candidate.date).toLocaleDateString('ja-JP', {
+                          month: '2-digit',
+                          day: '2-digit',
                         })}
-                        -
-                        {new Date(candidate.end_time).toLocaleTimeString('ja-JP', {
-                          hour: '2-digit',
-                          minute: '2-digit',
+                        {sortKey === 'date_available' && sortCandidateId === candidate.candidate_id && (
+                          <SortIcon active={true} direction={sortDirection} />
+                        )}
+                      </span>
+                      <span className="text-xs font-normal normal-case text-gray-400">
+                        {new Date(candidate.date).toLocaleDateString('ja-JP', {
+                          weekday: 'short',
                         })}
-                      </div>
-                    )}
+                      </span>
+                      {candidate.start_time && candidate.end_time && (
+                        <span className="text-xs font-normal normal-case text-gray-400 mt-1">
+                          {new Date(candidate.start_time).toLocaleTimeString('ja-JP', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                          -
+                          {new Date(candidate.end_time).toLocaleTimeString('ja-JP', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </span>
+                      )}
+                    </div>
                   </th>
                 ))}
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {members.length === 0 ? (
+              {sortedMembers.length === 0 ? (
                 <tr>
                   <td colSpan={candidates.length + 1} className="px-6 py-12 text-center text-gray-500">
                     メンバーがいません
                   </td>
                 </tr>
               ) : (
-                members.map((member) => {
+                sortedMembers.map((member) => {
                   const memberResponses = responseMap.get(member.member_id);
                   return (
                     <tr key={member.member_id} className="hover:bg-gray-50">
