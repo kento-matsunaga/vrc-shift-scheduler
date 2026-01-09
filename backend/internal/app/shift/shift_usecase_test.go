@@ -162,6 +162,10 @@ func (m *MockBusinessDayRepository) FindRecentByTenantID(ctx context.Context, te
 	return nil, nil
 }
 
+func (m *MockBusinessDayRepository) FindRecentByEventID(ctx context.Context, tenantID common.TenantID, eventID common.EventID, limit int, includeFuture bool) ([]*event.EventBusinessDay, error) {
+	return nil, nil
+}
+
 type MockMemberRepository struct {
 	findByIDFunc func(ctx context.Context, tenantID common.TenantID, memberID common.MemberID) (*member.Member, error)
 }

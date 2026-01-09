@@ -14,6 +14,9 @@ export * from './shiftSlotApi';
 // Template API
 export * from './templateApi';
 
+// Instance API
+export * from './instanceApi';
+
 // ShiftAssignment API
 export * from './shiftAssignmentApi';
 

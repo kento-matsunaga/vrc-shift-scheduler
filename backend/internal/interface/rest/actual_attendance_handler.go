@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	appactual "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/actual_attendance"
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/event"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/member"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/shift"
@@ -44,7 +45,7 @@ func (h *ActualAttendanceHandler) GetRecentActualAttendance(w http.ResponseWrite
 
 	// クエリパラメータの取得
 	limitStr := r.URL.Query().Get("limit")
-	limit := 30 // デフォルト
+	limit := 10 // デフォルト
 	if limitStr != "" {
 		parsed, err := strconv.Atoi(limitStr)
 		if err != nil || parsed <= 0 {
@@ -54,10 +55,23 @@ func (h *ActualAttendanceHandler) GetRecentActualAttendance(w http.ResponseWrite
 		limit = parsed
 	}
 
+	// event_id クエリパラメータの取得（オプション）
+	var eventID *common.EventID
+	eventIDStr := r.URL.Query().Get("event_id")
+	if eventIDStr != "" {
+		eid := common.EventID(eventIDStr)
+		eventID = &eid
+	}
+
+	// include_future クエリパラメータの取得（デフォルト: false）
+	includeFuture := r.URL.Query().Get("include_future") == "true"
+
 	// Execute usecase
 	input := appactual.GetRecentActualAttendanceInput{
-		TenantID: tenantID,
-		Limit:    limit,
+		TenantID:      tenantID,
+		EventID:       eventID,
+		Limit:         limit,
+		IncludeFuture: includeFuture,
 	}
 
 	output, err := h.getRecentActualAttendanceUC.Execute(ctx, input)

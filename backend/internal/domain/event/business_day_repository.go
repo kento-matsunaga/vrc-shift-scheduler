@@ -37,5 +37,11 @@ type EventBusinessDayRepository interface {
 	// FindRecentByTenantID finds recent N business days within a tenant (past only, oldest first)
 	// Used for actual attendance calculation
 	FindRecentByTenantID(ctx context.Context, tenantID common.TenantID, limit int) ([]*EventBusinessDay, error)
+
+	// FindRecentByEventID finds recent N business days for a specific event
+	// If includeFuture is false, only past dates are returned (target_date <= CURRENT_DATE)
+	// If includeFuture is true, all dates including future are returned
+	// Used for actual attendance calculation filtered by event
+	FindRecentByEventID(ctx context.Context, tenantID common.TenantID, eventID common.EventID, limit int, includeFuture bool) ([]*EventBusinessDay, error)
 }
 

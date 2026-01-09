@@ -4,11 +4,16 @@ import {
   getAttendanceByToken,
   getMembers,
   submitAttendanceResponse,
+  getMemberAttendanceResponses,
+  getAllAttendanceResponses,
   type AttendanceCollection,
   type Member,
   type TargetDate,
+  type PublicAttendanceResponse,
   PublicApiError,
 } from '../../lib/api/publicApi';
+import SearchableSelect from '../../components/SearchableSelect';
+import ResponseTable from '../../components/ResponseTable';
 
 export default function AttendanceResponse() {
   const { token } = useParams<{ token: string }>();
@@ -28,6 +33,14 @@ export default function AttendanceResponse() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
+  // 既存回答の状態
+  const [hasExistingResponses, setHasExistingResponses] = useState(false);
+  const [loadingExisting, setLoadingExisting] = useState(false);
+
+  // 全回答一覧（調整さん形式表示用）
+  const [allResponses, setAllResponses] = useState<PublicAttendanceResponse[]>([]);
+  const [loadingAllResponses, setLoadingAllResponses] = useState(false);
+
   useEffect(() => {
     if (!token) {
       setError('URLが無効です');
@@ -42,7 +55,6 @@ export default function AttendanceResponse() {
 
         // 出欠確認情報を取得
         const collectionData = await getAttendanceByToken(token);
-        console.log('Attendance collection data:', collectionData);
         setCollection(collectionData);
 
         // メンバー一覧を取得（グループとロールでフィルタリング）
@@ -66,6 +78,18 @@ export default function AttendanceResponse() {
         });
         setResponses(initialResponses);
         setAvailableTimes(initialTimes);
+
+        // 全回答一覧を取得
+        setLoadingAllResponses(true);
+        try {
+          const allResponsesData = await getAllAttendanceResponses(token);
+          setAllResponses(allResponsesData.responses || []);
+        } catch {
+          // 回答一覧の取得に失敗してもエラー表示はしない
+          console.warn('Failed to load all responses');
+        } finally {
+          setLoadingAllResponses(false);
+        }
       } catch (err) {
         if (err instanceof PublicApiError) {
           if (err.isNotFound()) {
@@ -85,6 +109,72 @@ export default function AttendanceResponse() {
 
     fetchData();
   }, [token]);
+
+  // メンバー選択時に既存回答を取得
+  useEffect(() => {
+    if (!token || !selectedMemberId) {
+      setHasExistingResponses(false);
+      return;
+    }
+
+    const fetchExistingResponses = async () => {
+      setLoadingExisting(true);
+      try {
+        const result = await getMemberAttendanceResponses(token, selectedMemberId);
+        if (result.responses && result.responses.length > 0) {
+          setHasExistingResponses(true);
+
+          // 既存回答をフォームに反映
+          const newResponses: Record<string, 'attending' | 'absent' | 'undecided'> = {};
+          const newTimes: Record<string, { from: string; to: string }> = {};
+
+          result.responses.forEach((r) => {
+            newResponses[r.target_date_id] = r.response;
+            newTimes[r.target_date_id] = {
+              from: r.available_from || '',
+              to: r.available_to || '',
+            };
+          });
+
+          // 既存回答がない日付はデフォルト値を設定
+          targetDates.forEach((td) => {
+            if (!newResponses[td.target_date_id]) {
+              newResponses[td.target_date_id] = 'attending';
+              newTimes[td.target_date_id] = { from: '', to: '' };
+            }
+          });
+
+          setResponses(newResponses);
+          setAvailableTimes(newTimes);
+
+          // 備考は最初の回答のnoteを使用（回答は対象日ごとに異なる場合があるため）
+          const firstNote = result.responses.find((r) => r.note)?.note || '';
+          setNote(firstNote);
+        } else {
+          setHasExistingResponses(false);
+
+          // 新規回答の場合はデフォルト値を設定
+          const initialResponses: Record<string, 'attending' | 'absent' | 'undecided'> = {};
+          const initialTimes: Record<string, { from: string; to: string }> = {};
+          targetDates.forEach((td) => {
+            initialResponses[td.target_date_id] = 'attending';
+            initialTimes[td.target_date_id] = { from: '', to: '' };
+          });
+          setResponses(initialResponses);
+          setAvailableTimes(initialTimes);
+          setNote('');
+        }
+      } catch (err) {
+        // エラーの場合は新規回答として扱う
+        console.error('Failed to load existing responses:', err);
+        setHasExistingResponses(false);
+      } finally {
+        setLoadingExisting(false);
+      }
+    };
+
+    fetchExistingResponses();
+  }, [token, selectedMemberId, targetDates]);
 
   const handleResponseChange = (targetDateId: string, response: 'attending' | 'absent' | 'undecided') => {
     setResponses((prev) => ({
@@ -136,6 +226,14 @@ export default function AttendanceResponse() {
       });
 
       await Promise.all(submitPromises);
+
+      // 送信成功後に全回答を再取得
+      try {
+        const allResponsesData = await getAllAttendanceResponses(token);
+        setAllResponses(allResponsesData.responses || []);
+      } catch {
+        // 回答一覧の取得に失敗してもエラー表示はしない
+      }
 
       setSubmitted(true);
     } catch (err) {
@@ -258,23 +356,34 @@ export default function AttendanceResponse() {
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 お名前 <span className="text-red-500">*</span>
               </label>
-              <select
+              <SearchableSelect
+                options={members.map((member) => ({
+                  value: member.member_id,
+                  label: member.display_name,
+                }))}
                 value={selectedMemberId}
-                onChange={(e) => setSelectedMemberId(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent"
-                required
+                onChange={setSelectedMemberId}
+                placeholder="名前を検索して選択..."
                 disabled={collection?.status === 'closed'}
-              >
-                <option value="">選択してください</option>
-                {members.map((member) => (
-                  <option key={member.member_id} value={member.member_id}>
-                    {member.display_name}
-                  </option>
-                ))}
-              </select>
+              />
               <p className="mt-1 text-xs text-gray-500">
                 お名前が見つからない場合は、管理者にお問い合わせください
               </p>
+
+              {/* 既存回答の表示 */}
+              {loadingExisting && (
+                <div className="mt-2 p-2 bg-gray-100 rounded-md">
+                  <p className="text-sm text-gray-600">過去の回答を確認中...</p>
+                </div>
+              )}
+              {hasExistingResponses && !loadingExisting && (
+                <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                  <p className="text-blue-800 text-sm font-medium">既に回答済みです</p>
+                  <p className="text-blue-700 text-xs mt-1">
+                    以前の回答内容が入力欄に反映されています。変更して再送信することもできます。
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* 各対象日ごとの出欠選択 */}
@@ -388,6 +497,21 @@ export default function AttendanceResponse() {
               {submitting ? '送信中...' : '回答を送信'}
             </button>
           </form>
+        </div>
+
+        {/* 回答一覧（調整さん形式） */}
+        <div className="bg-white rounded-lg shadow-md p-6 mt-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">
+            回答一覧
+          </h2>
+          {loadingAllResponses ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-accent"></div>
+              <span className="ml-3 text-gray-600">読み込み中...</span>
+            </div>
+          ) : (
+            <ResponseTable targetDates={targetDates} responses={allResponses} />
+          )}
         </div>
       </div>
     </div>

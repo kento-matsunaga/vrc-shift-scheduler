@@ -1,7 +1,30 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { listTemplates, deleteTemplate } from '../lib/api/templateApi';
-import type { Template } from '../types/api';
+import type { Template, TemplateItem } from '../types/api';
+
+// インスタンスごとにグループ化した構造
+interface InstanceGroup {
+  instanceName: string;
+  items: TemplateItem[];
+}
+
+// テンプレートをインスタンスごとにグループ化
+const groupByInstance = (items: TemplateItem[]): InstanceGroup[] => {
+  const groupMap = new Map<string, TemplateItem[]>();
+  items.forEach((item) => {
+    if (!groupMap.has(item.instance_name)) {
+      groupMap.set(item.instance_name, []);
+    }
+    groupMap.get(item.instance_name)!.push(item);
+  });
+
+  const groups: InstanceGroup[] = [];
+  groupMap.forEach((groupItems, instanceName) => {
+    groups.push({ instanceName, items: groupItems });
+  });
+  return groups;
+};
 
 const TemplateList = () => {
   const { eventId } = useParams<{ eventId: string }>();
@@ -129,70 +152,84 @@ const TemplateList = () => {
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {templates.map((template) => (
-            <div
-              key={template.template_id}
-              className="bg-white rounded-lg shadow hover:shadow-md transition-shadow p-5"
-            >
-              <div className="flex justify-between items-start mb-3">
-                <h3 className="text-lg font-semibold text-gray-900 flex-1">
-                  {template.template_name}
-                </h3>
-                <span className="bg-accent/10 text-accent-dark text-xs font-medium px-2.5 py-0.5 rounded">
-                  {(template.items || []).length} 枠
-                </span>
-              </div>
+          {templates.map((template) => {
+            const instanceGroups = groupByInstance(template.items || []);
+            return (
+              <div
+                key={template.template_id}
+                className="bg-white rounded-lg shadow hover:shadow-md transition-shadow p-5"
+              >
+                <div className="flex justify-between items-start mb-3">
+                  <h3 className="text-lg font-semibold text-gray-900 flex-1">
+                    {template.template_name}
+                  </h3>
+                  <div className="flex gap-1">
+                    <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2 py-0.5 rounded">
+                      {instanceGroups.length} インスタンス
+                    </span>
+                    <span className="bg-accent/10 text-accent-dark text-xs font-medium px-2 py-0.5 rounded">
+                      {(template.items || []).length} 役職
+                    </span>
+                  </div>
+                </div>
 
-              {template.description && (
-                <p className="text-sm text-gray-600 mb-4 line-clamp-2">
-                  {template.description}
-                </p>
-              )}
+                {template.description && (
+                  <p className="text-sm text-gray-600 mb-4 line-clamp-2">
+                    {template.description}
+                  </p>
+                )}
 
-              <div className="mb-4">
-                <h4 className="text-xs font-semibold text-gray-700 mb-2">シフト枠:</h4>
-                <div className="space-y-1">
-                  {(template.items || []).slice(0, 3).map((item, index) => (
-                    <div key={index} className="text-xs text-gray-600 flex items-center">
-                      <span className="w-2 h-2 bg-accent/70 rounded-full mr-2"></span>
-                      {item.slot_name} ({item.instance_name}) - {item.start_time.substring(0, 5)}~
-                      {item.end_time.substring(0, 5)} ({item.required_count}名)
-                    </div>
-                  ))}
-                  {(template.items || []).length > 3 && (
-                    <div className="text-xs text-gray-500 ml-4">
-                      他 {(template.items || []).length - 3} 件
-                    </div>
-                  )}
+                <div className="mb-4">
+                  <h4 className="text-xs font-semibold text-gray-700 mb-2">インスタンス・役職:</h4>
+                  <div className="space-y-2">
+                    {instanceGroups.slice(0, 2).map((group, groupIndex) => (
+                      <div key={groupIndex} className="text-xs">
+                        <div className="font-medium text-gray-700 flex items-center">
+                          <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
+                          {group.instanceName}
+                          <span className="text-gray-400 ml-1">({group.items.length}役職)</span>
+                        </div>
+                        <div className="ml-4 text-gray-500">
+                          {group.items.slice(0, 2).map((item) => item.slot_name).join('、')}
+                          {group.items.length > 2 && ` 他${group.items.length - 2}件`}
+                        </div>
+                      </div>
+                    ))}
+                    {instanceGroups.length > 2 && (
+                      <div className="text-xs text-gray-500 ml-4">
+                        他 {instanceGroups.length - 2} インスタンス
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex gap-2 pt-3 border-t">
+                  <button
+                    onClick={() => navigate(`/events/${eventId}/templates/${template.template_id}`)}
+                    className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded text-sm font-medium"
+                  >
+                    詳細
+                  </button>
+                  <button
+                    onClick={() => navigate(`/events/${eventId}/templates/${template.template_id}/edit`)}
+                    className="flex-1 bg-accent/10 hover:bg-accent/20 text-accent-dark px-3 py-2 rounded text-sm font-medium"
+                  >
+                    編集
+                  </button>
+                  <button
+                    onClick={() => handleDelete(template.template_id, template.template_name)}
+                    className="bg-red-100 hover:bg-red-200 text-red-700 px-3 py-2 rounded text-sm font-medium"
+                  >
+                    削除
+                  </button>
+                </div>
+
+                <div className="text-xs text-gray-500 mt-3">
+                  作成日: {new Date(template.created_at).toLocaleDateString('ja-JP')}
                 </div>
               </div>
-
-              <div className="flex gap-2 pt-3 border-t">
-                <button
-                  onClick={() => navigate(`/events/${eventId}/templates/${template.template_id}`)}
-                  className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded text-sm font-medium"
-                >
-                  詳細
-                </button>
-                <button
-                  onClick={() => navigate(`/events/${eventId}/templates/${template.template_id}/edit`)}
-                  className="flex-1 bg-accent/10 hover:bg-accent/20 text-accent-dark px-3 py-2 rounded text-sm font-medium"
-                >
-                  編集
-                </button>
-                <button
-                  onClick={() => handleDelete(template.template_id, template.template_name)}
-                  className="bg-red-100 hover:bg-red-200 text-red-700 px-3 py-2 rounded text-sm font-medium"
-                >
-                  削除
-                </button>
-              </div>
-
-              <div className="text-xs text-gray-500 mt-3">
-                作成日: {new Date(template.created_at).toLocaleDateString('ja-JP')}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

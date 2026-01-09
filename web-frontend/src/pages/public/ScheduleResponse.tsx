@@ -4,11 +4,15 @@ import {
   getScheduleByToken,
   getMembers,
   submitScheduleResponse,
+  getAllScheduleResponses,
   type DateSchedule,
   type Member,
   type ScheduleResponseInput,
+  type PublicScheduleResponse,
   PublicApiError,
 } from '../../lib/api/publicApi';
+import SearchableSelect from '../../components/SearchableSelect';
+import ScheduleResponseTable from '../../components/ScheduleResponseTable';
 
 export default function ScheduleResponse() {
   const { token } = useParams<{ token: string }>();
@@ -22,6 +26,10 @@ export default function ScheduleResponse() {
   const [responses, setResponses] = useState<Record<string, { availability: 'available' | 'unavailable' | 'maybe'; note: string }>>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+
+  // 全回答一覧（調整さん形式表示用）
+  const [allResponses, setAllResponses] = useState<PublicScheduleResponse[]>([]);
+  const [loadingAllResponses, setLoadingAllResponses] = useState(false);
 
   useEffect(() => {
     if (!token) {
@@ -37,16 +45,10 @@ export default function ScheduleResponse() {
 
         // 日程調整情報を取得
         const scheduleData = await getScheduleByToken(token);
-        console.log('Schedule data:', scheduleData);
-        console.log('Tenant ID from schedule:', scheduleData.tenant_id);
         setSchedule(scheduleData);
 
         // メンバー一覧を取得（グループでフィルタリング）
-        console.log('Fetching members for tenant:', scheduleData.tenant_id);
         const membersData = await getMembers(scheduleData.tenant_id, scheduleData.group_ids);
-        console.log('Members API response:', membersData);
-        console.log('Members data:', membersData.data);
-        console.log('Members array:', membersData.data?.members);
         setMembers(membersData.data?.members || []);
 
         // 初期値設定（全候補に対してmaybeを設定）
@@ -58,6 +60,18 @@ export default function ScheduleResponse() {
           };
         });
         setResponses(initialResponses);
+
+        // 全回答一覧を取得
+        setLoadingAllResponses(true);
+        try {
+          const allResponsesData = await getAllScheduleResponses(token);
+          setAllResponses(allResponsesData.responses || []);
+        } catch {
+          // 回答一覧の取得に失敗してもエラー表示はしない
+          console.warn('Failed to load all responses');
+        } finally {
+          setLoadingAllResponses(false);
+        }
       } catch (err) {
         if (err instanceof PublicApiError) {
           if (err.isNotFound()) {
@@ -116,9 +130,15 @@ export default function ScheduleResponse() {
         responses: responseArray,
       };
 
-      console.log('Submitting schedule response:', requestData);
-
       await submitScheduleResponse(token, requestData);
+
+      // 送信成功後に全回答を再取得
+      try {
+        const allResponsesData = await getAllScheduleResponses(token);
+        setAllResponses(allResponsesData.responses || []);
+      } catch {
+        // 回答一覧の取得に失敗してもエラー表示はしない
+      }
 
       setSubmitted(true);
     } catch (err) {
@@ -263,20 +283,16 @@ export default function ScheduleResponse() {
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 お名前 <span className="text-red-500">*</span>
               </label>
-              <select
+              <SearchableSelect
+                options={members.map((member) => ({
+                  value: member.member_id,
+                  label: member.display_name,
+                }))}
                 value={selectedMemberId}
-                onChange={(e) => setSelectedMemberId(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent"
-                required
+                onChange={setSelectedMemberId}
+                placeholder="名前を検索して選択..."
                 disabled={schedule?.status !== 'open'}
-              >
-                <option value="">選択してください</option>
-                {members.map((member) => (
-                  <option key={member.member_id} value={member.member_id}>
-                    {member.display_name}
-                  </option>
-                ))}
-              </select>
+              />
               <p className="mt-1 text-xs text-gray-500">
                 お名前が見つからない場合は、管理者にお問い合わせください
               </p>
@@ -383,6 +399,21 @@ export default function ScheduleResponse() {
               {submitting ? '送信中...' : '回答を送信'}
             </button>
           </form>
+        </div>
+
+        {/* 回答一覧（調整さん形式） */}
+        <div className="bg-white rounded-lg shadow-md p-6 mt-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">
+            回答一覧
+          </h2>
+          {loadingAllResponses ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-accent"></div>
+              <span className="ml-3 text-gray-600">読み込み中...</span>
+            </div>
+          ) : (
+            <ScheduleResponseTable candidates={schedule?.candidates || []} responses={allResponses} />
+          )}
         </div>
       </div>
     </div>

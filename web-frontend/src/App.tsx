@@ -13,11 +13,13 @@ import RoleGroupList from './pages/RoleGroupList';
 import MemberGroupList from './pages/MemberGroupList';
 import AttendanceList from './pages/AttendanceList';
 import AttendanceDetail from './pages/AttendanceDetail';
+import ShiftAdjustment from './pages/ShiftAdjustment';
 import ScheduleList from './pages/ScheduleList';
 import ScheduleDetail from './pages/ScheduleDetail';
 import TemplateList from './pages/TemplateList';
 import TemplateForm from './pages/TemplateForm';
 import TemplateDetail from './pages/TemplateDetail';
+import InstanceList from './pages/InstanceList';
 import Settings from './pages/Settings';
 // BillingManagement は管理フロントエンド（admin-frontend）に移動しました
 import Layout from './components/Layout';
@@ -93,6 +95,7 @@ function App() {
         <Route path="events/:eventId/templates/new" element={<TemplateForm />} />
         <Route path="events/:eventId/templates/:templateId" element={<TemplateDetail />} />
         <Route path="events/:eventId/templates/:templateId/edit" element={<TemplateForm />} />
+        <Route path="events/:eventId/instances" element={<InstanceList />} />
         <Route path="business-days/:businessDayId/shift-slots" element={<ShiftSlotList />} />
         <Route path="shift-slots/:slotId/assign" element={<AssignShift />} />
         <Route path="members" element={<Members />} />
@@ -101,6 +104,7 @@ function App() {
         <Route path="groups" element={<MemberGroupList />} />
         <Route path="attendance" element={<AttendanceList />} />
         <Route path="attendance/:collectionId" element={<AttendanceDetail />} />
+        <Route path="attendance/:collectionId/shift-adjustment" element={<ShiftAdjustment />} />
         <Route path="schedules" element={<ScheduleList />} />
         <Route path="schedules/:scheduleId" element={<ScheduleDetail />} />
         <Route path="admin/invite" element={<AdminInvitation />} />
