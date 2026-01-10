@@ -1,4 +1,5 @@
 import type { ApiResponse } from '../../types/api';
+import { apiClient } from '../apiClient';
 
 /**
  * 対象日入力（リクエスト用）
@@ -185,6 +186,14 @@ export async function closeAttendanceCollection(collectionId: string): Promise<v
     const text = await response.text();
     throw new Error(`出欠確認の締切に失敗しました: ${text || response.statusText}`);
   }
+}
+
+/**
+ * 出欠確認を削除
+ * 成功時: 204 No Content（レスポンスボディなし）
+ */
+export async function deleteAttendanceCollection(collectionId: string): Promise<void> {
+  await apiClient.delete(`/api/v1/attendance/collections/${collectionId}`);
 }
 
 /**
