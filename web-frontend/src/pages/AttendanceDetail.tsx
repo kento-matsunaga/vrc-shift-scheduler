@@ -11,6 +11,7 @@ import {
 import { getMembers } from '../lib/api';
 import { getMemberGroups, getMemberGroupDetail, type MemberGroup } from '../lib/api/memberGroupApi';
 import { listRoles, type Role } from '../lib/api/roleApi';
+import { ApiClientError } from '../lib/apiClient';
 import type { Member } from '../types/api';
 
 // ソートの種類
@@ -160,7 +161,11 @@ export default function AttendanceDetail() {
       alert('出欠確認を削除しました');
       navigate('/attendance');
     } catch (err) {
-      alert(err instanceof Error ? err.message : '削除に失敗しました');
+      if (err instanceof ApiClientError) {
+        alert(err.getUserMessage());
+      } else {
+        alert(err instanceof Error ? err.message : '削除に失敗しました');
+      }
     } finally {
       setDeleting(false);
     }

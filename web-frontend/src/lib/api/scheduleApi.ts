@@ -1,4 +1,5 @@
 import type { ApiResponse } from '../../types/api';
+import { apiClient } from '../apiClient';
 
 /**
  * 候補日
@@ -192,26 +193,8 @@ export async function closeSchedule(scheduleId: string): Promise<void> {
  * 成功時: 204 No Content（レスポンスボディなし）
  */
 export async function deleteSchedule(scheduleId: string): Promise<void> {
-  const baseURL = import.meta.env.VITE_API_BASE_URL || '';
-  const token = localStorage.getItem('auth_token');
-
-  if (!token) {
-    throw new Error('認証が必要です。ログインしてください。');
-  }
-
-  const response = await fetch(`${baseURL}/api/v1/schedules/${scheduleId}`, {
-    method: 'DELETE',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-    },
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`日程調整の削除に失敗しました: ${text || response.statusText}`);
-  }
+  await apiClient.delete(`/api/v1/schedules/${scheduleId}`);
 }
-
 
 /**
  * 日程回答一覧を取得

@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { getSchedule, getScheduleResponses, deleteSchedule, type Schedule, type ScheduleResponse } from '../lib/api/scheduleApi';
 import { getMembers } from '../lib/api';
 import { getMemberGroups, getMemberGroupDetail, type MemberGroup } from '../lib/api/memberGroupApi';
+import { ApiClientError } from '../lib/apiClient';
 import type { Member } from '../types/api';
 
 interface Candidate {
@@ -104,12 +105,15 @@ export default function ScheduleDetail() {
       alert('日程調整を削除しました');
       navigate('/schedules');
     } catch (err) {
-      alert(err instanceof Error ? err.message : '削除に失敗しました');
+      if (err instanceof ApiClientError) {
+        alert(err.getUserMessage());
+      } else {
+        alert(err instanceof Error ? err.message : '削除に失敗しました');
+      }
     } finally {
       setDeleting(false);
     }
   };
-
 
   const handleCopy = async () => {
     try {
