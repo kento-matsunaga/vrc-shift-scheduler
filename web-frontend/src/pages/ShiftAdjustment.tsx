@@ -13,6 +13,8 @@ import { getActualAttendance } from '../lib/api/actualAttendanceApi';
 import { getMembers } from '../lib/api/memberApi';
 import { listRoles, type Role } from '../lib/api/roleApi';
 import { ApiClientError } from '../lib/apiClient';
+import type { InstanceData } from '../lib/shiftTextExport';
+import ShiftTextPreviewModal from '../components/ShiftTextPreviewModal';
 import type { ShiftSlot, ShiftAssignment, BusinessDay, RecentAttendanceResponse } from '../types/api';
 
 interface AttendingMember {
@@ -55,6 +57,8 @@ export default function ShiftAdjustment() {
   const [roles, setRoles] = useState<Role[]>([]);
   const [memberRoleMap, setMemberRoleMap] = useState<Map<string, string[]>>(new Map());
   const [selectedRoleIds, setSelectedRoleIds] = useState<Set<string>>(new Set());
+  // インスタンス表プレビュー用
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
 
   // Load collection and responses
   useEffect(() => {
@@ -298,6 +302,31 @@ export default function ShiftAdjustment() {
     [attendingMembers, assignedMemberSlots]
   );
 
+  // プレビューモーダル用のインスタンスデータを生成
+  const getInstanceDataForPreview = (): InstanceData[] => {
+    // スロットをインスタンス名でグループ化
+    const instanceMap = new Map<string, { slotName: string; assignments: { memberName: string }[] }[]>();
+    slots.forEach(({ slot, assignments }) => {
+      const instanceName = slot.instance_name || '未分類';
+      if (!instanceMap.has(instanceName)) {
+        instanceMap.set(instanceName, []);
+      }
+      instanceMap.get(instanceName)!.push({
+        slotName: slot.slot_name,
+        assignments: assignments.map((a) => ({
+          memberName: a.member_display_name || a.member_id,
+        })),
+      });
+    });
+
+    return Array.from(instanceMap.entries()).map(
+      ([instanceName, slotList]) => ({
+        instanceName,
+        slots: slotList,
+      })
+    );
+  };
+
   if (loading) {
     return (
       <div className="text-center py-12">
@@ -340,8 +369,35 @@ export default function ShiftAdjustment() {
 
       {/* ヘッダー */}
       <div className="bg-white rounded-lg shadow p-6 mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">シフト調整</h1>
-        <p className="text-gray-600">{collection.title}の出欠データをもとにシフトを調整</p>
+        <div className="flex justify-between items-start">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">シフト調整</h1>
+            <p className="text-gray-600">{collection.title}の出欠データをもとにシフトを調整</p>
+          </div>
+          <div className="flex gap-2 items-center">
+            {/* インスタンス表プレビューボタン */}
+            <button
+              onClick={() => setShowPreviewModal(true)}
+              disabled={slots.length === 0}
+              className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <svg
+                className="w-5 h-5 mr-2"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                />
+              </svg>
+              インスタンス表を出力
+            </button>
+          </div>
+        </div>
 
         {/* アクションメッセージ */}
         {actionError && (
@@ -666,6 +722,13 @@ export default function ShiftAdjustment() {
           )}
         </div>
       </div>
+
+      {/* インスタンス表プレビューモーダル */}
+      <ShiftTextPreviewModal
+        isOpen={showPreviewModal}
+        onClose={() => setShowPreviewModal(false)}
+        instanceData={getInstanceDataForPreview()}
+      />
     </div>
   );
 }
