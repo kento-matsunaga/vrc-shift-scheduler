@@ -6,6 +6,7 @@ import { listInstances } from '../lib/api/instanceApi';
 import type { BusinessDay, ShiftSlot, ShiftAssignment, Template } from '../types/api';
 import type { Instance } from '../lib/api/instanceApi';
 import { ApiClientError } from '../lib/apiClient';
+import { generateShiftText, copyToClipboard, type MemberSeparator, type InstanceData } from '../lib/shiftTextExport';
 
 interface InstanceWithSlots {
   instance: Instance | null; // null for slots without instance
@@ -24,6 +25,8 @@ export default function ShiftSlotList() {
   const [error, setError] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [memberSeparator, setMemberSeparator] = useState<MemberSeparator>('newline');
 
   useEffect(() => {
     if (businessDayId) {
@@ -136,6 +139,27 @@ export default function ShiftSlotList() {
     return result;
   };
 
+  // インスタンス表テキストをクリップボードにコピー
+  const handleCopyInstanceTable = async () => {
+    const groups = groupSlotsByInstance();
+    const instanceData: InstanceData[] = groups.map((group) => ({
+      instanceName: group.instance?.name || '未分類',
+      slots: group.slots.map((slot) => ({
+        slotName: slot.slot_name,
+        assignments: (slotAssignments[slot.slot_id] || []).map((a) => ({
+          memberName: a.member_display_name || a.member_id,
+        })),
+      })),
+    }));
+
+    const text = generateShiftText(instanceData, memberSeparator);
+    const success = await copyToClipboard(text);
+    if (success) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
   if (loading) {
     return (
       <div className="text-center py-12">
@@ -186,7 +210,36 @@ export default function ShiftSlotList() {
             {businessDay.start_time.slice(0, 5)} 〜 {businessDay.end_time.slice(0, 5)}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
+          {/* 区切り文字選択 */}
+          <select
+            value={memberSeparator}
+            onChange={(e) => setMemberSeparator(e.target.value as MemberSeparator)}
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+          >
+            <option value="newline">行区切り</option>
+            <option value="comma">カンマ区切り</option>
+          </select>
+          {/* コピーボタン */}
+          <button
+            onClick={handleCopyInstanceTable}
+            className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg flex items-center"
+          >
+            <svg
+              className="w-5 h-5 mr-2"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+              />
+            </svg>
+            {copied ? 'コピーしました' : 'インスタンス表をコピー'}
+          </button>
           <button
             onClick={() => setShowTemplateModal(true)}
             className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg flex items-center"
