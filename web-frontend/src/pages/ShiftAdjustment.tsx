@@ -13,7 +13,8 @@ import { getActualAttendance } from '../lib/api/actualAttendanceApi';
 import { getMembers } from '../lib/api/memberApi';
 import { listRoles, type Role } from '../lib/api/roleApi';
 import { ApiClientError } from '../lib/apiClient';
-import { generateShiftText, copyToClipboard, type MemberSeparator, type InstanceData } from '../lib/shiftTextExport';
+import type { InstanceData } from '../lib/shiftTextExport';
+import ShiftTextPreviewModal from '../components/ShiftTextPreviewModal';
 import type { ShiftSlot, ShiftAssignment, BusinessDay, RecentAttendanceResponse } from '../types/api';
 
 interface AttendingMember {
@@ -56,9 +57,8 @@ export default function ShiftAdjustment() {
   const [roles, setRoles] = useState<Role[]>([]);
   const [memberRoleMap, setMemberRoleMap] = useState<Map<string, string[]>>(new Map());
   const [selectedRoleIds, setSelectedRoleIds] = useState<Set<string>>(new Set());
-  // インスタンス表コピー用
-  const [copied, setCopied] = useState(false);
-  const [memberSeparator, setMemberSeparator] = useState<MemberSeparator>('newline');
+  // インスタンス表プレビュー用
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
 
   // Load collection and responses
   useEffect(() => {
@@ -302,8 +302,8 @@ export default function ShiftAdjustment() {
     [attendingMembers, assignedMemberSlots]
   );
 
-  // インスタンス表テキストをクリップボードにコピー
-  const handleCopyInstanceTable = async () => {
+  // プレビューモーダル用のインスタンスデータを生成
+  const getInstanceDataForPreview = (): InstanceData[] => {
     // スロットをインスタンス名でグループ化
     const instanceMap = new Map<string, { slotName: string; assignments: { memberName: string }[] }[]>();
     slots.forEach(({ slot, assignments }) => {
@@ -319,19 +319,12 @@ export default function ShiftAdjustment() {
       });
     });
 
-    const instanceData: InstanceData[] = Array.from(instanceMap.entries()).map(
+    return Array.from(instanceMap.entries()).map(
       ([instanceName, slotList]) => ({
         instanceName,
         slots: slotList,
       })
     );
-
-    const text = generateShiftText(instanceData, memberSeparator);
-    const success = await copyToClipboard(text);
-    if (success) {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
   };
 
   if (loading) {
@@ -382,18 +375,9 @@ export default function ShiftAdjustment() {
             <p className="text-gray-600">{collection.title}の出欠データをもとにシフトを調整</p>
           </div>
           <div className="flex gap-2 items-center">
-            {/* 区切り文字選択 */}
-            <select
-              value={memberSeparator}
-              onChange={(e) => setMemberSeparator(e.target.value as MemberSeparator)}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
-            >
-              <option value="newline">行区切り</option>
-              <option value="comma">カンマ区切り</option>
-            </select>
-            {/* コピーボタン */}
+            {/* インスタンス表プレビューボタン */}
             <button
-              onClick={handleCopyInstanceTable}
+              onClick={() => setShowPreviewModal(true)}
               disabled={slots.length === 0}
               className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
             >
@@ -410,7 +394,7 @@ export default function ShiftAdjustment() {
                   d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
                 />
               </svg>
-              {copied ? 'コピーしました' : 'インスタンス表をコピー'}
+              インスタンス表を出力
             </button>
           </div>
         </div>
@@ -738,6 +722,13 @@ export default function ShiftAdjustment() {
           )}
         </div>
       </div>
+
+      {/* インスタンス表プレビューモーダル */}
+      <ShiftTextPreviewModal
+        isOpen={showPreviewModal}
+        onClose={() => setShowPreviewModal(false)}
+        instanceData={getInstanceDataForPreview()}
+      />
     </div>
   );
 }

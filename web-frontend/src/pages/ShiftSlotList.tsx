@@ -6,7 +6,8 @@ import { listInstances } from '../lib/api/instanceApi';
 import type { BusinessDay, ShiftSlot, ShiftAssignment, Template } from '../types/api';
 import type { Instance } from '../lib/api/instanceApi';
 import { ApiClientError } from '../lib/apiClient';
-import { generateShiftText, copyToClipboard, type MemberSeparator, type InstanceData } from '../lib/shiftTextExport';
+import type { InstanceData } from '../lib/shiftTextExport';
+import ShiftTextPreviewModal from '../components/ShiftTextPreviewModal';
 
 interface InstanceWithSlots {
   instance: Instance | null; // null for slots without instance
@@ -25,8 +26,7 @@ export default function ShiftSlotList() {
   const [error, setError] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showTemplateModal, setShowTemplateModal] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [memberSeparator, setMemberSeparator] = useState<MemberSeparator>('newline');
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
 
   useEffect(() => {
     if (businessDayId) {
@@ -139,10 +139,10 @@ export default function ShiftSlotList() {
     return result;
   };
 
-  // インスタンス表テキストをクリップボードにコピー
-  const handleCopyInstanceTable = async () => {
+  // プレビューモーダル用のインスタンスデータを生成
+  const getInstanceDataForPreview = (): InstanceData[] => {
     const groups = groupSlotsByInstance();
-    const instanceData: InstanceData[] = groups.map((group) => ({
+    return groups.map((group) => ({
       instanceName: group.instance?.name || '未分類',
       slots: group.slots.map((slot) => ({
         slotName: slot.slot_name,
@@ -151,13 +151,6 @@ export default function ShiftSlotList() {
         })),
       })),
     }));
-
-    const text = generateShiftText(instanceData, memberSeparator);
-    const success = await copyToClipboard(text);
-    if (success) {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
   };
 
   if (loading) {
@@ -211,18 +204,9 @@ export default function ShiftSlotList() {
           </p>
         </div>
         <div className="flex gap-2 items-center">
-          {/* 区切り文字選択 */}
-          <select
-            value={memberSeparator}
-            onChange={(e) => setMemberSeparator(e.target.value as MemberSeparator)}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
-          >
-            <option value="newline">行区切り</option>
-            <option value="comma">カンマ区切り</option>
-          </select>
-          {/* コピーボタン */}
+          {/* インスタンス表プレビューボタン */}
           <button
-            onClick={handleCopyInstanceTable}
+            onClick={() => setShowPreviewModal(true)}
             className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg flex items-center"
           >
             <svg
@@ -238,7 +222,7 @@ export default function ShiftSlotList() {
                 d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
               />
             </svg>
-            {copied ? 'コピーしました' : 'インスタンス表をコピー'}
+            インスタンス表を出力
           </button>
           <button
             onClick={() => setShowTemplateModal(true)}
@@ -407,6 +391,13 @@ export default function ShiftSlotList() {
           }}
         />
       )}
+
+      {/* インスタンス表プレビューモーダル */}
+      <ShiftTextPreviewModal
+        isOpen={showPreviewModal}
+        onClose={() => setShowPreviewModal(false)}
+        instanceData={getInstanceDataForPreview()}
+      />
     </div>
   );
 }
