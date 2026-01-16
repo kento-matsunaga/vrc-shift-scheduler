@@ -5,8 +5,10 @@ import {
   getAttendanceResponses,
   closeAttendanceCollection,
   deleteAttendanceCollection,
+  updateAttendanceResponse,
   type AttendanceCollection as AttendanceCollectionType,
   type AttendanceResponse,
+  type TargetDate,
 } from '../lib/api/attendanceApi';
 import { getMembers } from '../lib/api';
 import { getMemberGroups, getMemberGroupDetail, type MemberGroup } from '../lib/api/memberGroupApi';
@@ -17,6 +19,16 @@ import type { Member } from '../types/api';
 // ソートの種類
 type SortKey = 'name' | 'attending_count' | 'date_attending';
 type SortDirection = 'asc' | 'desc';
+
+// 編集モーダル用の型
+interface EditingData {
+  member: Member;
+  targetDate: TargetDate;
+  response: 'attending' | 'absent' | 'undecided' | '';
+  note: string;
+  availableFrom: string;
+  availableTo: string;
+}
 
 export default function AttendanceDetail() {
   const { collectionId } = useParams<{ collectionId: string }>();
@@ -32,6 +44,10 @@ export default function AttendanceDetail() {
   const [deleting, setDeleting] = useState(false);
   const [publicUrl, setPublicUrl] = useState('');
   const [copied, setCopied] = useState(false);
+
+  // 編集モーダル状態
+  const [editingData, setEditingData] = useState<EditingData | null>(null);
+  const [saving, setSaving] = useState(false);
 
   // ソート状態
   const [sortKey, setSortKey] = useState<SortKey>('name');
@@ -178,6 +194,66 @@ export default function AttendanceDetail() {
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
       console.error('Failed to copy:', err);
+    }
+  };
+
+  // 編集モーダルを開く
+  const handleOpenEditModal = (member: Member, targetDate: TargetDate) => {
+    const memberResponses = responses.filter(
+      (r) => r.member_id === member.member_id && r.target_date_id === targetDate.target_date_id
+    );
+    const existingResponse = memberResponses[0];
+
+    setEditingData({
+      member,
+      targetDate,
+      response: existingResponse?.response || '',
+      note: existingResponse?.note || '',
+      availableFrom: existingResponse?.available_from || '',
+      availableTo: existingResponse?.available_to || '',
+    });
+  };
+
+  // 編集モーダルを閉じる
+  const handleCloseEditModal = () => {
+    setEditingData(null);
+  };
+
+  // 編集を保存
+  const handleSaveEdit = async () => {
+    if (!editingData || !collectionId) return;
+    if (!editingData.response) {
+      alert('回答を選択してください');
+      return;
+    }
+
+    // 時間バリデーション: 両方入力されている場合、開始時間 < 終了時間
+    if (editingData.availableFrom && editingData.availableTo) {
+      if (editingData.availableFrom >= editingData.availableTo) {
+        alert('参加可能時間の開始時間は終了時間より前にしてください');
+        return;
+      }
+    }
+
+    try {
+      setSaving(true);
+      await updateAttendanceResponse(collectionId, {
+        member_id: editingData.member.member_id,
+        target_date_id: editingData.targetDate.target_date_id,
+        response: editingData.response as 'attending' | 'absent' | 'undecided',
+        note: editingData.note || undefined,
+        available_from: editingData.availableFrom || undefined,
+        available_to: editingData.availableTo || undefined,
+      });
+
+      // 成功したらデータを再取得
+      const responsesData = await getAttendanceResponses(collectionId);
+      setResponses(responsesData || []);
+      setEditingData(null);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : '保存に失敗しました');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -655,8 +731,9 @@ export default function AttendanceDetail() {
                         return (
                           <td
                             key={targetDate.target_date_id}
-                            className={`px-4 py-4 text-center ${bgColor}`}
-                            title={timeDisplay || undefined}
+                            className={`px-4 py-4 text-center ${bgColor} cursor-pointer hover:opacity-80 transition-opacity`}
+                            title={timeDisplay ? `${timeDisplay} (クリックで編集)` : 'クリックで編集'}
+                            onClick={() => handleOpenEditModal(member, targetDate)}
                           >
                             <div className="text-lg font-semibold">{content}</div>
                             {timeDisplay && (
@@ -713,6 +790,124 @@ export default function AttendanceDetail() {
           </table>
         </div>
       </div>
+
+      {/* 編集モーダル */}
+      {editingData && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">
+                出欠回答を編集
+              </h3>
+              <p className="text-sm text-gray-600 mt-1">
+                {editingData.member.display_name} - {new Date(editingData.targetDate.target_date).toLocaleDateString('ja-JP', {
+                  year: 'numeric',
+                  month: '2-digit',
+                  day: '2-digit',
+                  weekday: 'short',
+                })}
+              </p>
+            </div>
+            <div className="px-6 py-4 space-y-4">
+              {/* 出欠ステータス */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  出欠 <span className="text-red-500">*</span>
+                </label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditingData({ ...editingData, response: 'attending' })}
+                    className={`flex-1 px-4 py-3 rounded-md border-2 transition font-medium ${
+                      editingData.response === 'attending'
+                        ? 'border-green-500 bg-green-50 text-green-800'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    ○ 参加
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingData({ ...editingData, response: 'undecided' })}
+                    className={`flex-1 px-4 py-3 rounded-md border-2 transition font-medium ${
+                      editingData.response === 'undecided'
+                        ? 'border-yellow-500 bg-yellow-50 text-yellow-800'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    △ 未定
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingData({ ...editingData, response: 'absent' })}
+                    className={`flex-1 px-4 py-3 rounded-md border-2 transition font-medium ${
+                      editingData.response === 'absent'
+                        ? 'border-red-500 bg-red-50 text-red-800'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    × 不参加
+                  </button>
+                </div>
+              </div>
+
+              {/* 参加可能時間 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  参加可能時間（任意）
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="time"
+                    value={editingData.availableFrom}
+                    onChange={(e) => setEditingData({ ...editingData, availableFrom: e.target.value })}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent"
+                  />
+                  <span className="text-gray-500">〜</span>
+                  <input
+                    type="time"
+                    value={editingData.availableTo}
+                    onChange={(e) => setEditingData({ ...editingData, availableTo: e.target.value })}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent"
+                  />
+                </div>
+              </div>
+
+              {/* 備考 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  備考（任意）
+                </label>
+                <textarea
+                  value={editingData.note}
+                  onChange={(e) => setEditingData({ ...editingData, note: e.target.value })}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent resize-none"
+                  placeholder="メモや補足があれば入力してください"
+                />
+              </div>
+            </div>
+            <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={handleCloseEditModal}
+                disabled={saving}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition disabled:opacity-50"
+              >
+                キャンセル
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveEdit}
+                disabled={saving || !editingData.response}
+                className="px-4 py-2 text-sm font-medium text-white bg-accent rounded-md hover:bg-accent-dark transition disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {saving ? '保存中...' : '保存'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
