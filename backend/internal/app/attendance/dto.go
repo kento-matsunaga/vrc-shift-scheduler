@@ -166,3 +166,29 @@ type DeleteCollectionOutput struct {
 	DeletedAt    *time.Time `json:"deleted_at,omitempty"`
 	UpdatedAt    time.Time  `json:"updated_at"`
 }
+
+// AdminUpdateResponseInput represents the input for admin updating an attendance response
+// 管理者による出欠回答の更新（締め切り後も可能）
+type AdminUpdateResponseInput struct {
+	TenantID      string  // from JWT context (管理API)
+	CollectionID  string  // from URL path
+	MemberID      string  // from request body
+	TargetDateID  string  // from request body
+	Response      string  // "attending" or "absent" or "undecided"
+	Note          string
+	AvailableFrom *string // 参加可能開始時間 (HH:MM)
+	AvailableTo   *string // 参加可能終了時間 (HH:MM)
+}
+
+// AdminUpdateResponseOutput represents the output for admin updating an attendance response
+type AdminUpdateResponseOutput struct {
+	ResponseID    string    `json:"response_id"`
+	CollectionID  string    `json:"collection_id"`
+	MemberID      string    `json:"member_id"`
+	TargetDateID  string    `json:"target_date_id"`
+	Response      string    `json:"response"`
+	Note          string    `json:"note"`
+	AvailableFrom *string   `json:"available_from,omitempty"`
+	AvailableTo   *string   `json:"available_to,omitempty"`
+	RespondedAt   time.Time `json:"responded_at"`
+}

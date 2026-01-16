@@ -210,6 +210,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			appattendance.NewListCollectionsUsecase(attendanceRepo),
 			appattendance.NewGetMemberResponsesUsecase(attendanceRepo),
 			appattendance.NewGetAllPublicResponsesUsecase(attendanceRepo, memberRepo),
+			appattendance.NewAdminUpdateResponseUsecase(attendanceRepo, txManager, systemClock),
 		)
 
 		// ActualAttendanceHandler dependencies (reusing memberRepo, businessDayRepo, assignmentRepo)
@@ -371,6 +372,8 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			r.With(permissionChecker.RequirePermission(tenant.PermissionCreateAttendance)).Post("/{collection_id}/close", attendanceHandler.CloseCollection)
 			r.With(permissionChecker.RequirePermission(tenant.PermissionCreateAttendance)).Delete("/{collection_id}", attendanceHandler.DeleteCollection)
 			r.Get("/{collection_id}/responses", attendanceHandler.GetResponses)
+			// 管理者による出欠回答の更新（締め切り後も可能）
+			r.With(permissionChecker.RequirePermission(tenant.PermissionEditMember)).Put("/{collection_id}/responses", attendanceHandler.AdminUpdateResponse)
 		})
 
 		// Schedule API（管理用）
@@ -583,6 +586,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			appattendance.NewListCollectionsUsecase(publicAttendanceRepoForHandler),
 			appattendance.NewGetMemberResponsesUsecase(publicAttendanceRepoForHandler),
 			appattendance.NewGetAllPublicResponsesUsecase(publicAttendanceRepoForHandler, publicMemberRepoForAttendance),
+			nil, // AdminUpdateResponseUsecase は公開APIでは使用しない
 		)
 		r.Get("/{token}", publicAttendanceHandler.GetCollectionByToken)
 		r.Post("/{token}/responses", publicAttendanceHandler.SubmitResponse)
