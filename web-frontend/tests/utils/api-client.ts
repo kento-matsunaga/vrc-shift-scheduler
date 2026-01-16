@@ -136,14 +136,22 @@ export const ENDPOINTS = {
   // Actual Attendance
   actualAttendance: '/api/v1/actual-attendance',
 
+  // Attendance Admin Update
+  attendanceCollectionAdminUpdate: (id: string) => `/api/v1/attendance/collections/${id}/responses`,
+
   // Public APIs
   publicAttendance: (token: string) => `/api/v1/public/attendance/${token}`,
   publicAttendanceResponses: (token: string) => `/api/v1/public/attendance/${token}/responses`,
   publicAttendanceMemberResponses: (token: string, memberId: string) => `/api/v1/public/attendance/${token}/members/${memberId}/responses`,
+  publicAttendanceAllResponses: (token: string) => `/api/v1/public/attendance/${token}/responses`,
   publicMembers: '/api/v1/public/members',
   publicSchedule: (token: string) => `/api/v1/public/schedules/${token}`,
   publicScheduleResponses: (token: string) => `/api/v1/public/schedules/${token}/responses`,
+  publicScheduleAllResponses: (token: string) => `/api/v1/public/schedules/${token}/responses`,
   publicLicenseClaim: '/api/v1/public/license/claim',
+
+  // Stripe Webhook (signature verification required)
+  stripeWebhook: '/api/v1/stripe/webhook',
 };
 
 /**

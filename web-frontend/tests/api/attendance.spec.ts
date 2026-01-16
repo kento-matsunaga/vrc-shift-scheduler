@@ -249,7 +249,52 @@ test.describe('Attendance API', () => {
   });
 
   // ============================================================
-  // 7. GET /api/v1/attendance/collections/{id}/responses - 出欠回答一覧
+  // 7. PUT /api/v1/attendance/collections/{id}/responses - 管理者による出欠回答更新
+  // ============================================================
+  test.describe('PUT /api/v1/attendance/collections/{id}/responses', () => {
+    test.describe('異常系', () => {
+      test('認証なしで401エラー', async ({ request }) => {
+        const client = getUnauthenticatedClient(request);
+
+        const response = await client.raw('PUT', ENDPOINTS.attendanceCollectionAdminUpdate('some-id'), {
+          member_id: 'some-member-id',
+          responses: [],
+        });
+
+        expect([400, 401]).toContain(response.status());
+      });
+
+      test('無効なトークンで401エラー', async ({ request }) => {
+        const client = new ApiClient(request);
+        client.setToken('invalid-token-12345');
+
+        const response = await client.raw('PUT', ENDPOINTS.attendanceCollectionAdminUpdate('some-id'), {
+          member_id: 'some-member-id',
+          responses: [],
+        });
+
+        expect(response.status()).toBe(401);
+      });
+
+      test('存在しない出欠収集IDでエラー', async ({ request }) => {
+        const { client } = await loginAsAdmin(request);
+
+        const response = await client.raw(
+          'PUT',
+          ENDPOINTS.attendanceCollectionAdminUpdate('01HZNONEXISTENT00000001'),
+          {
+            member_id: '01HZNONEXISTENT00000002',
+            responses: [],
+          }
+        );
+
+        expect([400, 404, 500]).toContain(response.status());
+      });
+    });
+  });
+
+  // ============================================================
+  // 8. GET /api/v1/attendance/collections/{id}/responses - 出欠回答一覧
   // ============================================================
   test.describe('GET /api/v1/attendance/collections/{id}/responses', () => {
     test.describe('異常系', () => {

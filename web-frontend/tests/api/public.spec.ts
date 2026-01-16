@@ -68,6 +68,21 @@ test.describe('Public API', () => {
   });
 
   // ============================================================
+  // 2.5 GET /api/v1/public/attendance/{token}/responses - 全回答取得
+  // ============================================================
+  test.describe('GET /api/v1/public/attendance/{token}/responses (all responses)', () => {
+    test.describe('異常系', () => {
+      test('無効なトークンで404エラー', async ({ request }) => {
+        const client = getUnauthenticatedClient(request);
+
+        const response = await client.raw('GET', ENDPOINTS.publicAttendanceAllResponses('invalid-token'));
+
+        expect([400, 404]).toContain(response.status());
+      });
+    });
+  });
+
+  // ============================================================
   // 3. GET /api/v1/public/attendance/{token}/members/{memberId}/responses - メンバー回答取得
   // ============================================================
   test.describe('GET /api/v1/public/attendance/{token}/members/{memberId}/responses', () => {
@@ -156,6 +171,21 @@ test.describe('Public API', () => {
         const response = await client.raw('POST', ENDPOINTS.publicScheduleResponses('some-token'), {});
 
         expect(response.status()).toBeGreaterThanOrEqual(400);
+      });
+    });
+  });
+
+  // ============================================================
+  // 6.5 GET /api/v1/public/schedules/{token}/responses - 全回答取得
+  // ============================================================
+  test.describe('GET /api/v1/public/schedules/{token}/responses (all responses)', () => {
+    test.describe('異常系', () => {
+      test('無効なトークンで404エラー', async ({ request }) => {
+        const client = getUnauthenticatedClient(request);
+
+        const response = await client.raw('GET', ENDPOINTS.publicScheduleAllResponses('invalid-token'));
+
+        expect([400, 404]).toContain(response.status());
       });
     });
   });
