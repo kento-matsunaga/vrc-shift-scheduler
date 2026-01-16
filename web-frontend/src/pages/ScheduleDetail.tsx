@@ -5,6 +5,7 @@ import { getMembers } from '../lib/api';
 import { getMemberGroups, getMemberGroupDetail, type MemberGroup } from '../lib/api/memberGroupApi';
 import { ApiClientError } from '../lib/apiClient';
 import type { Member } from '../types/api';
+import { formatTimeRange } from '../lib/timeUtils';
 
 interface Candidate {
   candidate_id: string;
@@ -16,6 +17,8 @@ interface Candidate {
 // ソートの種類
 type SortKey = 'name' | 'available_count' | 'date_available';
 type SortDirection = 'asc' | 'desc';
+
+// formatTime関数は共通ユーティリティ（lib/timeUtils.ts）に移行済み
 
 export default function ScheduleDetail() {
   const { scheduleId } = useParams<{ scheduleId: string }>();
@@ -437,17 +440,9 @@ export default function ScheduleDetail() {
                           weekday: 'short',
                         })}
                       </span>
-                      {candidate.start_time && candidate.end_time && (
+                      {(candidate.start_time || candidate.end_time) && (
                         <span className="text-xs font-normal normal-case text-gray-400 mt-1">
-                          {new Date(candidate.start_time).toLocaleTimeString('ja-JP', {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                          -
-                          {new Date(candidate.end_time).toLocaleTimeString('ja-JP', {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
+                          {formatTimeRange(candidate.start_time, candidate.end_time, '-')}
                         </span>
                       )}
                     </div>
