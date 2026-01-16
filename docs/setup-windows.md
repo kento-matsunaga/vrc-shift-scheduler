@@ -330,7 +330,34 @@ cd backend
 DATABASE_URL="postgres://vrcshift:vrcshift@localhost:5432/vrcshift?sslmode=disable" JWT_SECRET=test go test ./...
 ```
 
-### フロントエンド（用意されている場合）
+### フロントエンド（Playwright）
+
+フロントエンドのテストはPlaywrightを使用します。
+
+#### APIテスト（ブラウザ不要）
+
+バックエンドとの疎通テストを実行：
+
+```bash
+# Docker環境が起動していることを確認
+docker compose exec web-frontend npm run test:api
+```
+
+#### E2Eテスト（ブラウザ必要）
+
+初回のみ、ブラウザをインストール：
+
+```bash
+docker compose exec web-frontend npm run test:install
+```
+
+E2Eテストを実行：
+
+```bash
+docker compose exec web-frontend npm run test:e2e
+```
+
+#### 全テスト実行
 
 ```bash
 docker compose exec web-frontend npm test
