@@ -630,6 +630,8 @@ export default function AttendanceList() {
                   onChange={(e) => {
                     if (e.target.value) {
                       setDeadline(`${e.target.value}T23:59`);
+                    } else {
+                      setDeadline('');
                     }
                   }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent"
