@@ -137,6 +137,7 @@ export default function ShiftSlotList() {
     });
 
     // 各インスタンス内のスロットをpriority昇順でソート（小さいほど優先）
+    // バックエンドでもソート済みだが、フロントエンドでも一貫性を保証
     result.forEach((group) => {
       group.slots.sort((a, b) => a.priority - b.priority);
     });

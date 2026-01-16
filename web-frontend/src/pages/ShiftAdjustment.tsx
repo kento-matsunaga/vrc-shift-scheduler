@@ -316,7 +316,8 @@ export default function ShiftAdjustment() {
       const { slot } = slotWithAssignments;
       const instanceId = slot.instance_id || null;
       const instanceName = slot.instance_name || '未分類';
-      const key = instanceId || `__name__${instanceName}`;
+      // instance_idがあればそれを使い、なければinstance_nameでグループ化
+      const key = instanceId || instanceName;
 
       if (!instanceMap.has(key)) {
         instanceMap.set(key, {
@@ -332,6 +333,7 @@ export default function ShiftAdjustment() {
     const result = Array.from(instanceMap.values());
 
     // 各インスタンス内のスロットをpriority昇順でソート（小さいほど優先）
+    // バックエンドでもソート済みだが、フロントエンドでも一貫性を保証
     result.forEach((group) => {
       group.slots.sort((a, b) => a.slot.priority - b.slot.priority);
     });
