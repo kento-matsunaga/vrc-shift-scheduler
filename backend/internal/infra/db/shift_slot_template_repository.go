@@ -307,7 +307,7 @@ func (r *ShiftSlotTemplateRepository) findItemsByTemplateID(ctx context.Context,
 			created_at, updated_at
 		FROM shift_slot_template_items
 		WHERE template_id = $1
-		ORDER BY start_time ASC, priority DESC
+		ORDER BY start_time ASC, priority ASC
 	`
 
 	rows, err := r.db.Query(ctx, itemQuery, templateID.String())

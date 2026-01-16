@@ -100,6 +100,10 @@ func NewShiftSlotTemplateItem(
 		return nil, fmt.Errorf("required_count must be positive")
 	}
 
+	if priority < 1 {
+		return nil, fmt.Errorf("priority must be at least 1")
+	}
+
 	now := time.Now()
 	item := &ShiftSlotTemplateItem{
 		itemID:        common.NewShiftSlotTemplateItemID(),
