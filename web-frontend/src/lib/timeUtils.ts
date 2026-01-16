@@ -54,6 +54,42 @@ export const toApiTimeFormat = (time: string): string | undefined => {
 };
 
 /**
+ * 時刻形式のバリデーション: HH:MM形式かつ有効な時刻かチェック
+ *
+ * @param time HH:MM形式の時刻文字列
+ * @returns 有効な場合true、無効な場合false
+ *
+ * バリデーション:
+ * - 形式: HH:MM（2桁:2桁）
+ * - 時間: 0-23
+ * - 分: 0-59
+ *
+ * エッジケース:
+ * - "" → false
+ * - "21:00" → true
+ * - "00:00" → true
+ * - "23:59" → true
+ * - "24:00" → false (時間が範囲外)
+ * - "25:00" → false (時間が範囲外)
+ * - "12:60" → false (分が範囲外)
+ * - "1:00" → false (形式不正)
+ * - "abc" → false (形式不正)
+ */
+export const isValidTimeFormat = (time: string): boolean => {
+  if (!time) return false;
+
+  // HH:MM形式のチェック
+  const match = time.match(/^(\d{2}):(\d{2})$/);
+  if (!match) return false;
+
+  const hours = parseInt(match[1], 10);
+  const minutes = parseInt(match[2], 10);
+
+  // 時間と分の範囲チェック
+  return hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59;
+};
+
+/**
  * 時刻バリデーション: 開始時間が終了時間より前かチェック
  *
  * 数値パース後の比較でより堅牢なバリデーションを実行
@@ -70,11 +106,18 @@ export const toApiTimeFormat = (time: string): string | undefined => {
  * - ("23:00", "21:00") → false (開始 > 終了)
  * - ("21:00", "21:00") → false (同じ時間は無効)
  * - ("00:00", "23:59") → true (深夜0時から23:59まで)
+ * - ("25:00", "26:00") → false (不正な時刻形式)
+ * - ("12:60", "13:00") → false (不正な時刻形式)
  */
 export const isValidTimeRange = (startTime: string, endTime: string): boolean => {
   // 両方未設定、または片方のみ設定は有効
   if (!startTime || !endTime) {
     return true;
+  }
+
+  // 時刻形式のバリデーション
+  if (!isValidTimeFormat(startTime) || !isValidTimeFormat(endTime)) {
+    return false;
   }
 
   const [startH, startM] = startTime.split(':').map(Number);

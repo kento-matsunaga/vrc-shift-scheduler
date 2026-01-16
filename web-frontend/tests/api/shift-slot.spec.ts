@@ -91,6 +91,33 @@ test.describe('ShiftSlot API', () => {
 
         expect(response.status()).toBeGreaterThanOrEqual(400);
       });
+
+      test('priority=0で400エラー（priorityは1以上）', async ({ request }) => {
+        const { client } = await loginAsAdmin(request);
+
+        const response = await client.raw('POST', ENDPOINTS.shiftSlots, {
+          business_day_id: '01HZNONEXISTENT00000001',
+          name: 'Test Shift Slot',
+          priority: 0, // 無効: priorityは1以上である必要がある
+          capacity: 5,
+        });
+
+        // 400 (バリデーションエラー) または 404 (営業日なし)
+        expect(response.status()).toBeGreaterThanOrEqual(400);
+      });
+
+      test('負のpriorityで400エラー', async ({ request }) => {
+        const { client } = await loginAsAdmin(request);
+
+        const response = await client.raw('POST', ENDPOINTS.shiftSlots, {
+          business_day_id: '01HZNONEXISTENT00000001',
+          name: 'Test Shift Slot',
+          priority: -1, // 無効: 負の値
+          capacity: 5,
+        });
+
+        expect(response.status()).toBeGreaterThanOrEqual(400);
+      });
     });
   });
 

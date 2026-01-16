@@ -110,12 +110,12 @@ func (u *AdminUpdateResponseUsecase) Execute(ctx context.Context, input AdminUpd
 			return err
 		}
 
-		// c. Upsert response (ON CONFLICT DO UPDATE)
+		// d. Upsert response (ON CONFLICT DO UPDATE)
 		if err := u.repo.UpsertResponse(txCtx, response); err != nil {
 			return err
 		}
 
-		// d. Build output
+		// e. Build output
 		output = &AdminUpdateResponseOutput{
 			ResponseID:    response.ResponseID().String(),
 			CollectionID:  response.CollectionID().String(),
