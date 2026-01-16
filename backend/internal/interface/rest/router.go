@@ -210,7 +210,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			appattendance.NewListCollectionsUsecase(attendanceRepo),
 			appattendance.NewGetMemberResponsesUsecase(attendanceRepo),
 			appattendance.NewGetAllPublicResponsesUsecase(attendanceRepo, memberRepo),
-			appattendance.NewAdminUpdateResponseUsecase(attendanceRepo, txManager, systemClock),
+			appattendance.NewAdminUpdateResponseUsecase(attendanceRepo, memberRepo, txManager, systemClock),
 		)
 
 		// ActualAttendanceHandler dependencies (reusing memberRepo, businessDayRepo, assignmentRepo)

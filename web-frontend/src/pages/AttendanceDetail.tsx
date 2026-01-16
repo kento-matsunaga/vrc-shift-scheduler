@@ -227,6 +227,14 @@ export default function AttendanceDetail() {
       return;
     }
 
+    // 時間バリデーション: 両方入力されている場合、開始時間 < 終了時間
+    if (editingData.availableFrom && editingData.availableTo) {
+      if (editingData.availableFrom >= editingData.availableTo) {
+        alert('参加可能時間の開始時間は終了時間より前にしてください');
+        return;
+      }
+    }
+
     try {
       setSaving(true);
       await updateAttendanceResponse(collectionId, {

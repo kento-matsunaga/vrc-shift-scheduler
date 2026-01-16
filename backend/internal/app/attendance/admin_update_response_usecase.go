@@ -6,27 +6,31 @@ import (
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/attendance"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/member"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/services"
 )
 
 // AdminUpdateResponseUsecase handles admin updating an attendance response
 // 管理者による出欠回答の更新（締め切りチェックをスキップ）
 type AdminUpdateResponseUsecase struct {
-	repo      attendance.AttendanceCollectionRepository
-	txManager services.TxManager
-	clock     services.Clock
+	repo       attendance.AttendanceCollectionRepository
+	memberRepo member.MemberRepository
+	txManager  services.TxManager
+	clock      services.Clock
 }
 
 // NewAdminUpdateResponseUsecase creates a new AdminUpdateResponseUsecase
 func NewAdminUpdateResponseUsecase(
 	repo attendance.AttendanceCollectionRepository,
+	memberRepo member.MemberRepository,
 	txManager services.TxManager,
 	clock services.Clock,
 ) *AdminUpdateResponseUsecase {
 	return &AdminUpdateResponseUsecase{
-		repo:      repo,
-		txManager: txManager,
-		clock:     clock,
+		repo:       repo,
+		memberRepo: memberRepo,
+		txManager:  txManager,
+		clock:      clock,
 	}
 }
 
@@ -76,10 +80,20 @@ func (u *AdminUpdateResponseUsecase) Execute(ctx context.Context, input AdminUpd
 			return err
 		}
 
+		// b. Verify member exists in the same tenant
+		_, err = u.memberRepo.FindByID(txCtx, tenantID, memberID)
+		if err != nil {
+			var domainErr *common.DomainError
+			if errors.As(err, &domainErr) && domainErr.Code() == common.ErrNotFound {
+				return ErrMemberNotFound
+			}
+			return err
+		}
+
 		// NOTE: 管理者による更新のため、CanRespond() をスキップ
 		// 締め切り後でも回答を更新可能
 
-		// b. Create AttendanceResponse entity
+		// c. Create AttendanceResponse entity
 		now := u.clock.Now()
 		response, err := attendance.NewAttendanceResponse(
 			now,
