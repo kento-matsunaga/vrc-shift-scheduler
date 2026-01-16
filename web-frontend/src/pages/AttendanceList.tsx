@@ -561,16 +561,114 @@ export default function AttendanceList() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
                 回答締切（任意）
               </label>
-              <input
-                type="datetime-local"
-                value={deadline}
-                onChange={(e) => setDeadline(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent"
-                disabled={submitting}
-              />
+              {/* クイック選択ボタン */}
+              <div className="flex flex-wrap gap-2 mb-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const today = new Date();
+                    const dateStr = today.toISOString().split('T')[0];
+                    setDeadline(`${dateStr}T23:59`);
+                  }}
+                  className="px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 rounded-md transition"
+                  disabled={submitting}
+                >
+                  今日中
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const tomorrow = new Date();
+                    tomorrow.setDate(tomorrow.getDate() + 1);
+                    const dateStr = tomorrow.toISOString().split('T')[0];
+                    setDeadline(`${dateStr}T23:59`);
+                  }}
+                  className="px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 rounded-md transition"
+                  disabled={submitting}
+                >
+                  明日中
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const nextWeek = new Date();
+                    nextWeek.setDate(nextWeek.getDate() + 7);
+                    const dateStr = nextWeek.toISOString().split('T')[0];
+                    setDeadline(`${dateStr}T23:59`);
+                  }}
+                  className="px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 rounded-md transition"
+                  disabled={submitting}
+                >
+                  1週間後
+                </button>
+                {deadline && (
+                  <button
+                    type="button"
+                    onClick={() => setDeadline('')}
+                    className="px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition"
+                    disabled={submitting}
+                  >
+                    クリア
+                  </button>
+                )}
+              </div>
+              {/* 日付で指定（その日の23:59まで） */}
+              <div className="mb-2">
+                <label
+                  htmlFor="deadline-date"
+                  className="block text-xs text-gray-500 mb-1"
+                >
+                  日付で指定（その日の23:59まで）
+                </label>
+                <input
+                  id="deadline-date"
+                  type="date"
+                  value={deadline ? deadline.split('T')[0] : ''}
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      setDeadline(`${e.target.value}T23:59`);
+                    } else {
+                      setDeadline('');
+                    }
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent"
+                  disabled={submitting}
+                />
+              </div>
+              {/* 詳細な日時指定 */}
+              <details className="text-sm">
+                <summary className="text-gray-500 hover:text-gray-700 cursor-pointer">
+                  詳細な日時を指定
+                </summary>
+                <div className="mt-2">
+                  <label htmlFor="deadline-datetime" className="sr-only">
+                    締め切り日時
+                  </label>
+                  <input
+                    id="deadline-datetime"
+                    type="datetime-local"
+                    value={deadline}
+                    onChange={(e) => setDeadline(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent"
+                    disabled={submitting}
+                  />
+                </div>
+              </details>
+              {/* 現在の設定値を表示 */}
+              {deadline && (
+                <p className="mt-2 text-sm text-accent font-medium">
+                  締切: {new Date(deadline).toLocaleString('ja-JP', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </p>
+              )}
             </div>
 
             {memberGroups.length > 0 && (
