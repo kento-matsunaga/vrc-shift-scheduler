@@ -617,10 +617,14 @@ export default function AttendanceList() {
               </div>
               {/* 日付で指定（その日の23:59まで） */}
               <div className="mb-2">
-                <label className="block text-xs text-gray-500 mb-1">
+                <label
+                  htmlFor="deadline-date"
+                  className="block text-xs text-gray-500 mb-1"
+                >
                   日付で指定（その日の23:59まで）
                 </label>
                 <input
+                  id="deadline-date"
                   type="date"
                   value={deadline ? deadline.split('T')[0] : ''}
                   onChange={(e) => {
@@ -638,7 +642,11 @@ export default function AttendanceList() {
                   詳細な日時を指定
                 </summary>
                 <div className="mt-2">
+                  <label htmlFor="deadline-datetime" className="sr-only">
+                    締め切り日時
+                  </label>
                   <input
+                    id="deadline-datetime"
                     type="datetime-local"
                     value={deadline}
                     onChange={(e) => setDeadline(e.target.value)}
