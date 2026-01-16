@@ -12,7 +12,7 @@ import (
 func createTestSlot(t *testing.T, tenantID common.TenantID, slotName string, startTime, endTime time.Time, requiredCount int) *ShiftSlot {
 	now := time.Now()
 	businessDayID := event.NewBusinessDayID()
-	slot, err := NewShiftSlot(now, tenantID, businessDayID, slotName, "", startTime, endTime, requiredCount, 0)
+	slot, err := NewShiftSlot(now, tenantID, businessDayID, slotName, "", startTime, endTime, requiredCount, 1)
 	if err != nil {
 		t.Fatalf("createTestSlot() failed: %v", err)
 	}
@@ -103,7 +103,7 @@ func TestNewShiftSlot_ErrorWhenSlotNameEmpty(t *testing.T) {
 		startTime,
 		endTime,
 		1,
-		0,
+		1,
 	)
 
 	if err == nil {
@@ -133,7 +133,7 @@ func TestNewShiftSlot_ErrorWhenRequiredCountZero(t *testing.T) {
 		startTime,
 		endTime,
 		requiredCount,
-		0,
+		1,
 	)
 
 	if err == nil {
@@ -162,7 +162,7 @@ func TestNewShiftSlot_ErrorWhenTenantIDEmpty(t *testing.T) {
 		startTime,
 		endTime,
 		1,
-		0,
+		1,
 	)
 
 	if err == nil {
@@ -171,6 +171,99 @@ func TestNewShiftSlot_ErrorWhenTenantIDEmpty(t *testing.T) {
 
 	if slot != nil {
 		t.Error("NewShiftSlot() should return nil when validation fails")
+	}
+}
+
+func TestNewShiftSlot_ErrorWhenPriorityZero(t *testing.T) {
+	now := time.Now()
+	tenantID := common.NewTenantID()
+	businessDayID := event.NewBusinessDayID()
+	slotName := "スタッフ"
+	startTime := time.Date(2000, 1, 1, 21, 30, 0, 0, time.UTC)
+	endTime := time.Date(2000, 1, 1, 23, 0, 0, 0, time.UTC)
+	priority := 0 // 0は不正（1以上が必要）
+
+	slot, err := NewShiftSlot(
+		now,
+		tenantID,
+		businessDayID,
+		slotName,
+		"",
+		startTime,
+		endTime,
+		1,
+		priority,
+	)
+
+	if err == nil {
+		t.Fatal("NewShiftSlot() should return error when priority is 0")
+	}
+
+	if slot != nil {
+		t.Error("NewShiftSlot() should return nil when validation fails")
+	}
+}
+
+func TestNewShiftSlot_ErrorWhenPriorityNegative(t *testing.T) {
+	now := time.Now()
+	tenantID := common.NewTenantID()
+	businessDayID := event.NewBusinessDayID()
+	slotName := "スタッフ"
+	startTime := time.Date(2000, 1, 1, 21, 30, 0, 0, time.UTC)
+	endTime := time.Date(2000, 1, 1, 23, 0, 0, 0, time.UTC)
+	priority := -1 // 負の値は不正
+
+	slot, err := NewShiftSlot(
+		now,
+		tenantID,
+		businessDayID,
+		slotName,
+		"",
+		startTime,
+		endTime,
+		1,
+		priority,
+	)
+
+	if err == nil {
+		t.Fatal("NewShiftSlot() should return error when priority is negative")
+	}
+
+	if slot != nil {
+		t.Error("NewShiftSlot() should return nil when validation fails")
+	}
+}
+
+func TestShiftSlot_UpdatePriority(t *testing.T) {
+	tenantID := common.NewTenantID()
+	startTime := time.Date(2000, 1, 1, 21, 30, 0, 0, time.UTC)
+	endTime := time.Date(2000, 1, 1, 23, 0, 0, 0, time.UTC)
+
+	slot := createTestSlot(t, tenantID, "スタッフ", startTime, endTime, 1)
+
+	newPriority := 5
+	err := slot.UpdatePriority(newPriority)
+
+	if err != nil {
+		t.Fatalf("UpdatePriority() should succeed, but got error: %v", err)
+	}
+
+	if slot.Priority() != newPriority {
+		t.Errorf("Priority: expected %d, got %d", newPriority, slot.Priority())
+	}
+}
+
+func TestShiftSlot_UpdatePriority_ErrorWhenZero(t *testing.T) {
+	tenantID := common.NewTenantID()
+	startTime := time.Date(2000, 1, 1, 21, 30, 0, 0, time.UTC)
+	endTime := time.Date(2000, 1, 1, 23, 0, 0, 0, time.UTC)
+
+	slot := createTestSlot(t, tenantID, "スタッフ", startTime, endTime, 1)
+
+	err := slot.UpdatePriority(0)
+
+	if err == nil {
+		t.Fatal("UpdatePriority() should return error when priority is 0")
 	}
 }
 
@@ -283,7 +376,7 @@ func TestShiftSlot_IsOvernight(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			slot, _ := NewShiftSlot(now, tenantID, businessDayID, "スタッフ", "", tt.startTime, tt.endTime, 1, 0)
+			slot, _ := NewShiftSlot(now, tenantID, businessDayID, "スタッフ", "", tt.startTime, tt.endTime, 1, 1)
 			got := slot.IsOvernight()
 			if got != tt.want {
 				t.Errorf("IsOvernight() = %v, want %v", got, tt.want)

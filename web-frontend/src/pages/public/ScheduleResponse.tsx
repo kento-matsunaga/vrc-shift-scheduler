@@ -13,6 +13,7 @@ import {
 } from '../../lib/api/publicApi';
 import SearchableSelect from '../../components/SearchableSelect';
 import ScheduleResponseTable from '../../components/ScheduleResponseTable';
+import { formatTimeRange } from '../../lib/timeUtils';
 
 export default function ScheduleResponse() {
   const { token } = useParams<{ token: string }>();
@@ -170,10 +171,7 @@ export default function ScheduleResponse() {
     });
   };
 
-  const formatTime = (timeStr?: string) => {
-    if (!timeStr) return '';
-    return timeStr.substring(0, 5); // HH:MM形式
-  };
+  // formatTime関数は共通ユーティリティ（lib/timeUtils.ts）に移行済み
 
   if (loading) {
     return (
@@ -324,7 +322,7 @@ export default function ScheduleResponse() {
                           </p>
                           {(candidate.start_time || candidate.end_time) && (
                             <p className="text-sm text-gray-600">
-                              {formatTime(candidate.start_time)} 〜 {formatTime(candidate.end_time)}
+                              {formatTimeRange(candidate.start_time, candidate.end_time)}
                             </p>
                           )}
                         </div>

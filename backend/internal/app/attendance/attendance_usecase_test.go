@@ -9,6 +9,7 @@ import (
 	appattendance "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/attendance"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/attendance"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/member"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/role"
 )
 
@@ -599,5 +600,421 @@ func TestDeleteCollectionUsecase_Execute_ErrorWhenSaveFails(t *testing.T) {
 
 	if err == nil {
 		t.Fatal("Execute() should fail when save fails")
+	}
+}
+
+// =====================================================
+// Mock TxManager
+// =====================================================
+
+type MockTxManager struct {
+	withTxFunc func(ctx context.Context, fn func(context.Context) error) error
+}
+
+func (m *MockTxManager) WithTx(ctx context.Context, fn func(context.Context) error) error {
+	if m.withTxFunc != nil {
+		return m.withTxFunc(ctx, fn)
+	}
+	// Default implementation: just call the function without actual transaction
+	return fn(ctx)
+}
+
+// =====================================================
+// Mock Member Repository
+// =====================================================
+
+type MockMemberRepository struct {
+	findByIDFunc func(ctx context.Context, tenantID common.TenantID, memberID common.MemberID) (*member.Member, error)
+}
+
+func (m *MockMemberRepository) Save(ctx context.Context, mem *member.Member) error {
+	return nil
+}
+
+func (m *MockMemberRepository) FindByID(ctx context.Context, tenantID common.TenantID, memberID common.MemberID) (*member.Member, error) {
+	if m.findByIDFunc != nil {
+		return m.findByIDFunc(ctx, tenantID, memberID)
+	}
+	// Return a dummy member to indicate member exists
+	return &member.Member{}, nil
+}
+
+func (m *MockMemberRepository) FindByTenantID(ctx context.Context, tenantID common.TenantID) ([]*member.Member, error) {
+	return nil, nil
+}
+
+func (m *MockMemberRepository) FindActiveByTenantID(ctx context.Context, tenantID common.TenantID) ([]*member.Member, error) {
+	return nil, nil
+}
+
+func (m *MockMemberRepository) Delete(ctx context.Context, tenantID common.TenantID, memberID common.MemberID) error {
+	return nil
+}
+
+func (m *MockMemberRepository) ExistsByDiscordUserID(ctx context.Context, tenantID common.TenantID, discordUserID string) (bool, error) {
+	return false, nil
+}
+
+func (m *MockMemberRepository) FindByDiscordUserID(ctx context.Context, tenantID common.TenantID, discordUserID string) (*member.Member, error) {
+	return nil, nil
+}
+
+func (m *MockMemberRepository) FindByEmail(ctx context.Context, tenantID common.TenantID, email string) (*member.Member, error) {
+	return nil, nil
+}
+
+func (m *MockMemberRepository) ExistsByEmail(ctx context.Context, tenantID common.TenantID, email string) (bool, error) {
+	return false, nil
+}
+
+// =====================================================
+// AdminUpdateResponseUsecase Tests
+// =====================================================
+
+func TestAdminUpdateResponseUsecase_Execute_Success(t *testing.T) {
+	tenantID := common.NewTenantID()
+	memberID := common.NewMemberID()
+	now := time.Now()
+	testCollection := createTestCollection(t, tenantID)
+
+	clock := &MockClock{
+		nowFunc: func() time.Time { return now },
+	}
+
+	repo := &MockAttendanceCollectionRepository{
+		findByIDFunc: func(ctx context.Context, tid common.TenantID, cid common.CollectionID) (*attendance.AttendanceCollection, error) {
+			return testCollection, nil
+		},
+	}
+
+	memberRepo := &MockMemberRepository{
+		findByIDFunc: func(ctx context.Context, tid common.TenantID, mid common.MemberID) (*member.Member, error) {
+			return &member.Member{}, nil // Member exists
+		},
+	}
+
+	txManager := &MockTxManager{}
+
+	usecase := appattendance.NewAdminUpdateResponseUsecase(repo, memberRepo, txManager, clock)
+
+	// Create a target date ID for the test
+	targetDateID := common.NewTargetDateID()
+
+	input := appattendance.AdminUpdateResponseInput{
+		TenantID:     tenantID.String(),
+		CollectionID: testCollection.CollectionID().String(),
+		MemberID:     memberID.String(),
+		TargetDateID: targetDateID.String(),
+		Response:     "attending",
+		Note:         "テストノート",
+	}
+
+	result, err := usecase.Execute(context.Background(), input)
+
+	if err != nil {
+		t.Fatalf("Execute() should succeed, got error: %v", err)
+	}
+
+	if result == nil {
+		t.Fatal("Result should not be nil")
+	}
+
+	if result.Response != "attending" {
+		t.Errorf("Response mismatch: got %v, want 'attending'", result.Response)
+	}
+
+	if result.Note != "テストノート" {
+		t.Errorf("Note mismatch: got %v, want 'テストノート'", result.Note)
+	}
+}
+
+func TestAdminUpdateResponseUsecase_Execute_CollectionNotFound(t *testing.T) {
+	tenantID := common.NewTenantID()
+	memberID := common.NewMemberID()
+	collectionID := common.NewCollectionID()
+	targetDateID := common.NewTargetDateID()
+	now := time.Now()
+
+	clock := &MockClock{
+		nowFunc: func() time.Time { return now },
+	}
+
+	repo := &MockAttendanceCollectionRepository{
+		findByIDFunc: func(ctx context.Context, tid common.TenantID, cid common.CollectionID) (*attendance.AttendanceCollection, error) {
+			return nil, common.NewNotFoundError("collection", cid.String())
+		},
+	}
+
+	memberRepo := &MockMemberRepository{}
+	txManager := &MockTxManager{}
+
+	usecase := appattendance.NewAdminUpdateResponseUsecase(repo, memberRepo, txManager, clock)
+
+	input := appattendance.AdminUpdateResponseInput{
+		TenantID:     tenantID.String(),
+		CollectionID: collectionID.String(),
+		MemberID:     memberID.String(),
+		TargetDateID: targetDateID.String(),
+		Response:     "attending",
+	}
+
+	_, err := usecase.Execute(context.Background(), input)
+
+	if err == nil {
+		t.Fatal("Execute() should fail when collection not found")
+	}
+
+	if !errors.Is(err, appattendance.ErrCollectionNotFound) {
+		t.Errorf("Expected ErrCollectionNotFound, got: %v", err)
+	}
+}
+
+func TestAdminUpdateResponseUsecase_Execute_MemberNotFound(t *testing.T) {
+	tenantID := common.NewTenantID()
+	memberID := common.NewMemberID()
+	targetDateID := common.NewTargetDateID()
+	now := time.Now()
+	testCollection := createTestCollection(t, tenantID)
+
+	clock := &MockClock{
+		nowFunc: func() time.Time { return now },
+	}
+
+	repo := &MockAttendanceCollectionRepository{
+		findByIDFunc: func(ctx context.Context, tid common.TenantID, cid common.CollectionID) (*attendance.AttendanceCollection, error) {
+			return testCollection, nil
+		},
+	}
+
+	memberRepo := &MockMemberRepository{
+		findByIDFunc: func(ctx context.Context, tid common.TenantID, mid common.MemberID) (*member.Member, error) {
+			return nil, common.NewNotFoundError("member", mid.String())
+		},
+	}
+
+	txManager := &MockTxManager{}
+
+	usecase := appattendance.NewAdminUpdateResponseUsecase(repo, memberRepo, txManager, clock)
+
+	input := appattendance.AdminUpdateResponseInput{
+		TenantID:     tenantID.String(),
+		CollectionID: testCollection.CollectionID().String(),
+		MemberID:     memberID.String(),
+		TargetDateID: targetDateID.String(),
+		Response:     "attending",
+	}
+
+	_, err := usecase.Execute(context.Background(), input)
+
+	if err == nil {
+		t.Fatal("Execute() should fail when member not found")
+	}
+
+	if !errors.Is(err, appattendance.ErrMemberNotFound) {
+		t.Errorf("Expected ErrMemberNotFound, got: %v", err)
+	}
+}
+
+func TestAdminUpdateResponseUsecase_Execute_InvalidTenantID(t *testing.T) {
+	now := time.Now()
+
+	clock := &MockClock{
+		nowFunc: func() time.Time { return now },
+	}
+
+	repo := &MockAttendanceCollectionRepository{}
+	memberRepo := &MockMemberRepository{}
+	txManager := &MockTxManager{}
+
+	usecase := appattendance.NewAdminUpdateResponseUsecase(repo, memberRepo, txManager, clock)
+
+	input := appattendance.AdminUpdateResponseInput{
+		TenantID:     "invalid-tenant-id",
+		CollectionID: common.NewCollectionID().String(),
+		MemberID:     common.NewMemberID().String(),
+		TargetDateID: common.NewTargetDateID().String(),
+		Response:     "attending",
+	}
+
+	_, err := usecase.Execute(context.Background(), input)
+
+	if err == nil {
+		t.Fatal("Execute() should fail when tenant ID is invalid")
+	}
+}
+
+func TestAdminUpdateResponseUsecase_Execute_InvalidCollectionID(t *testing.T) {
+	tenantID := common.NewTenantID()
+	now := time.Now()
+
+	clock := &MockClock{
+		nowFunc: func() time.Time { return now },
+	}
+
+	repo := &MockAttendanceCollectionRepository{}
+	memberRepo := &MockMemberRepository{}
+	txManager := &MockTxManager{}
+
+	usecase := appattendance.NewAdminUpdateResponseUsecase(repo, memberRepo, txManager, clock)
+
+	input := appattendance.AdminUpdateResponseInput{
+		TenantID:     tenantID.String(),
+		CollectionID: "invalid-collection-id",
+		MemberID:     common.NewMemberID().String(),
+		TargetDateID: common.NewTargetDateID().String(),
+		Response:     "attending",
+	}
+
+	_, err := usecase.Execute(context.Background(), input)
+
+	if err == nil {
+		t.Fatal("Execute() should fail when collection ID is invalid")
+	}
+}
+
+func TestAdminUpdateResponseUsecase_Execute_InvalidMemberID(t *testing.T) {
+	tenantID := common.NewTenantID()
+	now := time.Now()
+
+	clock := &MockClock{
+		nowFunc: func() time.Time { return now },
+	}
+
+	repo := &MockAttendanceCollectionRepository{}
+	memberRepo := &MockMemberRepository{}
+	txManager := &MockTxManager{}
+
+	usecase := appattendance.NewAdminUpdateResponseUsecase(repo, memberRepo, txManager, clock)
+
+	input := appattendance.AdminUpdateResponseInput{
+		TenantID:     tenantID.String(),
+		CollectionID: common.NewCollectionID().String(),
+		MemberID:     "invalid-member-id",
+		TargetDateID: common.NewTargetDateID().String(),
+		Response:     "attending",
+	}
+
+	_, err := usecase.Execute(context.Background(), input)
+
+	if err == nil {
+		t.Fatal("Execute() should fail when member ID is invalid")
+	}
+}
+
+func TestAdminUpdateResponseUsecase_Execute_InvalidTargetDateID(t *testing.T) {
+	tenantID := common.NewTenantID()
+	now := time.Now()
+
+	clock := &MockClock{
+		nowFunc: func() time.Time { return now },
+	}
+
+	repo := &MockAttendanceCollectionRepository{}
+	memberRepo := &MockMemberRepository{}
+	txManager := &MockTxManager{}
+
+	usecase := appattendance.NewAdminUpdateResponseUsecase(repo, memberRepo, txManager, clock)
+
+	input := appattendance.AdminUpdateResponseInput{
+		TenantID:     tenantID.String(),
+		CollectionID: common.NewCollectionID().String(),
+		MemberID:     common.NewMemberID().String(),
+		TargetDateID: "invalid-target-date-id",
+		Response:     "attending",
+	}
+
+	_, err := usecase.Execute(context.Background(), input)
+
+	if err == nil {
+		t.Fatal("Execute() should fail when target date ID is invalid")
+	}
+}
+
+func TestAdminUpdateResponseUsecase_Execute_InvalidResponseType(t *testing.T) {
+	tenantID := common.NewTenantID()
+	now := time.Now()
+
+	clock := &MockClock{
+		nowFunc: func() time.Time { return now },
+	}
+
+	repo := &MockAttendanceCollectionRepository{}
+	memberRepo := &MockMemberRepository{}
+	txManager := &MockTxManager{}
+
+	usecase := appattendance.NewAdminUpdateResponseUsecase(repo, memberRepo, txManager, clock)
+
+	input := appattendance.AdminUpdateResponseInput{
+		TenantID:     tenantID.String(),
+		CollectionID: common.NewCollectionID().String(),
+		MemberID:     common.NewMemberID().String(),
+		TargetDateID: common.NewTargetDateID().String(),
+		Response:     "invalid_response_type",
+	}
+
+	_, err := usecase.Execute(context.Background(), input)
+
+	if err == nil {
+		t.Fatal("Execute() should fail when response type is invalid")
+	}
+}
+
+func TestAdminUpdateResponseUsecase_Execute_WithOptionalTimes(t *testing.T) {
+	tenantID := common.NewTenantID()
+	memberID := common.NewMemberID()
+	targetDateID := common.NewTargetDateID()
+	now := time.Now()
+	testCollection := createTestCollection(t, tenantID)
+
+	clock := &MockClock{
+		nowFunc: func() time.Time { return now },
+	}
+
+	repo := &MockAttendanceCollectionRepository{
+		findByIDFunc: func(ctx context.Context, tid common.TenantID, cid common.CollectionID) (*attendance.AttendanceCollection, error) {
+			return testCollection, nil
+		},
+	}
+
+	memberRepo := &MockMemberRepository{
+		findByIDFunc: func(ctx context.Context, tid common.TenantID, mid common.MemberID) (*member.Member, error) {
+			return &member.Member{}, nil // Member exists
+		},
+	}
+
+	txManager := &MockTxManager{}
+
+	usecase := appattendance.NewAdminUpdateResponseUsecase(repo, memberRepo, txManager, clock)
+
+	availableFrom := "09:00"
+	availableTo := "18:00"
+
+	input := appattendance.AdminUpdateResponseInput{
+		TenantID:      tenantID.String(),
+		CollectionID:  testCollection.CollectionID().String(),
+		MemberID:      memberID.String(),
+		TargetDateID:  targetDateID.String(),
+		Response:      "attending",
+		Note:          "時間指定あり",
+		AvailableFrom: &availableFrom,
+		AvailableTo:   &availableTo,
+	}
+
+	result, err := usecase.Execute(context.Background(), input)
+
+	if err != nil {
+		t.Fatalf("Execute() should succeed, got error: %v", err)
+	}
+
+	if result == nil {
+		t.Fatal("Result should not be nil")
+	}
+
+	if result.AvailableFrom == nil || *result.AvailableFrom != "09:00" {
+		t.Errorf("AvailableFrom mismatch: got %v, want '09:00'", result.AvailableFrom)
+	}
+
+	if result.AvailableTo == nil || *result.AvailableTo != "18:00" {
+		t.Errorf("AvailableTo mismatch: got %v, want '18:00'", result.AvailableTo)
 	}
 }

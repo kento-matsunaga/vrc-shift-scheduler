@@ -211,7 +211,7 @@ func TestNewShiftSlotTemplateItem_Success_EmptyInstanceName(t *testing.T) {
 		startTime,
 		endTime,
 		1,
-		0,
+		1,
 	)
 
 	if err != nil {
@@ -234,7 +234,7 @@ func TestNewShiftSlotTemplateItem_ErrorWhenInvalidTemplateID(t *testing.T) {
 		startTime,
 		endTime,
 		1,
-		0,
+		1,
 	)
 
 	if err == nil {
@@ -254,7 +254,7 @@ func TestNewShiftSlotTemplateItem_ErrorWhenEmptySlotName(t *testing.T) {
 		startTime,
 		endTime,
 		1,
-		0,
+		1,
 	)
 
 	if err == nil {
@@ -274,7 +274,7 @@ func TestNewShiftSlotTemplateItem_ErrorWhenRequiredCountZero(t *testing.T) {
 		startTime,
 		endTime,
 		0, // Zero is not allowed
-		0,
+		1,
 	)
 
 	if err == nil {
@@ -294,11 +294,51 @@ func TestNewShiftSlotTemplateItem_ErrorWhenRequiredCountNegative(t *testing.T) {
 		startTime,
 		endTime,
 		-1, // Negative is not allowed
-		0,
+		1,
 	)
 
 	if err == nil {
 		t.Error("NewShiftSlotTemplateItem() should fail when required_count is negative")
+	}
+}
+
+func TestNewShiftSlotTemplateItem_ErrorWhenPriorityZero(t *testing.T) {
+	templateID := common.NewShiftSlotTemplateID()
+	startTime := time.Date(2000, 1, 1, 20, 0, 0, 0, time.UTC)
+	endTime := time.Date(2000, 1, 1, 22, 0, 0, 0, time.UTC)
+
+	_, err := shift.NewShiftSlotTemplateItem(
+		templateID,
+		"DJ Slot",
+		"",
+		startTime,
+		endTime,
+		1,
+		0, // Zero is not allowed (must be at least 1)
+	)
+
+	if err == nil {
+		t.Error("NewShiftSlotTemplateItem() should fail when priority is zero")
+	}
+}
+
+func TestNewShiftSlotTemplateItem_ErrorWhenPriorityNegative(t *testing.T) {
+	templateID := common.NewShiftSlotTemplateID()
+	startTime := time.Date(2000, 1, 1, 20, 0, 0, 0, time.UTC)
+	endTime := time.Date(2000, 1, 1, 22, 0, 0, 0, time.UTC)
+
+	_, err := shift.NewShiftSlotTemplateItem(
+		templateID,
+		"DJ Slot",
+		"",
+		startTime,
+		endTime,
+		1,
+		-1, // Negative is not allowed
+	)
+
+	if err == nil {
+		t.Error("NewShiftSlotTemplateItem() should fail when priority is negative")
 	}
 }
 
@@ -436,7 +476,7 @@ func TestShiftSlotTemplate_UpdateDetails_Success(t *testing.T) {
 		startTime,
 		endTime,
 		1,
-		0,
+		1,
 	)
 
 	originalUpdatedAt := template.UpdatedAt()
@@ -492,7 +532,7 @@ func TestShiftSlotTemplate_UpdateDetails_ErrorWhenEmptyName(t *testing.T) {
 		startTime,
 		endTime,
 		1,
-		0,
+		1,
 	)
 
 	err := template.UpdateDetails("", "", []*shift.ShiftSlotTemplateItem{item})
@@ -525,7 +565,7 @@ func TestShiftSlotTemplate_UpdateDetails_ErrorWhenNameTooLong(t *testing.T) {
 		startTime,
 		endTime,
 		1,
-		0,
+		1,
 	)
 
 	longName := strings.Repeat("a", 101)

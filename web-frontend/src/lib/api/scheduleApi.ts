@@ -1,4 +1,5 @@
 import type { ApiResponse } from '../../types/api';
+import { apiClient } from '../apiClient';
 
 /**
  * 候補日
@@ -185,6 +186,14 @@ export async function closeSchedule(scheduleId: string): Promise<void> {
     const text = await response.text();
     throw new Error(`日程調整の締切に失敗しました: ${text || response.statusText}`);
   }
+}
+
+/**
+ * 日程調整を削除
+ * 成功時: 204 No Content（レスポンスボディなし）
+ */
+export async function deleteSchedule(scheduleId: string): Promise<void> {
+  await apiClient.delete(`/api/v1/schedules/${scheduleId}`);
 }
 
 /**

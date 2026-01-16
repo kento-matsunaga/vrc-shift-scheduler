@@ -138,7 +138,7 @@ func (r *ShiftSlotRepository) FindByBusinessDayID(ctx context.Context, tenantID 
 			required_count, priority, created_at, updated_at, deleted_at
 		FROM shift_slots
 		WHERE tenant_id = $1 AND business_day_id = $2 AND deleted_at IS NULL
-		ORDER BY start_time ASC, priority DESC
+		ORDER BY start_time ASC, priority ASC
 	`
 
 	return r.queryShiftSlots(ctx, query, tenantID.String(), businessDayID.String())

@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Link, useParams } from 'react-router-dom';
-import { getSchedule, getScheduleResponses, type Schedule, type ScheduleResponse } from '../lib/api/scheduleApi';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { getSchedule, getScheduleResponses, deleteSchedule, type Schedule, type ScheduleResponse } from '../lib/api/scheduleApi';
 import { getMembers } from '../lib/api';
 import { getMemberGroups, getMemberGroupDetail, type MemberGroup } from '../lib/api/memberGroupApi';
+import { ApiClientError } from '../lib/apiClient';
 import type { Member } from '../types/api';
+import { formatTimeRange } from '../lib/timeUtils';
 
 interface Candidate {
   candidate_id: string;
@@ -16,8 +18,11 @@ interface Candidate {
 type SortKey = 'name' | 'available_count' | 'date_available';
 type SortDirection = 'asc' | 'desc';
 
+// formatTime関数は共通ユーティリティ（lib/timeUtils.ts）に移行済み
+
 export default function ScheduleDetail() {
   const { scheduleId } = useParams<{ scheduleId: string }>();
+  const navigate = useNavigate();
   const [schedule, setSchedule] = useState<Schedule | null>(null);
   const [responses, setResponses] = useState<ScheduleResponse[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
@@ -26,6 +31,7 @@ export default function ScheduleDetail() {
   const [error, setError] = useState('');
   const [publicUrl, setPublicUrl] = useState('');
   const [copied, setCopied] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   // ソート状態
   const [sortKey, setSortKey] = useState<SortKey>('name');
@@ -89,6 +95,26 @@ export default function ScheduleDetail() {
       setError('データの取得に失敗しました');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!scheduleId) return;
+    if (!confirm('この日程調整を削除しますか？この操作は取り消せません。')) return;
+
+    try {
+      setDeleting(true);
+      await deleteSchedule(scheduleId);
+      alert('日程調整を削除しました');
+      navigate('/schedules');
+    } catch (err) {
+      if (err instanceof ApiClientError) {
+        alert(err.getUserMessage());
+      } else {
+        alert(err instanceof Error ? err.message : '削除に失敗しました');
+      }
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -250,7 +276,16 @@ export default function ScheduleDetail() {
               <p className="text-gray-600 mb-4">{schedule.description}</p>
             )}
           </div>
-          {getStatusBadge(schedule.status)}
+          <div className="flex gap-2 items-center">
+            {getStatusBadge(schedule.status)}
+            <button
+              onClick={handleDelete}
+              disabled={deleting}
+              className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition disabled:bg-red-400 text-sm"
+            >
+              {deleting ? '削除中...' : '削除'}
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-4 text-sm mb-4">
@@ -405,17 +440,9 @@ export default function ScheduleDetail() {
                           weekday: 'short',
                         })}
                       </span>
-                      {candidate.start_time && candidate.end_time && (
+                      {(candidate.start_time || candidate.end_time) && (
                         <span className="text-xs font-normal normal-case text-gray-400 mt-1">
-                          {new Date(candidate.start_time).toLocaleTimeString('ja-JP', {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                          -
-                          {new Date(candidate.end_time).toLocaleTimeString('ja-JP', {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
+                          {formatTimeRange(candidate.start_time, candidate.end_time, '-')}
                         </span>
                       )}
                     </div>

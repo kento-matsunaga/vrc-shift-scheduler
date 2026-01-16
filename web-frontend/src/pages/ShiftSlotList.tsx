@@ -6,6 +6,8 @@ import { listInstances } from '../lib/api/instanceApi';
 import type { BusinessDay, ShiftSlot, ShiftAssignment, Template } from '../types/api';
 import type { Instance } from '../lib/api/instanceApi';
 import { ApiClientError } from '../lib/apiClient';
+import type { InstanceData } from '../lib/shiftTextExport';
+import ShiftTextPreviewModal from '../components/ShiftTextPreviewModal';
 
 interface InstanceWithSlots {
   instance: Instance | null; // null for slots without instance
@@ -24,6 +26,7 @@ export default function ShiftSlotList() {
   const [error, setError] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
 
   useEffect(() => {
     if (businessDayId) {
@@ -133,7 +136,27 @@ export default function ShiftSlotList() {
       return a.instance.display_order - b.instance.display_order;
     });
 
+    // 各インスタンス内のスロットをpriority昇順でソート（小さいほど優先）
+    // バックエンドでもソート済みだが、フロントエンドでも一貫性を保証
+    result.forEach((group) => {
+      group.slots.sort((a, b) => a.priority - b.priority);
+    });
+
     return result;
+  };
+
+  // プレビューモーダル用のインスタンスデータを生成
+  const getInstanceDataForPreview = (): InstanceData[] => {
+    const groups = groupSlotsByInstance();
+    return groups.map((group) => ({
+      instanceName: group.instance?.name || '未分類',
+      slots: group.slots.map((slot) => ({
+        slotName: slot.slot_name,
+        assignments: (slotAssignments[slot.slot_id] || []).map((a) => ({
+          memberName: a.member_display_name || a.member_id,
+        })),
+      })),
+    }));
   };
 
   if (loading) {
@@ -186,7 +209,28 @@ export default function ShiftSlotList() {
             {businessDay.start_time.slice(0, 5)} 〜 {businessDay.end_time.slice(0, 5)}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
+          {/* インスタンス表プレビューボタン */}
+          <button
+            onClick={() => setShowPreviewModal(true)}
+            disabled={shiftSlots.length === 0}
+            className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <svg
+              className="w-5 h-5 mr-2"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+              />
+            </svg>
+            インスタンス表を出力
+          </button>
           <button
             onClick={() => setShowTemplateModal(true)}
             className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg flex items-center"
@@ -354,6 +398,13 @@ export default function ShiftSlotList() {
           }}
         />
       )}
+
+      {/* インスタンス表プレビューモーダル */}
+      <ShiftTextPreviewModal
+        isOpen={showPreviewModal}
+        onClose={() => setShowPreviewModal(false)}
+        instanceData={getInstanceDataForPreview()}
+      />
     </div>
   );
 }
