@@ -29,6 +29,12 @@ interface SlotWithAssignments {
   assignments: ShiftAssignment[];
 }
 
+interface InstanceGroup {
+  instanceName: string;
+  instanceId: string | null;
+  slots: SlotWithAssignments[];
+}
+
 export default function ShiftAdjustment() {
   const { collectionId } = useParams<{ collectionId: string }>();
   const [searchParams] = useSearchParams();
@@ -302,29 +308,55 @@ export default function ShiftAdjustment() {
     [attendingMembers, assignedMemberSlots]
   );
 
+  // スロットをインスタンスごとにグループ化し、priority昇順でソート
+  const groupSlotsByInstance = useMemo((): InstanceGroup[] => {
+    const instanceMap = new Map<string, InstanceGroup>();
+
+    slots.forEach((slotWithAssignments) => {
+      const { slot } = slotWithAssignments;
+      const instanceId = slot.instance_id || null;
+      const instanceName = slot.instance_name || '未分類';
+      const key = instanceId || `__name__${instanceName}`;
+
+      if (!instanceMap.has(key)) {
+        instanceMap.set(key, {
+          instanceName,
+          instanceId,
+          slots: [],
+        });
+      }
+      instanceMap.get(key)!.slots.push(slotWithAssignments);
+    });
+
+    // 結果を配列に変換
+    const result = Array.from(instanceMap.values());
+
+    // 各インスタンス内のスロットをpriority昇順でソート（小さいほど優先）
+    result.forEach((group) => {
+      group.slots.sort((a, b) => a.slot.priority - b.slot.priority);
+    });
+
+    // インスタンスを名前でソート（未分類は最後）
+    result.sort((a, b) => {
+      if (a.instanceName === '未分類') return 1;
+      if (b.instanceName === '未分類') return -1;
+      return a.instanceName.localeCompare(b.instanceName, 'ja');
+    });
+
+    return result;
+  }, [slots]);
+
   // プレビューモーダル用のインスタンスデータを生成
   const getInstanceDataForPreview = (): InstanceData[] => {
-    // スロットをインスタンス名でグループ化
-    const instanceMap = new Map<string, { slotName: string; assignments: { memberName: string }[] }[]>();
-    slots.forEach(({ slot, assignments }) => {
-      const instanceName = slot.instance_name || '未分類';
-      if (!instanceMap.has(instanceName)) {
-        instanceMap.set(instanceName, []);
-      }
-      instanceMap.get(instanceName)!.push({
+    return groupSlotsByInstance.map((group) => ({
+      instanceName: group.instanceName,
+      slots: group.slots.map(({ slot, assignments }) => ({
         slotName: slot.slot_name,
         assignments: assignments.map((a) => ({
           memberName: a.member_display_name || a.member_id,
         })),
-      });
-    });
-
-    return Array.from(instanceMap.entries()).map(
-      ([instanceName, slotList]) => ({
-        instanceName,
-        slots: slotList,
-      })
-    );
+      })),
+    }));
   };
 
   if (loading) {
@@ -627,7 +659,7 @@ export default function ShiftAdjustment() {
           )}
         </div>
 
-        {/* 右: シフト枠 */}
+        {/* 右: シフト枠（インスタンスごとにグループ化） */}
         <div className="lg:col-span-2">
           {slots.length === 0 ? (
             <div className="bg-white rounded-lg shadow p-6 text-center">
@@ -639,85 +671,100 @@ export default function ShiftAdjustment() {
               )}
             </div>
           ) : (
-            <div className="space-y-4">
-              {slots.map(({ slot, assignments }) => {
-                const remainingCount = slot.required_count - (slot.assigned_count || assignments.length);
-                const isFull = remainingCount <= 0;
-
-                return (
-                  <div key={slot.slot_id} className="bg-white rounded-lg shadow p-4">
-                    <div className="flex justify-between items-start mb-3">
-                      <div>
-                        <h3 className="font-semibold text-gray-900">{slot.instance_name}-{slot.slot_name}</h3>
-                        <div className="text-sm text-gray-500">
-                          {slot.start_time?.substring(0, 5)} - {slot.end_time?.substring(0, 5)}
-                        </div>
-                      </div>
-                      <div className={`text-sm font-medium ${isFull ? 'text-green-600' : 'text-amber-600'}`}>
-                        {assignments.length} / {slot.required_count}
-                      </div>
-                    </div>
-
-                    {/* 配置済みメンバー */}
-                    {assignments.length > 0 && (
-                      <div className="mb-3 space-y-1">
-                        {assignments.map((assignment) => (
-                          <div
-                            key={assignment.assignment_id}
-                            className="flex items-center justify-between bg-gray-50 px-3 py-2 rounded"
-                          >
-                            <span className="text-sm">{assignment.member_display_name}</span>
-                            <button
-                              onClick={() => handleRemoveAssignment(assignment.assignment_id)}
-                              className="text-red-500 hover:text-red-700 text-sm"
-                            >
-                              取消
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* メンバー追加 */}
-                    {!isFull && (
-                      <div className="flex gap-2">
-                        <select
-                          aria-label={`${slot.instance_name}-${slot.slot_name}にアサインするメンバーを選択`}
-                          className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-accent bg-white"
-                          disabled={assigning === slot.slot_id || availableMembers.length === 0}
-                          value={selectedMembers[slot.slot_id] || ''}
-                          onChange={(e) => {
-                            setSelectedMembers((prev) => ({
-                              ...prev,
-                              [slot.slot_id]: e.target.value,
-                            }));
-                          }}
-                        >
-                          <option value="">
-                            {availableMembers.length === 0 ? '未配置メンバーなし' : 'メンバーを選択...'}
-                          </option>
-                          {availableMembers.map((member) => (
-                            <option key={member.memberId} value={member.memberId}>
-                              {member.memberName}
-                              {member.availableFrom || member.availableTo
-                                ? ` (${member.availableFrom || '?'}〜${member.availableTo || '?'})`
-                                : ''}
-                            </option>
-                          ))}
-                        </select>
-                        <button
-                          type="button"
-                          onClick={() => handleAssign(slot.slot_id)}
-                          disabled={assigning === slot.slot_id || !selectedMembers[slot.slot_id]}
-                          className="px-4 py-2 bg-accent text-white rounded-md hover:bg-accent-dark transition text-sm disabled:bg-gray-400 disabled:cursor-not-allowed"
-                        >
-                          {assigning === slot.slot_id ? '処理中...' : '追加'}
-                        </button>
-                      </div>
-                    )}
+            <div className="space-y-6">
+              {groupSlotsByInstance.map((group) => (
+                <div key={group.instanceId || group.instanceName} className="bg-white rounded-lg shadow overflow-hidden">
+                  {/* インスタンスヘッダー */}
+                  <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                    <h3 className="font-semibold text-gray-900">{group.instanceName}</h3>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {group.slots.length}枠 / 配置済み: {group.slots.reduce((sum, s) => sum + s.assignments.length, 0)}人
+                    </p>
                   </div>
-                );
-              })}
+
+                  {/* インスタンス内のスロット一覧 */}
+                  <div className="divide-y divide-gray-100">
+                    {group.slots.map(({ slot, assignments }) => {
+                      const remainingCount = slot.required_count - (slot.assigned_count || assignments.length);
+                      const isFull = remainingCount <= 0;
+
+                      return (
+                        <div key={slot.slot_id} className="p-4">
+                          <div className="flex justify-between items-start mb-3">
+                            <div>
+                              <h4 className="font-medium text-gray-900">{slot.slot_name}</h4>
+                              <div className="text-sm text-gray-500">
+                                {slot.start_time?.substring(0, 5)} - {slot.end_time?.substring(0, 5)}
+                              </div>
+                            </div>
+                            <div className={`text-sm font-medium ${isFull ? 'text-green-600' : 'text-amber-600'}`}>
+                              {assignments.length} / {slot.required_count}
+                            </div>
+                          </div>
+
+                          {/* 配置済みメンバー */}
+                          {assignments.length > 0 && (
+                            <div className="mb-3 space-y-1">
+                              {assignments.map((assignment) => (
+                                <div
+                                  key={assignment.assignment_id}
+                                  className="flex items-center justify-between bg-gray-50 px-3 py-2 rounded"
+                                >
+                                  <span className="text-sm">{assignment.member_display_name}</span>
+                                  <button
+                                    onClick={() => handleRemoveAssignment(assignment.assignment_id)}
+                                    className="text-red-500 hover:text-red-700 text-sm"
+                                  >
+                                    取消
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* メンバー追加 */}
+                          {!isFull && (
+                            <div className="flex gap-2">
+                              <select
+                                aria-label={`${slot.instance_name}-${slot.slot_name}にアサインするメンバーを選択`}
+                                className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-accent bg-white"
+                                disabled={assigning === slot.slot_id || availableMembers.length === 0}
+                                value={selectedMembers[slot.slot_id] || ''}
+                                onChange={(e) => {
+                                  setSelectedMembers((prev) => ({
+                                    ...prev,
+                                    [slot.slot_id]: e.target.value,
+                                  }));
+                                }}
+                              >
+                                <option value="">
+                                  {availableMembers.length === 0 ? '未配置メンバーなし' : 'メンバーを選択...'}
+                                </option>
+                                {availableMembers.map((member) => (
+                                  <option key={member.memberId} value={member.memberId}>
+                                    {member.memberName}
+                                    {member.availableFrom || member.availableTo
+                                      ? ` (${member.availableFrom || '?'}〜${member.availableTo || '?'})`
+                                      : ''}
+                                  </option>
+                                ))}
+                              </select>
+                              <button
+                                type="button"
+                                onClick={() => handleAssign(slot.slot_id)}
+                                disabled={assigning === slot.slot_id || !selectedMembers[slot.slot_id]}
+                                className="px-4 py-2 bg-accent text-white rounded-md hover:bg-accent-dark transition text-sm disabled:bg-gray-400 disabled:cursor-not-allowed"
+                              >
+                                {assigning === slot.slot_id ? '処理中...' : '追加'}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>

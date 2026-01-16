@@ -136,6 +136,11 @@ export default function ShiftSlotList() {
       return a.instance.display_order - b.instance.display_order;
     });
 
+    // 各インスタンス内のスロットをpriority昇順でソート（小さいほど優先）
+    result.forEach((group) => {
+      group.slots.sort((a, b) => a.priority - b.priority);
+    });
+
     return result;
   };
 

@@ -126,5 +126,5 @@ COMMENT ON TABLE shift_slots IS 'シフト枠: 営業日内の各シフト枠（
 COMMENT ON COLUMN shift_slots.slot_name IS 'シフト枠名（例: 早番スタッフ、夜間警備）';
 COMMENT ON COLUMN shift_slots.instance_name IS 'インスタンス名（同じslot_nameで複数枠がある場合の識別用）';
 COMMENT ON COLUMN shift_slots.required_count IS '必要人数';
-COMMENT ON COLUMN shift_slots.priority IS '優先度（大きいほど優先、自動割り当て時に使用）';
+COMMENT ON COLUMN shift_slots.priority IS '優先度（小さいほど優先、1が最上位）';
 
