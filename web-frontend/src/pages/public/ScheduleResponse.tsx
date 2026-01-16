@@ -172,7 +172,13 @@ export default function ScheduleResponse() {
 
   const formatTime = (timeStr?: string) => {
     if (!timeStr) return '';
-    return timeStr.substring(0, 5); // HH:MM形式
+    // ISO 8601形式（例: "0001-01-01T14:30:00Z"）からHH:MM形式を抽出
+    const date = new Date(timeStr);
+    if (!isNaN(date.getTime())) {
+      return date.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', hour12: false });
+    }
+    // フォールバック: HH:MM:SS形式の場合
+    return timeStr.substring(0, 5);
   };
 
   if (loading) {
