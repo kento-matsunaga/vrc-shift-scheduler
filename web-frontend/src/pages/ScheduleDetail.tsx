@@ -17,6 +17,16 @@ interface Candidate {
 type SortKey = 'name' | 'available_count' | 'date_available';
 type SortDirection = 'asc' | 'desc';
 
+// ISO文字列から時間部分を抽出（タイムゾーン変換なし）
+const formatTime = (timeStr?: string) => {
+  if (!timeStr) return '';
+  const match = timeStr.match(/T(\d{2}:\d{2})/);
+  if (match) {
+    return match[1];
+  }
+  return timeStr.substring(0, 5);
+};
+
 export default function ScheduleDetail() {
   const { scheduleId } = useParams<{ scheduleId: string }>();
   const navigate = useNavigate();
@@ -439,15 +449,7 @@ export default function ScheduleDetail() {
                       </span>
                       {candidate.start_time && candidate.end_time && (
                         <span className="text-xs font-normal normal-case text-gray-400 mt-1">
-                          {new Date(candidate.start_time).toLocaleTimeString('ja-JP', {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                          -
-                          {new Date(candidate.end_time).toLocaleTimeString('ja-JP', {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
+                          {formatTime(candidate.start_time)}-{formatTime(candidate.end_time)}
                         </span>
                       )}
                     </div>
