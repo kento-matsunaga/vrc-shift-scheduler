@@ -62,13 +62,32 @@ export function generateShiftText(
 
 /**
  * テキストをクリップボードにコピー
+ * Clipboard APIが利用できない環境（HTTP、古いブラウザ）ではfallbackを使用
  * @param text コピーするテキスト
  * @returns 成功したかどうか
  */
 export async function copyToClipboard(text: string): Promise<boolean> {
   try {
-    await navigator.clipboard.writeText(text);
-    return true;
+    // Clipboard APIが利用可能な場合
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+
+    // Fallback: execCommandを使用（HTTP環境や古いブラウザ向け）
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.style.position = 'fixed';
+    textArea.style.left = '-9999px';
+    textArea.style.top = '-9999px';
+    textArea.style.opacity = '0';
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+
+    const successful = document.execCommand('copy');
+    document.body.removeChild(textArea);
+    return successful;
   } catch (err) {
     console.error('Failed to copy to clipboard:', err);
     return false;

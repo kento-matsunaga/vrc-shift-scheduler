@@ -207,7 +207,8 @@ export default function ShiftSlotList() {
           {/* インスタンス表プレビューボタン */}
           <button
             onClick={() => setShowPreviewModal(true)}
-            className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg flex items-center"
+            disabled={shiftSlots.length === 0}
+            className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <svg
               className="w-5 h-5 mr-2"
