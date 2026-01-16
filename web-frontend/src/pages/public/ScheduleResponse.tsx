@@ -172,10 +172,11 @@ export default function ScheduleResponse() {
 
   const formatTime = (timeStr?: string) => {
     if (!timeStr) return '';
-    // ISO 8601形式（例: "0001-01-01T14:30:00Z"）からHH:MM形式を抽出
-    const date = new Date(timeStr);
-    if (!isNaN(date.getTime())) {
-      return date.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', hour12: false });
+    // ISO 8601形式（例: "0000-01-01T21:00:00Z"）からHH:MM形式を抽出
+    // タイムゾーン変換せずに時間部分を直接抽出
+    const match = timeStr.match(/T(\d{2}:\d{2})/);
+    if (match) {
+      return match[1];
     }
     // フォールバック: HH:MM:SS形式の場合
     return timeStr.substring(0, 5);
