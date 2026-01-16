@@ -9,8 +9,18 @@ import (
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/schedule"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+// pgtypeTimeToTimePtr converts pgtype.Time to *time.Time (nil if not valid)
+func pgtypeTimeToTimePtr(pt pgtype.Time) *time.Time {
+	if !pt.Valid {
+		return nil
+	}
+	t := time.Date(0, 1, 1, int(pt.Microseconds/3600000000), int((pt.Microseconds%3600000000)/60000000), int((pt.Microseconds%60000000)/1000000), 0, time.UTC)
+	return &t
+}
 
 // ScheduleRepository implements schedule.DateScheduleRepository for PostgreSQL
 type ScheduleRepository struct {
@@ -326,10 +336,10 @@ func (r *ScheduleRepository) FindCandidatesByScheduleID(ctx context.Context, sch
 	for rows.Next() {
 		var (
 			candidateIDStr, scheduleIDStr string
-			candidateDate time.Time
-			startTime, endTime sql.NullTime
-			displayOrder int
-			createdAt time.Time
+			candidateDate                 time.Time
+			startTime, endTime            pgtype.Time
+			displayOrder                  int
+			createdAt                     time.Time
 		)
 
 		err := rows.Scan(&candidateIDStr, &scheduleIDStr, &candidateDate, &startTime, &endTime, &displayOrder, &createdAt)
@@ -340,15 +350,7 @@ func (r *ScheduleRepository) FindCandidatesByScheduleID(ctx context.Context, sch
 		candidateID, _ := common.ParseCandidateID(candidateIDStr)
 		schedID, _ := common.ParseScheduleID(scheduleIDStr)
 
-		var startTimePtr, endTimePtr *time.Time
-		if startTime.Valid {
-			startTimePtr = &startTime.Time
-		}
-		if endTime.Valid {
-			endTimePtr = &endTime.Time
-		}
-
-		candidate, err := schedule.ReconstructCandidateDate(candidateID, schedID, candidateDate, startTimePtr, endTimePtr, displayOrder, createdAt)
+		candidate, err := schedule.ReconstructCandidateDate(candidateID, schedID, candidateDate, pgtypeTimeToTimePtr(startTime), pgtypeTimeToTimePtr(endTime), displayOrder, createdAt)
 		if err != nil {
 			return nil, err
 		}
