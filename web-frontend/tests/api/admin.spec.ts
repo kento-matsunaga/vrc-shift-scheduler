@@ -24,9 +24,6 @@ test.describe('Admin API', () => {
 
     test.describe('正常系', () => {
       test('パスワード変更APIが正常に動作する', async ({ request }) => {
-        // Note: このテストはパスワードを変更して元に戻すので、
-        // 失敗しても手動でDBリセットが必要になる可能性がある
-
         // まず現在のパスワードでログイン
         const loginResponse1 = await request.post(ENDPOINTS.login, {
           data: TEST_CREDENTIALS,
@@ -43,36 +40,55 @@ test.describe('Admin API', () => {
         client.setToken(loginResult1.data.token);
 
         const newPassword = 'newpassword456';
+        let passwordChanged = false;
 
-        // パスワード変更
-        const changeResponse = await client.raw('POST', ENDPOINTS.adminChangePassword, {
-          current_password: TEST_CREDENTIALS.password,
-          new_password: newPassword,
-          confirm_new_password: newPassword,
-        });
+        try {
+          // パスワード変更
+          const changeResponse = await client.raw('POST', ENDPOINTS.adminChangePassword, {
+            current_password: TEST_CREDENTIALS.password,
+            new_password: newPassword,
+            confirm_new_password: newPassword,
+          });
 
-        expect(changeResponse.status()).toBe(200);
+          expect(changeResponse.status()).toBe(200);
+          passwordChanged = true;
 
-        // 新しいパスワードでログイン
-        const loginResponse2 = await request.post(ENDPOINTS.login, {
-          data: {
-            email: TEST_CREDENTIALS.email,
-            password: newPassword,
-          },
-        });
-        expect(loginResponse2.status()).toBe(200);
+          // 新しいパスワードでログイン
+          const loginResponse2 = await request.post(ENDPOINTS.login, {
+            data: {
+              email: TEST_CREDENTIALS.email,
+              password: newPassword,
+            },
+          });
+          expect(loginResponse2.status()).toBe(200);
+        } finally {
+          // パスワードを元に戻す（テストが失敗しても必ず実行）
+          if (passwordChanged) {
+            try {
+              // 新しいパスワードでログインして元に戻す
+              const revertLoginResponse = await request.post(ENDPOINTS.login, {
+                data: {
+                  email: TEST_CREDENTIALS.email,
+                  password: newPassword,
+                },
+              });
 
-        // パスワードを元に戻す
-        const loginResult2 = await loginResponse2.json();
-        const newClient = new ApiClient(request);
-        newClient.setToken(loginResult2.data.token);
+              if (revertLoginResponse.status() === 200) {
+                const revertLoginResult = await revertLoginResponse.json();
+                const revertClient = new ApiClient(request);
+                revertClient.setToken(revertLoginResult.data.token);
 
-        const revertResponse = await newClient.raw('POST', ENDPOINTS.adminChangePassword, {
-          current_password: newPassword,
-          new_password: TEST_CREDENTIALS.password,
-          confirm_new_password: TEST_CREDENTIALS.password,
-        });
-        expect(revertResponse.status()).toBe(200);
+                await revertClient.raw('POST', ENDPOINTS.adminChangePassword, {
+                  current_password: newPassword,
+                  new_password: TEST_CREDENTIALS.password,
+                  confirm_new_password: TEST_CREDENTIALS.password,
+                });
+              }
+            } catch (cleanupError) {
+              console.error('Failed to revert password:', cleanupError);
+            }
+          }
+        }
       });
     });
 

@@ -18,6 +18,20 @@ export interface ApiError {
 }
 
 /**
+ * Custom error class for API client errors
+ */
+export class ApiClientError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+    public readonly response?: ApiError
+  ) {
+    super(message);
+    this.name = 'ApiClientError';
+  }
+}
+
+/**
  * Test credentials for seeded admin user
  */
 export const TEST_CREDENTIALS = {
@@ -190,6 +204,27 @@ export class ApiClient {
   }
 
   /**
+   * Check response status and throw error if not ok
+   */
+  private async checkResponse<T>(response: Awaited<ReturnType<APIRequestContext['get']>>): Promise<T> {
+    const status = response.status();
+
+    if (status >= 400) {
+      let errorResponse: ApiError | undefined;
+      try {
+        errorResponse = await response.json();
+      } catch {
+        // Response might not be JSON
+      }
+
+      const message = errorResponse?.error?.message || `Request failed with status ${status}`;
+      throw new ApiClientError(message, status, errorResponse);
+    }
+
+    return response.json();
+  }
+
+  /**
    * GET request
    */
   async get<T>(endpoint: string, options?: { params?: Record<string, string> }): Promise<T> {
@@ -203,7 +238,7 @@ export class ApiClient {
       headers: this.getHeaders(),
     });
 
-    return response.json();
+    return this.checkResponse<T>(response);
   }
 
   /**
@@ -215,7 +250,7 @@ export class ApiClient {
       data,
     });
 
-    return response.json();
+    return this.checkResponse<T>(response);
   }
 
   /**
@@ -227,7 +262,7 @@ export class ApiClient {
       data,
     });
 
-    return response.json();
+    return this.checkResponse<T>(response);
   }
 
   /**
@@ -239,7 +274,7 @@ export class ApiClient {
       data,
     });
 
-    return response.json();
+    return this.checkResponse<T>(response);
   }
 
   /**
@@ -250,11 +285,19 @@ export class ApiClient {
       headers: this.getHeaders(),
     });
 
-    return response.json();
+    return this.checkResponse<T>(response);
   }
 
   /**
-   * Raw request (for checking status codes)
+   * Raw request (returns the raw Playwright response)
+   *
+   * Use this method when you need to:
+   * - Check specific status codes (e.g., testing error responses)
+   * - Access response headers
+   * - Handle non-JSON responses
+   *
+   * For normal API calls that expect success, use get(), post(), put(), patch(), or delete()
+   * which include automatic error handling.
    */
   async raw(method: string, endpoint: string, data?: unknown) {
     const options: { headers: Record<string, string>; data?: unknown } = {
