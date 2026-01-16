@@ -3,6 +3,20 @@ import { useNavigate } from 'react-router-dom';
 import { listSchedules, createSchedule, type Schedule } from '../lib/api/scheduleApi';
 import { getMemberGroups, type MemberGroup } from '../lib/api/memberGroupApi';
 import { MobileCard, CardHeader, CardField } from '../components/MobileCard';
+import { isValidTimeRange, toApiTimeFormat } from '../lib/timeUtils';
+
+// 候補日の入力データ型
+interface CandidateDateInput {
+  date: string;       // YYYY-MM-DD形式
+  startTime: string;  // HH:MM形式（任意）
+  endTime: string;    // HH:MM形式（任意）
+}
+
+const emptyCandidateDate = (): CandidateDateInput => ({
+  date: '',
+  startTime: '',
+  endTime: '',
+});
 
 export default function ScheduleList() {
   const navigate = useNavigate();
@@ -11,7 +25,11 @@ export default function ScheduleList() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [deadline, setDeadline] = useState('');
-  const [candidateDates, setCandidateDates] = useState<string[]>(['', '', '']);
+  const [candidateDates, setCandidateDates] = useState<CandidateDateInput[]>([
+    emptyCandidateDate(),
+    emptyCandidateDate(),
+    emptyCandidateDate(),
+  ]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -50,7 +68,7 @@ export default function ScheduleList() {
   };
 
   const handleAddDate = () => {
-    setCandidateDates([...candidateDates, '']);
+    setCandidateDates([...candidateDates, emptyCandidateDate()]);
   };
 
   const handleRemoveDate = (index: number) => {
@@ -59,9 +77,9 @@ export default function ScheduleList() {
     }
   };
 
-  const handleDateChange = (index: number, value: string) => {
+  const handleDateChange = (index: number, field: keyof CandidateDateInput, value: string) => {
     const newDates = [...candidateDates];
-    newDates[index] = value;
+    newDates[index] = { ...newDates[index], [field]: value };
     setCandidateDates(newDates);
   };
 
@@ -83,10 +101,18 @@ export default function ScheduleList() {
       return;
     }
 
-    const validDates = candidateDates.filter((d) => d.trim() !== '');
+    const validDates = candidateDates.filter((d) => d.date.trim() !== '');
     if (validDates.length === 0) {
       setError('候補日を1つ以上入力してください');
       return;
+    }
+
+    // 時間バリデーション: 開始時間と終了時間が両方設定されている場合、開始 < 終了
+    for (const candidate of validDates) {
+      if (!isValidTimeRange(candidate.startTime, candidate.endTime)) {
+        setError('開始時間は終了時間より前に設定してください');
+        return;
+      }
     }
 
     setSubmitting(true);
@@ -99,7 +125,10 @@ export default function ScheduleList() {
         title: title.trim(),
         description: description.trim(),
         candidates: validDates.map((d) => ({
-          date: new Date(d).toISOString(),
+          date: new Date(d.date).toISOString(),
+          // 時間データはtimeUtils.tsで定義されたフォーマットで送信
+          start_time: toApiTimeFormat(d.startTime),
+          end_time: toApiTimeFormat(d.endTime),
         })),
         deadline: deadline ? new Date(deadline).toISOString() : undefined,
         group_ids: selectedGroupIds.length > 0 ? selectedGroupIds : undefined,
@@ -115,7 +144,7 @@ export default function ScheduleList() {
       setTitle('');
       setDescription('');
       setDeadline('');
-      setCandidateDates(['', '', '']);
+      setCandidateDates([emptyCandidateDate(), emptyCandidateDate(), emptyCandidateDate()]);
       setSelectedGroupIds([]);
       setShowCreateForm(false);
 
@@ -221,26 +250,56 @@ export default function ScheduleList() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 候補日 <span className="text-red-500">*</span>
               </label>
-              <div className="space-y-2">
-                {candidateDates.map((date, index) => (
-                  <div key={index} className="flex gap-2">
-                    <input
-                      type="datetime-local"
-                      value={date}
-                      onChange={(e) => handleDateChange(index, e.target.value)}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent"
-                      disabled={submitting}
-                    />
-                    {candidateDates.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveDate(index)}
-                        className="px-3 py-2 text-red-600 hover:bg-red-50 rounded-md transition"
-                        disabled={submitting}
-                      >
-                        削除
-                      </button>
-                    )}
+              <p className="text-xs text-gray-500 mb-2">
+                時間は任意です。設定すると公開ページで回答者に表示されます。
+              </p>
+              <div className="space-y-3">
+                {candidateDates.map((candidate, index) => (
+                  <div key={index} className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <div className="flex-1">
+                        <label className="block text-xs text-gray-600 mb-1">日付 *</label>
+                        <input
+                          type="date"
+                          value={candidate.date}
+                          onChange={(e) => handleDateChange(index, 'date', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent"
+                          disabled={submitting}
+                        />
+                      </div>
+                      <div className="w-full sm:w-28">
+                        <label className="block text-xs text-gray-600 mb-1">開始時間</label>
+                        <input
+                          type="time"
+                          value={candidate.startTime}
+                          onChange={(e) => handleDateChange(index, 'startTime', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent"
+                          disabled={submitting}
+                        />
+                      </div>
+                      <div className="w-full sm:w-28">
+                        <label className="block text-xs text-gray-600 mb-1">終了時間</label>
+                        <input
+                          type="time"
+                          value={candidate.endTime}
+                          onChange={(e) => handleDateChange(index, 'endTime', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent"
+                          disabled={submitting}
+                        />
+                      </div>
+                      {candidateDates.length > 1 && (
+                        <div className="flex items-end">
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveDate(index)}
+                            className="px-3 py-2 text-red-600 hover:bg-red-100 rounded-md transition text-sm"
+                            disabled={submitting}
+                          >
+                            削除
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
