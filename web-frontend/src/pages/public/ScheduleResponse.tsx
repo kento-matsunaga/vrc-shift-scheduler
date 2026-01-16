@@ -13,6 +13,7 @@ import {
 } from '../../lib/api/publicApi';
 import SearchableSelect from '../../components/SearchableSelect';
 import ScheduleResponseTable from '../../components/ScheduleResponseTable';
+import { formatTimeRange } from '../../lib/timeUtils';
 
 export default function ScheduleResponse() {
   const { token } = useParams<{ token: string }>();
@@ -170,17 +171,7 @@ export default function ScheduleResponse() {
     });
   };
 
-  const formatTime = (timeStr?: string) => {
-    if (!timeStr) return '';
-    // ISO 8601形式（例: "0000-01-01T21:00:00Z"）からHH:MM形式を抽出
-    // タイムゾーン変換せずに時間部分を直接抽出
-    const match = timeStr.match(/T(\d{2}:\d{2})/);
-    if (match) {
-      return match[1];
-    }
-    // フォールバック: HH:MM:SS形式の場合
-    return timeStr.substring(0, 5);
-  };
+  // formatTime関数は共通ユーティリティ（lib/timeUtils.ts）に移行済み
 
   if (loading) {
     return (
@@ -331,7 +322,7 @@ export default function ScheduleResponse() {
                           </p>
                           {(candidate.start_time || candidate.end_time) && (
                             <p className="text-sm text-gray-600">
-                              {formatTime(candidate.start_time)} 〜 {formatTime(candidate.end_time)}
+                              {formatTimeRange(candidate.start_time, candidate.end_time)}
                             </p>
                           )}
                         </div>

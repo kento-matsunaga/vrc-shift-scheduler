@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { listSchedules, createSchedule, type Schedule } from '../lib/api/scheduleApi';
 import { getMemberGroups, type MemberGroup } from '../lib/api/memberGroupApi';
 import { MobileCard, CardHeader, CardField } from '../components/MobileCard';
+import { isValidTimeRange, toApiTimeFormat } from '../lib/timeUtils';
 
 // 候補日の入力データ型
 interface CandidateDateInput {
@@ -108,7 +109,7 @@ export default function ScheduleList() {
 
     // 時間バリデーション: 開始時間と終了時間が両方設定されている場合、開始 < 終了
     for (const candidate of validDates) {
-      if (candidate.startTime && candidate.endTime && candidate.startTime >= candidate.endTime) {
+      if (!isValidTimeRange(candidate.startTime, candidate.endTime)) {
         setError('開始時間は終了時間より前に設定してください');
         return;
       }
@@ -125,10 +126,9 @@ export default function ScheduleList() {
         description: description.trim(),
         candidates: validDates.map((d) => ({
           date: new Date(d.date).toISOString(),
-          // 時間が設定されている場合のみ送信（ISO 8601形式）
-          // バックエンドのtime.Time型はフルタイムスタンプが必要
-          start_time: d.startTime ? `0001-01-01T${d.startTime}:00Z` : undefined,
-          end_time: d.endTime ? `0001-01-01T${d.endTime}:00Z` : undefined,
+          // 時間データはtimeUtils.tsで定義されたフォーマットで送信
+          start_time: toApiTimeFormat(d.startTime),
+          end_time: toApiTimeFormat(d.endTime),
         })),
         deadline: deadline ? new Date(deadline).toISOString() : undefined,
         group_ids: selectedGroupIds.length > 0 ? selectedGroupIds : undefined,
