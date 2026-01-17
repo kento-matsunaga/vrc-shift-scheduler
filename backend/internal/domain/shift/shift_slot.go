@@ -42,6 +42,12 @@ func ParseSlotID(s string) (SlotID, error) {
 // ShiftSlot represents a shift slot entity (独立したエンティティ)
 // EventBusinessDay に属するが、EventBusinessDay集約には含まれない
 // Instance に紐づく（instanceID で参照、移行期間中は instanceName も保持）
+//
+// 表示順序のビジネスルール:
+//   - priority が小さいほど優先的に表示される（昇順ソート）
+//   - 同じ priority の場合は登録順（created_at 昇順）で表示
+//   - 既存データとの互換性のため priority=0 を許容
+//   - 新規作成時のデフォルト priority は 1（ユースケース層で設定）
 type ShiftSlot struct {
 	slotID        SlotID
 	tenantID      common.TenantID
@@ -155,9 +161,10 @@ func (s *ShiftSlot) validate() error {
 		return common.NewValidationError("required_count must be at least 1", nil)
 	}
 
-	// Priority の範囲チェック（1以上、小さいほど優先）
-	if s.priority < 1 {
-		return common.NewValidationError("priority must be at least 1", nil)
+	// Priority の範囲チェック（0以上、小さいほど優先）
+	// 注: 既存データとの互換性のため0を許容。新規作成時はデフォルト1が設定される
+	if s.priority < 0 {
+		return common.NewValidationError("priority must be at least 0", nil)
 	}
 
 	// 時刻の前後関係チェック（深夜営業対応）
@@ -259,10 +266,10 @@ func (s *ShiftSlot) UpdateRequiredCount(requiredCount int) error {
 	return nil
 }
 
-// UpdatePriority updates the priority (must be at least 1)
+// UpdatePriority updates the priority (must be at least 0)
 func (s *ShiftSlot) UpdatePriority(priority int) error {
-	if priority < 1 {
-		return common.NewValidationError("priority must be at least 1", nil)
+	if priority < 0 {
+		return common.NewValidationError("priority must be at least 0", nil)
 	}
 
 	s.priority = priority

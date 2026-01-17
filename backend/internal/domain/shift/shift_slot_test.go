@@ -174,14 +174,15 @@ func TestNewShiftSlot_ErrorWhenTenantIDEmpty(t *testing.T) {
 	}
 }
 
-func TestNewShiftSlot_ErrorWhenPriorityZero(t *testing.T) {
+func TestNewShiftSlot_SuccessWhenPriorityZero(t *testing.T) {
+	// priority=0 は既存データとの互換性のため許可される
 	now := time.Now()
 	tenantID := common.NewTenantID()
 	businessDayID := event.NewBusinessDayID()
 	slotName := "スタッフ"
 	startTime := time.Date(2000, 1, 1, 21, 30, 0, 0, time.UTC)
 	endTime := time.Date(2000, 1, 1, 23, 0, 0, 0, time.UTC)
-	priority := 0 // 0は不正（1以上が必要）
+	priority := 0 // 0は既存データとの互換性のため許可
 
 	slot, err := NewShiftSlot(
 		now,
@@ -195,12 +196,16 @@ func TestNewShiftSlot_ErrorWhenPriorityZero(t *testing.T) {
 		priority,
 	)
 
-	if err == nil {
-		t.Fatal("NewShiftSlot() should return error when priority is 0")
+	if err != nil {
+		t.Fatalf("NewShiftSlot() should succeed when priority is 0, but got error: %v", err)
 	}
 
-	if slot != nil {
-		t.Error("NewShiftSlot() should return nil when validation fails")
+	if slot == nil {
+		t.Fatal("NewShiftSlot() should return slot when priority is 0")
+	}
+
+	if slot.Priority() != 0 {
+		t.Errorf("Priority: expected 0, got %d", slot.Priority())
 	}
 }
 
@@ -253,7 +258,8 @@ func TestShiftSlot_UpdatePriority(t *testing.T) {
 	}
 }
 
-func TestShiftSlot_UpdatePriority_ErrorWhenZero(t *testing.T) {
+func TestShiftSlot_UpdatePriority_SuccessWhenZero(t *testing.T) {
+	// priority=0 は既存データとの互換性のため許可される
 	tenantID := common.NewTenantID()
 	startTime := time.Date(2000, 1, 1, 21, 30, 0, 0, time.UTC)
 	endTime := time.Date(2000, 1, 1, 23, 0, 0, 0, time.UTC)
@@ -262,8 +268,12 @@ func TestShiftSlot_UpdatePriority_ErrorWhenZero(t *testing.T) {
 
 	err := slot.UpdatePriority(0)
 
-	if err == nil {
-		t.Fatal("UpdatePriority() should return error when priority is 0")
+	if err != nil {
+		t.Fatalf("UpdatePriority() should succeed when priority is 0, but got error: %v", err)
+	}
+
+	if slot.Priority() != 0 {
+		t.Errorf("Priority: expected 0, got %d", slot.Priority())
 	}
 }
 

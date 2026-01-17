@@ -125,6 +125,7 @@ func (h *ShiftSlotHandler) CreateShiftSlot(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Usecaseの実行
+	// Priority のデフォルト値はユースケース層で設定される
 	input := appshift.CreateShiftSlotInput{
 		TenantID:      tenantID,
 		BusinessDayID: businessDayID,

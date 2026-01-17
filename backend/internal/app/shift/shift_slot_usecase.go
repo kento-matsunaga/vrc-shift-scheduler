@@ -40,12 +40,21 @@ func NewCreateShiftSlotUsecase(
 	}
 }
 
+// DefaultPriority is the default priority value for new shift slots
+const DefaultPriority = 1
+
 // Execute creates a new shift slot
 func (uc *CreateShiftSlotUsecase) Execute(ctx context.Context, input CreateShiftSlotInput) (*shift.ShiftSlot, error) {
 	// BusinessDay の存在確認
 	_, err := uc.businessDayRepo.FindByID(ctx, input.TenantID, input.BusinessDayID)
 	if err != nil {
 		return nil, err
+	}
+
+	// Priority のデフォルト値設定（未指定の場合は1）
+	priority := input.Priority
+	if priority == 0 {
+		priority = DefaultPriority
 	}
 
 	// ShiftSlot エンティティの作成
@@ -58,7 +67,7 @@ func (uc *CreateShiftSlotUsecase) Execute(ctx context.Context, input CreateShift
 		input.StartTime,
 		input.EndTime,
 		input.RequiredCount,
-		input.Priority,
+		priority,
 	)
 	if err != nil {
 		return nil, err
