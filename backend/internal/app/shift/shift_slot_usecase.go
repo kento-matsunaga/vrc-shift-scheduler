@@ -15,6 +15,7 @@ import (
 type CreateShiftSlotInput struct {
 	TenantID      common.TenantID
 	BusinessDayID event.BusinessDayID
+	InstanceID    *shift.InstanceID // optional - nil if not linking to an instance
 	SlotName      string
 	InstanceName  string
 	StartTime     time.Time
@@ -27,16 +28,19 @@ type CreateShiftSlotInput struct {
 type CreateShiftSlotUsecase struct {
 	slotRepo        shift.ShiftSlotRepository
 	businessDayRepo event.EventBusinessDayRepository
+	instanceRepo    shift.InstanceRepository
 }
 
 // NewCreateShiftSlotUsecase creates a new CreateShiftSlotUsecase
 func NewCreateShiftSlotUsecase(
 	slotRepo shift.ShiftSlotRepository,
 	businessDayRepo event.EventBusinessDayRepository,
+	instanceRepo shift.InstanceRepository,
 ) *CreateShiftSlotUsecase {
 	return &CreateShiftSlotUsecase{
 		slotRepo:        slotRepo,
 		businessDayRepo: businessDayRepo,
+		instanceRepo:    instanceRepo,
 	}
 }
 
@@ -46,9 +50,22 @@ const DefaultPriority = 1
 // Execute creates a new shift slot
 func (uc *CreateShiftSlotUsecase) Execute(ctx context.Context, input CreateShiftSlotInput) (*shift.ShiftSlot, error) {
 	// BusinessDay の存在確認
-	_, err := uc.businessDayRepo.FindByID(ctx, input.TenantID, input.BusinessDayID)
+	businessDay, err := uc.businessDayRepo.FindByID(ctx, input.TenantID, input.BusinessDayID)
 	if err != nil {
 		return nil, err
+	}
+
+	// InstanceID が指定されている場合、同じイベントに属しているか検証
+	if input.InstanceID != nil {
+		instance, err := uc.instanceRepo.FindByID(ctx, input.TenantID, *input.InstanceID)
+		if err != nil {
+			return nil, err
+		}
+
+		// インスタンスが同じイベントに属しているか確認
+		if instance.EventID() != businessDay.EventID() {
+			return nil, common.NewValidationError("instance does not belong to the same event as the business day", nil)
+		}
 	}
 
 	// Priority のデフォルト値設定（未指定の場合は1）
@@ -62,6 +79,7 @@ func (uc *CreateShiftSlotUsecase) Execute(ctx context.Context, input CreateShift
 		time.Now(),
 		input.TenantID,
 		input.BusinessDayID,
+		input.InstanceID,
 		input.SlotName,
 		input.InstanceName,
 		input.StartTime,

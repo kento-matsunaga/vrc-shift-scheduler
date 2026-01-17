@@ -12,7 +12,7 @@ import (
 func createTestSlot(t *testing.T, tenantID common.TenantID, slotName string, startTime, endTime time.Time, requiredCount int) *ShiftSlot {
 	now := time.Now()
 	businessDayID := event.NewBusinessDayID()
-	slot, err := NewShiftSlot(now, tenantID, businessDayID, slotName, "", startTime, endTime, requiredCount, 1)
+	slot, err := NewShiftSlot(now, tenantID, businessDayID, nil, slotName, "", startTime, endTime, requiredCount, 1)
 	if err != nil {
 		t.Fatalf("createTestSlot() failed: %v", err)
 	}
@@ -34,6 +34,7 @@ func TestNewShiftSlot_Success(t *testing.T) {
 		now,
 		tenantID,
 		businessDayID,
+		nil, // instanceID is optional
 		slotName,
 		instanceName,
 		startTime,
@@ -98,6 +99,7 @@ func TestNewShiftSlot_ErrorWhenSlotNameEmpty(t *testing.T) {
 		now,
 		tenantID,
 		businessDayID,
+		nil,
 		slotName,
 		"",
 		startTime,
@@ -128,6 +130,7 @@ func TestNewShiftSlot_ErrorWhenRequiredCountZero(t *testing.T) {
 		now,
 		tenantID,
 		businessDayID,
+		nil,
 		slotName,
 		"",
 		startTime,
@@ -157,6 +160,7 @@ func TestNewShiftSlot_ErrorWhenTenantIDEmpty(t *testing.T) {
 		now,
 		tenantID,
 		businessDayID,
+		nil,
 		slotName,
 		"",
 		startTime,
@@ -188,6 +192,7 @@ func TestNewShiftSlot_SuccessWhenPriorityZero(t *testing.T) {
 		now,
 		tenantID,
 		businessDayID,
+		nil,
 		slotName,
 		"",
 		startTime,
@@ -222,6 +227,7 @@ func TestNewShiftSlot_ErrorWhenPriorityNegative(t *testing.T) {
 		now,
 		tenantID,
 		businessDayID,
+		nil,
 		slotName,
 		"",
 		startTime,
@@ -386,12 +392,53 @@ func TestShiftSlot_IsOvernight(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			slot, _ := NewShiftSlot(now, tenantID, businessDayID, "スタッフ", "", tt.startTime, tt.endTime, 1, 1)
+			slot, _ := NewShiftSlot(now, tenantID, businessDayID, nil, "スタッフ", "", tt.startTime, tt.endTime, 1, 1)
 			got := slot.IsOvernight()
 			if got != tt.want {
 				t.Errorf("IsOvernight() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestNewShiftSlot_WithInstanceID(t *testing.T) {
+	// instanceIDを指定した場合のテスト
+	now := time.Now()
+	tenantID := common.NewTenantID()
+	businessDayID := event.NewBusinessDayID()
+	instanceID := NewInstanceIDWithTime(now)
+	slotName := "スタッフ"
+	instanceName := "第一インスタンス"
+	startTime := time.Date(2000, 1, 1, 21, 30, 0, 0, time.UTC)
+	endTime := time.Date(2000, 1, 1, 23, 0, 0, 0, time.UTC)
+
+	slot, err := NewShiftSlot(
+		now,
+		tenantID,
+		businessDayID,
+		&instanceID,
+		slotName,
+		instanceName,
+		startTime,
+		endTime,
+		1,
+		1,
+	)
+
+	if err != nil {
+		t.Fatalf("NewShiftSlot() with instanceID should succeed, but got error: %v", err)
+	}
+
+	if slot.InstanceID() == nil {
+		t.Error("InstanceID should not be nil when set")
+	}
+
+	if *slot.InstanceID() != instanceID {
+		t.Errorf("InstanceID: expected %s, got %s", instanceID, *slot.InstanceID())
+	}
+
+	if slot.InstanceName() != instanceName {
+		t.Errorf("InstanceName: expected %s, got %s", instanceName, slot.InstanceName())
 	}
 }
 

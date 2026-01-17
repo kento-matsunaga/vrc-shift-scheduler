@@ -167,10 +167,18 @@ func (uc *CreateBusinessDayUsecase) createShiftSlotsFromTemplate(ctx context.Con
 		)
 
 		// シフト枠を作成
+		// Instance が存在する場合、instanceID を設定
+		var instanceID *shift.InstanceID
+		if instance != nil {
+			id := instance.InstanceID()
+			instanceID = &id
+		}
+
 		shiftSlot, err := shift.NewShiftSlot(
 			time.Now(),
 			businessDay.TenantID(),
 			businessDay.BusinessDayID(),
+			instanceID,
 			item.SlotName(),
 			item.InstanceName(),
 			startDateTime,
@@ -180,11 +188,6 @@ func (uc *CreateBusinessDayUsecase) createShiftSlotsFromTemplate(ctx context.Con
 		)
 		if err != nil {
 			return err
-		}
-
-		// Instance が存在する場合、instanceID を設定
-		if instance != nil {
-			shiftSlot.SetInstanceID(instance.InstanceID())
 		}
 
 		// シフト枠を保存
@@ -384,11 +387,19 @@ func (uc *ApplyTemplateUsecase) createShiftSlotsFromTemplate(ctx context.Context
 			time.Local,
 		)
 
+		// Instance が存在する場合、instanceID を設定
+		var instanceID *shift.InstanceID
+		if instance != nil {
+			id := instance.InstanceID()
+			instanceID = &id
+		}
+
 		// シフト枠を作成
 		shiftSlot, err := shift.NewShiftSlot(
 			time.Now(),
 			businessDay.TenantID(),
 			businessDay.BusinessDayID(),
+			instanceID,
 			item.SlotName(),
 			item.InstanceName(),
 			startDateTime,
@@ -398,11 +409,6 @@ func (uc *ApplyTemplateUsecase) createShiftSlotsFromTemplate(ctx context.Context
 		)
 		if err != nil {
 			return err
-		}
-
-		// Instance が存在する場合、instanceID を設定
-		if instance != nil {
-			shiftSlot.SetInstanceID(instance.InstanceID())
 		}
 
 		// シフト枠を保存
