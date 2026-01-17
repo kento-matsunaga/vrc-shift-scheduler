@@ -137,9 +137,15 @@ export default function ShiftSlotList() {
     });
 
     // 各インスタンス内のスロットをpriority昇順でソート（小さいほど優先）
+    // 同じpriorityの場合は登録順（created_at昇順）を優先
     // バックエンドでもソート済みだが、フロントエンドでも一貫性を保証
     result.forEach((group) => {
-      group.slots.sort((a, b) => a.priority - b.priority);
+      group.slots.sort((a, b) => {
+        if (a.priority !== b.priority) {
+          return a.priority - b.priority;
+        }
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      });
     });
 
     return result;
@@ -472,6 +478,7 @@ function CreateShiftSlotModal({
         start_time: startTime,
         end_time: endTime,
         required_count: requiredCount,
+        priority: 1,
       });
       onSuccess();
     } catch (err) {

@@ -124,6 +124,12 @@ func (h *ShiftSlotHandler) CreateShiftSlot(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	// Priority のデフォルト値設定（未指定の場合は1）
+	priority := req.Priority
+	if priority == 0 {
+		priority = 1
+	}
+
 	// Usecaseの実行
 	input := appshift.CreateShiftSlotInput{
 		TenantID:      tenantID,
@@ -133,7 +139,7 @@ func (h *ShiftSlotHandler) CreateShiftSlot(w http.ResponseWriter, r *http.Reques
 		StartTime:     startTime,
 		EndTime:       endTime,
 		RequiredCount: req.RequiredCount,
-		Priority:      req.Priority,
+		Priority:      priority,
 	}
 
 	newSlot, err := h.createShiftSlotUC.Execute(ctx, input)

@@ -155,9 +155,10 @@ func (s *ShiftSlot) validate() error {
 		return common.NewValidationError("required_count must be at least 1", nil)
 	}
 
-	// Priority の範囲チェック（1以上、小さいほど優先）
-	if s.priority < 1 {
-		return common.NewValidationError("priority must be at least 1", nil)
+	// Priority の範囲チェック（0以上、小さいほど優先）
+	// 注: 既存データとの互換性のため0を許容。新規作成時はデフォルト1が設定される
+	if s.priority < 0 {
+		return common.NewValidationError("priority must be at least 0", nil)
 	}
 
 	// 時刻の前後関係チェック（深夜営業対応）
@@ -259,10 +260,10 @@ func (s *ShiftSlot) UpdateRequiredCount(requiredCount int) error {
 	return nil
 }
 
-// UpdatePriority updates the priority (must be at least 1)
+// UpdatePriority updates the priority (must be at least 0)
 func (s *ShiftSlot) UpdatePriority(priority int) error {
-	if priority < 1 {
-		return common.NewValidationError("priority must be at least 1", nil)
+	if priority < 0 {
+		return common.NewValidationError("priority must be at least 0", nil)
 	}
 
 	s.priority = priority
