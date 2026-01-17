@@ -478,8 +478,12 @@ function CreateShiftSlotModal({
     setLoading(true);
 
     try {
+      // 既存インスタンスが選択されている場合は instance_id を送信
+      const instanceId = selectedInstanceId && selectedInstanceId !== '__new__' ? selectedInstanceId : undefined;
+
       await createShiftSlot(businessDayId, {
         slot_name: slotName.trim(),
+        instance_id: instanceId,
         instance_name: finalInstanceName,
         start_time: startTime,
         end_time: endTime,

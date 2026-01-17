@@ -15,6 +15,7 @@ import (
 type CreateShiftSlotInput struct {
 	TenantID      common.TenantID
 	BusinessDayID event.BusinessDayID
+	InstanceID    *shift.InstanceID // optional - nil if not linking to an instance
 	SlotName      string
 	InstanceName  string
 	StartTime     time.Time
@@ -62,6 +63,7 @@ func (uc *CreateShiftSlotUsecase) Execute(ctx context.Context, input CreateShift
 		time.Now(),
 		input.TenantID,
 		input.BusinessDayID,
+		input.InstanceID,
 		input.SlotName,
 		input.InstanceName,
 		input.StartTime,

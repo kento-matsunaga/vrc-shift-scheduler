@@ -65,10 +65,12 @@ type ShiftSlot struct {
 }
 
 // NewShiftSlot creates a new ShiftSlot entity
+// instanceID is optional - pass nil if not linking to an instance
 func NewShiftSlot(
 	now time.Time,
 	tenantID common.TenantID,
 	businessDayID event.BusinessDayID,
+	instanceID *InstanceID,
 	slotName string,
 	instanceName string,
 	startTime time.Time,
@@ -80,6 +82,7 @@ func NewShiftSlot(
 		slotID:        NewSlotIDWithTime(now),
 		tenantID:      tenantID,
 		businessDayID: businessDayID,
+		instanceID:    instanceID,
 		slotName:      slotName,
 		instanceName:  instanceName,
 		startTime:     truncateToTime(startTime),

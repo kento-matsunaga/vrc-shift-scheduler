@@ -223,6 +223,7 @@ func createTestShiftSlot(t *testing.T, tenantID common.TenantID) *shift.ShiftSlo
 		now,
 		tenantID,
 		businessDayID,
+		nil, // instanceID
 		"テストシフト",
 		"VRChat Japan",
 		time.Date(2024, 1, 1, 20, 0, 0, 0, time.UTC),
