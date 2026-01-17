@@ -433,6 +433,7 @@ function CreateShiftSlotModal({
   const [startTime, setStartTime] = useState('21:30');
   const [endTime, setEndTime] = useState('23:00');
   const [requiredCount, setRequiredCount] = useState(1);
+  const [priority, setPriority] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -469,6 +470,11 @@ function CreateShiftSlotModal({
       return;
     }
 
+    if (priority < 1) {
+      setError('表示順は1以上で入力してください');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -478,7 +484,7 @@ function CreateShiftSlotModal({
         start_time: startTime,
         end_time: endTime,
         required_count: requiredCount,
-        priority: 1,
+        priority: priority,
       });
       onSuccess();
     } catch (err) {
@@ -582,19 +588,36 @@ function CreateShiftSlotModal({
             </div>
           </div>
 
-          <div className="mb-4">
-            <label htmlFor="requiredCount" className="label">
-              必要人数 <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="number"
-              id="requiredCount"
-              value={requiredCount}
-              onChange={(e) => setRequiredCount(parseInt(e.target.value, 10))}
-              min="1"
-              className="input-field"
-              disabled={loading}
-            />
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <div>
+              <label htmlFor="requiredCount" className="label">
+                必要人数 <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="number"
+                id="requiredCount"
+                value={requiredCount}
+                onChange={(e) => setRequiredCount(parseInt(e.target.value, 10))}
+                min="1"
+                className="input-field"
+                disabled={loading}
+              />
+            </div>
+            <div>
+              <label htmlFor="priority" className="label">
+                表示順 <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="number"
+                id="priority"
+                value={priority}
+                onChange={(e) => setPriority(parseInt(e.target.value, 10))}
+                min="1"
+                className="input-field"
+                disabled={loading}
+              />
+              <p className="text-xs text-gray-500 mt-1">小さいほど上に表示</p>
+            </div>
           </div>
 
           {error && (

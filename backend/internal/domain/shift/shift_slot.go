@@ -42,6 +42,12 @@ func ParseSlotID(s string) (SlotID, error) {
 // ShiftSlot represents a shift slot entity (独立したエンティティ)
 // EventBusinessDay に属するが、EventBusinessDay集約には含まれない
 // Instance に紐づく（instanceID で参照、移行期間中は instanceName も保持）
+//
+// 表示順序のビジネスルール:
+//   - priority が小さいほど優先的に表示される（昇順ソート）
+//   - 同じ priority の場合は登録順（created_at 昇順）で表示
+//   - 既存データとの互換性のため priority=0 を許容
+//   - 新規作成時のデフォルト priority は 1（ユースケース層で設定）
 type ShiftSlot struct {
 	slotID        SlotID
 	tenantID      common.TenantID
