@@ -198,6 +198,41 @@ func (m *MockMemberRepository) ExistsByDiscordUserID(ctx context.Context, tenant
 	return false, nil
 }
 
+type MockInstanceRepository struct {
+	findByIDFunc          func(ctx context.Context, tenantID common.TenantID, instanceID shift.InstanceID) (*shift.Instance, error)
+	findByEventIDFunc     func(ctx context.Context, tenantID common.TenantID, eventID common.EventID) ([]*shift.Instance, error)
+	findByEventIDAndNameFunc func(ctx context.Context, tenantID common.TenantID, eventID common.EventID, name string) (*shift.Instance, error)
+}
+
+func (m *MockInstanceRepository) Save(ctx context.Context, instance *shift.Instance) error {
+	return nil
+}
+
+func (m *MockInstanceRepository) FindByID(ctx context.Context, tenantID common.TenantID, instanceID shift.InstanceID) (*shift.Instance, error) {
+	if m.findByIDFunc != nil {
+		return m.findByIDFunc(ctx, tenantID, instanceID)
+	}
+	return nil, errors.New("not implemented")
+}
+
+func (m *MockInstanceRepository) FindByEventID(ctx context.Context, tenantID common.TenantID, eventID common.EventID) ([]*shift.Instance, error) {
+	if m.findByEventIDFunc != nil {
+		return m.findByEventIDFunc(ctx, tenantID, eventID)
+	}
+	return nil, nil
+}
+
+func (m *MockInstanceRepository) FindByEventIDAndName(ctx context.Context, tenantID common.TenantID, eventID common.EventID, name string) (*shift.Instance, error) {
+	if m.findByEventIDAndNameFunc != nil {
+		return m.findByEventIDAndNameFunc(ctx, tenantID, eventID, name)
+	}
+	return nil, nil
+}
+
+func (m *MockInstanceRepository) Delete(ctx context.Context, tenantID common.TenantID, instanceID shift.InstanceID) error {
+	return nil
+}
+
 func (m *MockMemberRepository) FindByDiscordUserID(ctx context.Context, tenantID common.TenantID, discordUserID string) (*member.Member, error) {
 	return nil, nil
 }
@@ -223,6 +258,7 @@ func createTestShiftSlot(t *testing.T, tenantID common.TenantID) *shift.ShiftSlo
 		now,
 		tenantID,
 		businessDayID,
+		nil, // instanceID
 		"テストシフト",
 		"VRChat Japan",
 		time.Date(2024, 1, 1, 20, 0, 0, 0, time.UTC),
@@ -297,7 +333,9 @@ func TestCreateShiftSlotUsecase_Execute_Success(t *testing.T) {
 		},
 	}
 
-	usecase := appshift.NewCreateShiftSlotUsecase(slotRepo, bdRepo)
+	instanceRepo := &MockInstanceRepository{}
+
+	usecase := appshift.NewCreateShiftSlotUsecase(slotRepo, bdRepo, instanceRepo)
 
 	input := appshift.CreateShiftSlotInput{
 		TenantID:      tenantID,
@@ -340,8 +378,9 @@ func TestCreateShiftSlotUsecase_Execute_ErrorWhenBusinessDayNotFound(t *testing.
 	}
 
 	slotRepo := &MockShiftSlotRepository{}
+	instanceRepo := &MockInstanceRepository{}
 
-	usecase := appshift.NewCreateShiftSlotUsecase(slotRepo, bdRepo)
+	usecase := appshift.NewCreateShiftSlotUsecase(slotRepo, bdRepo, instanceRepo)
 
 	input := appshift.CreateShiftSlotInput{
 		TenantID:      tenantID,
@@ -379,7 +418,9 @@ func TestCreateShiftSlotUsecase_Execute_ErrorWhenSaveFails(t *testing.T) {
 		},
 	}
 
-	usecase := appshift.NewCreateShiftSlotUsecase(slotRepo, bdRepo)
+	instanceRepo := &MockInstanceRepository{}
+
+	usecase := appshift.NewCreateShiftSlotUsecase(slotRepo, bdRepo, instanceRepo)
 
 	input := appshift.CreateShiftSlotInput{
 		TenantID:      tenantID,
@@ -397,6 +438,179 @@ func TestCreateShiftSlotUsecase_Execute_ErrorWhenSaveFails(t *testing.T) {
 	if err == nil {
 		t.Fatal("Execute() should fail when save fails")
 	}
+}
+
+func TestCreateShiftSlotUsecase_Execute_SuccessWithInstanceID(t *testing.T) {
+	tenantID := common.NewTenantID()
+	eventID := common.NewEventID()
+	businessDay := createTestBusinessDay(t, tenantID, eventID)
+	businessDayID := businessDay.BusinessDayID()
+
+	// 同じイベントに属するインスタンスを作成
+	now := time.Now()
+	instanceID := shift.NewInstanceIDWithTime(now)
+	instance, err := shift.NewInstance(now, tenantID, eventID, "第一インスタンス", 1, nil)
+	if err != nil {
+		t.Fatalf("Failed to create test instance: %v", err)
+	}
+
+	bdRepo := &MockBusinessDayRepository{
+		findByIDFunc: func(ctx context.Context, tid common.TenantID, id event.BusinessDayID) (*event.EventBusinessDay, error) {
+			return businessDay, nil
+		},
+	}
+
+	slotRepo := &MockShiftSlotRepository{
+		saveFunc: func(ctx context.Context, slot *shift.ShiftSlot) error {
+			return nil
+		},
+	}
+
+	instanceRepo := &MockInstanceRepository{
+		findByIDFunc: func(ctx context.Context, tid common.TenantID, instID shift.InstanceID) (*shift.Instance, error) {
+			return instance, nil
+		},
+	}
+
+	usecase := appshift.NewCreateShiftSlotUsecase(slotRepo, bdRepo, instanceRepo)
+
+	input := appshift.CreateShiftSlotInput{
+		TenantID:      tenantID,
+		BusinessDayID: businessDayID,
+		InstanceID:    &instanceID,
+		SlotName:      "受付",
+		InstanceName:  "第一インスタンス",
+		StartTime:     time.Date(2024, 1, 1, 20, 0, 0, 0, time.UTC),
+		EndTime:       time.Date(2024, 1, 1, 22, 0, 0, 0, time.UTC),
+		RequiredCount: 2,
+		Priority:      1,
+	}
+
+	result, err := usecase.Execute(context.Background(), input)
+
+	if err != nil {
+		t.Fatalf("Execute() should succeed, got error: %v", err)
+	}
+
+	if result == nil {
+		t.Fatal("Result should not be nil")
+	}
+
+	if result.InstanceID() == nil {
+		t.Fatal("InstanceID should not be nil")
+	}
+}
+
+func TestCreateShiftSlotUsecase_Execute_ErrorWhenInstanceNotFound(t *testing.T) {
+	tenantID := common.NewTenantID()
+	eventID := common.NewEventID()
+	businessDay := createTestBusinessDay(t, tenantID, eventID)
+	businessDayID := businessDay.BusinessDayID()
+
+	instanceID := shift.NewInstanceIDWithTime(time.Now())
+
+	bdRepo := &MockBusinessDayRepository{
+		findByIDFunc: func(ctx context.Context, tid common.TenantID, id event.BusinessDayID) (*event.EventBusinessDay, error) {
+			return businessDay, nil
+		},
+	}
+
+	slotRepo := &MockShiftSlotRepository{}
+
+	instanceRepo := &MockInstanceRepository{
+		findByIDFunc: func(ctx context.Context, tid common.TenantID, instID shift.InstanceID) (*shift.Instance, error) {
+			return nil, common.NewNotFoundError("instance", instID.String())
+		},
+	}
+
+	usecase := appshift.NewCreateShiftSlotUsecase(slotRepo, bdRepo, instanceRepo)
+
+	input := appshift.CreateShiftSlotInput{
+		TenantID:      tenantID,
+		BusinessDayID: businessDayID,
+		InstanceID:    &instanceID,
+		SlotName:      "受付",
+		InstanceName:  "第一インスタンス",
+		StartTime:     time.Date(2024, 1, 1, 20, 0, 0, 0, time.UTC),
+		EndTime:       time.Date(2024, 1, 1, 22, 0, 0, 0, time.UTC),
+		RequiredCount: 2,
+		Priority:      1,
+	}
+
+	_, err := usecase.Execute(context.Background(), input)
+
+	if err == nil {
+		t.Fatal("Execute() should fail when instance not found")
+	}
+}
+
+func TestCreateShiftSlotUsecase_Execute_ErrorWhenInstanceBelongsToDifferentEvent(t *testing.T) {
+	tenantID := common.NewTenantID()
+	eventID := common.NewEventID()
+	differentEventID := common.NewEventID() // 異なるイベントID
+	businessDay := createTestBusinessDay(t, tenantID, eventID)
+	businessDayID := businessDay.BusinessDayID()
+
+	// 異なるイベントに属するインスタンスを作成
+	now := time.Now()
+	instanceID := shift.NewInstanceIDWithTime(now)
+	instance, err := shift.NewInstance(now, tenantID, differentEventID, "別イベントのインスタンス", 1, nil)
+	if err != nil {
+		t.Fatalf("Failed to create test instance: %v", err)
+	}
+
+	bdRepo := &MockBusinessDayRepository{
+		findByIDFunc: func(ctx context.Context, tid common.TenantID, id event.BusinessDayID) (*event.EventBusinessDay, error) {
+			return businessDay, nil
+		},
+	}
+
+	slotRepo := &MockShiftSlotRepository{}
+
+	instanceRepo := &MockInstanceRepository{
+		findByIDFunc: func(ctx context.Context, tid common.TenantID, instID shift.InstanceID) (*shift.Instance, error) {
+			return instance, nil
+		},
+	}
+
+	usecase := appshift.NewCreateShiftSlotUsecase(slotRepo, bdRepo, instanceRepo)
+
+	input := appshift.CreateShiftSlotInput{
+		TenantID:      tenantID,
+		BusinessDayID: businessDayID,
+		InstanceID:    &instanceID,
+		SlotName:      "受付",
+		InstanceName:  "別イベントのインスタンス",
+		StartTime:     time.Date(2024, 1, 1, 20, 0, 0, 0, time.UTC),
+		EndTime:       time.Date(2024, 1, 1, 22, 0, 0, 0, time.UTC),
+		RequiredCount: 2,
+		Priority:      1,
+	}
+
+	_, err = usecase.Execute(context.Background(), input)
+
+	if err == nil {
+		t.Fatal("Execute() should fail when instance belongs to a different event")
+	}
+
+	// エラーメッセージの確認
+	expectedMsg := "instance does not belong to the same event"
+	if !containsString(err.Error(), expectedMsg) {
+		t.Errorf("Error message should contain '%s', got: %v", expectedMsg, err.Error())
+	}
+}
+
+func containsString(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsSubstring(s, substr))
+}
+
+func containsSubstring(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
 }
 
 // =====================================================

@@ -176,32 +176,111 @@ func TestInstance_Delete(t *testing.T) {
 }
 
 func TestInstanceID_Validate(t *testing.T) {
-	validID := NewInstanceID()
-	if err := validID.Validate(); err != nil {
-		t.Errorf("Valid InstanceID should pass validation: %v", err)
+	tests := []struct {
+		name    string
+		id      InstanceID
+		wantErr bool
+	}{
+		{
+			name:    "valid ULID format",
+			id:      NewInstanceID(),
+			wantErr: false,
+		},
+		{
+			name:    "valid legacy format (26 uppercase alphanumeric)",
+			id:      InstanceID("2827D68A90CD4DE28D4F8B717D"),
+			wantErr: false,
+		},
+		{
+			name:    "empty string",
+			id:      InstanceID(""),
+			wantErr: true,
+		},
+		{
+			name:    "invalid - too short",
+			id:      InstanceID("ABC123"),
+			wantErr: true,
+		},
+		{
+			name:    "invalid - too long",
+			id:      InstanceID("2827D68A90CD4DE28D4F8B717DA"),
+			wantErr: true,
+		},
 	}
 
-	invalidID := InstanceID("")
-	if err := invalidID.Validate(); err == nil {
-		t.Error("Empty InstanceID should fail validation")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.id.Validate()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("InstanceID.Validate() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
 	}
 }
 
 func TestParseInstanceID(t *testing.T) {
-	validID := NewInstanceID()
-
-	parsed, err := ParseInstanceID(validID.String())
-	if err != nil {
-		t.Fatalf("ParseInstanceID() should succeed for valid ID: %v", err)
+	tests := []struct {
+		name    string
+		input   string
+		wantErr bool
+	}{
+		{
+			name:    "valid ULID format",
+			input:   NewInstanceID().String(),
+			wantErr: false,
+		},
+		{
+			name:    "valid legacy format (26 uppercase alphanumeric)",
+			input:   "2827D68A90CD4DE28D4F8B717D",
+			wantErr: false,
+		},
+		{
+			name:    "valid legacy format - another example",
+			input:   "94E352BF22B94A6FAC8E27FB5D",
+			wantErr: false,
+		},
+		{
+			name:    "valid - lowercase (ULID spec allows case-insensitive)",
+			input:   "2827d68a90cd4de28d4f8b717d",
+			wantErr: false,
+		},
+		{
+			name:    "invalid - empty string",
+			input:   "",
+			wantErr: true,
+		},
+		{
+			name:    "invalid - too short",
+			input:   "ABC123",
+			wantErr: true,
+		},
+		{
+			name:    "invalid - too long (27 chars)",
+			input:   "2827D68A90CD4DE28D4F8B717DA",
+			wantErr: true,
+		},
+		{
+			name:    "invalid - too short (25 chars)",
+			input:   "2827D68A90CD4DE28D4F8B71",
+			wantErr: true,
+		},
+		{
+			name:    "invalid - random string",
+			input:   "invalid",
+			wantErr: true,
+		},
 	}
 
-	if parsed != validID {
-		t.Errorf("Parsed ID mismatch: got %v, want %v", parsed, validID)
-	}
-
-	_, err = ParseInstanceID("invalid")
-	if err == nil {
-		t.Error("ParseInstanceID() should fail for invalid ID")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			parsed, err := ParseInstanceID(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ParseInstanceID() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if err == nil && parsed.String() != tt.input {
+				t.Errorf("ParseInstanceID() = %v, want %v", parsed, tt.input)
+			}
+		})
 	}
 }
 

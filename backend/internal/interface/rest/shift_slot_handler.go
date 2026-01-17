@@ -33,12 +33,13 @@ func NewShiftSlotHandler(
 
 // CreateShiftSlotRequest represents the request body for creating a shift slot
 type CreateShiftSlotRequest struct {
-	SlotName      string `json:"slot_name"`
-	InstanceName  string `json:"instance_name"`
-	StartTime     string `json:"start_time"` // HH:MM
-	EndTime       string `json:"end_time"`   // HH:MM
-	RequiredCount int    `json:"required_count"`
-	Priority      int    `json:"priority"`
+	SlotName      string  `json:"slot_name"`
+	InstanceID    *string `json:"instance_id,omitempty"` // optional - existing instance ID
+	InstanceName  string  `json:"instance_name"`
+	StartTime     string  `json:"start_time"` // HH:MM
+	EndTime       string  `json:"end_time"`   // HH:MM
+	RequiredCount int     `json:"required_count"`
+	Priority      int     `json:"priority"`
 }
 
 // ShiftSlotResponse represents a shift slot in API responses
@@ -124,10 +125,23 @@ func (h *ShiftSlotHandler) CreateShiftSlot(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	// InstanceID のパース（オプショナル）
+	var instanceID *shift.InstanceID
+	if req.InstanceID != nil && *req.InstanceID != "" {
+		parsedID, err := shift.ParseInstanceID(*req.InstanceID)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "Invalid instance_id format", nil)
+			return
+		}
+		instanceID = &parsedID
+	}
+
 	// Usecaseの実行
+	// Priority のデフォルト値はユースケース層で設定される
 	input := appshift.CreateShiftSlotInput{
 		TenantID:      tenantID,
 		BusinessDayID: businessDayID,
+		InstanceID:    instanceID,
 		SlotName:      req.SlotName,
 		InstanceName:  req.InstanceName,
 		StartTime:     startTime,

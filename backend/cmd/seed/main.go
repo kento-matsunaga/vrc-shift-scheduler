@@ -316,6 +316,7 @@ func createShiftSlots(ctx context.Context, repo *db.ShiftSlotRepository, tenantI
 			time.Now(),
 			tenantID,
 			businessDayID,
+			nil, // instanceID - not linked for seed data
 			cfg.name,
 			cfg.instanceName,
 			startTime,

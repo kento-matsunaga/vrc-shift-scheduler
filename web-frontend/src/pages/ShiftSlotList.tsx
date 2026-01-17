@@ -137,9 +137,15 @@ export default function ShiftSlotList() {
     });
 
     // 各インスタンス内のスロットをpriority昇順でソート（小さいほど優先）
+    // 同じpriorityの場合は登録順（created_at昇順）を優先
     // バックエンドでもソート済みだが、フロントエンドでも一貫性を保証
     result.forEach((group) => {
-      group.slots.sort((a, b) => a.priority - b.priority);
+      group.slots.sort((a, b) => {
+        if (a.priority !== b.priority) {
+          return a.priority - b.priority;
+        }
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      });
     });
 
     return result;
@@ -427,6 +433,7 @@ function CreateShiftSlotModal({
   const [startTime, setStartTime] = useState('21:30');
   const [endTime, setEndTime] = useState('23:00');
   const [requiredCount, setRequiredCount] = useState(1);
+  const [priority, setPriority] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -463,15 +470,25 @@ function CreateShiftSlotModal({
       return;
     }
 
+    if (priority < 1) {
+      setError('表示順は1以上で入力してください');
+      return;
+    }
+
     setLoading(true);
 
     try {
+      // 既存インスタンスが選択されている場合は instance_id を送信
+      const instanceId = selectedInstanceId && selectedInstanceId !== '__new__' ? selectedInstanceId : undefined;
+
       await createShiftSlot(businessDayId, {
         slot_name: slotName.trim(),
+        instance_id: instanceId,
         instance_name: finalInstanceName,
         start_time: startTime,
         end_time: endTime,
         required_count: requiredCount,
+        priority: priority,
       });
       onSuccess();
     } catch (err) {
@@ -575,19 +592,36 @@ function CreateShiftSlotModal({
             </div>
           </div>
 
-          <div className="mb-4">
-            <label htmlFor="requiredCount" className="label">
-              必要人数 <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="number"
-              id="requiredCount"
-              value={requiredCount}
-              onChange={(e) => setRequiredCount(parseInt(e.target.value, 10))}
-              min="1"
-              className="input-field"
-              disabled={loading}
-            />
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <div>
+              <label htmlFor="requiredCount" className="label">
+                必要人数 <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="number"
+                id="requiredCount"
+                value={requiredCount}
+                onChange={(e) => setRequiredCount(parseInt(e.target.value, 10))}
+                min="1"
+                className="input-field"
+                disabled={loading}
+              />
+            </div>
+            <div>
+              <label htmlFor="priority" className="label">
+                表示順 <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="number"
+                id="priority"
+                value={priority}
+                onChange={(e) => setPriority(parseInt(e.target.value, 10))}
+                min="1"
+                className="input-field"
+                disabled={loading}
+              />
+              <p className="text-xs text-gray-500 mt-1">小さいほど上に表示</p>
+            </div>
           </div>
 
           {error && (
