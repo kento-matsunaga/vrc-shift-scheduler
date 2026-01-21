@@ -131,10 +131,10 @@ export default function ScheduleList() {
       return;
     }
 
-    // 時間バリデーション: 開始時間と終了時間が両方設定されている場合、開始 < 終了
+    // 時間バリデーション: 開始時間と終了時間が同じ場合は無効
     for (const candidate of validDates) {
       if (!isValidTimeRange(candidate.startTime, candidate.endTime)) {
-        setError('開始時間は終了時間より前に設定してください');
+        setError('開始時間と終了時間を異なる時間に設定してください');
         return;
       }
     }

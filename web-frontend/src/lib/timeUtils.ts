@@ -90,9 +90,11 @@ export const isValidTimeFormat = (time: string): boolean => {
 };
 
 /**
- * 時刻バリデーション: 開始時間が終了時間より前かチェック
+ * 時刻バリデーション: 有効な時間範囲かチェック（深夜営業対応）
  *
- * 数値パース後の比較でより堅牢なバリデーションを実行
+ * 深夜営業（オーバーナイト）をサポートするため、終了時刻が開始時刻より
+ * 前の場合も有効とする（例: 21:00-02:00）。
+ * 同じ時刻の場合のみ無効とする。
  *
  * @param startTime HH:MM形式の開始時刻
  * @param endTime HH:MM形式の終了時刻
@@ -102,8 +104,8 @@ export const isValidTimeFormat = (time: string): boolean => {
  * - ("", "") → true (両方未設定は有効)
  * - ("21:00", "") → true (片方のみ設定は有効)
  * - ("", "23:00") → true (片方のみ設定は有効)
- * - ("21:00", "23:00") → true (開始 < 終了)
- * - ("23:00", "21:00") → false (開始 > 終了)
+ * - ("21:00", "23:00") → true (通常パターン: 開始 < 終了)
+ * - ("21:00", "02:00") → true (深夜営業: 開始 > 終了)
  * - ("21:00", "21:00") → false (同じ時間は無効)
  * - ("00:00", "23:59") → true (深夜0時から23:59まで)
  * - ("25:00", "26:00") → false (不正な時刻形式)
@@ -125,7 +127,8 @@ export const isValidTimeRange = (startTime: string, endTime: string): boolean =>
   const startMinutes = startH * 60 + startM;
   const endMinutes = endH * 60 + endM;
 
-  return startMinutes < endMinutes;
+  // 同じ時刻のみ無効（深夜営業パターンは許可）
+  return startMinutes !== endMinutes;
 };
 
 /**

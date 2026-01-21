@@ -14,6 +14,7 @@ import { getMembers } from '../lib/api';
 import { getMemberGroups, getMemberGroupDetail, type MemberGroup } from '../lib/api/memberGroupApi';
 import { listRoles, type Role } from '../lib/api/roleApi';
 import { ApiClientError } from '../lib/apiClient';
+import { isValidTimeRange } from '../lib/timeUtils';
 import type { Member } from '../types/api';
 
 // ソートの種類
@@ -227,12 +228,10 @@ export default function AttendanceDetail() {
       return;
     }
 
-    // 時間バリデーション: 両方入力されている場合、開始時間 < 終了時間
-    if (editingData.availableFrom && editingData.availableTo) {
-      if (editingData.availableFrom >= editingData.availableTo) {
-        alert('参加可能時間の開始時間は終了時間より前にしてください');
-        return;
-      }
+    // 時間バリデーション: 開始時間と終了時間が同じ場合は無効（深夜営業パターンは許可）
+    if (!isValidTimeRange(editingData.availableFrom || '', editingData.availableTo || '')) {
+      alert('参加可能時間の開始時間と終了時間を異なる時間に設定してください');
+      return;
     }
 
     try {
