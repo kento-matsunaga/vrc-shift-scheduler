@@ -11,6 +11,7 @@ import type { Event } from '../types/api';
 import { listRoles, type Role } from '../lib/api/roleApi';
 import { MobileCard, CardHeader, CardField } from '../components/MobileCard';
 import { DateRangePicker, type DateInput } from '../components/DateRangePicker';
+import { isValidTimeRange } from '../lib/timeUtils';
 
 export default function AttendanceList() {
   const navigate = useNavigate();
@@ -292,9 +293,9 @@ export default function AttendanceList() {
         setError(`対象日${i + 1}: 開始時間と終了時間は両方入力してください`);
         return;
       }
-      // 開始時間 >= 終了時間の場合
-      if (d.startTime && d.endTime && d.startTime >= d.endTime) {
-        setError(`対象日${i + 1}: 開始時間は終了時間より前に設定してください`);
+      // 開始時間と終了時間が同じ場合は無効（深夜営業パターンは許可）
+      if (!isValidTimeRange(d.startTime, d.endTime)) {
+        setError(`対象日${i + 1}: 開始時間と終了時間を異なる時間に設定してください`);
         return;
       }
     }
