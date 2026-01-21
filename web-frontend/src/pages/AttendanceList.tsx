@@ -10,6 +10,7 @@ import { getEvents, getEventBusinessDays, type BusinessDay } from '../lib/api/ev
 import type { Event } from '../types/api';
 import { listRoles, type Role } from '../lib/api/roleApi';
 import { MobileCard, CardHeader, CardField } from '../components/MobileCard';
+import { DateRangePicker, type DateInput } from '../components/DateRangePicker';
 
 export default function AttendanceList() {
   const navigate = useNavigate();
@@ -227,6 +228,29 @@ export default function AttendanceList() {
     newDates[index] = { ...newDates[index], [field]: value };
     setTargetDates(newDates);
   };
+
+  // DateRangePickerからの一括追加
+  const handleAddDatesFromPicker = (dates: DateInput[]) => {
+    // 既存の空でない日付を保持
+    const existingDates = targetDates.filter((d) => d.date.trim() !== '');
+    const existingDateStrings = existingDates.map((d) => d.date);
+
+    // 重複を除いて新しい日付を追加
+    const newDates = dates.filter((d) => !existingDateStrings.includes(d.date));
+
+    // マージして日付順にソート
+    const mergedDates = [...existingDates, ...newDates].sort((a, b) =>
+      a.date.localeCompare(b.date)
+    );
+
+    // 日付がない場合は空欄を追加
+    setTargetDates(mergedDates.length > 0 ? mergedDates : [{ date: '', startTime: '', endTime: '' }]);
+  };
+
+  // 既存の日付リスト（重複チェック用）
+  const existingDateStrings = targetDates
+    .filter((d) => d.date.trim() !== '')
+    .map((d) => d.date);
 
   const toggleGroupSelection = (groupId: string) => {
     setSelectedGroupIds((prev) =>
@@ -496,9 +520,20 @@ export default function AttendanceList() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 対象日 <span className="text-red-500">*</span>
               </label>
-              <p className="text-xs text-gray-500 mb-2">
+              <p className="text-xs text-gray-500 mb-3">
                 開始・終了時間は任意です。設定すると回答ページに表示されます。
               </p>
+
+              {/* 期間から一括追加 */}
+              <div className="mb-4">
+                <DateRangePicker
+                  onAddDates={handleAddDatesFromPicker}
+                  existingDates={existingDateStrings}
+                  disabled={submitting}
+                />
+              </div>
+
+              {/* 個別の対象日入力 */}
               <div className="space-y-3">
                 {targetDates.map((targetDate, index) => (
                   <div key={index} className="p-3 border border-gray-200 rounded-lg bg-gray-50">
