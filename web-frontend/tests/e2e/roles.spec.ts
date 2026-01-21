@@ -23,49 +23,49 @@ test.describe('Roles Page E2E', () => {
     // Check page header
     await expect(page.getByRole('heading', { name: /ロール/ })).toBeVisible();
 
-    // Check for new role button
-    await expect(page.getByRole('button', { name: /新規|作成|追加/ })).toBeVisible();
+    // Check for new role button (＋ ロール追加) or empty state button
+    const newRoleButton = page.locator('button:has-text("ロール追加"), button:has-text("最初のロールを追加")');
+    await expect(newRoleButton.first()).toBeVisible();
   });
 
   test('should display role list', async ({ page }) => {
     // Wait for data to load
     await page.waitForTimeout(1000);
 
-    // Should have role items or empty message
+    // Should have role items or empty state button
     const roleItems = page.locator('[data-testid="role-item"], .role-card, tr:has(td)');
-    const emptyMessage = page.locator('text=ロールがありません');
+    const emptyButton = page.locator('button:has-text("最初のロールを追加")');
 
     const hasRoles = await roleItems.count() > 0;
-    const hasEmptyMessage = await emptyMessage.isVisible();
+    const hasEmptyButton = await emptyButton.isVisible();
 
-    expect(hasRoles || hasEmptyMessage).toBeTruthy();
+    expect(hasRoles || hasEmptyButton).toBeTruthy();
   });
 
   test('should open new role form', async ({ page }) => {
-    // Click new role button
-    await page.click('button:has-text("新規"), button:has-text("作成"), button:has-text("追加")');
+    // Click new role button (＋ ロール追加)
+    await page.click('button:has-text("ロール追加")');
 
-    // Form should appear
-    await expect(page.locator('input[name="name"], input[placeholder*="ロール名"]')).toBeVisible();
+    // Form should appear (modal with input)
+    await expect(page.locator('[role="dialog"], .modal')).toBeVisible();
+    await expect(page.locator('[role="dialog"] input, .modal input')).toBeVisible();
   });
 
   test('should create a new role', async ({ page }) => {
     const uniqueName = `テストロール_${Date.now()}`;
 
-    // Click new role button
-    await page.click('button:has-text("新規"), button:has-text("作成"), button:has-text("追加")');
+    // Click new role button (＋ ロール追加)
+    await page.click('button:has-text("ロール追加")');
 
-    // Fill the form
-    await page.fill('input[name="name"], input[placeholder*="ロール名"]', uniqueName);
+    // Wait for modal to open
+    await page.waitForTimeout(500);
 
-    // Select a color if available
-    const colorInput = page.locator('input[type="color"], [data-testid="color-picker"]');
-    if (await colorInput.isVisible()) {
-      // Color input exists
-    }
+    // Fill the form (find input in modal)
+    const nameInput = page.locator('[role="dialog"] input, .modal input').first();
+    await nameInput.fill(uniqueName);
 
     // Submit
-    await page.click('button:has-text("作成"), button:has-text("登録"), button:has-text("保存")');
+    await page.click('[role="dialog"] button:has-text("作成"), .modal button:has-text("作成")');
 
     // Wait for creation
     await page.waitForTimeout(1000);
@@ -78,13 +78,13 @@ test.describe('Roles Page E2E', () => {
     // Wait for roles to load
     await page.waitForTimeout(1000);
 
-    // Find edit button
-    const editButton = page.locator('button:has-text("編集"), button[aria-label="編集"]').first();
+    // Find edit button (pencil icon or 編集 text)
+    const editButton = page.locator('button:has-text("編集"), button[aria-label="編集"], button svg').first();
     if (await editButton.isVisible()) {
       await editButton.click();
 
-      // Form should appear
-      await expect(page.locator('input[name="name"], input[placeholder*="ロール名"]')).toBeVisible();
+      // Form should appear (modal)
+      await expect(page.locator('[role="dialog"], .modal')).toBeVisible();
 
       // Close without saving
       const cancelButton = page.locator('button:has-text("キャンセル")');
@@ -115,13 +115,16 @@ test.describe('Roles Page E2E', () => {
   });
 
   test('should select color preset for role', async ({ page }) => {
-    // Click new role button
-    await page.click('button:has-text("新規"), button:has-text("作成"), button:has-text("追加")');
+    // Click new role button (＋ ロール追加)
+    await page.click('button:has-text("ロール追加")');
 
-    // Look for color presets
-    const colorPresets = page.locator('[data-testid="color-preset"], .color-preset');
-    if (await colorPresets.count() > 0) {
-      await colorPresets.first().click();
+    // Wait for modal to open
+    await page.waitForTimeout(500);
+
+    // Look for color buttons (color picker)
+    const colorButtons = page.locator('[role="dialog"] button[style*="background"], .modal button[style*="background"]');
+    if (await colorButtons.count() > 0) {
+      await colorButtons.first().click();
     }
   });
 });
@@ -140,14 +143,18 @@ test.describe('Role Groups Page E2E', () => {
   test('should create role group', async ({ page }) => {
     const uniqueName = `テストロールグループ_${Date.now()}`;
 
-    // Click new button
-    await page.click('button:has-text("新規"), button:has-text("作成")');
+    // Click new button (＋ グループ追加)
+    await page.click('button:has-text("グループ追加")');
 
-    // Fill name
-    await page.fill('input[name="name"], input[placeholder*="グループ名"]', uniqueName);
+    // Wait for modal to open
+    await page.waitForTimeout(500);
+
+    // Fill name (find input in modal)
+    const nameInput = page.locator('[role="dialog"] input, .modal input').first();
+    await nameInput.fill(uniqueName);
 
     // Submit
-    await page.click('button:has-text("作成"), button:has-text("保存")');
+    await page.click('[role="dialog"] button:has-text("作成"), .modal button:has-text("作成")');
 
     await page.waitForTimeout(1000);
   });
@@ -167,14 +174,18 @@ test.describe('Member Groups Page E2E', () => {
   test('should create member group', async ({ page }) => {
     const uniqueName = `テストメンバーグループ_${Date.now()}`;
 
-    // Click new button
-    await page.click('button:has-text("新規"), button:has-text("作成")');
+    // Click new button (＋ グループ追加)
+    await page.click('button:has-text("グループ追加")');
 
-    // Fill name
-    await page.fill('input[name="name"], input[placeholder*="グループ名"]', uniqueName);
+    // Wait for modal to open
+    await page.waitForTimeout(500);
+
+    // Fill name (find input in modal)
+    const nameInput = page.locator('[role="dialog"] input, .modal input').first();
+    await nameInput.fill(uniqueName);
 
     // Submit
-    await page.click('button:has-text("作成"), button:has-text("保存")');
+    await page.click('[role="dialog"] button:has-text("作成"), .modal button:has-text("作成")');
 
     await page.waitForTimeout(1000);
   });
@@ -182,16 +193,11 @@ test.describe('Member Groups Page E2E', () => {
   test('should add members to group', async ({ page }) => {
     await page.waitForTimeout(1000);
 
-    // Click on a group
-    const groupCard = page.locator('[data-testid="group-card"], .group-card').first();
+    // Click on a group card (the group items should be clickable)
+    const groupCard = page.locator('[data-testid="group-card"], .group-card, button:has-text("メンバー")').first();
     if (await groupCard.isVisible()) {
       await groupCard.click();
-
-      // Look for add member button
-      const addMemberButton = page.locator('button:has-text("メンバーを追加")');
-      if (await addMemberButton.isVisible()) {
-        await expect(addMemberButton).toBeVisible();
-      }
+      await page.waitForTimeout(500);
     }
   });
 });

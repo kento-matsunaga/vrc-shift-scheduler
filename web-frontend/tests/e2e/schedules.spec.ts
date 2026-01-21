@@ -23,8 +23,8 @@ test.describe('Schedules Page E2E', () => {
     // Check page header
     await expect(page.getByRole('heading', { name: /日程調整|スケジュール/ })).toBeVisible();
 
-    // Check for new schedule button
-    await expect(page.getByRole('button', { name: /新規|作成/ })).toBeVisible();
+    // Check for new schedule button (+ 新規作成)
+    await expect(page.locator('button:has-text("新規作成")')).toBeVisible();
   });
 
   test('should display schedule list or empty state', async ({ page }) => {
@@ -32,8 +32,8 @@ test.describe('Schedules Page E2E', () => {
     await page.waitForTimeout(1000);
 
     // Should have schedule items or empty message
-    const scheduleItems = page.locator('[data-testid="schedule-item"], .schedule-card, tr:has(td)');
-    const emptyMessage = page.locator('text=日程調整がありません');
+    const scheduleItems = page.locator('[data-testid="schedule-item"], .schedule-card, a[href*="/schedules/"]');
+    const emptyMessage = page.locator('text=日程調整がまだありません');
 
     const hasSchedules = await scheduleItems.count() > 0;
     const hasEmptyMessage = await emptyMessage.isVisible();
@@ -42,16 +42,16 @@ test.describe('Schedules Page E2E', () => {
   });
 
   test('should open new schedule form', async ({ page }) => {
-    // Click new schedule button
-    await page.click('button:has-text("新規"), button:has-text("作成")');
+    // Click new schedule button (+ 新規作成)
+    await page.click('button:has-text("新規作成")');
 
-    // Form should appear with title input
+    // Form should appear with title input (inline form, not modal)
     await expect(page.locator('input[name="title"], input[placeholder*="タイトル"]')).toBeVisible();
   });
 
   test('should show date range picker', async ({ page }) => {
-    // Click new schedule button
-    await page.click('button:has-text("新規"), button:has-text("作成")');
+    // Click new schedule button (+ 新規作成)
+    await page.click('button:has-text("新規作成")');
 
     // Look for DateRangePicker
     const dateRangePicker = page.locator('details:has-text("期間から一括追加")');
@@ -67,24 +67,33 @@ test.describe('Schedules Page E2E', () => {
   test('should create a schedule with candidate dates', async ({ page }) => {
     const uniqueTitle = `テスト日程調整_${Date.now()}`;
 
-    // Click new schedule button
-    await page.click('button:has-text("新規"), button:has-text("作成")');
+    // Click new schedule button (+ 新規作成)
+    await page.click('button:has-text("新規作成")');
+
+    // Wait for form to appear
+    await page.waitForTimeout(500);
 
     // Fill title
     await page.fill('input[name="title"], input[placeholder*="タイトル"]', uniqueTitle);
 
-    // Add a candidate date
+    // Add a candidate date using the + button or date input
+    const addDateButton = page.locator('button:has-text("候補日を追加")');
+    if (await addDateButton.isVisible()) {
+      await addDateButton.click();
+      await page.waitForTimeout(300);
+    }
+
+    // Fill date if there's an input
     const dateInputs = page.locator('input[type="date"]');
     if (await dateInputs.count() > 0) {
-      // Set a date (tomorrow)
       const tomorrow = new Date();
       tomorrow.setDate(tomorrow.getDate() + 1);
       const dateStr = tomorrow.toISOString().split('T')[0];
       await dateInputs.first().fill(dateStr);
     }
 
-    // Submit
-    await page.click('button:has-text("作成"), button:has-text("登録")');
+    // Submit (日程調整を作成)
+    await page.click('button:has-text("日程調整を作成")');
 
     // Wait for creation
     await page.waitForTimeout(2000);
@@ -97,8 +106,8 @@ test.describe('Schedules Page E2E', () => {
   });
 
   test('should use quick select presets in date range picker', async ({ page }) => {
-    // Click new schedule button
-    await page.click('button:has-text("新規"), button:has-text("作成")');
+    // Click new schedule button (+ 新規作成)
+    await page.click('button:has-text("新規作成")');
 
     // Expand date range picker
     const dateRangePicker = page.locator('details:has-text("期間から一括追加")');
@@ -118,8 +127,8 @@ test.describe('Schedules Page E2E', () => {
   });
 
   test('should filter weekdays in date range picker', async ({ page }) => {
-    // Click new schedule button
-    await page.click('button:has-text("新規"), button:has-text("作成")');
+    // Click new schedule button (+ 新規作成)
+    await page.click('button:has-text("新規作成")');
 
     // Expand date range picker
     const dateRangePicker = page.locator('details:has-text("期間から一括追加")');
@@ -200,13 +209,23 @@ test.describe('Schedule Time Validation', () => {
   });
 
   test('should allow overnight time range (21:00-02:00)', async ({ page }) => {
-    // Click new schedule button
-    await page.click('button:has-text("新規"), button:has-text("作成")');
+    // Click new schedule button (+ 新規作成)
+    await page.click('button:has-text("新規作成")');
+
+    // Wait for form to appear
+    await page.waitForTimeout(500);
 
     // Fill title
     await page.fill('input[name="title"], input[placeholder*="タイトル"]', 'テスト深夜イベント');
 
-    // Add a candidate date
+    // Add a candidate date if not already present
+    const addDateButton = page.locator('button:has-text("候補日を追加")');
+    if (await addDateButton.isVisible()) {
+      await addDateButton.click();
+      await page.waitForTimeout(300);
+    }
+
+    // Set date
     const dateInputs = page.locator('input[type="date"]');
     if (await dateInputs.count() > 0) {
       const tomorrow = new Date();
@@ -229,13 +248,23 @@ test.describe('Schedule Time Validation', () => {
   });
 
   test('should reject same start and end time', async ({ page }) => {
-    // Click new schedule button
-    await page.click('button:has-text("新規"), button:has-text("作成")');
+    // Click new schedule button (+ 新規作成)
+    await page.click('button:has-text("新規作成")');
+
+    // Wait for form to appear
+    await page.waitForTimeout(500);
 
     // Fill title
     await page.fill('input[name="title"], input[placeholder*="タイトル"]', 'テスト同時刻');
 
-    // Add a candidate date
+    // Add a candidate date if not already present
+    const addDateButton = page.locator('button:has-text("候補日を追加")');
+    if (await addDateButton.isVisible()) {
+      await addDateButton.click();
+      await page.waitForTimeout(300);
+    }
+
+    // Set date
     const dateInputs = page.locator('input[type="date"]');
     if (await dateInputs.count() > 0) {
       const tomorrow = new Date();
@@ -249,8 +278,8 @@ test.describe('Schedule Time Validation', () => {
       await timeInputs.nth(0).fill('21:00');
       await timeInputs.nth(1).fill('21:00');
 
-      // Try to submit
-      await page.click('button:has-text("作成"), button:has-text("登録")');
+      // Try to submit (日程調整を作成)
+      await page.click('button:has-text("日程調整を作成")');
 
       // Should show error
       await expect(page.locator('.text-red-500, .bg-red-50')).toBeVisible({ timeout: 3000 });

@@ -20,14 +20,12 @@ test.describe('Settings Page E2E', () => {
   });
 
   test('should display settings page with tabs', async ({ page }) => {
-    // Check page header
-    await expect(page.getByRole('heading', { name: /設定/ })).toBeVisible();
+    // Check page header (use exact match to avoid multiple matches)
+    await expect(page.getByRole('heading', { name: '設定', exact: true })).toBeVisible();
 
-    // Check for tabs (if tabbed layout)
-    const tabs = page.locator('[role="tab"], .tab-button');
-    if (await tabs.count() > 0) {
-      await expect(tabs.first()).toBeVisible();
-    }
+    // Check for settings sections (may not have explicit tabs)
+    const settingsContent = page.locator('main, [role="main"]');
+    await expect(settingsContent).toBeVisible();
   });
 
   test('should display tenant settings section', async ({ page }) => {
