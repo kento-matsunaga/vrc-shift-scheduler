@@ -1,6 +1,8 @@
 /**
  * 日付ユーティリティ関数
  * 期間選択・曜日フィルター機能で使用
+ *
+ * 注意: タイムゾーンの影響を避けるため、日付文字列を直接パースして処理しています。
  */
 
 /** 曜日の日本語表記 */
@@ -20,27 +22,77 @@ export const WEEKDAY_LABELS = [
 /** プリセットの種類 */
 export type DatePreset = 'thisWeek' | 'nextWeek' | 'thisMonth' | 'nextMonth';
 
+/** 日付範囲生成時の最大日数（パフォーマンス保護） */
+const MAX_DATE_RANGE_DAYS = 366;
+
+/**
+ * YYYY-MM-DD形式の日付文字列をパースしてUTC日付を生成
+ * タイムゾーンの影響を避けるためUTCで処理
+ * @param dateStr YYYY-MM-DD形式の日付文字列
+ * @returns UTCのDateオブジェクト、無効な場合はnull
+ */
+function parseDateString(dateStr: string): Date | null {
+  if (!dateStr) return null;
+
+  const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+
+  const [, yearStr, monthStr, dayStr] = match;
+  const year = parseInt(yearStr, 10);
+  const month = parseInt(monthStr, 10) - 1; // 0-indexed
+  const day = parseInt(dayStr, 10);
+
+  // 日付の妥当性チェック
+  const date = new Date(Date.UTC(year, month, day));
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month ||
+    date.getUTCDate() !== day
+  ) {
+    return null; // 無効な日付（例: 2月30日）
+  }
+
+  return date;
+}
+
+/**
+ * UTC Dateオブジェクトからローカル日付情報を取得するためのヘルパー
+ * 注意: 入力のDateオブジェクトはUTCで作成されている前提
+ */
+function getLocalDateParts(date: Date): { year: number; month: number; day: number; dayOfWeek: number } {
+  return {
+    year: date.getUTCFullYear(),
+    month: date.getUTCMonth(),
+    day: date.getUTCDate(),
+    dayOfWeek: date.getUTCDay(),
+  };
+}
+
 /**
  * 期間から日付配列を生成
  * @param startDate 開始日（YYYY-MM-DD形式）
  * @param endDate 終了日（YYYY-MM-DD形式）
+ * @param maxDays 最大日数（デフォルト: 366）
  * @returns 日付配列（YYYY-MM-DD形式）
  */
-export function generateDateRange(startDate: string, endDate: string): string[] {
-  if (!startDate || !endDate) return [];
+export function generateDateRange(startDate: string, endDate: string, maxDays: number = MAX_DATE_RANGE_DAYS): string[] {
+  const start = parseDateString(startDate);
+  const end = parseDateString(endDate);
 
-  const start = new Date(startDate);
-  const end = new Date(endDate);
-
-  if (isNaN(start.getTime()) || isNaN(end.getTime())) return [];
+  if (!start || !end) return [];
   if (start > end) return [];
 
   const dates: string[] = [];
   const current = new Date(start);
+  let count = 0;
 
-  while (current <= end) {
-    dates.push(formatDateToYYYYMMDD(current));
-    current.setDate(current.getDate() + 1);
+  while (current <= end && count < maxDays) {
+    const { year, month, day } = getLocalDateParts(current);
+    dates.push(
+      `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+    );
+    current.setUTCDate(current.getUTCDate() + 1);
+    count++;
   }
 
   return dates;
@@ -57,8 +109,9 @@ export function filterByWeekdays(dates: string[], includeDays: number[]): string
   if (includeDays.length === 7) return dates;
 
   return dates.filter((dateStr) => {
-    const date = new Date(dateStr);
-    const dayOfWeek = date.getDay();
+    const date = parseDateString(dateStr);
+    if (!date) return false; // 無効な日付をスキップ
+    const dayOfWeek = date.getUTCDay();
     return includeDays.includes(dayOfWeek);
   });
 }
@@ -69,15 +122,25 @@ export function filterByWeekdays(dates: string[], includeDays: number[]): string
  * @returns フォーマットされた文字列（例：2026/01/22(水)）
  */
 export function formatDateWithWeekday(date: string | Date): string {
-  const d = typeof date === 'string' ? new Date(date) : date;
-  if (isNaN(d.getTime())) return '';
+  let parsedDate: Date | null;
 
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  const weekday = WEEKDAY_NAMES[d.getDay()];
+  if (typeof date === 'string') {
+    parsedDate = parseDateString(date);
+  } else {
+    parsedDate = date;
+  }
 
-  return `${year}/${month}/${day}(${weekday})`;
+  if (!parsedDate || isNaN(parsedDate.getTime())) return '';
+
+  // 文字列の場合はUTC、Dateオブジェクトの場合はローカル時刻として扱う
+  const isUTC = typeof date === 'string';
+  const year = isUTC ? parsedDate.getUTCFullYear() : parsedDate.getFullYear();
+  const month = isUTC ? parsedDate.getUTCMonth() + 1 : parsedDate.getMonth() + 1;
+  const day = isUTC ? parsedDate.getUTCDate() : parsedDate.getDate();
+  const dayOfWeek = isUTC ? parsedDate.getUTCDay() : parsedDate.getDay();
+  const weekday = WEEKDAY_NAMES[dayOfWeek];
+
+  return `${year}/${String(month).padStart(2, '0')}/${String(day).padStart(2, '0')}(${weekday})`;
 }
 
 /**
@@ -171,7 +234,5 @@ export function mergeDatesUnique(existingDates: string[], newDates: string[]): s
  * @returns 有効な場合true
  */
 export function isValidDate(dateStr: string): boolean {
-  if (!dateStr) return false;
-  const date = new Date(dateStr);
-  return !isNaN(date.getTime());
+  return parseDateString(dateStr) !== null;
 }

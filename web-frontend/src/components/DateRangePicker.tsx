@@ -265,7 +265,7 @@ export function DateRangePicker({
               )}
             </div>
             {previewDates.length > 0 ? (
-              <div className="bg-white border border-gray-200 rounded-md p-3 max-h-32 overflow-y-auto">
+              <div className="bg-white border border-gray-200 rounded-md p-3 max-h-40 sm:max-h-48 overflow-y-auto">
                 <div className="flex flex-wrap gap-2">
                   {previewDates.slice(0, 20).map((date) => (
                     <span
