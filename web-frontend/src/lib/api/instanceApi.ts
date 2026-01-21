@@ -61,6 +61,21 @@ export async function updateInstance(instanceId: string, input: UpdateInstanceIn
   return response.data;
 }
 
+export interface CheckDeletableResponse {
+  can_delete: boolean;
+  slot_count: number;
+  assigned_slots: number;
+  blocking_reason?: string;
+}
+
+/**
+ * インスタンスが削除可能か確認
+ */
+export async function checkInstanceDeletable(instanceId: string): Promise<CheckDeletableResponse> {
+  const response = await apiClient.get<ApiResponse<CheckDeletableResponse>>(`/api/v1/instances/${instanceId}/deletable`);
+  return response.data;
+}
+
 /**
  * インスタンスを削除
  */

@@ -195,3 +195,53 @@ func (uc *GetShiftSlotUsecase) Execute(ctx context.Context, input GetShiftSlotIn
 		AssignedCount: assignedCount,
 	}, nil
 }
+
+// DeleteShiftSlotInput represents the input for deleting a shift slot
+type DeleteShiftSlotInput struct {
+	TenantID common.TenantID
+	SlotID   shift.SlotID
+}
+
+// DeleteShiftSlotUsecase handles the shift slot deletion use case
+type DeleteShiftSlotUsecase struct {
+	slotRepo       shift.ShiftSlotRepository
+	assignmentRepo shift.ShiftAssignmentRepository
+}
+
+// NewDeleteShiftSlotUsecase creates a new DeleteShiftSlotUsecase
+func NewDeleteShiftSlotUsecase(
+	slotRepo shift.ShiftSlotRepository,
+	assignmentRepo shift.ShiftAssignmentRepository,
+) *DeleteShiftSlotUsecase {
+	return &DeleteShiftSlotUsecase{
+		slotRepo:       slotRepo,
+		assignmentRepo: assignmentRepo,
+	}
+}
+
+// Execute deletes a shift slot if no assignments exist
+func (uc *DeleteShiftSlotUsecase) Execute(ctx context.Context, input DeleteShiftSlotInput) error {
+	// シフト枠の存在確認
+	slot, err := uc.slotRepo.FindByID(ctx, input.TenantID, input.SlotID)
+	if err != nil {
+		return err
+	}
+
+	// 割り当てが存在するかチェック
+	assignedCount, err := uc.assignmentRepo.CountConfirmedBySlotID(ctx, input.TenantID, slot.SlotID())
+	if err != nil {
+		return err
+	}
+
+	if assignedCount > 0 {
+		return common.NewConflictError("cannot delete shift slot with existing assignments")
+	}
+
+	// ソフトデリート
+	slot.Delete()
+	if err := uc.slotRepo.Save(ctx, slot); err != nil {
+		return err
+	}
+
+	return nil
+}

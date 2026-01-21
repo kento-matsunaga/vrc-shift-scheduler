@@ -16,6 +16,7 @@ type ShiftSlotHandler struct {
 	createShiftSlotUC *appshift.CreateShiftSlotUsecase
 	listShiftSlotsUC  *appshift.ListShiftSlotsUsecase
 	getShiftSlotUC    *appshift.GetShiftSlotUsecase
+	deleteShiftSlotUC *appshift.DeleteShiftSlotUsecase
 }
 
 // NewShiftSlotHandler creates a new ShiftSlotHandler with injected usecases
@@ -23,11 +24,13 @@ func NewShiftSlotHandler(
 	createShiftSlotUC *appshift.CreateShiftSlotUsecase,
 	listShiftSlotsUC *appshift.ListShiftSlotsUsecase,
 	getShiftSlotUC *appshift.GetShiftSlotUsecase,
+	deleteShiftSlotUC *appshift.DeleteShiftSlotUsecase,
 ) *ShiftSlotHandler {
 	return &ShiftSlotHandler{
 		createShiftSlotUC: createShiftSlotUC,
 		listShiftSlotsUC:  listShiftSlotsUC,
 		getShiftSlotUC:    getShiftSlotUC,
+		deleteShiftSlotUC: deleteShiftSlotUC,
 	}
 }
 
@@ -305,4 +308,43 @@ func (h *ShiftSlotHandler) GetShiftSlotDetail(w http.ResponseWriter, r *http.Req
 	}
 
 	writeSuccess(w, http.StatusOK, resp)
+}
+
+// DeleteShiftSlot handles DELETE /api/v1/shift-slots/:slot_id
+func (h *ShiftSlotHandler) DeleteShiftSlot(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// テナントIDの取得
+	tenantID, ok := getTenantIDFromContext(ctx)
+	if !ok {
+		writeError(w, http.StatusForbidden, "ERR_FORBIDDEN", "Tenant ID is required", nil)
+		return
+	}
+
+	// slot_id の取得
+	slotIDStr := chi.URLParam(r, "slot_id")
+	if slotIDStr == "" {
+		writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "slot_id is required", nil)
+		return
+	}
+
+	slotID, err := shift.ParseSlotID(slotIDStr)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "Invalid slot_id format", nil)
+		return
+	}
+
+	// Usecaseの実行
+	input := appshift.DeleteShiftSlotInput{
+		TenantID: tenantID,
+		SlotID:   slotID,
+	}
+
+	if err := h.deleteShiftSlotUC.Execute(ctx, input); err != nil {
+		log.Printf("DeleteShiftSlot error: %+v", err)
+		RespondDomainError(w, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }

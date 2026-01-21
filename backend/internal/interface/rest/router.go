@@ -134,12 +134,13 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		)
 
 		// InstanceHandler dependencies
+		assignmentRepo := db.NewShiftAssignmentRepository(dbPool)
 		instanceHandler := NewInstanceHandler(
 			appshift.NewCreateInstanceUsecase(instanceRepo, eventRepo),
 			appshift.NewListInstancesUsecase(instanceRepo),
 			appshift.NewGetInstanceUsecase(instanceRepo),
 			appshift.NewUpdateInstanceUsecase(instanceRepo),
-			appshift.NewDeleteInstanceUsecase(instanceRepo),
+			appshift.NewDeleteInstanceUsecase(instanceRepo, slotRepo, assignmentRepo),
 		)
 
 		// RoleHandler dependencies (needed by MemberHandler too)
@@ -170,12 +171,12 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			approle.NewDeleteRoleUsecase(roleRepo),
 		)
 
-		// ShiftSlotHandler dependencies (reusing slotRepo, businessDayRepo, instanceRepo)
-		assignmentRepo := db.NewShiftAssignmentRepository(dbPool)
+		// ShiftSlotHandler dependencies (reusing slotRepo, businessDayRepo, instanceRepo, assignmentRepo)
 		shiftSlotHandler := NewShiftSlotHandler(
 			appshift.NewCreateShiftSlotUsecase(slotRepo, businessDayRepo, instanceRepo),
 			appshift.NewListShiftSlotsUsecase(slotRepo, assignmentRepo),
 			appshift.NewGetShiftSlotUsecase(slotRepo, assignmentRepo),
+			appshift.NewDeleteShiftSlotUsecase(slotRepo, assignmentRepo),
 		)
 
 		// ShiftTemplateHandler dependencies (reusing templateRepo, slotRepo, businessDayRepo)
@@ -268,6 +269,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		// Instance API
 		r.Route("/instances", func(r chi.Router) {
 			r.Get("/{instance_id}", instanceHandler.GetInstance)
+			r.Get("/{instance_id}/deletable", instanceHandler.CheckInstanceDeletable)
 			r.With(permissionChecker.RequirePermission(tenant.PermissionEditEvent)).Put("/{instance_id}", instanceHandler.UpdateInstance)
 			r.With(permissionChecker.RequirePermission(tenant.PermissionEditEvent)).Delete("/{instance_id}", instanceHandler.DeleteInstance)
 		})
@@ -354,6 +356,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		// ShiftSlot API
 		r.Route("/shift-slots", func(r chi.Router) {
 			r.Get("/{slot_id}", shiftSlotHandler.GetShiftSlotDetail)
+			r.With(permissionChecker.RequirePermission(tenant.PermissionEditShift)).Delete("/{slot_id}", shiftSlotHandler.DeleteShiftSlot)
 		})
 
 		// ShiftAssignment API

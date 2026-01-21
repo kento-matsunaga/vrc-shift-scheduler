@@ -190,27 +190,103 @@ type DeleteInstanceInput struct {
 	InstanceID shift.InstanceID
 }
 
+// DeleteInstanceResult represents the result of checking if an instance can be deleted
+type DeleteInstanceResult struct {
+	CanDelete      bool
+	SlotCount      int
+	AssignedSlots  int
+	BlockingReason string
+}
+
 // DeleteInstanceUsecase handles the instance deletion use case
 type DeleteInstanceUsecase struct {
-	instanceRepo shift.InstanceRepository
+	instanceRepo   shift.InstanceRepository
+	slotRepo       shift.ShiftSlotRepository
+	assignmentRepo shift.ShiftAssignmentRepository
 }
 
 // NewDeleteInstanceUsecase creates a new DeleteInstanceUsecase
-func NewDeleteInstanceUsecase(instanceRepo shift.InstanceRepository) *DeleteInstanceUsecase {
+func NewDeleteInstanceUsecase(
+	instanceRepo shift.InstanceRepository,
+	slotRepo shift.ShiftSlotRepository,
+	assignmentRepo shift.ShiftAssignmentRepository,
+) *DeleteInstanceUsecase {
 	return &DeleteInstanceUsecase{
-		instanceRepo: instanceRepo,
+		instanceRepo:   instanceRepo,
+		slotRepo:       slotRepo,
+		assignmentRepo: assignmentRepo,
 	}
 }
 
-// Execute deletes an instance
-func (uc *DeleteInstanceUsecase) Execute(ctx context.Context, input DeleteInstanceInput) error {
+// CheckDeletable checks if an instance can be deleted and returns details
+func (uc *DeleteInstanceUsecase) CheckDeletable(ctx context.Context, input DeleteInstanceInput) (*DeleteInstanceResult, error) {
 	// インスタンスの存在確認
 	_, err := uc.instanceRepo.FindByID(ctx, input.TenantID, input.InstanceID)
+	if err != nil {
+		return nil, err
+	}
+
+	// 紐づくシフト枠を取得
+	slots, err := uc.slotRepo.FindByInstanceID(ctx, input.TenantID, input.InstanceID)
+	if err != nil {
+		return nil, err
+	}
+
+	// 各シフト枠に担当があるかチェック
+	assignedSlots := 0
+	for _, slot := range slots {
+		count, err := uc.assignmentRepo.CountConfirmedBySlotID(ctx, input.TenantID, slot.SlotID())
+		if err != nil {
+			return nil, err
+		}
+		if count > 0 {
+			assignedSlots++
+		}
+	}
+
+	if assignedSlots > 0 {
+		return &DeleteInstanceResult{
+			CanDelete:      false,
+			SlotCount:      len(slots),
+			AssignedSlots:  assignedSlots,
+			BlockingReason: "担当が割り振られているシフト枠があるため削除できません",
+		}, nil
+	}
+
+	return &DeleteInstanceResult{
+		CanDelete:     true,
+		SlotCount:     len(slots),
+		AssignedSlots: 0,
+	}, nil
+}
+
+// Execute deletes an instance and all associated shift slots
+func (uc *DeleteInstanceUsecase) Execute(ctx context.Context, input DeleteInstanceInput) error {
+	// 削除可能かチェック
+	result, err := uc.CheckDeletable(ctx, input)
 	if err != nil {
 		return err
 	}
 
-	// 削除（シフト枠が紐付いている場合は FK 制約でエラーになる）
+	if !result.CanDelete {
+		return common.NewConflictError(result.BlockingReason)
+	}
+
+	// 紐づくシフト枠を取得して削除
+	slots, err := uc.slotRepo.FindByInstanceID(ctx, input.TenantID, input.InstanceID)
+	if err != nil {
+		return err
+	}
+
+	// シフト枠をソフトデリート
+	for _, slot := range slots {
+		slot.Delete()
+		if err := uc.slotRepo.Save(ctx, slot); err != nil {
+			return err
+		}
+	}
+
+	// インスタンスを削除（物理削除）
 	return uc.instanceRepo.Delete(ctx, input.TenantID, input.InstanceID)
 }
 
