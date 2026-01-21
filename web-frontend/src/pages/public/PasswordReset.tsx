@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { checkPasswordResetStatus, resetPassword } from '../../lib/api/authApi';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 
 export default function PasswordReset() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+
+  useDocumentTitle('パスワードリセット');
 
   const [email, setEmail] = useState(searchParams.get('email') || '');
   const [licenseKey, setLicenseKey] = useState('');
