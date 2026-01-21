@@ -20,6 +20,7 @@ VRChat イベント向けのシフト管理システム（マルチテナント 
 backend/
 ├── cmd/
 │   ├── server/       # メインサーバー
+│   ├── api/          # API サーバー（別エントリーポイント）
 │   ├── migrate/      # マイグレーションツール
 │   ├── seed/         # シードデータ投入
 │   └── batch/        # バッチ処理（grace-expiry, webhook-cleanup）
@@ -70,7 +71,7 @@ admin-frontend/       # 運営管理コンソール
 - 変数/関数: `camelCase`
 - 型/構造体: `PascalCase`
 - DB カラム: `snake_case`
-- マイグレーション: `NNN_description.up.sql`（現在: 039）
+- マイグレーション: `NNN_description.up.sql`（最新: 039_migrate_instance_data）
 
 ## API レスポンス形式
 
@@ -140,4 +141,4 @@ curl -X POST http://localhost:8080/api/v1/auth/login \
 ## 現在のバージョン
 
 - **本番**: v1.7.1
-- **マイグレーション**: 039（add_instance_id_to_shift_slots）
+- **マイグレーション**: 039（migrate_instance_data）
