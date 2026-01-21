@@ -13,7 +13,7 @@ export default function Layout() {
 
   // ページタイトルを設定
   const pageTitle = getTitleFromPath(location.pathname);
-  useDocumentTitle(pageTitle);
+  useDocumentTitle(pageTitle || 'VRCシフト管理');
 
   // サイドバー開閉時のbodyスクロール制御とESCキー対応
   useEffect(() => {
