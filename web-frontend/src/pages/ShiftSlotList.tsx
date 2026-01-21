@@ -31,6 +31,7 @@ export default function ShiftSlotList() {
   const [deleteSlotTarget, setDeleteSlotTarget] = useState<ShiftSlot | null>(null);
   const [deleteInstanceTarget, setDeleteInstanceTarget] = useState<Instance | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
 
   useEffect(() => {
     if (businessDayId) {
@@ -116,16 +117,16 @@ export default function ShiftSlotList() {
   // シフト枠を削除
   const handleDeleteSlot = async (slot: ShiftSlot) => {
     setDeleting(true);
-    setError('');
+    setDeleteError('');
     try {
       await deleteShiftSlot(slot.slot_id);
       setDeleteSlotTarget(null);
       loadData();
     } catch (err) {
       if (err instanceof ApiClientError) {
-        setError(err.getUserMessage());
+        setDeleteError(err.getUserMessage());
       } else {
-        setError('シフト枠の削除に失敗しました');
+        setDeleteError('シフト枠の削除に失敗しました');
       }
     } finally {
       setDeleting(false);
@@ -135,20 +136,31 @@ export default function ShiftSlotList() {
   // インスタンスを削除
   const handleDeleteInstance = async (instance: Instance) => {
     setDeleting(true);
-    setError('');
+    setDeleteError('');
     try {
       await deleteInstance(instance.instance_id);
       setDeleteInstanceTarget(null);
       loadData();
     } catch (err) {
       if (err instanceof ApiClientError) {
-        setError(err.getUserMessage());
+        setDeleteError(err.getUserMessage());
       } else {
-        setError('インスタンスの削除に失敗しました');
+        setDeleteError('インスタンスの削除に失敗しました');
       }
     } finally {
       setDeleting(false);
     }
+  };
+
+  // 削除モーダルを閉じる
+  const closeDeleteSlotModal = () => {
+    setDeleteSlotTarget(null);
+    setDeleteError('');
+  };
+
+  const closeDeleteInstanceModal = () => {
+    setDeleteInstanceTarget(null);
+    setDeleteError('');
   };
 
   // シフト枠をインスタンスごとにグループ化
@@ -486,9 +498,10 @@ export default function ShiftSlotList() {
       {deleteSlotTarget && (
         <DeleteSlotConfirmModal
           slot={deleteSlotTarget}
-          onClose={() => setDeleteSlotTarget(null)}
+          onClose={closeDeleteSlotModal}
           onConfirm={() => handleDeleteSlot(deleteSlotTarget)}
           deleting={deleting}
+          error={deleteError}
         />
       )}
 
@@ -498,9 +511,10 @@ export default function ShiftSlotList() {
           instance={deleteInstanceTarget}
           slots={shiftSlots.filter(s => s.instance_id === deleteInstanceTarget.instance_id)}
           slotAssignments={slotAssignments}
-          onClose={() => setDeleteInstanceTarget(null)}
+          onClose={closeDeleteInstanceModal}
           onConfirm={() => handleDeleteInstance(deleteInstanceTarget)}
           deleting={deleting}
+          error={deleteError}
         />
       )}
     </div>
@@ -912,11 +926,13 @@ function DeleteSlotConfirmModal({
   onClose,
   onConfirm,
   deleting,
+  error,
 }: {
   slot: ShiftSlot;
   onClose: () => void;
   onConfirm: () => void;
   deleting: boolean;
+  error: string;
 }) {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -925,12 +941,17 @@ function DeleteSlotConfirmModal({
         <p className="text-gray-600 mb-4">
           以下のシフト枠を削除しますか？この操作は取り消せません。
         </p>
-        <div className="bg-gray-50 rounded-lg p-4 mb-6">
+        <div className="bg-gray-50 rounded-lg p-4 mb-4">
           <p className="font-semibold text-gray-900">{slot.slot_name}</p>
           <p className="text-sm text-gray-600 mt-1">
             {slot.instance_name} / {slot.start_time.slice(0, 5)} 〜 {slot.end_time.slice(0, 5)}
           </p>
         </div>
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+            <p className="text-sm text-red-800">{error}</p>
+          </div>
+        )}
         <div className="flex space-x-3">
           <button
             type="button"
@@ -962,6 +983,7 @@ function DeleteInstanceConfirmModal({
   onClose,
   onConfirm,
   deleting,
+  error,
 }: {
   instance: Instance;
   slots: ShiftSlot[];
@@ -969,6 +991,7 @@ function DeleteInstanceConfirmModal({
   onClose: () => void;
   onConfirm: () => void;
   deleting: boolean;
+  error: string;
 }) {
   // 担当が割り当てられているスロットがあるかチェック
   const assignedSlots = slots.filter(slot => (slotAssignments[slot.slot_id] || []).length > 0);
@@ -987,7 +1010,7 @@ function DeleteInstanceConfirmModal({
                 紐づいている{slots.length}個のシフト枠も一緒に削除されます。
               </span>
             </p>
-            <div className="bg-gray-50 rounded-lg p-4 mb-6">
+            <div className="bg-gray-50 rounded-lg p-4 mb-4">
               <p className="font-semibold text-gray-900">{instance.name}</p>
               <p className="text-sm text-gray-600 mt-1">
                 {slots.length}個のシフト枠
@@ -999,7 +1022,7 @@ function DeleteInstanceConfirmModal({
             <p className="text-gray-600 mb-4">
               このインスタンスは削除できません。
             </p>
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
               <p className="text-red-800 font-semibold mb-2">
                 担当が割り振られているシフト枠があるため削除できません
               </p>
@@ -1016,6 +1039,12 @@ function DeleteInstanceConfirmModal({
               </div>
             </div>
           </>
+        )}
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+            <p className="text-sm text-red-800">{error}</p>
+          </div>
         )}
 
         <div className="flex space-x-3">
