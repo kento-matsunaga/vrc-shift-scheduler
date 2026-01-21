@@ -61,7 +61,7 @@ export default function InstanceList() {
   };
 
   const handleDelete = async (instanceId: string) => {
-    if (!confirm('このインスタンスを削除してもよろしいですか？\n関連するシフト枠からインスタンス参照が解除されます。')) {
+    if (!confirm('このインスタンスを削除してもよろしいですか？\n紐づいている全営業日のシフト枠も一緒に削除されます。')) {
       return;
     }
 

@@ -286,6 +286,12 @@ func (s *ShiftSlot) SetInstanceID(instanceID InstanceID) {
 	s.updatedAt = time.Now()
 }
 
+// ClearInstanceID clears the instance ID (used when deleting an instance)
+func (s *ShiftSlot) ClearInstanceID() {
+	s.instanceID = nil
+	s.updatedAt = time.Now()
+}
+
 // Delete marks the slot as deleted (soft delete)
 func (s *ShiftSlot) Delete() {
 	now := time.Now()
