@@ -300,8 +300,9 @@ func (s *ShiftSlot) Delete() {
 }
 
 // IsOvernight returns true if the shift crosses midnight
+// 注: 同じ時刻（21:00-21:00）は深夜営業とみなさない（バリデーションで弾かれるべき）
 func (s *ShiftSlot) IsOvernight() bool {
-	return s.endTime.Before(s.startTime) || s.endTime.Equal(s.startTime)
+	return s.endTime.Before(s.startTime)
 }
 
 // StartTimeString returns the start time as HH:MM string

@@ -383,10 +383,10 @@ func TestShiftSlot_IsOvernight(t *testing.T) {
 			want:      true,
 		},
 		{
-			name:      "同時刻（特殊ケース）",
+			name:      "同時刻（深夜営業ではない、バリデーションで弾かれるべき）",
 			startTime: time.Date(2000, 1, 1, 21, 30, 0, 0, time.UTC),
 			endTime:   time.Date(2000, 1, 1, 21, 30, 0, 0, time.UTC),
-			want:      true,
+			want:      false,
 		},
 	}
 
