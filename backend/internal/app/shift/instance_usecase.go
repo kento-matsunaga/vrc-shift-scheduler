@@ -272,14 +272,16 @@ func (uc *DeleteInstanceUsecase) Execute(ctx context.Context, input DeleteInstan
 		return common.NewConflictError(result.BlockingReason)
 	}
 
-	// 紐づくシフト枠を取得して削除
+	// 紐づくシフト枠を取得
 	slots, err := uc.slotRepo.FindByInstanceID(ctx, input.TenantID, input.InstanceID)
 	if err != nil {
 		return err
 	}
 
-	// シフト枠をソフトデリート
+	// シフト枠のinstance_idをクリアしてソフトデリート
+	// （外部キー制約を解除してからインスタンスを削除するため）
 	for _, slot := range slots {
+		slot.ClearInstanceID()
 		slot.Delete()
 		if err := uc.slotRepo.Save(ctx, slot); err != nil {
 			return err

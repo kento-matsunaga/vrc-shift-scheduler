@@ -200,17 +200,16 @@ export class ApiClientError extends Error {
    * ユーザーに表示するメッセージを取得
    */
   getUserMessage(): string {
-    // ERR_INVALID_REQUEST の場合はAPIからの具体的なメッセージを優先表示
-    // （日本語メッセージが返されている場合があるため）
-    if (this.errorCode === 'ERR_INVALID_REQUEST' && this.message) {
-      // APIから返されたメッセージが英語の場合のみ汎用メッセージを使う
+    // APIから日本語メッセージが返されている場合はそれを優先表示
+    if (this.message) {
       const isEnglishOnly = /^[a-zA-Z0-9\s_\-().,:]+$/.test(this.message);
       if (!isEnglishOnly) {
+        // 日本語が含まれている場合はAPIのメッセージをそのまま表示
         return this.message;
       }
     }
 
-    // 日本語メッセージマッピング
+    // 日本語メッセージマッピング（APIが英語メッセージの場合のフォールバック）
     const messageMap: Record<string, string> = {
       ERR_INVALID_REQUEST: '入力内容に誤りがあります',
       ERR_NOT_FOUND: '指定されたデータが見つかりません',

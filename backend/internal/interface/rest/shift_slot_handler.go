@@ -13,10 +13,11 @@ import (
 
 // ShiftSlotHandler handles shift slot-related HTTP requests
 type ShiftSlotHandler struct {
-	createShiftSlotUC *appshift.CreateShiftSlotUsecase
-	listShiftSlotsUC  *appshift.ListShiftSlotsUsecase
-	getShiftSlotUC    *appshift.GetShiftSlotUsecase
-	deleteShiftSlotUC *appshift.DeleteShiftSlotUsecase
+	createShiftSlotUC       *appshift.CreateShiftSlotUsecase
+	listShiftSlotsUC        *appshift.ListShiftSlotsUsecase
+	getShiftSlotUC          *appshift.GetShiftSlotUsecase
+	deleteShiftSlotUC       *appshift.DeleteShiftSlotUsecase
+	deleteSlotsByInstanceUC *appshift.DeleteSlotsByInstanceUsecase
 }
 
 // NewShiftSlotHandler creates a new ShiftSlotHandler with injected usecases
@@ -25,12 +26,14 @@ func NewShiftSlotHandler(
 	listShiftSlotsUC *appshift.ListShiftSlotsUsecase,
 	getShiftSlotUC *appshift.GetShiftSlotUsecase,
 	deleteShiftSlotUC *appshift.DeleteShiftSlotUsecase,
+	deleteSlotsByInstanceUC *appshift.DeleteSlotsByInstanceUsecase,
 ) *ShiftSlotHandler {
 	return &ShiftSlotHandler{
-		createShiftSlotUC: createShiftSlotUC,
-		listShiftSlotsUC:  listShiftSlotsUC,
-		getShiftSlotUC:    getShiftSlotUC,
-		deleteShiftSlotUC: deleteShiftSlotUC,
+		createShiftSlotUC:       createShiftSlotUC,
+		listShiftSlotsUC:        listShiftSlotsUC,
+		getShiftSlotUC:          getShiftSlotUC,
+		deleteShiftSlotUC:       deleteShiftSlotUC,
+		deleteSlotsByInstanceUC: deleteSlotsByInstanceUC,
 	}
 }
 
@@ -342,6 +345,126 @@ func (h *ShiftSlotHandler) DeleteShiftSlot(w http.ResponseWriter, r *http.Reques
 
 	if err := h.deleteShiftSlotUC.Execute(ctx, input); err != nil {
 		log.Printf("DeleteShiftSlot error: %+v", err)
+		RespondDomainError(w, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// CheckSlotsByInstanceDeletableResponse represents the response for checking if slots can be deleted
+type CheckSlotsByInstanceDeletableResponse struct {
+	CanDelete      bool   `json:"can_delete"`
+	SlotCount      int    `json:"slot_count"`
+	AssignedSlots  int    `json:"assigned_slots"`
+	BlockingReason string `json:"blocking_reason,omitempty"`
+}
+
+// CheckSlotsByInstanceDeletable handles GET /api/v1/business-days/:business_day_id/instances/:instance_id/slots/deletable
+func (h *ShiftSlotHandler) CheckSlotsByInstanceDeletable(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// テナントIDの取得
+	tenantID, ok := getTenantIDFromContext(ctx)
+	if !ok {
+		writeError(w, http.StatusForbidden, "ERR_FORBIDDEN", "Tenant ID is required", nil)
+		return
+	}
+
+	// business_day_id の取得
+	businessDayIDStr := chi.URLParam(r, "business_day_id")
+	if businessDayIDStr == "" {
+		writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "business_day_id is required", nil)
+		return
+	}
+
+	businessDayID, err := event.ParseBusinessDayID(businessDayIDStr)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "Invalid business_day_id format", nil)
+		return
+	}
+
+	// instance_id の取得
+	instanceIDStr := chi.URLParam(r, "instance_id")
+	if instanceIDStr == "" {
+		writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "instance_id is required", nil)
+		return
+	}
+
+	instanceID, err := shift.ParseInstanceID(instanceIDStr)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "Invalid instance_id format", nil)
+		return
+	}
+
+	// Usecaseの実行
+	input := appshift.DeleteSlotsByInstanceInput{
+		TenantID:      tenantID,
+		BusinessDayID: businessDayID,
+		InstanceID:    instanceID,
+	}
+
+	result, err := h.deleteSlotsByInstanceUC.CheckDeletable(ctx, input)
+	if err != nil {
+		RespondDomainError(w, err)
+		return
+	}
+
+	// レスポンス
+	writeSuccess(w, http.StatusOK, CheckSlotsByInstanceDeletableResponse{
+		CanDelete:      result.CanDelete,
+		SlotCount:      result.SlotCount,
+		AssignedSlots:  result.AssignedSlots,
+		BlockingReason: result.BlockingReason,
+	})
+}
+
+// DeleteSlotsByInstance handles DELETE /api/v1/business-days/:business_day_id/instances/:instance_id/slots
+func (h *ShiftSlotHandler) DeleteSlotsByInstance(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// テナントIDの取得
+	tenantID, ok := getTenantIDFromContext(ctx)
+	if !ok {
+		writeError(w, http.StatusForbidden, "ERR_FORBIDDEN", "Tenant ID is required", nil)
+		return
+	}
+
+	// business_day_id の取得
+	businessDayIDStr := chi.URLParam(r, "business_day_id")
+	if businessDayIDStr == "" {
+		writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "business_day_id is required", nil)
+		return
+	}
+
+	businessDayID, err := event.ParseBusinessDayID(businessDayIDStr)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "Invalid business_day_id format", nil)
+		return
+	}
+
+	// instance_id の取得
+	instanceIDStr := chi.URLParam(r, "instance_id")
+	if instanceIDStr == "" {
+		writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "instance_id is required", nil)
+		return
+	}
+
+	instanceID, err := shift.ParseInstanceID(instanceIDStr)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "Invalid instance_id format", nil)
+		return
+	}
+
+	// Usecaseの実行
+	input := appshift.DeleteSlotsByInstanceInput{
+		TenantID:      tenantID,
+		BusinessDayID: businessDayID,
+		InstanceID:    instanceID,
+	}
+
+	if err := h.deleteSlotsByInstanceUC.Execute(ctx, input); err != nil {
+		log.Printf("DeleteSlotsByInstance error: %+v", err)
 		RespondDomainError(w, err)
 		return
 	}

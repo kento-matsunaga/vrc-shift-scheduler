@@ -245,3 +245,107 @@ func (uc *DeleteShiftSlotUsecase) Execute(ctx context.Context, input DeleteShift
 
 	return nil
 }
+
+// DeleteSlotsByInstanceInput represents the input for bulk deleting shift slots by instance
+type DeleteSlotsByInstanceInput struct {
+	TenantID      common.TenantID
+	BusinessDayID event.BusinessDayID
+	InstanceID    shift.InstanceID
+}
+
+// DeleteSlotsByInstanceResult represents the result of checking if slots can be deleted
+type DeleteSlotsByInstanceResult struct {
+	CanDelete      bool
+	SlotCount      int
+	AssignedSlots  int
+	BlockingReason string
+}
+
+// DeleteSlotsByInstanceUsecase handles bulk deletion of shift slots by business day and instance
+type DeleteSlotsByInstanceUsecase struct {
+	slotRepo       shift.ShiftSlotRepository
+	assignmentRepo shift.ShiftAssignmentRepository
+}
+
+// NewDeleteSlotsByInstanceUsecase creates a new DeleteSlotsByInstanceUsecase
+func NewDeleteSlotsByInstanceUsecase(
+	slotRepo shift.ShiftSlotRepository,
+	assignmentRepo shift.ShiftAssignmentRepository,
+) *DeleteSlotsByInstanceUsecase {
+	return &DeleteSlotsByInstanceUsecase{
+		slotRepo:       slotRepo,
+		assignmentRepo: assignmentRepo,
+	}
+}
+
+// CheckDeletable checks if slots can be deleted and returns details
+func (uc *DeleteSlotsByInstanceUsecase) CheckDeletable(ctx context.Context, input DeleteSlotsByInstanceInput) (*DeleteSlotsByInstanceResult, error) {
+	// 営業日+インスタンスに紐づくシフト枠を取得
+	slots, err := uc.slotRepo.FindByBusinessDayIDAndInstanceID(ctx, input.TenantID, input.BusinessDayID, input.InstanceID)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(slots) == 0 {
+		return &DeleteSlotsByInstanceResult{
+			CanDelete: true,
+			SlotCount: 0,
+		}, nil
+	}
+
+	// 各シフト枠に担当があるかチェック
+	assignedSlots := 0
+	for _, slot := range slots {
+		count, err := uc.assignmentRepo.CountConfirmedBySlotID(ctx, input.TenantID, slot.SlotID())
+		if err != nil {
+			return nil, err
+		}
+		if count > 0 {
+			assignedSlots++
+		}
+	}
+
+	if assignedSlots > 0 {
+		return &DeleteSlotsByInstanceResult{
+			CanDelete:      false,
+			SlotCount:      len(slots),
+			AssignedSlots:  assignedSlots,
+			BlockingReason: "担当が割り振られているシフト枠があるため削除できません",
+		}, nil
+	}
+
+	return &DeleteSlotsByInstanceResult{
+		CanDelete:     true,
+		SlotCount:     len(slots),
+		AssignedSlots: 0,
+	}, nil
+}
+
+// Execute deletes all shift slots for a business day and instance
+func (uc *DeleteSlotsByInstanceUsecase) Execute(ctx context.Context, input DeleteSlotsByInstanceInput) error {
+	// 削除可能かチェック
+	result, err := uc.CheckDeletable(ctx, input)
+	if err != nil {
+		return err
+	}
+
+	if !result.CanDelete {
+		return common.NewConflictError(result.BlockingReason)
+	}
+
+	// 営業日+インスタンスに紐づくシフト枠を取得
+	slots, err := uc.slotRepo.FindByBusinessDayIDAndInstanceID(ctx, input.TenantID, input.BusinessDayID, input.InstanceID)
+	if err != nil {
+		return err
+	}
+
+	// シフト枠をソフトデリート
+	for _, slot := range slots {
+		slot.Delete()
+		if err := uc.slotRepo.Save(ctx, slot); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}

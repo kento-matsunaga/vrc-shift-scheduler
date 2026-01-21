@@ -54,10 +54,12 @@ func (m *MockShiftSlotTemplateRepository) Delete(ctx context.Context, tenantID c
 
 // MockShiftSlotRepository is a mock implementation of shift.ShiftSlotRepository
 type MockShiftSlotRepository struct {
-	saveFunc              func(ctx context.Context, slot *shift.ShiftSlot) error
-	findByIDFunc          func(ctx context.Context, tenantID common.TenantID, slotID shift.SlotID) (*shift.ShiftSlot, error)
-	findByBusinessDayIDFunc func(ctx context.Context, tenantID common.TenantID, businessDayID event.BusinessDayID) ([]*shift.ShiftSlot, error)
-	deleteFunc            func(ctx context.Context, tenantID common.TenantID, slotID shift.SlotID) error
+	saveFunc                             func(ctx context.Context, slot *shift.ShiftSlot) error
+	findByIDFunc                         func(ctx context.Context, tenantID common.TenantID, slotID shift.SlotID) (*shift.ShiftSlot, error)
+	findByBusinessDayIDFunc              func(ctx context.Context, tenantID common.TenantID, businessDayID event.BusinessDayID) ([]*shift.ShiftSlot, error)
+	findByInstanceIDFunc                 func(ctx context.Context, tenantID common.TenantID, instanceID shift.InstanceID) ([]*shift.ShiftSlot, error)
+	findByBusinessDayIDAndInstanceIDFunc func(ctx context.Context, tenantID common.TenantID, businessDayID event.BusinessDayID, instanceID shift.InstanceID) ([]*shift.ShiftSlot, error)
+	deleteFunc                           func(ctx context.Context, tenantID common.TenantID, slotID shift.SlotID) error
 }
 
 func (m *MockShiftSlotRepository) Save(ctx context.Context, slot *shift.ShiftSlot) error {
@@ -79,6 +81,20 @@ func (m *MockShiftSlotRepository) FindByBusinessDayID(ctx context.Context, tenan
 		return m.findByBusinessDayIDFunc(ctx, tenantID, businessDayID)
 	}
 	return nil, errors.New("not implemented")
+}
+
+func (m *MockShiftSlotRepository) FindByInstanceID(ctx context.Context, tenantID common.TenantID, instanceID shift.InstanceID) ([]*shift.ShiftSlot, error) {
+	if m.findByInstanceIDFunc != nil {
+		return m.findByInstanceIDFunc(ctx, tenantID, instanceID)
+	}
+	return nil, nil
+}
+
+func (m *MockShiftSlotRepository) FindByBusinessDayIDAndInstanceID(ctx context.Context, tenantID common.TenantID, businessDayID event.BusinessDayID, instanceID shift.InstanceID) ([]*shift.ShiftSlot, error) {
+	if m.findByBusinessDayIDAndInstanceIDFunc != nil {
+		return m.findByBusinessDayIDAndInstanceIDFunc(ctx, tenantID, businessDayID, instanceID)
+	}
+	return nil, nil
 }
 
 func (m *MockShiftSlotRepository) Delete(ctx context.Context, tenantID common.TenantID, slotID shift.SlotID) error {

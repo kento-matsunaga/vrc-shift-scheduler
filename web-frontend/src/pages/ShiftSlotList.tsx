@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { getBusinessDayDetail, getShiftSlots, createShiftSlot, getAssignments, applyTemplateToBusinessDay } from '../lib/api';
 import { listTemplates } from '../lib/api/templateApi';
-import { listInstances, deleteInstance, checkInstanceDeletable, type CheckDeletableResponse } from '../lib/api/instanceApi';
+import { listInstances, checkSlotsByInstanceDeletable, deleteSlotsByInstance, type CheckSlotsDeletableResponse } from '../lib/api/instanceApi';
 import { deleteShiftSlot } from '../lib/api/shiftSlotApi';
 import type { BusinessDay, ShiftSlot, ShiftAssignment, Template } from '../types/api';
 import type { Instance } from '../lib/api/instanceApi';
@@ -30,7 +30,7 @@ export default function ShiftSlotList() {
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [deleteSlotTarget, setDeleteSlotTarget] = useState<ShiftSlot | null>(null);
   const [deleteInstanceTarget, setDeleteInstanceTarget] = useState<Instance | null>(null);
-  const [instanceDeletableInfo, setInstanceDeletableInfo] = useState<CheckDeletableResponse | null>(null);
+  const [instanceDeletableInfo, setInstanceDeletableInfo] = useState<CheckSlotsDeletableResponse | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState('');
   const [checkingDeletable, setCheckingDeletable] = useState(false);
@@ -135,33 +135,36 @@ export default function ShiftSlotList() {
     }
   };
 
-  // インスタンスを削除
-  const handleDeleteInstance = async (instance: Instance) => {
+  // インスタンスに紐づくシフト枠を一括削除
+  const handleDeleteInstanceSlots = async (instance: Instance) => {
+    if (!businessDayId) return;
     setDeleting(true);
     setDeleteError('');
     try {
-      await deleteInstance(instance.instance_id);
+      await deleteSlotsByInstance(businessDayId, instance.instance_id);
       setDeleteInstanceTarget(null);
+      setInstanceDeletableInfo(null);
       loadData();
     } catch (err) {
       if (err instanceof ApiClientError) {
         setDeleteError(err.getUserMessage());
       } else {
-        setDeleteError('インスタンスの削除に失敗しました');
+        setDeleteError('シフト枠の削除に失敗しました');
       }
     } finally {
       setDeleting(false);
     }
   };
 
-  // インスタンス削除モーダルを開く（APIで削除可否を確認）
-  const openDeleteInstanceModal = async (instance: Instance) => {
+  // シフト枠削除モーダルを開く（APIで削除可否を確認）
+  const openDeleteInstanceSlotsModal = async (instance: Instance) => {
+    if (!businessDayId) return;
     setDeleteInstanceTarget(instance);
     setInstanceDeletableInfo(null);
     setDeleteError('');
     setCheckingDeletable(true);
     try {
-      const result = await checkInstanceDeletable(instance.instance_id);
+      const result = await checkSlotsByInstanceDeletable(businessDayId, instance.instance_id);
       setInstanceDeletableInfo(result);
     } catch (err) {
       if (err instanceof ApiClientError) {
@@ -396,12 +399,12 @@ export default function ShiftSlotList() {
                     >
                       {totalAssigned} / {totalRequired} 人
                     </span>
-                    {/* インスタンス削除ボタン（未分類でなければ表示） */}
+                    {/* シフト枠一括削除ボタン（未分類でなければ表示） */}
                     {group.instance && (
                       <button
-                        onClick={() => openDeleteInstanceModal(group.instance!)}
+                        onClick={() => openDeleteInstanceSlotsModal(group.instance!)}
                         className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                        title="インスタンスを削除"
+                        title="このインスタンスの役職を一括削除"
                       >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -528,14 +531,14 @@ export default function ShiftSlotList() {
         />
       )}
 
-      {/* インスタンス削除確認モーダル */}
+      {/* シフト枠一括削除確認モーダル */}
       {deleteInstanceTarget && (
-        <DeleteInstanceConfirmModal
+        <DeleteInstanceSlotsConfirmModal
           instance={deleteInstanceTarget}
           deletableInfo={instanceDeletableInfo}
           checkingDeletable={checkingDeletable}
           onClose={closeDeleteInstanceModal}
-          onConfirm={() => handleDeleteInstance(deleteInstanceTarget)}
+          onConfirm={() => handleDeleteInstanceSlots(deleteInstanceTarget)}
           deleting={deleting}
           error={deleteError}
         />
@@ -998,8 +1001,8 @@ function DeleteSlotConfirmModal({
   );
 }
 
-// インスタンス削除確認モーダル
-function DeleteInstanceConfirmModal({
+// シフト枠一括削除確認モーダル
+function DeleteInstanceSlotsConfirmModal({
   instance,
   deletableInfo,
   checkingDeletable,
@@ -1009,7 +1012,7 @@ function DeleteInstanceConfirmModal({
   error,
 }: {
   instance: Instance;
-  deletableInfo: CheckDeletableResponse | null;
+  deletableInfo: CheckSlotsDeletableResponse | null;
   checkingDeletable: boolean;
   onClose: () => void;
   onConfirm: () => void;
@@ -1017,11 +1020,12 @@ function DeleteInstanceConfirmModal({
   error: string;
 }) {
   const canDelete = deletableInfo?.can_delete ?? false;
+  const slotCount = deletableInfo?.slot_count ?? 0;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-lg max-w-md w-full p-6">
-        <h3 className="text-xl font-bold text-gray-900 mb-4">インスタンスを削除</h3>
+        <h3 className="text-xl font-bold text-gray-900 mb-4">役職を一括削除</h3>
 
         {checkingDeletable ? (
           <div className="text-center py-8">
@@ -1037,20 +1041,23 @@ function DeleteInstanceConfirmModal({
               </div>
             )}
           </>
+        ) : slotCount === 0 ? (
+          // この営業日にはシフト枠がない場合
+          <>
+            <p className="text-gray-600 mb-4">
+              この営業日には「{instance.name}」に紐づく役職がありません。
+            </p>
+          </>
         ) : canDelete ? (
           <>
             <p className="text-gray-600 mb-4">
-              以下のインスタンスを削除しますか？<br />
-              {deletableInfo.slot_count > 0 && (
-                <span className="text-red-600 font-semibold">
-                  紐づいている{deletableInfo.slot_count}個のシフト枠も一緒に削除されます。
-                </span>
-              )}
+              この営業日の「{instance.name}」に紐づく<span className="text-red-600 font-semibold">{slotCount}個の役職</span>を削除しますか？<br />
+              <span className="text-sm text-gray-500">（インスタンス自体は削除されません）</span>
             </p>
             <div className="bg-gray-50 rounded-lg p-4 mb-4">
               <p className="font-semibold text-gray-900">{instance.name}</p>
               <p className="text-sm text-gray-600 mt-1">
-                {deletableInfo.slot_count}個のシフト枠
+                {slotCount}個の役職を削除
               </p>
             </div>
             {error && (
@@ -1062,14 +1069,14 @@ function DeleteInstanceConfirmModal({
         ) : (
           <>
             <p className="text-gray-600 mb-4">
-              このインスタンスは削除できません。
+              この営業日の役職は削除できません。
             </p>
             <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
               <p className="text-red-800 font-semibold mb-2">
-                {deletableInfo.blocking_reason || '担当が割り振られているシフト枠があるため削除できません'}
+                {deletableInfo.blocking_reason || '担当が割り振られている役職があるため削除できません'}
               </p>
               <p className="text-sm text-red-700">
-                {deletableInfo.assigned_slots}個のシフト枠に担当が割り当てられています。
+                {deletableInfo.assigned_slots}個の役職に担当が割り当てられています。
                 先に担当を解除してください。
               </p>
             </div>
@@ -1083,9 +1090,9 @@ function DeleteInstanceConfirmModal({
             className="flex-1 btn-secondary"
             disabled={deleting || checkingDeletable}
           >
-            {canDelete ? 'キャンセル' : '閉じる'}
+            {canDelete && slotCount > 0 ? 'キャンセル' : '閉じる'}
           </button>
-          {canDelete && !checkingDeletable && (
+          {canDelete && slotCount > 0 && !checkingDeletable && (
             <button
               type="button"
               onClick={onConfirm}

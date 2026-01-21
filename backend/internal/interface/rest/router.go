@@ -177,6 +177,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			appshift.NewListShiftSlotsUsecase(slotRepo, assignmentRepo),
 			appshift.NewGetShiftSlotUsecase(slotRepo, assignmentRepo),
 			appshift.NewDeleteShiftSlotUsecase(slotRepo, assignmentRepo),
+			appshift.NewDeleteSlotsByInstanceUsecase(slotRepo, assignmentRepo),
 		)
 
 		// ShiftTemplateHandler dependencies (reusing templateRepo, slotRepo, businessDayRepo)
@@ -269,8 +270,8 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		// Instance API
 		r.Route("/instances", func(r chi.Router) {
 			r.Get("/{instance_id}", instanceHandler.GetInstance)
-			r.Get("/{instance_id}/deletable", instanceHandler.CheckInstanceDeletable)
 			r.With(permissionChecker.RequirePermission(tenant.PermissionEditEvent)).Put("/{instance_id}", instanceHandler.UpdateInstance)
+			r.Get("/{instance_id}/deletable", instanceHandler.CheckInstanceDeletable)
 			r.With(permissionChecker.RequirePermission(tenant.PermissionEditEvent)).Delete("/{instance_id}", instanceHandler.DeleteInstance)
 		})
 
@@ -281,6 +282,10 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			// BusinessDay配下のShiftSlot
 			r.With(permissionChecker.RequirePermission(tenant.PermissionEditShift)).Post("/{business_day_id}/shift-slots", shiftSlotHandler.CreateShiftSlot)
 			r.Get("/{business_day_id}/shift-slots", shiftSlotHandler.GetShiftSlots)
+
+			// BusinessDay配下のインスタンス別シフト枠一括削除
+			r.Get("/{business_day_id}/instances/{instance_id}/slots/deletable", shiftSlotHandler.CheckSlotsByInstanceDeletable)
+			r.With(permissionChecker.RequirePermission(tenant.PermissionEditShift)).Delete("/{business_day_id}/instances/{instance_id}/slots", shiftSlotHandler.DeleteSlotsByInstance)
 
 			// BusinessDayからShiftTemplateを作成
 			r.With(permissionChecker.RequirePermission(tenant.PermissionEditEvent)).Post("/{business_day_id}/save-as-template", shiftTemplateHandler.SaveBusinessDayAsTemplate)

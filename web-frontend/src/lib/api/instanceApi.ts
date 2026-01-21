@@ -61,7 +61,11 @@ export async function updateInstance(instanceId: string, input: UpdateInstanceIn
   return response.data;
 }
 
-export interface CheckDeletableResponse {
+// ===========================================
+// インスタンス管理用API（イベントレベル）
+// ===========================================
+
+export interface CheckInstanceDeletableResponse {
   can_delete: boolean;
   slot_count: number;
   assigned_slots: number;
@@ -69,16 +73,42 @@ export interface CheckDeletableResponse {
 }
 
 /**
- * インスタンスが削除可能か確認
+ * インスタンスが削除可能か確認（全営業日のシフト枠も含めてチェック）
  */
-export async function checkInstanceDeletable(instanceId: string): Promise<CheckDeletableResponse> {
-  const response = await apiClient.get<ApiResponse<CheckDeletableResponse>>(`/api/v1/instances/${instanceId}/deletable`);
+export async function checkInstanceDeletable(instanceId: string): Promise<CheckInstanceDeletableResponse> {
+  const response = await apiClient.get<ApiResponse<CheckInstanceDeletableResponse>>(`/api/v1/instances/${instanceId}/deletable`);
   return response.data;
 }
 
 /**
- * インスタンスを削除
+ * インスタンスを削除（インスタンス自体と全営業日の紐づくシフト枠も削除）
  */
 export async function deleteInstance(instanceId: string): Promise<void> {
   await apiClient.delete(`/api/v1/instances/${instanceId}`);
+}
+
+// ===========================================
+// 営業日のシフト枠一括削除API（営業日レベル）
+// ===========================================
+
+export interface CheckSlotsDeletableResponse {
+  can_delete: boolean;
+  slot_count: number;
+  assigned_slots: number;
+  blocking_reason?: string;
+}
+
+/**
+ * 営業日+インスタンスに紐づくシフト枠が削除可能か確認
+ */
+export async function checkSlotsByInstanceDeletable(businessDayId: string, instanceId: string): Promise<CheckSlotsDeletableResponse> {
+  const response = await apiClient.get<ApiResponse<CheckSlotsDeletableResponse>>(`/api/v1/business-days/${businessDayId}/instances/${instanceId}/slots/deletable`);
+  return response.data;
+}
+
+/**
+ * 営業日+インスタンスに紐づくシフト枠を一括削除（インスタンス自体は削除されない）
+ */
+export async function deleteSlotsByInstance(businessDayId: string, instanceId: string): Promise<void> {
+  await apiClient.delete(`/api/v1/business-days/${businessDayId}/instances/${instanceId}/slots`);
 }
