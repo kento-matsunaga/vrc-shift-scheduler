@@ -3,17 +3,23 @@ import { useEffect } from 'react';
 const APP_NAME = 'VRCシフト管理';
 
 /**
+ * useDocumentTitle のオプション設定
+ */
+export interface UseDocumentTitleOptions {
+  /** タイトルにアプリ名のサフィックスを付けるか（デフォルト: true） */
+  suffix?: boolean;
+}
+
+/**
  * ページタイトルを設定するカスタムフック
  * @param title - ページ固有のタイトル
  * @param options - オプション設定
  */
 export function useDocumentTitle(
   title: string,
-  options: { suffix?: boolean } = { suffix: true }
+  options: UseDocumentTitleOptions = { suffix: true }
 ) {
   useEffect(() => {
-    const previousTitle = document.title;
-
     if (options.suffix && title) {
       document.title = `${title} | ${APP_NAME}`;
     } else if (title) {
@@ -21,10 +27,8 @@ export function useDocumentTitle(
     } else {
       document.title = APP_NAME;
     }
-
-    return () => {
-      document.title = previousTitle;
-    };
+    // SPAではページ遷移時に新しいuseDocumentTitleが即座に実行されるため
+    // クリーンアップは不要
   }, [title, options.suffix]);
 }
 
