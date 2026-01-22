@@ -40,7 +40,7 @@ VRC Shift Scheduler の本番環境デプロイ・運用手順。
 
 ```bash
 # 1. プロジェクトディレクトリに移動
-cd /opt/vrc-shift-scheduler
+cd /opt/vrcshift
 
 # 2. 最新のコードを取得
 git fetch origin
@@ -128,7 +128,7 @@ v<MAJOR>.<MINOR>.<PATCH>
 ### タグを使用（推奨）
 
 ```bash
-cd /opt/vrc-shift-scheduler
+cd /opt/vrcshift
 
 # 利用可能なタグを確認
 git tag --list 'v*' --sort=-v:refname | head -10

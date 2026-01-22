@@ -174,7 +174,7 @@ Authorization: Bearer <token>
 | GET | `/api/v1/attendance/collections/{id}/responses` | 回答一覧取得 |
 | PUT | `/api/v1/attendance/collections/{id}/responses` | 回答更新（管理者） |
 
-**回答の response 値**: `available` / `unavailable` / `maybe`
+**出欠確認の回答値**: `attending`（出席）/ `absent`（欠席）/ `maybe`（未定）
 
 ### 日程調整 API
 
@@ -187,6 +187,8 @@ Authorization: Bearer <token>
 | POST | `/api/v1/schedules/{id}/decide` | 日程決定 |
 | POST | `/api/v1/schedules/{id}/close` | 締め切り |
 | GET | `/api/v1/schedules/{id}/responses` | 回答一覧取得 |
+
+**日程調整の回答値**: `available`（参加可能）/ `unavailable`（参加不可）/ `maybe`（未定）
 
 ### メンバーグループ API
 
