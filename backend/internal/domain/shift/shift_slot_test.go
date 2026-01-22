@@ -382,12 +382,6 @@ func TestShiftSlot_IsOvernight(t *testing.T) {
 			endTime:   time.Date(2000, 1, 1, 2, 0, 0, 0, time.UTC),
 			want:      true,
 		},
-		{
-			name:      "同時刻（深夜営業ではない、バリデーションで弾かれるべき）",
-			startTime: time.Date(2000, 1, 1, 21, 30, 0, 0, time.UTC),
-			endTime:   time.Date(2000, 1, 1, 21, 30, 0, 0, time.UTC),
-			want:      false,
-		},
 	}
 
 	for _, tt := range tests {
@@ -398,6 +392,20 @@ func TestShiftSlot_IsOvernight(t *testing.T) {
 				t.Errorf("IsOvernight() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestNewShiftSlot_SameStartAndEndTime_ReturnsError(t *testing.T) {
+	now := time.Now()
+	tenantID := common.NewTenantID()
+	businessDayID := event.NewBusinessDayID()
+
+	// 同じ開始時刻と終了時刻はバリデーションエラーになるべき
+	sameTime := time.Date(2000, 1, 1, 21, 30, 0, 0, time.UTC)
+	_, err := NewShiftSlot(now, tenantID, businessDayID, nil, "スタッフ", "", sameTime, sameTime, 1, 1)
+
+	if err == nil {
+		t.Error("NewShiftSlot() should return error when startTime equals endTime")
 	}
 }
 
