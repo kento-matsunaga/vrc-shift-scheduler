@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Landing from './pages/Landing';
+import Terms from './pages/Terms';
+import Privacy from './pages/Privacy';
 import AdminLogin from './pages/AdminLogin';
 import AdminInvitation from './pages/AdminInvitation';
 import AcceptInvitation from './pages/AcceptInvitation';
@@ -72,6 +74,8 @@ function App() {
     <Routes>
       {/* ランディングページ（認証不要） */}
       <Route path="/" element={<Landing />} />
+      <Route path="/terms" element={<Terms />} />
+      <Route path="/privacy" element={<Privacy />} />
 
       {/* 管理者ログイン（ログイン済みの場合は /events へリダイレクト） */}
       <Route path="/admin/login" element={isLoggedIn ? <Navigate to="/events" replace /> : <AdminLogin />} />
