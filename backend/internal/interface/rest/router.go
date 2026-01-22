@@ -482,6 +482,28 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			r.Get("/", tutorialHandler.List)
 			r.Get("/{id}", tutorialHandler.Get)
 		})
+
+		// Billing API（課金管理 - Stripeカスタマーポータル）
+		stripeSecretKey := os.Getenv("STRIPE_SECRET_KEY")
+		billingPortalReturnURL := os.Getenv("BILLING_PORTAL_RETURN_URL")
+		if billingPortalReturnURL == "" {
+			billingPortalReturnURL = "https://vrcshift.com/admin/settings"
+		}
+		if stripeSecretKey != "" {
+			billingSubscriptionRepo := db.NewSubscriptionRepository(dbPool)
+			billingStripeClient := infrastripe.NewClient(stripeSecretKey)
+			billingPortalUsecase := apppayment.NewBillingPortalUsecase(
+				billingSubscriptionRepo,
+				billingStripeClient,
+				billingPortalReturnURL,
+			)
+			billingPortalHandler := NewBillingPortalHandler(billingPortalUsecase)
+
+			r.Route("/billing", func(r chi.Router) {
+				// カスタマーポータルセッション作成（カード変更、解約など）
+				r.Post("/portal", billingPortalHandler.CreatePortalSession)
+			})
+		}
 	})
 
 	// ============================================================

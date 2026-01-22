@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getEvents, deleteEvent, getCurrentTenant, updateTenant, changePassword, getManagerPermissions, updateManagerPermissions } from '../lib/api';
+import { getEvents, deleteEvent, getCurrentTenant, updateTenant, changePassword, getManagerPermissions, updateManagerPermissions, createBillingPortalSession } from '../lib/api';
 import type { Event } from '../types/api';
 import type { Tenant, ManagerPermissions } from '../lib/api/tenantApi';
 import { ApiClientError } from '../lib/apiClient';
@@ -40,6 +40,10 @@ export default function Settings() {
   const [permissionsError, setPermissionsError] = useState('');
   const [permissionsSuccess, setPermissionsSuccess] = useState('');
   const isOwner = localStorage.getItem('admin_role') === 'owner';
+
+  // Billing portal state
+  const [openingPortal, setOpeningPortal] = useState(false);
+  const [billingError, setBillingError] = useState('');
 
   useEffect(() => {
     loadData();
@@ -240,6 +244,26 @@ export default function Settings() {
       console.error('Failed to save permissions:', err);
     } finally {
       setSavingPermissions(false);
+    }
+  };
+
+  // Billing portal handler
+  const handleOpenBillingPortal = async () => {
+    setOpeningPortal(true);
+    setBillingError('');
+
+    try {
+      const result = await createBillingPortalSession();
+      // Stripeのポータルページに遷移
+      window.location.href = result.portal_url;
+    } catch (err) {
+      if (err instanceof ApiClientError) {
+        setBillingError(err.getUserMessage());
+      } else {
+        setBillingError('課金管理ページを開けませんでした');
+      }
+      console.error('Failed to open billing portal:', err);
+      setOpeningPortal(false);
     }
   };
 
@@ -447,6 +471,60 @@ export default function Settings() {
           </button>
         </form>
       </div>
+
+      {/* 課金管理セクション（オーナーのみ表示） */}
+      {isOwner && (
+        <div className="card mb-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+            </svg>
+            課金管理
+          </h3>
+
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+            <div className="flex items-start gap-3">
+              <svg className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <div>
+                <p className="text-sm text-blue-800">
+                  Stripeの課金管理ページでは、お支払い方法の変更、請求履歴の確認、サブスクリプションの解約などが行えます。
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {billingError && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+              <p className="text-sm text-red-800">{billingError}</p>
+            </div>
+          )}
+
+          <button
+            onClick={handleOpenBillingPortal}
+            disabled={openingPortal}
+            className="btn-primary flex items-center gap-2"
+          >
+            {openingPortal ? (
+              <>
+                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+                読み込み中...
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+                課金管理ページを開く
+              </>
+            )}
+          </button>
+        </div>
+      )}
 
       {/* マネージャー権限設定セクション（オーナーのみ表示） */}
       {isOwner && (permissions || permissionsError) && (

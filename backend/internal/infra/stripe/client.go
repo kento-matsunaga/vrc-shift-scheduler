@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/stripe/stripe-go/v76"
+	portalsession "github.com/stripe/stripe-go/v76/billingportal/session"
 	"github.com/stripe/stripe-go/v76/checkout/session"
 )
 
@@ -169,4 +170,33 @@ func (c *Client) RetrieveCheckoutSession(sessionID string) (*stripe.CheckoutSess
 		return nil, wrapStripeError(err)
 	}
 	return sess, nil
+}
+
+// BillingPortalParams contains parameters for creating a billing portal session
+type BillingPortalParams struct {
+	CustomerID string
+	ReturnURL  string
+}
+
+// BillingPortalResult contains the result of creating a billing portal session
+type BillingPortalResult struct {
+	URL string
+}
+
+// CreateBillingPortalSession creates a Stripe Customer Portal session
+// The portal allows customers to manage their subscription, update payment methods, and view invoices
+func (c *Client) CreateBillingPortalSession(params BillingPortalParams) (*BillingPortalResult, error) {
+	portalParams := &stripe.BillingPortalSessionParams{
+		Customer:  stripe.String(params.CustomerID),
+		ReturnURL: stripe.String(params.ReturnURL),
+	}
+
+	sess, err := portalsession.New(portalParams)
+	if err != nil {
+		return nil, wrapStripeError(err)
+	}
+
+	return &BillingPortalResult{
+		URL: sess.URL,
+	}, nil
 }
