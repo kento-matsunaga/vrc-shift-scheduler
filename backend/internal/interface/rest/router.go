@@ -2,10 +2,12 @@ package rest
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 	"os"
 	"strings"
 
+	"github.com/aws/aws-sdk-go-v2/config"
 	appannouncement "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/announcement"
 	appattendance "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/attendance"
 	appaudit "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/audit"
@@ -23,14 +25,42 @@ import (
 	apptenant "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/tenant"
 	apptutorial "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/tutorial"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/services"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/tenant"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/clock"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/db"
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/email"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/security"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+// initEmailService creates an email service based on environment configuration
+// If AWS SES is configured, it returns SESEmailService; otherwise MockEmailService
+func initEmailService() services.EmailService {
+	baseURL := os.Getenv("INVITATION_BASE_URL")
+	if baseURL == "" {
+		baseURL = "https://vrcshift.com"
+	}
+
+	// Check if AWS SES is configured
+	fromEmail := os.Getenv("AWS_SES_FROM_EMAIL")
+	if fromEmail == "" {
+		slog.Info("AWS SES not configured, using mock email service")
+		return email.NewMockEmailService(baseURL)
+	}
+
+	// Initialize AWS SDK
+	cfg, err := config.LoadDefaultConfig(context.Background())
+	if err != nil {
+		slog.Warn("Failed to load AWS config, using mock email service", "error", err)
+		return email.NewMockEmailService(baseURL)
+	}
+
+	slog.Info("AWS SES configured", "from_email", fromEmail)
+	return email.NewSESEmailService(cfg, fromEmail, baseURL)
+}
 
 // NewRouter creates a new HTTP router with all routes configured
 func NewRouter(dbPool *pgxpool.Pool) http.Handler {
@@ -59,8 +89,10 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 	// InvitationHandler dependencies
 	invitationRepo := db.NewInvitationRepository(dbPool)
 	invitationClock := &clock.RealClock{}
+	invitationTenantRepo := db.NewTenantRepository(dbPool)
+	invitationEmailService := initEmailService()
 	invitationHandler := NewInvitationHandler(
-		auth.NewInviteAdminUsecase(adminRepo, invitationRepo, invitationClock),
+		auth.NewInviteAdminUsecase(adminRepo, invitationRepo, invitationTenantRepo, invitationEmailService, invitationClock),
 		auth.NewAcceptInvitationUsecase(adminRepo, invitationRepo, passwordHasher, invitationClock),
 	)
 

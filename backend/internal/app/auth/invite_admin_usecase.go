@@ -7,6 +7,7 @@ import (
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/auth"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/services"
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/tenant"
 )
 
 // InviteAdminInput represents the input for inviting an admin
@@ -29,6 +30,8 @@ type InviteAdminOutput struct {
 type InviteAdminUsecase struct {
 	adminRepo      auth.AdminRepository
 	invitationRepo auth.InvitationRepository
+	tenantRepo     tenant.TenantRepository
+	emailService   services.EmailService
 	clock          services.Clock
 }
 
@@ -36,11 +39,15 @@ type InviteAdminUsecase struct {
 func NewInviteAdminUsecase(
 	adminRepo auth.AdminRepository,
 	invitationRepo auth.InvitationRepository,
+	tenantRepo tenant.TenantRepository,
+	emailService services.EmailService,
 	clk services.Clock,
 ) *InviteAdminUsecase {
 	return &InviteAdminUsecase{
 		adminRepo:      adminRepo,
 		invitationRepo: invitationRepo,
+		tenantRepo:     tenantRepo,
+		emailService:   emailService,
 		clock:          clk,
 	}
 }
@@ -96,6 +103,27 @@ func (u *InviteAdminUsecase) Execute(ctx context.Context, input InviteAdminInput
 	// 6. 招待を保存
 	if err := u.invitationRepo.Save(ctx, invitation); err != nil {
 		return nil, err
+	}
+
+	// 7. テナント情報を取得してメール送信
+	tenantEntity, err := u.tenantRepo.FindByID(ctx, inviterAdmin.TenantID())
+	if err != nil {
+		return nil, err
+	}
+
+	emailInput := services.SendInvitationEmailInput{
+		To:          invitation.Email(),
+		InviterName: inviterAdmin.DisplayName(),
+		TenantName:  tenantEntity.TenantName(),
+		Role:        invitation.Role().String(),
+		Token:       invitation.Token(),
+		ExpiresAt:   invitation.ExpiresAt(),
+	}
+
+	if err := u.emailService.SendInvitationEmail(ctx, emailInput); err != nil {
+		// メール送信失敗時は招待をロールバック
+		_ = u.invitationRepo.Delete(ctx, invitation.InvitationID())
+		return nil, common.NewDomainError("ERR_EMAIL_SEND_FAILED", "failed to send invitation email: "+err.Error())
 	}
 
 	return &InviteAdminOutput{

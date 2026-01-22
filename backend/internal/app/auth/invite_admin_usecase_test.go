@@ -8,6 +8,8 @@ import (
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/auth"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/services"
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/tenant"
 )
 
 // =====================================================
@@ -70,14 +72,53 @@ func (m *MockClock) Now() time.Time {
 	return time.Now()
 }
 
+// MockTenantRepository is a mock implementation of tenant.TenantRepository
+type MockTenantRepository struct {
+	findByIDFunc func(ctx context.Context, tenantID common.TenantID) (*tenant.Tenant, error)
+	saveFunc     func(ctx context.Context, t *tenant.Tenant) error
+	listAllFunc  func(ctx context.Context, status *tenant.TenantStatus, limit, offset int) ([]*tenant.Tenant, int, error)
+}
+
+func (m *MockTenantRepository) FindByID(ctx context.Context, tenantID common.TenantID) (*tenant.Tenant, error) {
+	if m.findByIDFunc != nil {
+		return m.findByIDFunc(ctx, tenantID)
+	}
+	return nil, errors.New("not implemented")
+}
+
+func (m *MockTenantRepository) Save(ctx context.Context, t *tenant.Tenant) error {
+	if m.saveFunc != nil {
+		return m.saveFunc(ctx, t)
+	}
+	return nil
+}
+
+func (m *MockTenantRepository) ListAll(ctx context.Context, status *tenant.TenantStatus, limit, offset int) ([]*tenant.Tenant, int, error) {
+	if m.listAllFunc != nil {
+		return m.listAllFunc(ctx, status, limit, offset)
+	}
+	return nil, 0, errors.New("not implemented")
+}
+
+// MockEmailService is a mock implementation of services.EmailService
+type MockEmailService struct {
+	sendInvitationEmailFunc func(ctx context.Context, input services.SendInvitationEmailInput) error
+}
+
+func (m *MockEmailService) SendInvitationEmail(ctx context.Context, input services.SendInvitationEmailInput) error {
+	if m.sendInvitationEmailFunc != nil {
+		return m.sendInvitationEmailFunc(ctx, input)
+	}
+	return nil
+}
+
 // =====================================================
 // Test Helper Functions
 // =====================================================
 
-func createTestInviterAdmin(t *testing.T) *auth.Admin {
+func createTestInviterAdminWithTenantID(t *testing.T, tenantID common.TenantID) *auth.Admin {
 	t.Helper()
 	now := time.Now()
-	tenantID := common.NewTenantID()
 
 	admin, err := auth.NewAdmin(now, tenantID, "inviter@example.com", "$2a$10$hash", "Inviter Admin", auth.RoleOwner)
 	if err != nil {
@@ -86,12 +127,40 @@ func createTestInviterAdmin(t *testing.T) *auth.Admin {
 	return admin
 }
 
+func createTestInviterAdmin(t *testing.T) *auth.Admin {
+	t.Helper()
+	return createTestInviterAdminWithTenantID(t, common.NewTenantID())
+}
+
+func createTestTenant(t *testing.T, tenantID common.TenantID) *tenant.Tenant {
+	t.Helper()
+	now := time.Now()
+
+	testTenant, err := tenant.ReconstructTenant(
+		tenantID,
+		"Test Tenant",
+		"Asia/Tokyo",
+		true,
+		tenant.TenantStatusActive,
+		nil,
+		now,
+		now,
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("Failed to create test tenant: %v", err)
+	}
+	return testTenant
+}
+
 // =====================================================
 // InviteAdminUsecase Tests
 // =====================================================
 
 func TestInviteAdminUsecase_Execute_Success(t *testing.T) {
-	inviter := createTestInviterAdmin(t)
+	tenantID := common.NewTenantID()
+	inviter := createTestInviterAdminWithTenantID(t, tenantID)
+	testTenant := createTestTenant(t, tenantID)
 
 	adminRepo := &MockAdminRepository{
 		findByIDWithTenantFunc: func(ctx context.Context, tenantID common.TenantID, adminID common.AdminID) (*auth.Admin, error) {
@@ -118,9 +187,21 @@ func TestInviteAdminUsecase_Execute_Success(t *testing.T) {
 		},
 	}
 
+	tenantRepo := &MockTenantRepository{
+		findByIDFunc: func(ctx context.Context, tid common.TenantID) (*tenant.Tenant, error) {
+			return testTenant, nil
+		},
+	}
+
+	emailService := &MockEmailService{
+		sendInvitationEmailFunc: func(ctx context.Context, input services.SendInvitationEmailInput) error {
+			return nil
+		},
+	}
+
 	clock := &MockClock{nowFunc: func() time.Time { return time.Now() }}
 
-	usecase := NewInviteAdminUsecase(adminRepo2, invitationRepo, clock)
+	usecase := NewInviteAdminUsecase(adminRepo2, invitationRepo, tenantRepo, emailService, clock)
 
 	input := InviteAdminInput{
 		InviterAdminID: inviter.AdminID().String(),
@@ -164,9 +245,11 @@ func TestInviteAdminUsecase_Execute_ErrorWhenInviterNotFound(t *testing.T) {
 	}
 
 	invitationRepo := &MockInvitationRepository{}
+	tenantRepo := &MockTenantRepository{}
+	emailService := &MockEmailService{}
 	clock := &MockClock{nowFunc: func() time.Time { return time.Now() }}
 
-	usecase := NewInviteAdminUsecase(adminRepo, invitationRepo, clock)
+	usecase := NewInviteAdminUsecase(adminRepo, invitationRepo, tenantRepo, emailService, clock)
 
 	input := InviteAdminInput{
 		InviterAdminID: common.NewAdminID().String(),
@@ -192,9 +275,11 @@ func TestInviteAdminUsecase_Execute_ErrorWhenInvalidRole(t *testing.T) {
 	}
 
 	invitationRepo := &MockInvitationRepository{}
+	tenantRepo := &MockTenantRepository{}
+	emailService := &MockEmailService{}
 	clock := &MockClock{nowFunc: func() time.Time { return time.Now() }}
 
-	usecase := NewInviteAdminUsecase(adminRepo, invitationRepo, clock)
+	usecase := NewInviteAdminUsecase(adminRepo, invitationRepo, tenantRepo, emailService, clock)
 
 	input := InviteAdminInput{
 		InviterAdminID: inviter.AdminID().String(),
@@ -225,9 +310,11 @@ func TestInviteAdminUsecase_Execute_ErrorWhenAdminEmailAlreadyExists(t *testing.
 	}
 
 	invitationRepo := &MockInvitationRepository{}
+	tenantRepo := &MockTenantRepository{}
+	emailService := &MockEmailService{}
 	clock := &MockClock{nowFunc: func() time.Time { return time.Now() }}
 
-	usecase := NewInviteAdminUsecase(adminRepo, invitationRepo, clock)
+	usecase := NewInviteAdminUsecase(adminRepo, invitationRepo, tenantRepo, emailService, clock)
 
 	input := InviteAdminInput{
 		InviterAdminID: inviter.AdminID().String(),
@@ -262,9 +349,11 @@ func TestInviteAdminUsecase_Execute_ErrorWhenPendingInvitationExists(t *testing.
 		},
 	}
 
+	tenantRepo := &MockTenantRepository{}
+	emailService := &MockEmailService{}
 	clock := &MockClock{nowFunc: func() time.Time { return time.Now() }}
 
-	usecase := NewInviteAdminUsecase(adminRepo, invitationRepo, clock)
+	usecase := NewInviteAdminUsecase(adminRepo, invitationRepo, tenantRepo, emailService, clock)
 
 	input := InviteAdminInput{
 		InviterAdminID: inviter.AdminID().String(),
@@ -302,9 +391,11 @@ func TestInviteAdminUsecase_Execute_ErrorWhenSaveFails(t *testing.T) {
 		},
 	}
 
+	tenantRepo := &MockTenantRepository{}
+	emailService := &MockEmailService{}
 	clock := &MockClock{nowFunc: func() time.Time { return time.Now() }}
 
-	usecase := NewInviteAdminUsecase(adminRepo, invitationRepo, clock)
+	usecase := NewInviteAdminUsecase(adminRepo, invitationRepo, tenantRepo, emailService, clock)
 
 	input := InviteAdminInput{
 		InviterAdminID: inviter.AdminID().String(),
@@ -325,9 +416,11 @@ func TestInviteAdminUsecase_Execute_ErrorWhenInvalidInviterAdminID(t *testing.T)
 		findByIDFunc:        nil,
 	}
 	invitationRepo := &MockInvitationRepository{}
+	tenantRepo := &MockTenantRepository{}
+	emailService := &MockEmailService{}
 	clock := &MockClock{nowFunc: func() time.Time { return time.Now() }}
 
-	usecase := NewInviteAdminUsecase(adminRepo, invitationRepo, clock)
+	usecase := NewInviteAdminUsecase(adminRepo, invitationRepo, tenantRepo, emailService, clock)
 
 	input := InviteAdminInput{
 		InviterAdminID: "invalid-ulid", // Invalid ULID
