@@ -3,7 +3,16 @@ package email
 import (
 	"bytes"
 	"html/template"
+	"sync"
 	"time"
+)
+
+// Cached templates (parsed once at first use)
+var (
+	htmlTemplateOnce sync.Once
+	textTemplateOnce sync.Once
+	cachedHTMLTmpl   *template.Template
+	cachedTextTmpl   *template.Template
 )
 
 // InvitationEmailData represents data for the invitation email template
@@ -136,13 +145,12 @@ func RoleToJapanese(role string) string {
 
 // RenderInvitationHTML renders the HTML version of the invitation email
 func RenderInvitationHTML(data InvitationEmailData) (string, error) {
-	tmpl, err := template.New("invitation_html").Parse(invitationHTMLTemplate)
-	if err != nil {
-		return "", err
-	}
+	htmlTemplateOnce.Do(func() {
+		cachedHTMLTmpl = template.Must(template.New("invitation_html").Parse(invitationHTMLTemplate))
+	})
 
 	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, data); err != nil {
+	if err := cachedHTMLTmpl.Execute(&buf, data); err != nil {
 		return "", err
 	}
 
@@ -151,13 +159,12 @@ func RenderInvitationHTML(data InvitationEmailData) (string, error) {
 
 // RenderInvitationText renders the plain text version of the invitation email
 func RenderInvitationText(data InvitationEmailData) (string, error) {
-	tmpl, err := template.New("invitation_text").Parse(invitationTextTemplate)
-	if err != nil {
-		return "", err
-	}
+	textTemplateOnce.Do(func() {
+		cachedTextTmpl = template.Must(template.New("invitation_text").Parse(invitationTextTemplate))
+	})
 
 	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, data); err != nil {
+	if err := cachedTextTmpl.Execute(&buf, data); err != nil {
 		return "", err
 	}
 

@@ -113,6 +113,8 @@ func RespondDomainError(w http.ResponseWriter, err error) {
 			RespondError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", domainErr.Message, nil)
 		case common.ErrUnauthorized:
 			RespondError(w, http.StatusForbidden, "ERR_FORBIDDEN", domainErr.Message, nil)
+		case "ERR_EMAIL_SEND_FAILED":
+			RespondError(w, http.StatusServiceUnavailable, "ERR_EMAIL_SEND_FAILED", domainErr.Message, nil)
 		default:
 			RespondError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Internal server error", nil)
 		}

@@ -435,6 +435,94 @@ func TestInviteAdminUsecase_Execute_ErrorWhenInvalidInviterAdminID(t *testing.T)
 	}
 }
 
+func TestInviteAdminUsecase_Execute_ErrorWhenEmailSendFails(t *testing.T) {
+	tenantID := common.NewTenantID()
+	inviter := createTestInviterAdminWithTenantID(t, tenantID)
+	testTenant := createTestTenant(t, tenantID)
+
+	var savedInvitationID *auth.InvitationID
+	deleteCalled := false
+
+	adminRepo := &mockAdminRepoWithFindByID{
+		MockAdminRepository: &MockAdminRepository{
+			findByEmailGlobalFunc: func(ctx context.Context, email string) (*auth.Admin, error) {
+				return nil, common.NewNotFoundError("Admin", email)
+			},
+		},
+		findByIDFunc: func(ctx context.Context, adminID common.AdminID) (*auth.Admin, error) {
+			return inviter, nil
+		},
+	}
+
+	invitationRepo := &MockInvitationRepository{
+		existsPendingByEmailFunc: func(ctx context.Context, tenantID common.TenantID, email string) (bool, error) {
+			return false, nil
+		},
+		saveFunc: func(ctx context.Context, invitation *auth.Invitation) error {
+			id := invitation.InvitationID()
+			savedInvitationID = &id
+			return nil
+		},
+		deleteFunc: func(ctx context.Context, invitationID auth.InvitationID) error {
+			deleteCalled = true
+			if savedInvitationID != nil && invitationID == *savedInvitationID {
+				return nil
+			}
+			return errors.New("unexpected invitation ID")
+		},
+	}
+
+	tenantRepo := &MockTenantRepository{
+		findByIDFunc: func(ctx context.Context, tid common.TenantID) (*tenant.Tenant, error) {
+			return testTenant, nil
+		},
+	}
+
+	emailService := &MockEmailService{
+		sendInvitationEmailFunc: func(ctx context.Context, input services.SendInvitationEmailInput) error {
+			return errors.New("SES error: email send failed")
+		},
+	}
+
+	clock := &MockClock{nowFunc: func() time.Time { return time.Now() }}
+
+	usecase := NewInviteAdminUsecase(adminRepo, invitationRepo, tenantRepo, emailService, clock)
+
+	input := InviteAdminInput{
+		InviterAdminID: inviter.AdminID().String(),
+		Email:          "newadmin@example.com",
+		Role:           "manager",
+	}
+
+	_, err := usecase.Execute(context.Background(), input)
+
+	if err == nil {
+		t.Fatal("Execute() should fail when email send fails")
+	}
+
+	if !deleteCalled {
+		t.Error("Invitation should be deleted (rolled back) when email send fails")
+	}
+
+	// Verify error message contains email failure info
+	if !contains(err.Error(), "email") {
+		t.Errorf("Error message should mention email failure, got: %v", err)
+	}
+}
+
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsHelper(s, substr))
+}
+
+func containsHelper(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}
+
 // mockAdminRepoWithFindByID wraps MockAdminRepository to add FindByID
 type mockAdminRepoWithFindByID struct {
 	*MockAdminRepository

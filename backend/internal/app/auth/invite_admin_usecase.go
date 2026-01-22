@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/auth"
@@ -122,7 +123,12 @@ func (u *InviteAdminUsecase) Execute(ctx context.Context, input InviteAdminInput
 
 	if err := u.emailService.SendInvitationEmail(ctx, emailInput); err != nil {
 		// メール送信失敗時は招待をロールバック
-		_ = u.invitationRepo.Delete(ctx, invitation.InvitationID())
+		if deleteErr := u.invitationRepo.Delete(ctx, invitation.InvitationID()); deleteErr != nil {
+			slog.Error("failed to rollback invitation after email failure",
+				"invitation_id", invitation.InvitationID().String(),
+				"email_error", err,
+				"delete_error", deleteErr)
+		}
 		return nil, common.NewDomainError("ERR_EMAIL_SEND_FAILED", "failed to send invitation email: "+err.Error())
 	}
 
