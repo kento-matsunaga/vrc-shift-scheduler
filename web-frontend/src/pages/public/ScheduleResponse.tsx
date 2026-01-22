@@ -14,11 +14,14 @@ import {
 import SearchableSelect from '../../components/SearchableSelect';
 import ScheduleResponseTable from '../../components/ScheduleResponseTable';
 import { formatTimeRange } from '../../lib/timeUtils';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 
 export default function ScheduleResponse() {
   const { token } = useParams<{ token: string }>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  useDocumentTitle('日程調整回答');
   const [schedule, setSchedule] = useState<DateSchedule | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
 

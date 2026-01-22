@@ -14,10 +14,13 @@ import {
 } from '../../lib/api/publicApi';
 import SearchableSelect from '../../components/SearchableSelect';
 import ResponseTable from '../../components/ResponseTable';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 
 export default function AttendanceResponse() {
   const { token } = useParams<{ token: string }>();
   const [loading, setLoading] = useState(true);
+
+  useDocumentTitle('出欠回答');
   const [error, setError] = useState<string | null>(null);
   const [collection, setCollection] = useState<AttendanceCollection | null>(null);
   const [members, setMembers] = useState<Member[]>([]);

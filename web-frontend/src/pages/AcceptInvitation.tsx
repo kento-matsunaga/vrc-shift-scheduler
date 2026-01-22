@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { acceptInvitation } from '../lib/api/invitationApi';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 
 export default function AcceptInvitation() {
   const { token } = useParams<{ token: string }>();
@@ -10,6 +11,8 @@ export default function AcceptInvitation() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
+
+  useDocumentTitle('招待を承諾');
 
   useEffect(() => {
     if (!token) {

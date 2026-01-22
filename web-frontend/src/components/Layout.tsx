@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { AnnouncementBell } from './AnnouncementBell';
 import { TutorialButton } from './TutorialButton';
+import { useDocumentTitle, getTitleFromPath } from '../hooks/useDocumentTitle';
 
 export default function Layout() {
   const navigate = useNavigate();
@@ -9,6 +10,10 @@ export default function Layout() {
   const adminRole = localStorage.getItem('admin_role') || '';
   const [showGroupSubmenu, setShowGroupSubmenu] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // ページタイトルを設定
+  const pageTitle = getTitleFromPath(location.pathname);
+  useDocumentTitle(pageTitle || 'VRCシフト管理');
 
   // サイドバー開閉時のbodyスクロール制御とESCキー対応
   useEffect(() => {
