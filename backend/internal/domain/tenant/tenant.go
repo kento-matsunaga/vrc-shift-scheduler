@@ -10,14 +10,15 @@ import (
 type TenantStatus string
 
 const (
-	TenantStatusActive    TenantStatus = "active"
-	TenantStatusGrace     TenantStatus = "grace"
-	TenantStatusSuspended TenantStatus = "suspended"
+	TenantStatusActive         TenantStatus = "active"
+	TenantStatusGrace          TenantStatus = "grace"
+	TenantStatusSuspended      TenantStatus = "suspended"
+	TenantStatusPendingPayment TenantStatus = "pending_payment"
 )
 
 // ValidTenantStatuses returns all valid tenant statuses
 func ValidTenantStatuses() []TenantStatus {
-	return []TenantStatus{TenantStatusActive, TenantStatusGrace, TenantStatusSuspended}
+	return []TenantStatus{TenantStatusActive, TenantStatusGrace, TenantStatusSuspended, TenantStatusPendingPayment}
 }
 
 // IsValid checks if the status is valid
@@ -38,15 +39,17 @@ func (s TenantStatus) String() string {
 // Tenant represents a tenant entity (aggregate root)
 // テナントは組織単位で、メンバー・イベント・シフトなどを管理する
 type Tenant struct {
-	tenantID   common.TenantID
-	tenantName string
-	timezone   string
-	isActive   bool
-	status     TenantStatus
-	graceUntil *time.Time
-	createdAt  time.Time
-	updatedAt  time.Time
-	deletedAt  *time.Time
+	tenantID               common.TenantID
+	tenantName             string
+	timezone               string
+	isActive               bool
+	status                 TenantStatus
+	graceUntil             *time.Time
+	pendingExpiresAt       *time.Time
+	pendingStripeSessionID *string
+	createdAt              time.Time
+	updatedAt              time.Time
+	deletedAt              *time.Time
 }
 
 // NewTenant creates a new Tenant entity
@@ -56,14 +59,44 @@ func NewTenant(
 	timezone string,
 ) (*Tenant, error) {
 	tenant := &Tenant{
-		tenantID:   common.NewTenantID(),
-		tenantName: tenantName,
-		timezone:   timezone,
-		isActive:   true,
-		status:     TenantStatusActive,
-		graceUntil: nil,
-		createdAt:  now,
-		updatedAt:  now,
+		tenantID:               common.NewTenantID(),
+		tenantName:             tenantName,
+		timezone:               timezone,
+		isActive:               true,
+		status:                 TenantStatusActive,
+		graceUntil:             nil,
+		pendingExpiresAt:       nil,
+		pendingStripeSessionID: nil,
+		createdAt:              now,
+		updatedAt:              now,
+	}
+
+	if err := tenant.validate(); err != nil {
+		return nil, err
+	}
+
+	return tenant, nil
+}
+
+// NewTenantPendingPayment creates a new Tenant entity in pending_payment status
+func NewTenantPendingPayment(
+	now time.Time,
+	tenantName string,
+	timezone string,
+	stripeSessionID string,
+	pendingExpiresAt time.Time,
+) (*Tenant, error) {
+	tenant := &Tenant{
+		tenantID:               common.NewTenantID(),
+		tenantName:             tenantName,
+		timezone:               timezone,
+		isActive:               false,
+		status:                 TenantStatusPendingPayment,
+		graceUntil:             nil,
+		pendingExpiresAt:       &pendingExpiresAt,
+		pendingStripeSessionID: &stripeSessionID,
+		createdAt:              now,
+		updatedAt:              now,
 	}
 
 	if err := tenant.validate(); err != nil {
@@ -81,20 +114,24 @@ func ReconstructTenant(
 	isActive bool,
 	status TenantStatus,
 	graceUntil *time.Time,
+	pendingExpiresAt *time.Time,
+	pendingStripeSessionID *string,
 	createdAt time.Time,
 	updatedAt time.Time,
 	deletedAt *time.Time,
 ) (*Tenant, error) {
 	tenant := &Tenant{
-		tenantID:   tenantID,
-		tenantName: tenantName,
-		timezone:   timezone,
-		isActive:   isActive,
-		status:     status,
-		graceUntil: graceUntil,
-		createdAt:  createdAt,
-		updatedAt:  updatedAt,
-		deletedAt:  deletedAt,
+		tenantID:               tenantID,
+		tenantName:             tenantName,
+		timezone:               timezone,
+		isActive:               isActive,
+		status:                 status,
+		graceUntil:             graceUntil,
+		pendingExpiresAt:       pendingExpiresAt,
+		pendingStripeSessionID: pendingStripeSessionID,
+		createdAt:              createdAt,
+		updatedAt:              updatedAt,
+		deletedAt:              deletedAt,
 	}
 
 	if err := tenant.validate(); err != nil {
@@ -153,6 +190,14 @@ func (t *Tenant) Status() TenantStatus {
 
 func (t *Tenant) GraceUntil() *time.Time {
 	return t.graceUntil
+}
+
+func (t *Tenant) PendingExpiresAt() *time.Time {
+	return t.pendingExpiresAt
+}
+
+func (t *Tenant) PendingStripeSessionID() *string {
+	return t.pendingStripeSessionID
 }
 
 func (t *Tenant) CreatedAt() time.Time {
@@ -221,6 +266,8 @@ func (t *Tenant) Delete(now time.Time) {
 func (t *Tenant) SetStatusActive(now time.Time) {
 	t.status = TenantStatusActive
 	t.graceUntil = nil
+	t.pendingExpiresAt = nil
+	t.pendingStripeSessionID = nil
 	t.isActive = true
 	t.updatedAt = now
 }
@@ -237,8 +284,25 @@ func (t *Tenant) SetStatusGrace(now time.Time, graceUntil time.Time) {
 func (t *Tenant) SetStatusSuspended(now time.Time) {
 	t.status = TenantStatusSuspended
 	t.graceUntil = nil
+	t.pendingExpiresAt = nil
+	t.pendingStripeSessionID = nil
 	t.isActive = false
 	t.updatedAt = now
+}
+
+// SetStatusPendingPayment sets the tenant status to pending_payment
+func (t *Tenant) SetStatusPendingPayment(now time.Time, stripeSessionID string, expiresAt time.Time) {
+	t.status = TenantStatusPendingPayment
+	t.graceUntil = nil
+	t.pendingExpiresAt = &expiresAt
+	t.pendingStripeSessionID = &stripeSessionID
+	t.isActive = false
+	t.updatedAt = now
+}
+
+// IsPendingPayment checks if the tenant is in pending payment status
+func (t *Tenant) IsPendingPayment() bool {
+	return t.status == TenantStatusPendingPayment
 }
 
 // CanWrite checks if write operations are allowed for this tenant

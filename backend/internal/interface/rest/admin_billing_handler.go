@@ -334,6 +334,22 @@ func (h *AdminBillingHandler) GetTenantDetail(w http.ResponseWriter, r *http.Req
 		entitlements[i] = item
 	}
 
+	// Convert subscription
+	var subscription map[string]interface{}
+	if output.Subscription != nil {
+		subscription = map[string]interface{}{
+			"subscription_id":        output.Subscription.SubscriptionID.String(),
+			"stripe_customer_id":     output.Subscription.StripeCustomerID,
+			"stripe_subscription_id": output.Subscription.StripeSubscriptionID,
+			"status":                 string(output.Subscription.Status),
+			"created_at":             output.Subscription.CreatedAt,
+			"updated_at":             output.Subscription.UpdatedAt,
+		}
+		if output.Subscription.CurrentPeriodEnd != nil {
+			subscription["current_period_end"] = output.Subscription.CurrentPeriodEnd
+		}
+	}
+
 	// Convert admins
 	admins := make([]map[string]interface{}, len(output.Admins))
 	for i, a := range output.Admins {
@@ -356,6 +372,9 @@ func (h *AdminBillingHandler) GetTenantDetail(w http.ResponseWriter, r *http.Req
 	}
 	if output.GraceUntil != nil {
 		data["grace_until"] = output.GraceUntil
+	}
+	if subscription != nil {
+		data["subscription"] = subscription
 	}
 
 	RespondJSON(w, http.StatusOK, map[string]interface{}{

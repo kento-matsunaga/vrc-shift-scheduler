@@ -274,6 +274,7 @@ func TestTenantStatus_IsValid(t *testing.T) {
 		{tenant.TenantStatusActive, true},
 		{tenant.TenantStatusGrace, true},
 		{tenant.TenantStatusSuspended, true},
+		{tenant.TenantStatusPendingPayment, true},
 		{tenant.TenantStatus("invalid"), false},
 		{tenant.TenantStatus(""), false},
 	}
@@ -298,10 +299,12 @@ func TestReconstructTenant_Success(t *testing.T) {
 		"Asia/Tokyo",
 		true,
 		tenant.TenantStatusActive,
-		nil,
+		nil, // graceUntil
+		nil, // pendingExpiresAt
+		nil, // pendingStripeSessionID
 		now,
 		now,
-		nil,
+		nil, // deletedAt
 	)
 
 	if err != nil {
@@ -310,5 +313,48 @@ func TestReconstructTenant_Success(t *testing.T) {
 
 	if ten.TenantName() != "Reconstructed Org" {
 		t.Errorf("TenantName mismatch: got %v, want 'Reconstructed Org'", ten.TenantName())
+	}
+}
+
+func TestTenant_PendingPaymentStatus(t *testing.T) {
+	now := time.Now()
+	expiresAt := now.Add(30 * time.Minute)
+
+	// NewTenantPendingPaymentのテスト
+	ten, err := tenant.NewTenantPendingPayment(now, "Test Organization", "Asia/Tokyo", "cs_test_xxx", expiresAt)
+
+	if err != nil {
+		t.Fatalf("NewTenantPendingPayment() should succeed, got error: %v", err)
+	}
+
+	if ten.Status() != tenant.TenantStatusPendingPayment {
+		t.Errorf("Status should be pending_payment: got %v", ten.Status())
+	}
+
+	if !ten.IsPendingPayment() {
+		t.Error("IsPendingPayment() should return true")
+	}
+
+	if ten.PendingStripeSessionID() == nil || *ten.PendingStripeSessionID() != "cs_test_xxx" {
+		t.Error("PendingStripeSessionID should be set")
+	}
+
+	if ten.PendingExpiresAt() == nil {
+		t.Error("PendingExpiresAt should be set")
+	}
+
+	if ten.IsActive() {
+		t.Error("Pending payment tenant should not be active")
+	}
+
+	// SetStatusActiveでpendingフィールドがクリアされることを確認
+	ten.SetStatusActive(now)
+
+	if ten.PendingStripeSessionID() != nil {
+		t.Error("PendingStripeSessionID should be cleared after SetStatusActive")
+	}
+
+	if ten.PendingExpiresAt() != nil {
+		t.Error("PendingExpiresAt should be cleared after SetStatusActive")
 	}
 }

@@ -42,6 +42,24 @@ type StripeSubscription struct {
 	CurrentPeriodEnd int64  `json:"current_period_end"`
 }
 
+// StripeCheckoutSession represents a Stripe Checkout Session object
+type StripeCheckoutSession struct {
+	ID           string            `json:"id"`
+	Customer     string            `json:"customer"`
+	Subscription string            `json:"subscription"`
+	Status       string            `json:"status"`
+	Mode         string            `json:"mode"`
+	Metadata     map[string]string `json:"metadata"`
+}
+
+// StripeCheckoutSubscription represents Stripe subscription details from checkout
+type StripeCheckoutSubscription struct {
+	ID               string `json:"id"`
+	Customer         string `json:"customer"`
+	Status           string `json:"status"`
+	CurrentPeriodEnd int64  `json:"current_period_end"`
+}
+
 // StripeWebhookUsecase handles Stripe webhook events
 type StripeWebhookUsecase struct {
 	txManager            services.TxManager
@@ -93,6 +111,8 @@ func (uc *StripeWebhookUsecase) HandleWebhook(ctx context.Context, event StripeE
 
 	// Process based on event type
 	switch event.Type {
+	case "checkout.session.completed":
+		return true, uc.handleCheckoutSessionCompleted(ctx, now, event)
 	case "invoice.paid":
 		return true, uc.handleInvoicePaid(ctx, now, event)
 	case "invoice.payment_failed":
@@ -104,6 +124,98 @@ func (uc *StripeWebhookUsecase) HandleWebhook(ctx context.Context, event StripeE
 		log.Printf("[Stripe Webhook] Unknown event type: %s", event.Type)
 		return true, nil
 	}
+}
+
+// handleCheckoutSessionCompleted handles checkout.session.completed events
+// Activates tenant, creates subscription and entitlement records
+func (uc *StripeWebhookUsecase) handleCheckoutSessionCompleted(ctx context.Context, now time.Time, event StripeEvent) error {
+	var session StripeCheckoutSession
+	if err := json.Unmarshal(event.Data.Object, &session); err != nil {
+		return fmt.Errorf("failed to parse checkout session: %w", err)
+	}
+
+	// Only handle subscription mode
+	if session.Mode != "subscription" {
+		log.Printf("[Stripe Webhook] Ignoring non-subscription checkout: %s", session.ID)
+		return nil
+	}
+
+	// Find tenant by session ID
+	t, err := uc.tenantRepo.FindByPendingStripeSessionID(ctx, session.ID)
+	if err != nil {
+		if common.IsNotFoundError(err) {
+			log.Printf("[Stripe Webhook] No tenant found for session: %s", session.ID)
+			return nil
+		}
+		return fmt.Errorf("failed to find tenant by session ID: %w", err)
+	}
+
+	// Verify tenant is in pending_payment status
+	if t.Status() != tenant.TenantStatusPendingPayment {
+		log.Printf("[Stripe Webhook] Tenant %s is not in pending_payment status: %s", t.TenantID(), t.Status())
+		return nil
+	}
+
+	return uc.txManager.WithTx(ctx, func(txCtx context.Context) error {
+		// Activate tenant
+		previousStatus := t.Status()
+		t.SetStatusActive(now)
+		if err := uc.tenantRepo.Save(txCtx, t); err != nil {
+			return fmt.Errorf("failed to save tenant: %w", err)
+		}
+
+		// Create subscription record
+		sub, err := billing.NewSubscription(
+			now,
+			t.TenantID(),
+			session.Customer,
+			session.Subscription,
+			billing.SubscriptionStatusActive,
+			nil, // current_period_end will be updated by invoice.paid webhook
+		)
+		if err != nil {
+			return fmt.Errorf("failed to create subscription: %w", err)
+		}
+		if err := uc.subscriptionRepo.Save(txCtx, sub); err != nil {
+			return fmt.Errorf("failed to save subscription: %w", err)
+		}
+
+		// Create entitlement record for SUB_200 plan
+		entitlement, err := billing.NewEntitlement(
+			now,
+			t.TenantID(),
+			"SUB_200",
+			billing.EntitlementSourceStripe,
+			nil, // No fixed end date for subscription entitlement
+		)
+		if err != nil {
+			return fmt.Errorf("failed to create entitlement: %w", err)
+		}
+		if err := uc.entitlementRepo.Save(txCtx, entitlement); err != nil {
+			return fmt.Errorf("failed to save entitlement: %w", err)
+		}
+
+		// Create audit log
+		tenantIDStr := t.TenantID().String()
+		afterJSON := fmt.Sprintf(`{"status":"active","previous_status":"%s","session_id":"%s","subscription_id":"%s"}`,
+			previousStatus, session.ID, session.Subscription)
+		auditLog, err := billing.NewBillingAuditLog(
+			now,
+			billing.ActorTypeStripe,
+			nil,
+			string(billing.BillingAuditActionSubscriptionCreate),
+			strPtr("tenant"),
+			&tenantIDStr,
+			nil,
+			&afterJSON,
+			nil,
+			nil,
+		)
+		if err != nil {
+			return err
+		}
+		return uc.auditLogRepo.Save(txCtx, auditLog)
+	})
 }
 
 // handleInvoicePaid handles invoice.paid events

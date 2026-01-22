@@ -120,7 +120,7 @@ export async function revokeLicenseKey(keyId: string): Promise<void> {
 export interface TenantListItem {
   tenant_id: string;
   tenant_name: string;
-  status: 'active' | 'grace' | 'suspended';
+  status: 'active' | 'grace' | 'suspended' | 'pending_payment';
   grace_until: string | null;
   created_at: string;
 }
@@ -128,11 +128,22 @@ export interface TenantListItem {
 export interface TenantDetail {
   tenant_id: string;
   tenant_name: string;
-  status: 'active' | 'grace' | 'suspended';
+  status: 'active' | 'grace' | 'suspended' | 'pending_payment';
   grace_until: string | null;
   created_at: string;
   entitlements: Entitlement[];
+  subscription: Subscription | null;
   admins: Admin[];
+}
+
+export interface Subscription {
+  subscription_id: string;
+  stripe_customer_id: string;
+  stripe_subscription_id: string;
+  status: 'active' | 'past_due' | 'canceled' | 'unpaid' | 'incomplete' | 'trialing';
+  current_period_end: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Entitlement {

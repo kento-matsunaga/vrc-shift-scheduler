@@ -14,11 +14,12 @@ import (
 
 // AdminTenantUsecase handles admin operations for tenants
 type AdminTenantUsecase struct {
-	txManager       services.TxManager
-	tenantRepo      tenant.TenantRepository
-	adminRepo       auth.AdminRepository
-	entitlementRepo billing.EntitlementRepository
-	auditLogRepo    billing.BillingAuditLogRepository
+	txManager        services.TxManager
+	tenantRepo       tenant.TenantRepository
+	adminRepo        auth.AdminRepository
+	entitlementRepo  billing.EntitlementRepository
+	subscriptionRepo billing.SubscriptionRepository
+	auditLogRepo     billing.BillingAuditLogRepository
 }
 
 // NewAdminTenantUsecase creates a new AdminTenantUsecase
@@ -27,14 +28,16 @@ func NewAdminTenantUsecase(
 	tenantRepo tenant.TenantRepository,
 	adminRepo auth.AdminRepository,
 	entitlementRepo billing.EntitlementRepository,
+	subscriptionRepo billing.SubscriptionRepository,
 	auditLogRepo billing.BillingAuditLogRepository,
 ) *AdminTenantUsecase {
 	return &AdminTenantUsecase{
-		txManager:       txManager,
-		tenantRepo:      tenantRepo,
-		adminRepo:       adminRepo,
-		entitlementRepo: entitlementRepo,
-		auditLogRepo:    auditLogRepo,
+		txManager:        txManager,
+		tenantRepo:       tenantRepo,
+		adminRepo:        adminRepo,
+		entitlementRepo:  entitlementRepo,
+		subscriptionRepo: subscriptionRepo,
+		auditLogRepo:     auditLogRepo,
 	}
 }
 
@@ -102,7 +105,19 @@ type TenantDetailOutput struct {
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 	Entitlements []EntitlementInfo
+	Subscription *SubscriptionInfo
 	Admins       []AdminInfo
+}
+
+// SubscriptionInfo represents subscription information for tenant detail
+type SubscriptionInfo struct {
+	SubscriptionID       billing.SubscriptionID
+	StripeCustomerID     string
+	StripeSubscriptionID string
+	Status               billing.SubscriptionStatus
+	CurrentPeriodEnd     *time.Time
+	CreatedAt            time.Time
+	UpdatedAt            time.Time
 }
 
 // EntitlementInfo represents entitlement information
@@ -148,6 +163,24 @@ func (uc *AdminTenantUsecase) GetDetail(ctx context.Context, tenantID common.Ten
 		}
 	}
 
+	// Fetch subscription for the tenant
+	var subscriptionInfo *SubscriptionInfo
+	sub, err := uc.subscriptionRepo.FindByTenantID(ctx, tenantID)
+	if err != nil && !common.IsNotFoundError(err) {
+		return nil, fmt.Errorf("failed to find subscription: %w", err)
+	}
+	if sub != nil {
+		subscriptionInfo = &SubscriptionInfo{
+			SubscriptionID:       sub.SubscriptionID(),
+			StripeCustomerID:     sub.StripeCustomerID(),
+			StripeSubscriptionID: sub.StripeSubscriptionID(),
+			Status:               sub.Status(),
+			CurrentPeriodEnd:     sub.CurrentPeriodEnd(),
+			CreatedAt:            sub.CreatedAt(),
+			UpdatedAt:            sub.UpdatedAt(),
+		}
+	}
+
 	// Fetch admins for the tenant
 	admins, err := uc.adminRepo.FindByTenantID(ctx, tenantID)
 	if err != nil {
@@ -172,6 +205,7 @@ func (uc *AdminTenantUsecase) GetDetail(ctx context.Context, tenantID common.Ten
 		CreatedAt:    t.CreatedAt(),
 		UpdatedAt:    t.UpdatedAt(),
 		Entitlements: entitlementInfos,
+		Subscription: subscriptionInfo,
 		Admins:       adminInfos,
 	}, nil
 }
