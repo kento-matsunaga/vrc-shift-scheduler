@@ -45,6 +45,12 @@ services:
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
       ENABLE_AUDIT_LOG: ${ENABLE_AUDIT_LOG:-false}
       ENABLE_NOTIFICATION: ${ENABLE_NOTIFICATION:-false}
+      # AWS SES (Email)
+      AWS_REGION: ${AWS_REGION:-}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_SES_FROM_EMAIL: ${AWS_SES_FROM_EMAIL:-}
+      INVITATION_BASE_URL: ${INVITATION_BASE_URL:-https://vrcshift.com}
     ports:
       - "8080:8080"
     healthcheck:
