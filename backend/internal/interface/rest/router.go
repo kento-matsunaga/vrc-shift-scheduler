@@ -483,27 +483,40 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			r.Get("/{id}", tutorialHandler.Get)
 		})
 
-		// Billing API（課金管理 - Stripeカスタマーポータル）
+		// Billing API（課金管理 - Stripeカスタマーポータル、課金状態）
 		stripeSecretKey := os.Getenv("STRIPE_SECRET_KEY")
 		billingPortalReturnURL := os.Getenv("BILLING_PORTAL_RETURN_URL")
 		if billingPortalReturnURL == "" {
 			billingPortalReturnURL = "https://vrcshift.com/admin/settings"
 		}
+
+		billingSubscriptionRepo := db.NewSubscriptionRepository(dbPool)
+		billingStatusUsecase := apppayment.NewBillingStatusUsecase(
+			billingSubscriptionRepo,
+			entitlementRepo,
+		)
+
+		var billingHandler *BillingHandler
 		if stripeSecretKey != "" {
-			billingSubscriptionRepo := db.NewSubscriptionRepository(dbPool)
 			billingStripeClient := infrastripe.NewClient(stripeSecretKey)
 			billingPortalUsecase := apppayment.NewBillingPortalUsecase(
 				billingSubscriptionRepo,
 				billingStripeClient,
 				billingPortalReturnURL,
 			)
-			billingPortalHandler := NewBillingPortalHandler(billingPortalUsecase)
-
-			r.Route("/billing", func(r chi.Router) {
-				// カスタマーポータルセッション作成（カード変更、解約など）
-				r.Post("/portal", billingPortalHandler.CreatePortalSession)
-			})
+			billingHandler = NewBillingHandler(billingPortalUsecase, billingStatusUsecase)
+		} else {
+			billingHandler = NewBillingHandler(nil, billingStatusUsecase)
 		}
+
+		r.Route("/billing", func(r chi.Router) {
+			// 課金状態取得
+			r.Get("/status", billingHandler.GetStatus)
+			// カスタマーポータルセッション作成（カード変更、解約など）- Stripe設定時のみ
+			if stripeSecretKey != "" {
+				r.Post("/portal", billingHandler.CreatePortalSession)
+			}
+		})
 	})
 
 	// ============================================================
