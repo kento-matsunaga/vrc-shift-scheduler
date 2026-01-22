@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import Landing from './pages/Landing';
 import AdminLogin from './pages/AdminLogin';
 import AdminInvitation from './pages/AdminInvitation';
 import AcceptInvitation from './pages/AcceptInvitation';
@@ -69,6 +70,9 @@ function App() {
 
   return (
     <Routes>
+      {/* ランディングページ（認証不要） */}
+      <Route path="/" element={<Landing />} />
+
       {/* 管理者ログイン（ログイン済みの場合は /events へリダイレクト） */}
       <Route path="/admin/login" element={isLoggedIn ? <Navigate to="/events" replace /> : <AdminLogin />} />
       <Route path="/login" element={<Navigate to="/admin/login" replace />} />
@@ -86,9 +90,14 @@ function App() {
       {/* パスワードリセット（認証不要） */}
       <Route path="/reset-password" element={<PasswordReset />} />
 
+      {/* Stripe サブスク登録（認証不要・未実装、将来用） */}
+      <Route path="/subscribe" element={<div className="p-8 text-center text-white bg-gray-900 min-h-screen">Coming Soon - Subscribe Page</div>} />
+
       {/* ログイン必須の画面 */}
-      <Route path="/" element={isLoggedIn ? <Layout /> : <Navigate to="/admin/login" replace />}>
+      <Route path="/admin" element={isLoggedIn ? <Layout /> : <Navigate to="/admin/login" replace />}>
         <Route index element={<Navigate to="/events" replace />} />
+      </Route>
+      <Route path="/" element={isLoggedIn ? <Layout /> : <Navigate to="/admin/login" replace />}>
         <Route path="events" element={<EventList />} />
         <Route path="events/:eventId/business-days" element={<BusinessDayList />} />
         <Route path="events/:eventId/templates" element={<TemplateList />} />
