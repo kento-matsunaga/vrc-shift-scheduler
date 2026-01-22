@@ -28,3 +28,13 @@ dist-ssr
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+
+# Images - ソースファイル（最終版のみコミット）
+*.psd
+*.ai
+*.sketch
+*.fig
+
+# 一時ファイル
+*.tmp
+*~
