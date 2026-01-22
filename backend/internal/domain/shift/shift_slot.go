@@ -173,6 +173,10 @@ func (s *ShiftSlot) validate() error {
 	// 時刻の前後関係チェック（深夜営業対応）
 	// start_time < end_time OR end_time < start_time のどちらかを満たす必要がある
 	// （深夜営業の場合、end_time が start_time より前になる）
+	// ただし、同じ時刻は不正とする
+	if s.startTime.Equal(s.endTime) {
+		return common.NewValidationError("start_time and end_time must be different", nil)
+	}
 
 	return nil
 }
@@ -286,6 +290,12 @@ func (s *ShiftSlot) SetInstanceID(instanceID InstanceID) {
 	s.updatedAt = time.Now()
 }
 
+// ClearInstanceID clears the instance ID (used when deleting an instance)
+func (s *ShiftSlot) ClearInstanceID() {
+	s.instanceID = nil
+	s.updatedAt = time.Now()
+}
+
 // Delete marks the slot as deleted (soft delete)
 func (s *ShiftSlot) Delete() {
 	now := time.Now()
@@ -294,8 +304,9 @@ func (s *ShiftSlot) Delete() {
 }
 
 // IsOvernight returns true if the shift crosses midnight
+// 注: 同じ時刻（21:00-21:00）は深夜営業とみなさない（バリデーションで弾かれるべき）
 func (s *ShiftSlot) IsOvernight() bool {
-	return s.endTime.Before(s.startTime) || s.endTime.Equal(s.startTime)
+	return s.endTime.Before(s.startTime)
 }
 
 // StartTimeString returns the start time as HH:MM string

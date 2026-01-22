@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { login } from '../lib/api/authApi';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 
 export default function AdminLogin() {
   const navigate = useNavigate();
@@ -8,6 +9,8 @@ export default function AdminLogin() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  useDocumentTitle('ログイン');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

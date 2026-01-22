@@ -18,9 +18,11 @@ import (
 // =====================================================
 
 type MockShiftSlotRepository struct {
-	saveFunc              func(ctx context.Context, slot *shift.ShiftSlot) error
-	findByIDFunc          func(ctx context.Context, tenantID common.TenantID, slotID shift.SlotID) (*shift.ShiftSlot, error)
-	findByBusinessDayFunc func(ctx context.Context, tenantID common.TenantID, businessDayID event.BusinessDayID) ([]*shift.ShiftSlot, error)
+	saveFunc                            func(ctx context.Context, slot *shift.ShiftSlot) error
+	findByIDFunc                        func(ctx context.Context, tenantID common.TenantID, slotID shift.SlotID) (*shift.ShiftSlot, error)
+	findByBusinessDayFunc               func(ctx context.Context, tenantID common.TenantID, businessDayID event.BusinessDayID) ([]*shift.ShiftSlot, error)
+	findByInstanceIDFunc                func(ctx context.Context, tenantID common.TenantID, instanceID shift.InstanceID) ([]*shift.ShiftSlot, error)
+	findByBusinessDayIDAndInstanceIDFunc func(ctx context.Context, tenantID common.TenantID, businessDayID event.BusinessDayID, instanceID shift.InstanceID) ([]*shift.ShiftSlot, error)
 }
 
 func (m *MockShiftSlotRepository) Save(ctx context.Context, slot *shift.ShiftSlot) error {
@@ -40,6 +42,20 @@ func (m *MockShiftSlotRepository) FindByID(ctx context.Context, tenantID common.
 func (m *MockShiftSlotRepository) FindByBusinessDayID(ctx context.Context, tenantID common.TenantID, businessDayID event.BusinessDayID) ([]*shift.ShiftSlot, error) {
 	if m.findByBusinessDayFunc != nil {
 		return m.findByBusinessDayFunc(ctx, tenantID, businessDayID)
+	}
+	return nil, nil
+}
+
+func (m *MockShiftSlotRepository) FindByInstanceID(ctx context.Context, tenantID common.TenantID, instanceID shift.InstanceID) ([]*shift.ShiftSlot, error) {
+	if m.findByInstanceIDFunc != nil {
+		return m.findByInstanceIDFunc(ctx, tenantID, instanceID)
+	}
+	return nil, nil
+}
+
+func (m *MockShiftSlotRepository) FindByBusinessDayIDAndInstanceID(ctx context.Context, tenantID common.TenantID, businessDayID event.BusinessDayID, instanceID shift.InstanceID) ([]*shift.ShiftSlot, error) {
+	if m.findByBusinessDayIDAndInstanceIDFunc != nil {
+		return m.findByBusinessDayIDAndInstanceIDFunc(ctx, tenantID, businessDayID, instanceID)
 	}
 	return nil, nil
 }
@@ -199,9 +215,10 @@ func (m *MockMemberRepository) ExistsByDiscordUserID(ctx context.Context, tenant
 }
 
 type MockInstanceRepository struct {
-	findByIDFunc          func(ctx context.Context, tenantID common.TenantID, instanceID shift.InstanceID) (*shift.Instance, error)
-	findByEventIDFunc     func(ctx context.Context, tenantID common.TenantID, eventID common.EventID) ([]*shift.Instance, error)
+	findByIDFunc             func(ctx context.Context, tenantID common.TenantID, instanceID shift.InstanceID) (*shift.Instance, error)
+	findByEventIDFunc        func(ctx context.Context, tenantID common.TenantID, eventID common.EventID) ([]*shift.Instance, error)
 	findByEventIDAndNameFunc func(ctx context.Context, tenantID common.TenantID, eventID common.EventID, name string) (*shift.Instance, error)
+	deleteFunc               func(ctx context.Context, tenantID common.TenantID, instanceID shift.InstanceID) error
 }
 
 func (m *MockInstanceRepository) Save(ctx context.Context, instance *shift.Instance) error {
@@ -230,6 +247,9 @@ func (m *MockInstanceRepository) FindByEventIDAndName(ctx context.Context, tenan
 }
 
 func (m *MockInstanceRepository) Delete(ctx context.Context, tenantID common.TenantID, instanceID shift.InstanceID) error {
+	if m.deleteFunc != nil {
+		return m.deleteFunc(ctx, tenantID, instanceID)
+	}
 	return nil
 }
 
@@ -243,6 +263,19 @@ func (m *MockMemberRepository) FindByEmail(ctx context.Context, tenantID common.
 
 func (m *MockMemberRepository) ExistsByEmail(ctx context.Context, tenantID common.TenantID, email string) (bool, error) {
 	return false, nil
+}
+
+// MockTxManager is a mock implementation of TxManager for testing
+type MockTxManager struct {
+	withTxFunc func(ctx context.Context, fn func(context.Context) error) error
+}
+
+func (m *MockTxManager) WithTx(ctx context.Context, fn func(context.Context) error) error {
+	if m.withTxFunc != nil {
+		return m.withTxFunc(ctx, fn)
+	}
+	// Default implementation: just call the function without actual transaction
+	return fn(ctx)
 }
 
 // =====================================================
@@ -971,5 +1004,564 @@ func TestCancelAssignmentUsecase_Execute_ErrorWhenDeleteFails(t *testing.T) {
 
 	if err == nil {
 		t.Fatal("Execute() should fail when delete fails")
+	}
+}
+
+// =====================================================
+// Helper function to create test instance
+// =====================================================
+
+func createTestInstance(t *testing.T, tenantID common.TenantID, eventID common.EventID) *shift.Instance {
+	t.Helper()
+	now := time.Now()
+	instance, err := shift.NewInstance(now, tenantID, eventID, "テストインスタンス", 1, nil)
+	if err != nil {
+		t.Fatalf("Failed to create test instance: %v", err)
+	}
+	return instance
+}
+
+func createTestShiftSlotWithInstance(t *testing.T, tenantID common.TenantID, businessDayID event.BusinessDayID, instanceID *shift.InstanceID) *shift.ShiftSlot {
+	t.Helper()
+	now := time.Now()
+
+	slot, err := shift.NewShiftSlot(
+		now,
+		tenantID,
+		businessDayID,
+		instanceID,
+		"テストシフト",
+		"VRChat Japan",
+		time.Date(2024, 1, 1, 20, 0, 0, 0, time.UTC),
+		time.Date(2024, 1, 1, 22, 0, 0, 0, time.UTC),
+		3,
+		1,
+	)
+	if err != nil {
+		t.Fatalf("Failed to create test shift slot: %v", err)
+	}
+	return slot
+}
+
+// =====================================================
+// DeleteInstanceUsecase Tests
+// =====================================================
+
+func TestDeleteInstanceUsecase_CheckDeletable_Success_CanDelete(t *testing.T) {
+	tenantID := common.NewTenantID()
+	eventID := common.NewEventID()
+	instance := createTestInstance(t, tenantID, eventID)
+	instanceID := instance.InstanceID()
+
+	instanceRepo := &MockInstanceRepository{
+		findByIDFunc: func(ctx context.Context, tid common.TenantID, iid shift.InstanceID) (*shift.Instance, error) {
+			return instance, nil
+		},
+	}
+
+	slotRepo := &MockShiftSlotRepository{
+		findByInstanceIDFunc: func(ctx context.Context, tid common.TenantID, iid shift.InstanceID) ([]*shift.ShiftSlot, error) {
+			return []*shift.ShiftSlot{}, nil // No slots
+		},
+	}
+
+	assignmentRepo := &MockShiftAssignmentRepository{}
+
+	usecase := appshift.NewDeleteInstanceUsecase(&MockTxManager{}, instanceRepo, slotRepo, assignmentRepo)
+
+	input := appshift.DeleteInstanceInput{
+		TenantID:   tenantID,
+		InstanceID: instanceID,
+	}
+
+	result, err := usecase.CheckDeletable(context.Background(), input)
+
+	if err != nil {
+		t.Fatalf("CheckDeletable() should succeed, got error: %v", err)
+	}
+
+	if !result.CanDelete {
+		t.Error("CanDelete should be true when no slots exist")
+	}
+
+	if result.SlotCount != 0 {
+		t.Errorf("SlotCount should be 0, got %d", result.SlotCount)
+	}
+}
+
+func TestDeleteInstanceUsecase_CheckDeletable_CannotDelete_HasAssignedSlots(t *testing.T) {
+	tenantID := common.NewTenantID()
+	eventID := common.NewEventID()
+	instance := createTestInstance(t, tenantID, eventID)
+	instanceID := instance.InstanceID()
+	businessDayID := event.NewBusinessDayID()
+
+	// シフト枠を作成
+	slot := createTestShiftSlotWithInstance(t, tenantID, businessDayID, &instanceID)
+
+	instanceRepo := &MockInstanceRepository{
+		findByIDFunc: func(ctx context.Context, tid common.TenantID, iid shift.InstanceID) (*shift.Instance, error) {
+			return instance, nil
+		},
+	}
+
+	slotRepo := &MockShiftSlotRepository{
+		findByInstanceIDFunc: func(ctx context.Context, tid common.TenantID, iid shift.InstanceID) ([]*shift.ShiftSlot, error) {
+			return []*shift.ShiftSlot{slot}, nil
+		},
+	}
+
+	assignmentRepo := &MockShiftAssignmentRepository{
+		countConfirmedBySlotFunc: func(ctx context.Context, tid common.TenantID, slotID shift.SlotID) (int, error) {
+			return 2, nil // Has assignments
+		},
+	}
+
+	usecase := appshift.NewDeleteInstanceUsecase(&MockTxManager{}, instanceRepo, slotRepo, assignmentRepo)
+
+	input := appshift.DeleteInstanceInput{
+		TenantID:   tenantID,
+		InstanceID: instanceID,
+	}
+
+	result, err := usecase.CheckDeletable(context.Background(), input)
+
+	if err != nil {
+		t.Fatalf("CheckDeletable() should succeed, got error: %v", err)
+	}
+
+	if result.CanDelete {
+		t.Error("CanDelete should be false when assigned slots exist")
+	}
+
+	if result.SlotCount != 1 {
+		t.Errorf("SlotCount should be 1, got %d", result.SlotCount)
+	}
+
+	if result.AssignedSlots != 1 {
+		t.Errorf("AssignedSlots should be 1, got %d", result.AssignedSlots)
+	}
+
+	if result.BlockingReason == "" {
+		t.Error("BlockingReason should not be empty")
+	}
+}
+
+func TestDeleteInstanceUsecase_CheckDeletable_CanDelete_NoAssignedSlots(t *testing.T) {
+	tenantID := common.NewTenantID()
+	eventID := common.NewEventID()
+	instance := createTestInstance(t, tenantID, eventID)
+	instanceID := instance.InstanceID()
+	businessDayID := event.NewBusinessDayID()
+
+	// シフト枠を作成（担当なし）
+	slot := createTestShiftSlotWithInstance(t, tenantID, businessDayID, &instanceID)
+
+	instanceRepo := &MockInstanceRepository{
+		findByIDFunc: func(ctx context.Context, tid common.TenantID, iid shift.InstanceID) (*shift.Instance, error) {
+			return instance, nil
+		},
+	}
+
+	slotRepo := &MockShiftSlotRepository{
+		findByInstanceIDFunc: func(ctx context.Context, tid common.TenantID, iid shift.InstanceID) ([]*shift.ShiftSlot, error) {
+			return []*shift.ShiftSlot{slot}, nil
+		},
+	}
+
+	assignmentRepo := &MockShiftAssignmentRepository{
+		countConfirmedBySlotFunc: func(ctx context.Context, tid common.TenantID, slotID shift.SlotID) (int, error) {
+			return 0, nil // No assignments
+		},
+	}
+
+	usecase := appshift.NewDeleteInstanceUsecase(&MockTxManager{}, instanceRepo, slotRepo, assignmentRepo)
+
+	input := appshift.DeleteInstanceInput{
+		TenantID:   tenantID,
+		InstanceID: instanceID,
+	}
+
+	result, err := usecase.CheckDeletable(context.Background(), input)
+
+	if err != nil {
+		t.Fatalf("CheckDeletable() should succeed, got error: %v", err)
+	}
+
+	if !result.CanDelete {
+		t.Error("CanDelete should be true when no assignments exist")
+	}
+
+	if result.SlotCount != 1 {
+		t.Errorf("SlotCount should be 1, got %d", result.SlotCount)
+	}
+}
+
+func TestDeleteInstanceUsecase_CheckDeletable_ErrorWhenInstanceNotFound(t *testing.T) {
+	tenantID := common.NewTenantID()
+	instanceID := shift.NewInstanceIDWithTime(time.Now())
+
+	instanceRepo := &MockInstanceRepository{
+		findByIDFunc: func(ctx context.Context, tid common.TenantID, iid shift.InstanceID) (*shift.Instance, error) {
+			return nil, common.NewNotFoundError("instance", iid.String())
+		},
+	}
+
+	slotRepo := &MockShiftSlotRepository{}
+	assignmentRepo := &MockShiftAssignmentRepository{}
+
+	usecase := appshift.NewDeleteInstanceUsecase(&MockTxManager{}, instanceRepo, slotRepo, assignmentRepo)
+
+	input := appshift.DeleteInstanceInput{
+		TenantID:   tenantID,
+		InstanceID: instanceID,
+	}
+
+	_, err := usecase.CheckDeletable(context.Background(), input)
+
+	if err == nil {
+		t.Fatal("CheckDeletable() should fail when instance not found")
+	}
+}
+
+func TestDeleteInstanceUsecase_Execute_Success(t *testing.T) {
+	tenantID := common.NewTenantID()
+	eventID := common.NewEventID()
+	instance := createTestInstance(t, tenantID, eventID)
+	instanceID := instance.InstanceID()
+	businessDayID := event.NewBusinessDayID()
+
+	// シフト枠を作成（担当なし）
+	slot := createTestShiftSlotWithInstance(t, tenantID, businessDayID, &instanceID)
+	savedSlots := []*shift.ShiftSlot{}
+
+	instanceRepo := &MockInstanceRepository{
+		findByIDFunc: func(ctx context.Context, tid common.TenantID, iid shift.InstanceID) (*shift.Instance, error) {
+			return instance, nil
+		},
+		deleteFunc: func(ctx context.Context, tid common.TenantID, iid shift.InstanceID) error {
+			return nil
+		},
+	}
+
+	slotRepo := &MockShiftSlotRepository{
+		findByInstanceIDFunc: func(ctx context.Context, tid common.TenantID, iid shift.InstanceID) ([]*shift.ShiftSlot, error) {
+			return []*shift.ShiftSlot{slot}, nil
+		},
+		saveFunc: func(ctx context.Context, s *shift.ShiftSlot) error {
+			savedSlots = append(savedSlots, s)
+			return nil
+		},
+	}
+
+	assignmentRepo := &MockShiftAssignmentRepository{
+		countConfirmedBySlotFunc: func(ctx context.Context, tid common.TenantID, slotID shift.SlotID) (int, error) {
+			return 0, nil
+		},
+	}
+
+	usecase := appshift.NewDeleteInstanceUsecase(&MockTxManager{}, instanceRepo, slotRepo, assignmentRepo)
+
+	input := appshift.DeleteInstanceInput{
+		TenantID:   tenantID,
+		InstanceID: instanceID,
+	}
+
+	err := usecase.Execute(context.Background(), input)
+
+	if err != nil {
+		t.Fatalf("Execute() should succeed, got error: %v", err)
+	}
+
+	// シフト枠がソフトデリートされたことを確認
+	if len(savedSlots) != 1 {
+		t.Errorf("Expected 1 slot to be saved, got %d", len(savedSlots))
+	}
+}
+
+func TestDeleteInstanceUsecase_Execute_ErrorWhenHasAssignedSlots(t *testing.T) {
+	tenantID := common.NewTenantID()
+	eventID := common.NewEventID()
+	instance := createTestInstance(t, tenantID, eventID)
+	instanceID := instance.InstanceID()
+	businessDayID := event.NewBusinessDayID()
+
+	slot := createTestShiftSlotWithInstance(t, tenantID, businessDayID, &instanceID)
+
+	instanceRepo := &MockInstanceRepository{
+		findByIDFunc: func(ctx context.Context, tid common.TenantID, iid shift.InstanceID) (*shift.Instance, error) {
+			return instance, nil
+		},
+	}
+
+	slotRepo := &MockShiftSlotRepository{
+		findByInstanceIDFunc: func(ctx context.Context, tid common.TenantID, iid shift.InstanceID) ([]*shift.ShiftSlot, error) {
+			return []*shift.ShiftSlot{slot}, nil
+		},
+	}
+
+	assignmentRepo := &MockShiftAssignmentRepository{
+		countConfirmedBySlotFunc: func(ctx context.Context, tid common.TenantID, slotID shift.SlotID) (int, error) {
+			return 1, nil // Has assignments
+		},
+	}
+
+	usecase := appshift.NewDeleteInstanceUsecase(&MockTxManager{}, instanceRepo, slotRepo, assignmentRepo)
+
+	input := appshift.DeleteInstanceInput{
+		TenantID:   tenantID,
+		InstanceID: instanceID,
+	}
+
+	err := usecase.Execute(context.Background(), input)
+
+	if err == nil {
+		t.Fatal("Execute() should fail when assigned slots exist")
+	}
+}
+
+// =====================================================
+// DeleteSlotsByInstanceUsecase Tests
+// =====================================================
+
+func TestDeleteSlotsByInstanceUsecase_CheckDeletable_Success_NoSlots(t *testing.T) {
+	tenantID := common.NewTenantID()
+	businessDayID := event.NewBusinessDayID()
+	instanceID := shift.NewInstanceIDWithTime(time.Now())
+
+	slotRepo := &MockShiftSlotRepository{
+		findByBusinessDayIDAndInstanceIDFunc: func(ctx context.Context, tid common.TenantID, bdID event.BusinessDayID, iid shift.InstanceID) ([]*shift.ShiftSlot, error) {
+			return []*shift.ShiftSlot{}, nil // No slots
+		},
+	}
+
+	assignmentRepo := &MockShiftAssignmentRepository{}
+
+	usecase := appshift.NewDeleteSlotsByInstanceUsecase(&MockTxManager{}, slotRepo, assignmentRepo)
+
+	input := appshift.DeleteSlotsByInstanceInput{
+		TenantID:      tenantID,
+		BusinessDayID: businessDayID,
+		InstanceID:    instanceID,
+	}
+
+	result, err := usecase.CheckDeletable(context.Background(), input)
+
+	if err != nil {
+		t.Fatalf("CheckDeletable() should succeed, got error: %v", err)
+	}
+
+	if !result.CanDelete {
+		t.Error("CanDelete should be true when no slots exist")
+	}
+
+	if result.SlotCount != 0 {
+		t.Errorf("SlotCount should be 0, got %d", result.SlotCount)
+	}
+}
+
+func TestDeleteSlotsByInstanceUsecase_CheckDeletable_CanDelete_NoAssignments(t *testing.T) {
+	tenantID := common.NewTenantID()
+	businessDayID := event.NewBusinessDayID()
+	instanceID := shift.NewInstanceIDWithTime(time.Now())
+
+	slot1 := createTestShiftSlotWithInstance(t, tenantID, businessDayID, &instanceID)
+	slot2 := createTestShiftSlotWithInstance(t, tenantID, businessDayID, &instanceID)
+
+	slotRepo := &MockShiftSlotRepository{
+		findByBusinessDayIDAndInstanceIDFunc: func(ctx context.Context, tid common.TenantID, bdID event.BusinessDayID, iid shift.InstanceID) ([]*shift.ShiftSlot, error) {
+			return []*shift.ShiftSlot{slot1, slot2}, nil
+		},
+	}
+
+	assignmentRepo := &MockShiftAssignmentRepository{
+		countConfirmedBySlotFunc: func(ctx context.Context, tid common.TenantID, slotID shift.SlotID) (int, error) {
+			return 0, nil // No assignments
+		},
+	}
+
+	usecase := appshift.NewDeleteSlotsByInstanceUsecase(&MockTxManager{}, slotRepo, assignmentRepo)
+
+	input := appshift.DeleteSlotsByInstanceInput{
+		TenantID:      tenantID,
+		BusinessDayID: businessDayID,
+		InstanceID:    instanceID,
+	}
+
+	result, err := usecase.CheckDeletable(context.Background(), input)
+
+	if err != nil {
+		t.Fatalf("CheckDeletable() should succeed, got error: %v", err)
+	}
+
+	if !result.CanDelete {
+		t.Error("CanDelete should be true when no assignments exist")
+	}
+
+	if result.SlotCount != 2 {
+		t.Errorf("SlotCount should be 2, got %d", result.SlotCount)
+	}
+}
+
+func TestDeleteSlotsByInstanceUsecase_CheckDeletable_CannotDelete_HasAssignments(t *testing.T) {
+	tenantID := common.NewTenantID()
+	businessDayID := event.NewBusinessDayID()
+	instanceID := shift.NewInstanceIDWithTime(time.Now())
+
+	slot1 := createTestShiftSlotWithInstance(t, tenantID, businessDayID, &instanceID)
+	slot2 := createTestShiftSlotWithInstance(t, tenantID, businessDayID, &instanceID)
+
+	slotRepo := &MockShiftSlotRepository{
+		findByBusinessDayIDAndInstanceIDFunc: func(ctx context.Context, tid common.TenantID, bdID event.BusinessDayID, iid shift.InstanceID) ([]*shift.ShiftSlot, error) {
+			return []*shift.ShiftSlot{slot1, slot2}, nil
+		},
+	}
+
+	callCount := 0
+	assignmentRepo := &MockShiftAssignmentRepository{
+		countConfirmedBySlotFunc: func(ctx context.Context, tid common.TenantID, slotID shift.SlotID) (int, error) {
+			callCount++
+			if callCount == 1 {
+				return 1, nil // First slot has assignments
+			}
+			return 0, nil
+		},
+	}
+
+	usecase := appshift.NewDeleteSlotsByInstanceUsecase(&MockTxManager{}, slotRepo, assignmentRepo)
+
+	input := appshift.DeleteSlotsByInstanceInput{
+		TenantID:      tenantID,
+		BusinessDayID: businessDayID,
+		InstanceID:    instanceID,
+	}
+
+	result, err := usecase.CheckDeletable(context.Background(), input)
+
+	if err != nil {
+		t.Fatalf("CheckDeletable() should succeed, got error: %v", err)
+	}
+
+	if result.CanDelete {
+		t.Error("CanDelete should be false when assignments exist")
+	}
+
+	if result.SlotCount != 2 {
+		t.Errorf("SlotCount should be 2, got %d", result.SlotCount)
+	}
+
+	if result.AssignedSlots != 1 {
+		t.Errorf("AssignedSlots should be 1, got %d", result.AssignedSlots)
+	}
+
+	if result.BlockingReason == "" {
+		t.Error("BlockingReason should not be empty")
+	}
+}
+
+func TestDeleteSlotsByInstanceUsecase_Execute_Success(t *testing.T) {
+	tenantID := common.NewTenantID()
+	businessDayID := event.NewBusinessDayID()
+	instanceID := shift.NewInstanceIDWithTime(time.Now())
+
+	slot1 := createTestShiftSlotWithInstance(t, tenantID, businessDayID, &instanceID)
+	slot2 := createTestShiftSlotWithInstance(t, tenantID, businessDayID, &instanceID)
+	savedSlots := []*shift.ShiftSlot{}
+
+	slotRepo := &MockShiftSlotRepository{
+		findByBusinessDayIDAndInstanceIDFunc: func(ctx context.Context, tid common.TenantID, bdID event.BusinessDayID, iid shift.InstanceID) ([]*shift.ShiftSlot, error) {
+			return []*shift.ShiftSlot{slot1, slot2}, nil
+		},
+		saveFunc: func(ctx context.Context, s *shift.ShiftSlot) error {
+			savedSlots = append(savedSlots, s)
+			return nil
+		},
+	}
+
+	assignmentRepo := &MockShiftAssignmentRepository{
+		countConfirmedBySlotFunc: func(ctx context.Context, tid common.TenantID, slotID shift.SlotID) (int, error) {
+			return 0, nil
+		},
+	}
+
+	usecase := appshift.NewDeleteSlotsByInstanceUsecase(&MockTxManager{}, slotRepo, assignmentRepo)
+
+	input := appshift.DeleteSlotsByInstanceInput{
+		TenantID:      tenantID,
+		BusinessDayID: businessDayID,
+		InstanceID:    instanceID,
+	}
+
+	err := usecase.Execute(context.Background(), input)
+
+	if err != nil {
+		t.Fatalf("Execute() should succeed, got error: %v", err)
+	}
+
+	// 2つのシフト枠がソフトデリートされたことを確認
+	if len(savedSlots) != 2 {
+		t.Errorf("Expected 2 slots to be saved, got %d", len(savedSlots))
+	}
+}
+
+func TestDeleteSlotsByInstanceUsecase_Execute_ErrorWhenHasAssignments(t *testing.T) {
+	tenantID := common.NewTenantID()
+	businessDayID := event.NewBusinessDayID()
+	instanceID := shift.NewInstanceIDWithTime(time.Now())
+
+	slot := createTestShiftSlotWithInstance(t, tenantID, businessDayID, &instanceID)
+
+	slotRepo := &MockShiftSlotRepository{
+		findByBusinessDayIDAndInstanceIDFunc: func(ctx context.Context, tid common.TenantID, bdID event.BusinessDayID, iid shift.InstanceID) ([]*shift.ShiftSlot, error) {
+			return []*shift.ShiftSlot{slot}, nil
+		},
+	}
+
+	assignmentRepo := &MockShiftAssignmentRepository{
+		countConfirmedBySlotFunc: func(ctx context.Context, tid common.TenantID, slotID shift.SlotID) (int, error) {
+			return 1, nil // Has assignments
+		},
+	}
+
+	usecase := appshift.NewDeleteSlotsByInstanceUsecase(&MockTxManager{}, slotRepo, assignmentRepo)
+
+	input := appshift.DeleteSlotsByInstanceInput{
+		TenantID:      tenantID,
+		BusinessDayID: businessDayID,
+		InstanceID:    instanceID,
+	}
+
+	err := usecase.Execute(context.Background(), input)
+
+	if err == nil {
+		t.Fatal("Execute() should fail when assignments exist")
+	}
+}
+
+func TestDeleteSlotsByInstanceUsecase_Execute_ErrorWhenSlotRepoFails(t *testing.T) {
+	tenantID := common.NewTenantID()
+	businessDayID := event.NewBusinessDayID()
+	instanceID := shift.NewInstanceIDWithTime(time.Now())
+
+	slotRepo := &MockShiftSlotRepository{
+		findByBusinessDayIDAndInstanceIDFunc: func(ctx context.Context, tid common.TenantID, bdID event.BusinessDayID, iid shift.InstanceID) ([]*shift.ShiftSlot, error) {
+			return nil, errors.New("database error")
+		},
+	}
+
+	assignmentRepo := &MockShiftAssignmentRepository{}
+
+	usecase := appshift.NewDeleteSlotsByInstanceUsecase(&MockTxManager{}, slotRepo, assignmentRepo)
+
+	input := appshift.DeleteSlotsByInstanceInput{
+		TenantID:      tenantID,
+		BusinessDayID: businessDayID,
+		InstanceID:    instanceID,
+	}
+
+	_, err := usecase.CheckDeletable(context.Background(), input)
+
+	if err == nil {
+		t.Fatal("CheckDeletable() should fail when repository fails")
 	}
 }

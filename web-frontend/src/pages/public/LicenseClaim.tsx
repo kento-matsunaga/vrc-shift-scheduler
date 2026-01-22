@@ -1,9 +1,13 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { claimLicense } from '../../lib/api/billingApi';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 
 export default function LicenseClaim() {
   const navigate = useNavigate();
+
+  useDocumentTitle('ライセンス登録');
+
   const [formData, setFormData] = useState({
     email: '',
     password: '',

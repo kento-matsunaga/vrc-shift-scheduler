@@ -90,10 +90,10 @@ func (td *TargetDate) validate() error {
 		}
 	}
 
-	// 開始時間と終了時間の論理チェック
+	// 開始時間と終了時間の論理チェック（深夜営業対応: 同じ時刻のみ無効）
 	if td.startTime != nil && td.endTime != nil {
-		if *td.startTime >= *td.endTime {
-			return common.NewValidationError("start_time must be before end_time", nil)
+		if *td.startTime == *td.endTime {
+			return common.NewValidationError("start_time and end_time must be different", nil)
 		}
 	}
 
