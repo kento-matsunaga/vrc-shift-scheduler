@@ -33,8 +33,13 @@ export function Footer() {
             <Link to="/privacy" className="hover:text-white transition-colors py-1 min-h-[44px] flex items-center">
               プライバシーポリシー
             </Link>
-            <a href="mailto:support@vrcshift.com" className="hover:text-white transition-colors py-1 min-h-[44px] flex items-center">
-              お問い合わせ
+            <a
+              href="https://x.com/Noa_Fortevita"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-white transition-colors py-1 min-h-[44px] flex items-center gap-1"
+            >
+              お問い合わせはこちら
             </a>
           </nav>
 
