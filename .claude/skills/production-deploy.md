@@ -227,7 +227,6 @@ openssl rand -base64 64 | tr -d '\n'
 
 | Email | Password | Role |
 |-------|----------|------|
-| admin@test.com | password123 | owner |
 | admin1@example.com | password123 | owner |
 
 ---
