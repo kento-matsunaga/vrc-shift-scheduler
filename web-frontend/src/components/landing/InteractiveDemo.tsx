@@ -1,20 +1,35 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+
+type AttendanceStatus = 'available' | 'maybe' | 'unavailable';
+
+interface ShiftSlot {
+  id: string;
+  name: string;
+  time: string;
+  required: number;
+  assigned: number;
+}
+
+interface Member {
+  id: string;
+  name: string;
+  avatar: string;
+  status: AttendanceStatus;
+}
 
 // デモ用のモックデータ
-const mockShiftSlots = [
+const mockShiftSlots: ShiftSlot[] = [
   { id: '1', name: '受付', time: '21:00〜21:30', required: 2, assigned: 1 },
   { id: '2', name: 'MC', time: '21:30〜22:00', required: 1, assigned: 0 },
   { id: '3', name: 'フロア案内', time: '21:00〜23:00', required: 3, assigned: 2 },
 ];
 
-const mockMembers = [
+const mockMembers: Member[] = [
   { id: '1', name: 'Haruka', avatar: 'H', status: 'available' },
   { id: '2', name: 'Yuki', avatar: 'Y', status: 'available' },
   { id: '3', name: 'Sora', avatar: 'S', status: 'maybe' },
   { id: '4', name: 'Ren', avatar: 'R', status: 'unavailable' },
 ];
-
-type AttendanceStatus = 'available' | 'maybe' | 'unavailable';
 
 const statusColors: Record<AttendanceStatus, { bg: string; text: string; label: string }> = {
   available: { bg: 'bg-emerald-500/20', text: 'text-emerald-400', label: '○' },
@@ -22,19 +37,28 @@ const statusColors: Record<AttendanceStatus, { bg: string; text: string; label: 
   unavailable: { bg: 'bg-red-500/20', text: 'text-red-400', label: '×' },
 };
 
+const ANIMATION_INTERVAL_MS = 5000;
+
 export function InteractiveDemo() {
   const [activeTab, setActiveTab] = useState<'shifts' | 'attendance'>('shifts');
   const [highlightedSlot, setHighlightedSlot] = useState<string | null>(null);
   const [assigningMember, setAssigningMember] = useState<string | null>(null);
   const [slots, setSlots] = useState(mockShiftSlots);
   const [showAssignSuccess, setShowAssignSuccess] = useState(false);
+  const slotsRef = useRef(slots);
+
+  // slotsの最新値をrefに保持
+  useEffect(() => {
+    slotsRef.current = slots;
+  }, [slots]);
 
   // 自動アニメーション
   useEffect(() => {
     const interval = setInterval(() => {
       // シフトタブの場合: スロットをハイライト → メンバー割り当てアニメーション
       if (activeTab === 'shifts') {
-        const unfilledSlot = slots.find(s => s.assigned < s.required);
+        const currentSlots = slotsRef.current;
+        const unfilledSlot = currentSlots.find(s => s.assigned < s.required);
         if (unfilledSlot) {
           setHighlightedSlot(unfilledSlot.id);
           setTimeout(() => {
@@ -56,10 +80,10 @@ export function InteractiveDemo() {
           setSlots(mockShiftSlots);
         }
       }
-    }, 5000);
+    }, ANIMATION_INTERVAL_MS);
 
     return () => clearInterval(interval);
-  }, [activeTab, slots]);
+  }, [activeTab]);
 
   return (
     <div className="relative w-full max-w-sm sm:max-w-md">
@@ -210,10 +234,10 @@ export function InteractiveDemo() {
                   </div>
                   <span
                     className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center text-base sm:text-lg font-bold flex-shrink-0 ${
-                      statusColors[member.status as AttendanceStatus].bg
-                    } ${statusColors[member.status as AttendanceStatus].text}`}
+                      statusColors[member.status].bg
+                    } ${statusColors[member.status].text}`}
                   >
-                    {statusColors[member.status as AttendanceStatus].label}
+                    {statusColors[member.status].label}
                   </span>
                 </div>
               ))}
