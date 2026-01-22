@@ -173,6 +173,10 @@ func (s *ShiftSlot) validate() error {
 	// 時刻の前後関係チェック（深夜営業対応）
 	// start_time < end_time OR end_time < start_time のどちらかを満たす必要がある
 	// （深夜営業の場合、end_time が start_time より前になる）
+	// ただし、同じ時刻は不正とする
+	if s.startTime.Equal(s.endTime) {
+		return common.NewValidationError("start_time and end_time must be different", nil)
+	}
 
 	return nil
 }

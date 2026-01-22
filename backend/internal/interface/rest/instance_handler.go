@@ -2,7 +2,7 @@ package rest
 
 import (
 	"encoding/json"
-	"log"
+	"log/slog"
 	"net/http"
 
 	appshift "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/shift"
@@ -125,7 +125,11 @@ func (h *InstanceHandler) CreateInstance(w http.ResponseWriter, r *http.Request)
 
 	newInstance, err := h.createInstanceUC.Execute(ctx, input)
 	if err != nil {
-		log.Printf("CreateInstance error: %+v", err)
+		slog.Error("CreateInstance failed",
+			"error", err,
+			"tenant_id", tenantID.String(),
+			"event_id", eventID.String(),
+		)
 		RespondDomainError(w, err)
 		return
 	}
@@ -264,7 +268,11 @@ func (h *InstanceHandler) UpdateInstance(w http.ResponseWriter, r *http.Request)
 
 	updatedInstance, err := h.updateInstanceUC.Execute(ctx, input)
 	if err != nil {
-		log.Printf("UpdateInstance error: %+v", err)
+		slog.Error("UpdateInstance failed",
+			"error", err,
+			"tenant_id", tenantID.String(),
+			"instance_id", instanceID.String(),
+		)
 		RespondDomainError(w, err)
 		return
 	}
@@ -357,7 +365,11 @@ func (h *InstanceHandler) DeleteInstance(w http.ResponseWriter, r *http.Request)
 	}
 
 	if err := h.deleteInstanceUC.Execute(ctx, input); err != nil {
-		log.Printf("DeleteInstance error: %+v", err)
+		slog.Error("DeleteInstance failed",
+			"error", err,
+			"tenant_id", tenantID.String(),
+			"instance_id", instanceID.String(),
+		)
 		RespondDomainError(w, err)
 		return
 	}

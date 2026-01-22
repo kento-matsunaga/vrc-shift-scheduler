@@ -263,16 +263,19 @@ type DeleteSlotsByInstanceResult struct {
 
 // DeleteSlotsByInstanceUsecase handles bulk deletion of shift slots by business day and instance
 type DeleteSlotsByInstanceUsecase struct {
+	txManager      TxManager
 	slotRepo       shift.ShiftSlotRepository
 	assignmentRepo shift.ShiftAssignmentRepository
 }
 
 // NewDeleteSlotsByInstanceUsecase creates a new DeleteSlotsByInstanceUsecase
 func NewDeleteSlotsByInstanceUsecase(
+	txManager TxManager,
 	slotRepo shift.ShiftSlotRepository,
 	assignmentRepo shift.ShiftAssignmentRepository,
 ) *DeleteSlotsByInstanceUsecase {
 	return &DeleteSlotsByInstanceUsecase{
+		txManager:      txManager,
 		slotRepo:       slotRepo,
 		assignmentRepo: assignmentRepo,
 	}
@@ -323,7 +326,7 @@ func (uc *DeleteSlotsByInstanceUsecase) CheckDeletable(ctx context.Context, inpu
 
 // Execute deletes all shift slots for a business day and instance
 func (uc *DeleteSlotsByInstanceUsecase) Execute(ctx context.Context, input DeleteSlotsByInstanceInput) error {
-	// 削除可能かチェック
+	// 削除可能かチェック（トランザクション外で実行）
 	result, err := uc.CheckDeletable(ctx, input)
 	if err != nil {
 		return err
@@ -333,19 +336,22 @@ func (uc *DeleteSlotsByInstanceUsecase) Execute(ctx context.Context, input Delet
 		return common.NewConflictError(result.BlockingReason)
 	}
 
-	// 営業日+インスタンスに紐づくシフト枠を取得
-	slots, err := uc.slotRepo.FindByBusinessDayIDAndInstanceID(ctx, input.TenantID, input.BusinessDayID, input.InstanceID)
-	if err != nil {
-		return err
-	}
-
-	// シフト枠をソフトデリート
-	for _, slot := range slots {
-		slot.Delete()
-		if err := uc.slotRepo.Save(ctx, slot); err != nil {
+	// トランザクション内で削除処理を実行
+	return uc.txManager.WithTx(ctx, func(txCtx context.Context) error {
+		// 営業日+インスタンスに紐づくシフト枠を取得
+		slots, err := uc.slotRepo.FindByBusinessDayIDAndInstanceID(txCtx, input.TenantID, input.BusinessDayID, input.InstanceID)
+		if err != nil {
 			return err
 		}
-	}
 
-	return nil
+		// シフト枠をソフトデリート
+		for _, slot := range slots {
+			slot.Delete()
+			if err := uc.slotRepo.Save(txCtx, slot); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
 }

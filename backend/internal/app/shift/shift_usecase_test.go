@@ -265,6 +265,19 @@ func (m *MockMemberRepository) ExistsByEmail(ctx context.Context, tenantID commo
 	return false, nil
 }
 
+// MockTxManager is a mock implementation of TxManager for testing
+type MockTxManager struct {
+	withTxFunc func(ctx context.Context, fn func(context.Context) error) error
+}
+
+func (m *MockTxManager) WithTx(ctx context.Context, fn func(context.Context) error) error {
+	if m.withTxFunc != nil {
+		return m.withTxFunc(ctx, fn)
+	}
+	// Default implementation: just call the function without actual transaction
+	return fn(ctx)
+}
+
 // =====================================================
 // Helper functions
 // =====================================================
@@ -1054,7 +1067,7 @@ func TestDeleteInstanceUsecase_CheckDeletable_Success_CanDelete(t *testing.T) {
 
 	assignmentRepo := &MockShiftAssignmentRepository{}
 
-	usecase := appshift.NewDeleteInstanceUsecase(instanceRepo, slotRepo, assignmentRepo)
+	usecase := appshift.NewDeleteInstanceUsecase(&MockTxManager{}, instanceRepo, slotRepo, assignmentRepo)
 
 	input := appshift.DeleteInstanceInput{
 		TenantID:   tenantID,
@@ -1104,7 +1117,7 @@ func TestDeleteInstanceUsecase_CheckDeletable_CannotDelete_HasAssignedSlots(t *t
 		},
 	}
 
-	usecase := appshift.NewDeleteInstanceUsecase(instanceRepo, slotRepo, assignmentRepo)
+	usecase := appshift.NewDeleteInstanceUsecase(&MockTxManager{}, instanceRepo, slotRepo, assignmentRepo)
 
 	input := appshift.DeleteInstanceInput{
 		TenantID:   tenantID,
@@ -1162,7 +1175,7 @@ func TestDeleteInstanceUsecase_CheckDeletable_CanDelete_NoAssignedSlots(t *testi
 		},
 	}
 
-	usecase := appshift.NewDeleteInstanceUsecase(instanceRepo, slotRepo, assignmentRepo)
+	usecase := appshift.NewDeleteInstanceUsecase(&MockTxManager{}, instanceRepo, slotRepo, assignmentRepo)
 
 	input := appshift.DeleteInstanceInput{
 		TenantID:   tenantID,
@@ -1197,7 +1210,7 @@ func TestDeleteInstanceUsecase_CheckDeletable_ErrorWhenInstanceNotFound(t *testi
 	slotRepo := &MockShiftSlotRepository{}
 	assignmentRepo := &MockShiftAssignmentRepository{}
 
-	usecase := appshift.NewDeleteInstanceUsecase(instanceRepo, slotRepo, assignmentRepo)
+	usecase := appshift.NewDeleteInstanceUsecase(&MockTxManager{}, instanceRepo, slotRepo, assignmentRepo)
 
 	input := appshift.DeleteInstanceInput{
 		TenantID:   tenantID,
@@ -1247,7 +1260,7 @@ func TestDeleteInstanceUsecase_Execute_Success(t *testing.T) {
 		},
 	}
 
-	usecase := appshift.NewDeleteInstanceUsecase(instanceRepo, slotRepo, assignmentRepo)
+	usecase := appshift.NewDeleteInstanceUsecase(&MockTxManager{}, instanceRepo, slotRepo, assignmentRepo)
 
 	input := appshift.DeleteInstanceInput{
 		TenantID:   tenantID,
@@ -1293,7 +1306,7 @@ func TestDeleteInstanceUsecase_Execute_ErrorWhenHasAssignedSlots(t *testing.T) {
 		},
 	}
 
-	usecase := appshift.NewDeleteInstanceUsecase(instanceRepo, slotRepo, assignmentRepo)
+	usecase := appshift.NewDeleteInstanceUsecase(&MockTxManager{}, instanceRepo, slotRepo, assignmentRepo)
 
 	input := appshift.DeleteInstanceInput{
 		TenantID:   tenantID,
@@ -1324,7 +1337,7 @@ func TestDeleteSlotsByInstanceUsecase_CheckDeletable_Success_NoSlots(t *testing.
 
 	assignmentRepo := &MockShiftAssignmentRepository{}
 
-	usecase := appshift.NewDeleteSlotsByInstanceUsecase(slotRepo, assignmentRepo)
+	usecase := appshift.NewDeleteSlotsByInstanceUsecase(&MockTxManager{}, slotRepo, assignmentRepo)
 
 	input := appshift.DeleteSlotsByInstanceInput{
 		TenantID:      tenantID,
@@ -1367,7 +1380,7 @@ func TestDeleteSlotsByInstanceUsecase_CheckDeletable_CanDelete_NoAssignments(t *
 		},
 	}
 
-	usecase := appshift.NewDeleteSlotsByInstanceUsecase(slotRepo, assignmentRepo)
+	usecase := appshift.NewDeleteSlotsByInstanceUsecase(&MockTxManager{}, slotRepo, assignmentRepo)
 
 	input := appshift.DeleteSlotsByInstanceInput{
 		TenantID:      tenantID,
@@ -1415,7 +1428,7 @@ func TestDeleteSlotsByInstanceUsecase_CheckDeletable_CannotDelete_HasAssignments
 		},
 	}
 
-	usecase := appshift.NewDeleteSlotsByInstanceUsecase(slotRepo, assignmentRepo)
+	usecase := appshift.NewDeleteSlotsByInstanceUsecase(&MockTxManager{}, slotRepo, assignmentRepo)
 
 	input := appshift.DeleteSlotsByInstanceInput{
 		TenantID:      tenantID,
@@ -1471,7 +1484,7 @@ func TestDeleteSlotsByInstanceUsecase_Execute_Success(t *testing.T) {
 		},
 	}
 
-	usecase := appshift.NewDeleteSlotsByInstanceUsecase(slotRepo, assignmentRepo)
+	usecase := appshift.NewDeleteSlotsByInstanceUsecase(&MockTxManager{}, slotRepo, assignmentRepo)
 
 	input := appshift.DeleteSlotsByInstanceInput{
 		TenantID:      tenantID,
@@ -1510,7 +1523,7 @@ func TestDeleteSlotsByInstanceUsecase_Execute_ErrorWhenHasAssignments(t *testing
 		},
 	}
 
-	usecase := appshift.NewDeleteSlotsByInstanceUsecase(slotRepo, assignmentRepo)
+	usecase := appshift.NewDeleteSlotsByInstanceUsecase(&MockTxManager{}, slotRepo, assignmentRepo)
 
 	input := appshift.DeleteSlotsByInstanceInput{
 		TenantID:      tenantID,
@@ -1538,7 +1551,7 @@ func TestDeleteSlotsByInstanceUsecase_Execute_ErrorWhenSlotRepoFails(t *testing.
 
 	assignmentRepo := &MockShiftAssignmentRepository{}
 
-	usecase := appshift.NewDeleteSlotsByInstanceUsecase(slotRepo, assignmentRepo)
+	usecase := appshift.NewDeleteSlotsByInstanceUsecase(&MockTxManager{}, slotRepo, assignmentRepo)
 
 	input := appshift.DeleteSlotsByInstanceInput{
 		TenantID:      tenantID,
