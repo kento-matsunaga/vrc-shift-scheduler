@@ -9,6 +9,11 @@ import (
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/shift"
 )
 
+// TxManager defines the interface for transaction management
+type TxManager interface {
+	WithTx(ctx context.Context, fn func(context.Context) error) error
+}
+
 // CreateInstanceInput represents the input for creating an instance
 type CreateInstanceInput struct {
 	TenantID     common.TenantID
@@ -200,6 +205,7 @@ type DeleteInstanceResult struct {
 
 // DeleteInstanceUsecase handles the instance deletion use case
 type DeleteInstanceUsecase struct {
+	txManager      TxManager
 	instanceRepo   shift.InstanceRepository
 	slotRepo       shift.ShiftSlotRepository
 	assignmentRepo shift.ShiftAssignmentRepository
@@ -207,11 +213,13 @@ type DeleteInstanceUsecase struct {
 
 // NewDeleteInstanceUsecase creates a new DeleteInstanceUsecase
 func NewDeleteInstanceUsecase(
+	txManager TxManager,
 	instanceRepo shift.InstanceRepository,
 	slotRepo shift.ShiftSlotRepository,
 	assignmentRepo shift.ShiftAssignmentRepository,
 ) *DeleteInstanceUsecase {
 	return &DeleteInstanceUsecase{
+		txManager:      txManager,
 		instanceRepo:   instanceRepo,
 		slotRepo:       slotRepo,
 		assignmentRepo: assignmentRepo,
@@ -262,7 +270,7 @@ func (uc *DeleteInstanceUsecase) CheckDeletable(ctx context.Context, input Delet
 
 // Execute deletes an instance and all associated shift slots
 func (uc *DeleteInstanceUsecase) Execute(ctx context.Context, input DeleteInstanceInput) error {
-	// 削除可能かチェック
+	// 削除可能かチェック（トランザクション外で実行）
 	result, err := uc.CheckDeletable(ctx, input)
 	if err != nil {
 		return err
@@ -272,24 +280,27 @@ func (uc *DeleteInstanceUsecase) Execute(ctx context.Context, input DeleteInstan
 		return common.NewConflictError(result.BlockingReason)
 	}
 
-	// 紐づくシフト枠を取得
-	slots, err := uc.slotRepo.FindByInstanceID(ctx, input.TenantID, input.InstanceID)
-	if err != nil {
-		return err
-	}
-
-	// シフト枠のinstance_idをクリアしてソフトデリート
-	// （外部キー制約を解除してからインスタンスを削除するため）
-	for _, slot := range slots {
-		slot.ClearInstanceID()
-		slot.Delete()
-		if err := uc.slotRepo.Save(ctx, slot); err != nil {
+	// トランザクション内で削除処理を実行
+	return uc.txManager.WithTx(ctx, func(txCtx context.Context) error {
+		// 紐づくシフト枠を取得
+		slots, err := uc.slotRepo.FindByInstanceID(txCtx, input.TenantID, input.InstanceID)
+		if err != nil {
 			return err
 		}
-	}
 
-	// インスタンスを削除（物理削除）
-	return uc.instanceRepo.Delete(ctx, input.TenantID, input.InstanceID)
+		// シフト枠のinstance_idをクリアしてソフトデリート
+		// （外部キー制約を解除してからインスタンスを削除するため）
+		for _, slot := range slots {
+			slot.ClearInstanceID()
+			slot.Delete()
+			if err := uc.slotRepo.Save(txCtx, slot); err != nil {
+				return err
+			}
+		}
+
+		// インスタンスを削除（物理削除）
+		return uc.instanceRepo.Delete(txCtx, input.TenantID, input.InstanceID)
+	})
 }
 
 // FindOrCreateInstanceInput represents the input for finding or creating an instance

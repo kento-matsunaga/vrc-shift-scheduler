@@ -135,12 +135,13 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 
 		// InstanceHandler dependencies
 		assignmentRepo := db.NewShiftAssignmentRepository(dbPool)
+		instanceTxManager := db.NewPgxTxManager(dbPool)
 		instanceHandler := NewInstanceHandler(
 			appshift.NewCreateInstanceUsecase(instanceRepo, eventRepo),
 			appshift.NewListInstancesUsecase(instanceRepo),
 			appshift.NewGetInstanceUsecase(instanceRepo),
 			appshift.NewUpdateInstanceUsecase(instanceRepo),
-			appshift.NewDeleteInstanceUsecase(instanceRepo, slotRepo, assignmentRepo),
+			appshift.NewDeleteInstanceUsecase(instanceTxManager, instanceRepo, slotRepo, assignmentRepo),
 		)
 
 		// RoleHandler dependencies (needed by MemberHandler too)
@@ -172,12 +173,13 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		)
 
 		// ShiftSlotHandler dependencies (reusing slotRepo, businessDayRepo, instanceRepo, assignmentRepo)
+		slotTxManager := db.NewPgxTxManager(dbPool)
 		shiftSlotHandler := NewShiftSlotHandler(
 			appshift.NewCreateShiftSlotUsecase(slotRepo, businessDayRepo, instanceRepo),
 			appshift.NewListShiftSlotsUsecase(slotRepo, assignmentRepo),
 			appshift.NewGetShiftSlotUsecase(slotRepo, assignmentRepo),
 			appshift.NewDeleteShiftSlotUsecase(slotRepo, assignmentRepo),
-			appshift.NewDeleteSlotsByInstanceUsecase(slotRepo, assignmentRepo),
+			appshift.NewDeleteSlotsByInstanceUsecase(slotTxManager, slotRepo, assignmentRepo),
 		)
 
 		// ShiftTemplateHandler dependencies (reusing templateRepo, slotRepo, businessDayRepo)
