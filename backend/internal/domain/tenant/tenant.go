@@ -16,6 +16,11 @@ const (
 	TenantStatusPendingPayment TenantStatus = "pending_payment"
 )
 
+// DefaultGracePeriodDays is the default number of days for grace period after subscription ends.
+// This is a business rule: users have 14 days to re-subscribe after their subscription ends
+// before their tenant becomes suspended.
+const DefaultGracePeriodDays = 14
+
 // ValidTenantStatuses returns all valid tenant statuses
 func ValidTenantStatuses() []TenantStatus {
 	return []TenantStatus{TenantStatusActive, TenantStatusGrace, TenantStatusSuspended, TenantStatusPendingPayment}
@@ -34,6 +39,39 @@ func (s TenantStatus) IsValid() bool {
 // String returns the string representation
 func (s TenantStatus) String() string {
 	return string(s)
+}
+
+// validTransitions defines the allowed state transitions for a tenant.
+// This encapsulates the business rules for tenant lifecycle:
+//
+//	pending_payment → active (payment completed)
+//	pending_payment → suspended (payment failed/expired)
+//	active → grace (subscription ended)
+//	active → suspended (forced suspension by admin)
+//	grace → active (re-subscribed)
+//	grace → suspended (grace period expired)
+//	suspended → pending_payment (re-subscription attempt)
+//	suspended → active (admin manual activation)
+var validTransitions = map[TenantStatus][]TenantStatus{
+	TenantStatusPendingPayment: {TenantStatusActive, TenantStatusSuspended},
+	TenantStatusActive:         {TenantStatusGrace, TenantStatusSuspended},
+	TenantStatusGrace:          {TenantStatusActive, TenantStatusSuspended},
+	TenantStatusSuspended:      {TenantStatusPendingPayment, TenantStatusActive},
+}
+
+// CanTransitionTo checks if the status can transition to the new status.
+// Returns true if the transition is valid according to the business rules.
+func (s TenantStatus) CanTransitionTo(newStatus TenantStatus) bool {
+	allowed, ok := validTransitions[s]
+	if !ok {
+		return false
+	}
+	for _, status := range allowed {
+		if status == newStatus {
+			return true
+		}
+	}
+	return false
 }
 
 // Tenant represents a tenant entity (aggregate root)
@@ -282,6 +320,23 @@ func (t *Tenant) SetStatusGrace(now time.Time, graceUntil time.Time) {
 	t.graceUntil = &graceUntil
 	t.isActive = false
 	t.updatedAt = now
+}
+
+// CalculateGraceUntil calculates the grace period end date based on the subscription period end.
+// This encapsulates the business rule: grace_until = periodEnd + DefaultGracePeriodDays (14 days).
+func CalculateGraceUntil(periodEnd time.Time) time.Time {
+	return periodEnd.AddDate(0, 0, DefaultGracePeriodDays)
+}
+
+// TransitionToGraceAfterSubscriptionEnd transitions the tenant to grace status
+// after their subscription ends. This is called when:
+// - User cancels subscription (cancel_at_period_end) and period ends
+// - Payment fails and all retries are exhausted
+//
+// The grace period gives users 14 days to re-subscribe before suspension.
+func (t *Tenant) TransitionToGraceAfterSubscriptionEnd(now time.Time, periodEnd time.Time) {
+	graceUntil := CalculateGraceUntil(periodEnd)
+	t.SetStatusGrace(now, graceUntil)
 }
 
 // SetStatusSuspended sets the tenant status to suspended

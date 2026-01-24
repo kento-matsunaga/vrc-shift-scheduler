@@ -368,3 +368,78 @@ func TestTenant_PendingPaymentStatus(t *testing.T) {
 		t.Error("PendingExpiresAt should be cleared after SetStatusActive")
 	}
 }
+
+func TestCalculateGraceUntil(t *testing.T) {
+	// Test that grace period is exactly 14 days
+	periodEnd := time.Date(2026, 1, 31, 0, 0, 0, 0, time.UTC)
+	graceUntil := tenant.CalculateGraceUntil(periodEnd)
+
+	expected := time.Date(2026, 2, 14, 0, 0, 0, 0, time.UTC)
+	if !graceUntil.Equal(expected) {
+		t.Errorf("CalculateGraceUntil() = %v, want %v", graceUntil, expected)
+	}
+}
+
+func TestTransitionToGraceAfterSubscriptionEnd(t *testing.T) {
+	now := time.Now()
+	periodEnd := time.Date(2026, 1, 31, 0, 0, 0, 0, time.UTC)
+
+	ten, _ := tenant.NewTenant(now, "Test Organization", "Asia/Tokyo")
+	ten.TransitionToGraceAfterSubscriptionEnd(now, periodEnd)
+
+	if ten.Status() != tenant.TenantStatusGrace {
+		t.Errorf("Status should be grace: got %v", ten.Status())
+	}
+
+	if ten.GraceUntil() == nil {
+		t.Fatal("GraceUntil should be set")
+	}
+
+	expected := time.Date(2026, 2, 14, 0, 0, 0, 0, time.UTC)
+	if !ten.GraceUntil().Equal(expected) {
+		t.Errorf("GraceUntil() = %v, want %v", ten.GraceUntil(), expected)
+	}
+
+	if ten.IsActive() {
+		t.Error("Tenant should not be active after transitioning to grace")
+	}
+}
+
+func TestTenantStatus_CanTransitionTo(t *testing.T) {
+	tests := []struct {
+		name     string
+		from     tenant.TenantStatus
+		to       tenant.TenantStatus
+		expected bool
+	}{
+		// Valid transitions from pending_payment
+		{"pending_payment -> active", tenant.TenantStatusPendingPayment, tenant.TenantStatusActive, true},
+		{"pending_payment -> suspended", tenant.TenantStatusPendingPayment, tenant.TenantStatusSuspended, true},
+		{"pending_payment -> grace (invalid)", tenant.TenantStatusPendingPayment, tenant.TenantStatusGrace, false},
+
+		// Valid transitions from active
+		{"active -> grace", tenant.TenantStatusActive, tenant.TenantStatusGrace, true},
+		{"active -> suspended", tenant.TenantStatusActive, tenant.TenantStatusSuspended, true},
+		{"active -> pending_payment (invalid)", tenant.TenantStatusActive, tenant.TenantStatusPendingPayment, false},
+
+		// Valid transitions from grace
+		{"grace -> active", tenant.TenantStatusGrace, tenant.TenantStatusActive, true},
+		{"grace -> suspended", tenant.TenantStatusGrace, tenant.TenantStatusSuspended, true},
+		{"grace -> pending_payment (invalid)", tenant.TenantStatusGrace, tenant.TenantStatusPendingPayment, false},
+
+		// Valid transitions from suspended
+		{"suspended -> pending_payment", tenant.TenantStatusSuspended, tenant.TenantStatusPendingPayment, true},
+		{"suspended -> active", tenant.TenantStatusSuspended, tenant.TenantStatusActive, true},
+		{"suspended -> grace (invalid)", tenant.TenantStatusSuspended, tenant.TenantStatusGrace, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.from.CanTransitionTo(tt.to)
+			if result != tt.expected {
+				t.Errorf("CanTransitionTo(%s -> %s) = %v, want %v",
+					tt.from, tt.to, result, tt.expected)
+			}
+		})
+	}
+}

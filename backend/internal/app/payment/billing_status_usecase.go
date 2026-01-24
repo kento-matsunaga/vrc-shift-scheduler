@@ -9,19 +9,14 @@ import (
 
 // BillingStatusUsecase handles billing status retrieval
 type BillingStatusUsecase struct {
-	subscriptionRepo SubscriptionRepository
-	entitlementRepo  EntitlementRepository
-}
-
-// EntitlementRepository defines the interface for entitlement data access
-type EntitlementRepository interface {
-	FindActiveByTenantID(ctx context.Context, tenantID common.TenantID) (*billing.Entitlement, error)
+	subscriptionRepo billing.SubscriptionRepository
+	entitlementRepo  billing.EntitlementRepository
 }
 
 // NewBillingStatusUsecase creates a new BillingStatusUsecase
 func NewBillingStatusUsecase(
-	subscriptionRepo SubscriptionRepository,
-	entitlementRepo EntitlementRepository,
+	subscriptionRepo billing.SubscriptionRepository,
+	entitlementRepo billing.EntitlementRepository,
 ) *BillingStatusUsecase {
 	return &BillingStatusUsecase{
 		subscriptionRepo: subscriptionRepo,

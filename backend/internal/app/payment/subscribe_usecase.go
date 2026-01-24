@@ -9,7 +9,6 @@ import (
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/services"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/tenant"
-	infrastripe "github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/stripe"
 )
 
 // SubscribeInput represents the input for creating a new subscription
@@ -35,7 +34,7 @@ type SubscribeUsecase struct {
 	tenantRepo     tenant.TenantRepository
 	adminRepo      auth.AdminRepository
 	passwordHasher services.PasswordHasher
-	stripeClient   *infrastripe.Client
+	paymentGateway services.PaymentGateway
 	clock          services.Clock
 	successURL     string
 	cancelURL      string
@@ -48,7 +47,7 @@ func NewSubscribeUsecase(
 	tenantRepo tenant.TenantRepository,
 	adminRepo auth.AdminRepository,
 	passwordHasher services.PasswordHasher,
-	stripeClient *infrastripe.Client,
+	paymentGateway services.PaymentGateway,
 	clock services.Clock,
 	successURL string,
 	cancelURL string,
@@ -59,7 +58,7 @@ func NewSubscribeUsecase(
 		tenantRepo:     tenantRepo,
 		adminRepo:      adminRepo,
 		passwordHasher: passwordHasher,
-		stripeClient:   stripeClient,
+		paymentGateway: paymentGateway,
 		clock:          clock,
 		successURL:     successURL,
 		cancelURL:      cancelURL,
@@ -90,7 +89,7 @@ func (uc *SubscribeUsecase) Execute(ctx context.Context, input SubscribeInput) (
 	}
 
 	var newTenant *tenant.Tenant
-	var sessionResult *infrastripe.CheckoutSessionResult
+	var sessionResult *services.CheckoutSessionResult
 
 	// NOTE: Stripe Checkout Session を先に作成し、その後 DB トランザクションを実行している。
 	// もし DB トランザクションが失敗した場合、Stripe 側に孤立した Session が残るが、
@@ -100,7 +99,7 @@ func (uc *SubscribeUsecase) Execute(ctx context.Context, input SubscribeInput) (
 	//
 	// Create Stripe Checkout Session first to get session ID and expiration
 	// Stripe Checkout Session expires after 24 hours by default
-	sessionResult, err = uc.stripeClient.CreateCheckoutSession(infrastripe.CheckoutSessionParams{
+	sessionResult, err = uc.paymentGateway.CreateCheckoutSession(services.CheckoutSessionParams{
 		PriceID:       uc.stripePriceID,
 		CustomerEmail: input.Email,
 		SuccessURL:    uc.successURL,

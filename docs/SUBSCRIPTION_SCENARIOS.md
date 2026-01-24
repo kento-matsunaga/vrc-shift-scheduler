@@ -501,12 +501,72 @@ Stripe 送信順: checkout.session.completed → invoice.paid
 
 ---
 
+## アーキテクチャ: 集約関係
+
+### Tenant と Subscription の関係
+
+```
+┌─────────────────────┐     参照      ┌─────────────────────┐
+│      Tenant         │◄─────────────│    Subscription     │
+│  (集約ルート)        │  tenantID    │   (集約ルート)       │
+├─────────────────────┤              ├─────────────────────┤
+│ - tenantID (PK)     │              │ - subscriptionID    │
+│ - status            │              │ - tenantID (FK)     │
+│ - graceUntil        │              │ - stripeCustomerID  │
+│ - ...               │              │ - status            │
+└─────────────────────┘              └─────────────────────┘
+```
+
+### 設計方針
+
+**Subscription は Tenant とは別の独立した集約**として設計されています。
+
+**理由**:
+1. **Stripe が真実の源**: サブスクリプションデータの正確な状態は Stripe が保持
+2. **Webhook による同期**: 状態変更は Webhook イベントで同期される
+3. **ドメイン境界の明確化**: 課金とテナント管理は異なる関心事
+4. **トランザクション境界**: Webhook ハンドラが両方の更新を調整
+
+**トレードオフ**:
+- 一貫性は Webhook 処理の正確さに依存
+- 同一トランザクションで両方を更新する必要がある
+
+### Webhook ハンドラの役割
+
+```go
+// stripe_webhook_usecase.go での調整パターン
+
+func (uc *StripeWebhookUsecase) handleEvent(...) {
+    return uc.txManager.WithTx(ctx, func(txCtx context.Context) error {
+        // 1. Subscription を更新
+        sub, _ := uc.subscriptionRepo.FindBy...(txCtx, ...)
+        sub.UpdateStatus(...)
+        uc.subscriptionRepo.Save(txCtx, sub)
+
+        // 2. Tenant を更新（Subscription の状態に基づいて）
+        tenant, _ := uc.tenantRepo.FindByID(txCtx, sub.TenantID())
+        tenant.SetStatusActive(...)  // または SetStatusGrace など
+        uc.tenantRepo.Save(txCtx, tenant)
+
+        // 3. 監査ログ
+        uc.auditLogRepo.Save(txCtx, auditLog)
+
+        return nil  // トランザクションコミット
+    })
+}
+```
+
+この設計により、Subscription と Tenant の状態は常に整合性が保たれます。
+
+---
+
 ## 関連ファイル
 
 | ファイル | 説明 |
 |---------|------|
-| `internal/app/payment/stripe_webhook_usecase.go` | Webhook 処理ロジック |
+| `internal/app/payment/stripe_webhook_usecase.go` | Webhook 処理ロジック（集約調整） |
 | `internal/interface/rest/stripe_webhook_handler.go` | Webhook エンドポイント |
 | `internal/domain/billing/subscription.go` | サブスクリプションドメインモデル |
+| `internal/domain/tenant/tenant.go` | テナントドメインモデル |
 | `internal/infra/db/subscription_repository.go` | リポジトリ実装 |
 | `cmd/batch/main.go` | grace-expiry バッチ処理 |

@@ -6,30 +6,25 @@ import (
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/billing"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
-	infrastripe "github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/stripe"
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/services"
 )
 
 // BillingPortalUsecase handles billing portal session creation
 type BillingPortalUsecase struct {
-	subscriptionRepo SubscriptionRepository
-	stripeClient     *infrastripe.Client
+	subscriptionRepo billing.SubscriptionRepository
+	paymentGateway   services.PaymentGateway
 	returnURL        string
-}
-
-// SubscriptionRepository defines the interface for subscription data access
-type SubscriptionRepository interface {
-	FindByTenantID(ctx context.Context, tenantID common.TenantID) (*billing.Subscription, error)
 }
 
 // NewBillingPortalUsecase creates a new BillingPortalUsecase
 func NewBillingPortalUsecase(
-	subscriptionRepo SubscriptionRepository,
-	stripeClient *infrastripe.Client,
+	subscriptionRepo billing.SubscriptionRepository,
+	paymentGateway services.PaymentGateway,
 	returnURL string,
 ) *BillingPortalUsecase {
 	return &BillingPortalUsecase{
 		subscriptionRepo: subscriptionRepo,
-		stripeClient:     stripeClient,
+		paymentGateway:   paymentGateway,
 		returnURL:        returnURL,
 	}
 }
@@ -63,7 +58,7 @@ func (uc *BillingPortalUsecase) Execute(ctx context.Context, input BillingPortal
 	}
 
 	// Create the billing portal session
-	result, err := uc.stripeClient.CreateBillingPortalSession(infrastripe.BillingPortalParams{
+	result, err := uc.paymentGateway.CreateBillingPortalSession(services.BillingPortalParams{
 		CustomerID: customerID,
 		ReturnURL:  uc.returnURL,
 	})

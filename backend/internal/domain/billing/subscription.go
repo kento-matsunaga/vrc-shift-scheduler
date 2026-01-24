@@ -61,7 +61,31 @@ func (s SubscriptionStatus) IsValid() bool {
 	return false
 }
 
-// Subscription represents a Stripe subscription
+// Subscription represents a Stripe subscription.
+//
+// # Aggregate Relationship with Tenant
+//
+// Subscription is an independent aggregate from Tenant, but they are closely related:
+//
+//   - Subscription holds TenantID as a foreign key reference
+//   - Both are aggregate roots with their own identity (SubscriptionID, TenantID)
+//   - Subscription lifecycle events affect Tenant state:
+//     - checkout.session.completed: Tenant -> active
+//     - invoice.payment_failed: Tenant -> grace (after retries exhausted)
+//     - customer.subscription.deleted: Tenant -> grace -> suspended
+//
+// # Design Rationale
+//
+// This design (separate aggregates with coordinated updates via Webhook handler)
+// is chosen over embedding Subscription in Tenant because:
+//
+//  1. Stripe is the source of truth for subscription data
+//  2. Webhook events are the primary mechanism for state synchronization
+//  3. Keeping them separate allows cleaner domain boundaries
+//  4. Transaction boundaries are clear: Webhook handler coordinates both updates
+//
+// The tradeoff is that consistency between Subscription and Tenant state
+// depends on correct Webhook processing. See stripe_webhook_usecase.go for details.
 type Subscription struct {
 	subscriptionID       SubscriptionID
 	tenantID             common.TenantID

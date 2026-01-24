@@ -8,8 +8,8 @@ import (
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/auth"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/services"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/tenant"
-	infrastripe "github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/stripe"
 )
 
 // =====================================================
@@ -131,19 +131,29 @@ func (m *MockClock) Now() time.Time {
 	return time.Now()
 }
 
-// MockStripeClient simulates Stripe client operations
-type MockStripeClient struct {
-	createCheckoutSessionFunc func(params infrastripe.CheckoutSessionParams) (*infrastripe.CheckoutSessionResult, error)
+// MockPaymentGateway simulates PaymentGateway operations
+type MockPaymentGateway struct {
+	createCheckoutSessionFunc     func(params services.CheckoutSessionParams) (*services.CheckoutSessionResult, error)
+	createBillingPortalSessionFunc func(params services.BillingPortalParams) (*services.BillingPortalResult, error)
 }
 
-func (m *MockStripeClient) CreateCheckoutSession(params infrastripe.CheckoutSessionParams) (*infrastripe.CheckoutSessionResult, error) {
+func (m *MockPaymentGateway) CreateCheckoutSession(params services.CheckoutSessionParams) (*services.CheckoutSessionResult, error) {
 	if m.createCheckoutSessionFunc != nil {
 		return m.createCheckoutSessionFunc(params)
 	}
-	return &infrastripe.CheckoutSessionResult{
+	return &services.CheckoutSessionResult{
 		SessionID: "cs_test_session123",
 		URL:       "https://checkout.stripe.com/test",
 		ExpiresAt: time.Now().Add(24 * time.Hour).Unix(),
+	}, nil
+}
+
+func (m *MockPaymentGateway) CreateBillingPortalSession(params services.BillingPortalParams) (*services.BillingPortalResult, error) {
+	if m.createBillingPortalSessionFunc != nil {
+		return m.createBillingPortalSessionFunc(params)
+	}
+	return &services.BillingPortalResult{
+		URL: "https://billing.stripe.com/test",
 	}, nil
 }
 

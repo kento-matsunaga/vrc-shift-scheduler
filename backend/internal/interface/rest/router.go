@@ -501,9 +501,10 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		var billingHandler *BillingHandler
 		if stripeSecretKey != "" {
 			billingStripeClient := infrastripe.NewClient(stripeSecretKey)
+			billingPaymentGateway := infrastripe.NewStripePaymentGateway(billingStripeClient)
 			billingPortalUsecase := apppayment.NewBillingPortalUsecase(
 				billingSubscriptionRepo,
-				billingStripeClient,
+				billingPaymentGateway,
 				billingPortalReturnURL,
 			)
 			billingHandler = NewBillingHandler(billingPortalUsecase, billingStatusUsecase)
@@ -815,6 +816,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		// Only register route if Stripe is configured
 		if stripeSecretKey != "" && stripePriceID != "" {
 			stripeClient := infrastripe.NewClient(stripeSecretKey)
+			paymentGateway := infrastripe.NewStripePaymentGateway(stripeClient)
 			subscribeClock := &clock.RealClock{}
 
 			subscribeUsecase := apppayment.NewSubscribeUsecase(
@@ -822,7 +824,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 				tenantRepo,
 				adminRepo,
 				passwordHasher,
-				stripeClient,
+				paymentGateway,
 				subscribeClock,
 				successURL,
 				cancelURL,

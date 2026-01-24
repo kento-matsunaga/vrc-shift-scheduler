@@ -62,15 +62,33 @@ type StripeCheckoutSubscription struct {
 	CurrentPeriodEnd int64  `json:"current_period_end"`
 }
 
-// StripeWebhookUsecase handles Stripe webhook events
+// StripeWebhookUsecase handles Stripe webhook events.
+//
+// # Aggregate Coordination
+//
+// This usecase coordinates updates between two independent aggregates:
+// Tenant and Subscription. While they are separate domain concepts,
+// Stripe webhook events often require updating both within a single transaction.
+//
+// The coordination pattern is:
+//  1. Receive Stripe webhook event
+//  2. Begin transaction
+//  3. Update Subscription state (if applicable)
+//  4. Update Tenant state (if applicable)
+//  5. Create audit log
+//  6. Commit transaction
+//
+// This ensures consistency between Subscription and Tenant states.
+// If any step fails, the entire transaction is rolled back.
+//
+// See also: domain/billing/subscription.go for aggregate relationship documentation.
 type StripeWebhookUsecase struct {
-	txManager            services.TxManager
-	tenantRepo           tenant.TenantRepository
-	subscriptionRepo     billing.SubscriptionRepository
-	entitlementRepo      billing.EntitlementRepository
-	webhookEventRepo     billing.WebhookEventRepository
-	auditLogRepo         billing.BillingAuditLogRepository
-	gracePeriodDays      int
+	txManager        services.TxManager
+	tenantRepo       tenant.TenantRepository
+	subscriptionRepo billing.SubscriptionRepository
+	entitlementRepo  billing.EntitlementRepository
+	webhookEventRepo billing.WebhookEventRepository
+	auditLogRepo     billing.BillingAuditLogRepository
 }
 
 // NewStripeWebhookUsecase creates a new StripeWebhookUsecase
@@ -89,7 +107,6 @@ func NewStripeWebhookUsecase(
 		entitlementRepo:  entitlementRepo,
 		webhookEventRepo: webhookEventRepo,
 		auditLogRepo:     auditLogRepo,
-		gracePeriodDays:  14,
 	}
 }
 
@@ -321,7 +338,8 @@ func (uc *StripeWebhookUsecase) handleInvoicePaymentFailed(ctx context.Context, 
 			return fmt.Errorf("failed to find tenant: %w", err)
 		}
 
-		graceUntil := now.AddDate(0, 0, uc.gracePeriodDays)
+		// 支払い失敗時はドメイン層で定義されたgrace期間を使用
+		graceUntil := now.AddDate(0, 0, tenant.DefaultGracePeriodDays)
 		previousStatus := t.Status()
 		t.SetStatusGrace(now, graceUntil)
 		if err := uc.tenantRepo.Save(txCtx, t); err != nil {
@@ -426,14 +444,13 @@ func (uc *StripeWebhookUsecase) handleSubscriptionDeleted(ctx context.Context, n
 
 		previousStatus := t.Status()
 
-		// サブスクリプション終了後、grace期間（14日間）を設定
+		// サブスクリプション終了後、grace期間を設定
 		// customer.subscription.deleted イベントは期間終了時に発火するため、
-		// grace_until = periodEnd + gracePeriodDays とすることで、
-		// ユーザーに14日間の猶予を与える
+		// ドメイン層で定義されたビジネスルール（DefaultGracePeriodDays = 14日）に従って
+		// grace_until を計算する
 		//
 		// 例: 1/31に期間終了 → grace_until = 2/14 → 2/15にsuspended
-		graceUntil := periodEnd.AddDate(0, 0, uc.gracePeriodDays)
-		t.SetStatusGrace(now, graceUntil)
+		t.TransitionToGraceAfterSubscriptionEnd(now, periodEnd)
 
 		if err := uc.tenantRepo.Save(txCtx, t); err != nil {
 			return fmt.Errorf("failed to save tenant: %w", err)
