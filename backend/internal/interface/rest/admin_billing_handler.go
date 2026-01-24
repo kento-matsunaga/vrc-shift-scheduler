@@ -342,11 +342,15 @@ func (h *AdminBillingHandler) GetTenantDetail(w http.ResponseWriter, r *http.Req
 			"stripe_customer_id":     output.Subscription.StripeCustomerID,
 			"stripe_subscription_id": output.Subscription.StripeSubscriptionID,
 			"status":                 string(output.Subscription.Status),
+			"cancel_at_period_end":   output.Subscription.CancelAtPeriodEnd,
 			"created_at":             output.Subscription.CreatedAt,
 			"updated_at":             output.Subscription.UpdatedAt,
 		}
 		if output.Subscription.CurrentPeriodEnd != nil {
 			subscription["current_period_end"] = output.Subscription.CurrentPeriodEnd
+		}
+		if output.Subscription.CancelAt != nil {
+			subscription["cancel_at"] = output.Subscription.CancelAt
 		}
 	}
 

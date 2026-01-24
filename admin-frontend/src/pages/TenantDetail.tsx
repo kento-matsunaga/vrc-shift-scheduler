@@ -185,8 +185,13 @@ export default function TenantDetail() {
           <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <div>
               <dt className="text-sm font-medium text-gray-500">ステータス</dt>
-              <dd className="text-sm text-gray-900">
+              <dd className="text-sm text-gray-900 flex items-center space-x-2">
                 {getSubscriptionStatusBadge(tenant.subscription.status)}
+                {tenant.subscription.cancel_at_period_end && (
+                  <span className="px-2 py-1 text-xs font-medium rounded-full bg-orange-100 text-orange-800">
+                    キャンセル予約中
+                  </span>
+                )}
               </dd>
             </div>
             <div>
@@ -217,6 +222,14 @@ export default function TenantDetail() {
                 {new Date(tenant.subscription.updated_at).toLocaleString('ja-JP')}
               </dd>
             </div>
+            {tenant.subscription.cancel_at_period_end && tenant.subscription.cancel_at && (
+              <div>
+                <dt className="text-sm font-medium text-gray-500">キャンセル予定日</dt>
+                <dd className="text-sm text-orange-600 font-medium">
+                  {new Date(tenant.subscription.cancel_at).toLocaleString('ja-JP')}
+                </dd>
+              </div>
+            )}
           </dl>
         ) : (
           <p className="text-sm text-gray-500">サブスクリプションがありません（ライセンスキー利用の可能性があります）</p>

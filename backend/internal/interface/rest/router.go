@@ -97,6 +97,8 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 	r.Route("/api/v1", func(r chi.Router) {
 		// 認証ミドルウェアを適用（JWT優先、X-Tenant-IDフォールバック）
 		r.Use(Auth(jwtManager))
+		// テナントステータスチェック（suspended状態はアクセス拒否）
+		r.Use(TenantStatusMiddleware(tenantRepo))
 		// 課金状態に基づくアクセス制御
 		r.Use(BillingGuard(billingGuardDeps))
 

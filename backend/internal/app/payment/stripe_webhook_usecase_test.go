@@ -729,12 +729,14 @@ func TestStripeWebhookUsecase_SubscriptionDeleted_PeriodEnded(t *testing.T) {
 
 	usecase := createWebhookUsecase(nil, tenantRepo, subscriptionRepo, nil, webhookEventRepo, auditLogRepo)
 
-	// Period ended in the past
+	// Period ended 1 hour ago
+	// サブスク期間終了後も14日間のgrace期間が設定される
+	periodEnd := time.Now().Add(-1 * time.Hour)
 	subscriptionData := StripeSubscription{
 		ID:               "sub_test123",
 		Customer:         "cus_test123",
 		Status:           "canceled",
-		CurrentPeriodEnd: time.Now().Add(-1 * time.Hour).Unix(), // Ended 1 hour ago
+		CurrentPeriodEnd: periodEnd.Unix(),
 	}
 	subscriptionJSON, _ := json.Marshal(subscriptionData)
 
@@ -756,8 +758,22 @@ func TestStripeWebhookUsecase_SubscriptionDeleted_PeriodEnded(t *testing.T) {
 
 	if savedTenant == nil {
 		t.Error("Tenant should have been saved")
-	} else if savedTenant.Status() != tenant.TenantStatusSuspended {
-		t.Errorf("Tenant status should be suspended when period ended, got %s", savedTenant.Status())
+	} else {
+		// サブスク終了後も14日間のgrace期間が設定される（即座にsuspendedにはならない）
+		if savedTenant.Status() != tenant.TenantStatusGrace {
+			t.Errorf("Tenant status should be grace (14-day grace period), got %s", savedTenant.Status())
+		}
+		// grace_until は periodEnd + 14日
+		expectedGraceUntil := periodEnd.AddDate(0, 0, 14)
+		if savedTenant.GraceUntil() == nil {
+			t.Error("GraceUntil should be set")
+		} else {
+			// 時間の誤差を許容（1秒以内）
+			diff := savedTenant.GraceUntil().Sub(expectedGraceUntil)
+			if diff < -time.Second || diff > time.Second {
+				t.Errorf("GraceUntil should be periodEnd + 14 days, got %v, want %v", savedTenant.GraceUntil(), expectedGraceUntil)
+			}
+		}
 	}
 }
 
@@ -803,12 +819,14 @@ func TestStripeWebhookUsecase_SubscriptionDeleted_PeriodNotEnded(t *testing.T) {
 
 	usecase := createWebhookUsecase(nil, tenantRepo, subscriptionRepo, nil, webhookEventRepo, auditLogRepo)
 
-	// Period ends in the future
+	// Period ends in 7 days
+	// grace_until = periodEnd + 14日 = 今から21日後
+	periodEnd := time.Now().Add(7 * 24 * time.Hour)
 	subscriptionData := StripeSubscription{
 		ID:               "sub_test123",
 		Customer:         "cus_test123",
 		Status:           "canceled",
-		CurrentPeriodEnd: time.Now().Add(7 * 24 * time.Hour).Unix(), // Ends in 7 days
+		CurrentPeriodEnd: periodEnd.Unix(),
 	}
 	subscriptionJSON, _ := json.Marshal(subscriptionData)
 
@@ -830,7 +848,20 @@ func TestStripeWebhookUsecase_SubscriptionDeleted_PeriodNotEnded(t *testing.T) {
 
 	if savedTenant == nil {
 		t.Error("Tenant should have been saved")
-	} else if savedTenant.Status() != tenant.TenantStatusGrace {
-		t.Errorf("Tenant status should be grace when period not ended, got %s", savedTenant.Status())
+	} else {
+		if savedTenant.Status() != tenant.TenantStatusGrace {
+			t.Errorf("Tenant status should be grace, got %s", savedTenant.Status())
+		}
+		// grace_until は periodEnd + 14日
+		expectedGraceUntil := periodEnd.AddDate(0, 0, 14)
+		if savedTenant.GraceUntil() == nil {
+			t.Error("GraceUntil should be set")
+		} else {
+			// 時間の誤差を許容（1秒以内）
+			diff := savedTenant.GraceUntil().Sub(expectedGraceUntil)
+			if diff < -time.Second || diff > time.Second {
+				t.Errorf("GraceUntil should be periodEnd + 14 days, got %v, want %v", savedTenant.GraceUntil(), expectedGraceUntil)
+			}
+		}
 	}
 }

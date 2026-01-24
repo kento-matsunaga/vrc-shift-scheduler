@@ -116,6 +116,8 @@ type SubscriptionInfo struct {
 	StripeSubscriptionID string
 	Status               billing.SubscriptionStatus
 	CurrentPeriodEnd     *time.Time
+	CancelAtPeriodEnd    bool
+	CancelAt             *time.Time
 	CreatedAt            time.Time
 	UpdatedAt            time.Time
 }
@@ -176,6 +178,8 @@ func (uc *AdminTenantUsecase) GetDetail(ctx context.Context, tenantID common.Ten
 			StripeSubscriptionID: sub.StripeSubscriptionID(),
 			Status:               sub.Status(),
 			CurrentPeriodEnd:     sub.CurrentPeriodEnd(),
+			CancelAtPeriodEnd:    sub.CancelAtPeriodEnd(),
+			CancelAt:             sub.CancelAt(),
 			CreatedAt:            sub.CreatedAt(),
 			UpdatedAt:            sub.UpdatedAt(),
 		}

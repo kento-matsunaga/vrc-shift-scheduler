@@ -162,6 +162,10 @@ func (t *Tenant) validate() error {
 	if len(t.timezone) > 50 {
 		return common.NewValidationError("timezone must be less than 50 characters", nil)
 	}
+	// IANA タイムゾーン形式の検証
+	if _, err := time.LoadLocation(t.timezone); err != nil {
+		return common.NewValidationError("invalid timezone format", err)
+	}
 
 	return nil
 }

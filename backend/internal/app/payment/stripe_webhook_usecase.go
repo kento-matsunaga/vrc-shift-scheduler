@@ -36,10 +36,12 @@ type StripeInvoice struct {
 
 // StripeSubscription represents a Stripe subscription object
 type StripeSubscription struct {
-	ID               string `json:"id"`
-	Customer         string `json:"customer"`
-	Status           string `json:"status"`
-	CurrentPeriodEnd int64  `json:"current_period_end"`
+	ID                string `json:"id"`
+	Customer          string `json:"customer"`
+	Status            string `json:"status"`
+	CurrentPeriodEnd  int64  `json:"current_period_end"`
+	CancelAtPeriodEnd bool   `json:"cancel_at_period_end"`
+	CancelAt          int64  `json:"cancel_at"` // Unix timestamp, 0 if not set
 }
 
 // StripeCheckoutSession represents a Stripe Checkout Session object
@@ -117,6 +119,8 @@ func (uc *StripeWebhookUsecase) HandleWebhook(ctx context.Context, event StripeE
 		return true, uc.handleInvoicePaid(ctx, now, event)
 	case "invoice.payment_failed":
 		return true, uc.handleInvoicePaymentFailed(ctx, now, event)
+	case "customer.subscription.updated":
+		return true, uc.handleSubscriptionUpdated(ctx, now, event)
 	case "customer.subscription.deleted":
 		return true, uc.handleSubscriptionDeleted(ctx, now, event)
 	default:
@@ -347,6 +351,45 @@ func (uc *StripeWebhookUsecase) handleInvoicePaymentFailed(ctx context.Context, 
 	})
 }
 
+// handleSubscriptionUpdated handles customer.subscription.updated events
+// Updates cancel_at_period_end flag when subscription is scheduled to cancel
+func (uc *StripeWebhookUsecase) handleSubscriptionUpdated(ctx context.Context, now time.Time, event StripeEvent) error {
+	var subscription StripeSubscription
+	if err := json.Unmarshal(event.Data.Object, &subscription); err != nil {
+		return fmt.Errorf("failed to parse subscription: %w", err)
+	}
+
+	sub, err := uc.subscriptionRepo.FindByStripeSubscriptionID(ctx, subscription.ID)
+	if err != nil {
+		return fmt.Errorf("failed to find subscription: %w", err)
+	}
+	if sub == nil {
+		log.Printf("[Stripe Webhook] Subscription not found for update: %s", subscription.ID)
+		return nil
+	}
+
+	// cancel_at_period_end フラグを更新
+	var cancelAt *time.Time
+	if subscription.CancelAt > 0 {
+		t := time.Unix(subscription.CancelAt, 0).UTC()
+		cancelAt = &t
+	}
+
+	sub.SetCancelAtPeriodEnd(now, subscription.CancelAtPeriodEnd, cancelAt)
+
+	if err := uc.subscriptionRepo.Save(ctx, sub); err != nil {
+		return fmt.Errorf("failed to save subscription: %w", err)
+	}
+
+	if subscription.CancelAtPeriodEnd {
+		log.Printf("[Stripe Webhook] Subscription %s is now scheduled to cancel at period end", subscription.ID)
+	} else {
+		log.Printf("[Stripe Webhook] Subscription %s cancel schedule was removed", subscription.ID)
+	}
+
+	return nil
+}
+
 // handleSubscriptionDeleted handles customer.subscription.deleted events
 // Marks tenant as suspended (or schedules it via grace_until check)
 func (uc *StripeWebhookUsecase) handleSubscriptionDeleted(ctx context.Context, now time.Time, event StripeEvent) error {
@@ -383,14 +426,14 @@ func (uc *StripeWebhookUsecase) handleSubscriptionDeleted(ctx context.Context, n
 
 		previousStatus := t.Status()
 
-		// If period has ended, suspend immediately
-		// Otherwise, let the batch job handle it when period ends
-		if now.After(periodEnd) {
-			t.SetStatusSuspended(now)
-		} else {
-			// Set grace_until to period end so batch job will suspend later
-			t.SetStatusGrace(now, periodEnd)
-		}
+		// サブスクリプション終了後、grace期間（14日間）を設定
+		// customer.subscription.deleted イベントは期間終了時に発火するため、
+		// grace_until = periodEnd + gracePeriodDays とすることで、
+		// ユーザーに14日間の猶予を与える
+		//
+		// 例: 1/31に期間終了 → grace_until = 2/14 → 2/15にsuspended
+		graceUntil := periodEnd.AddDate(0, 0, uc.gracePeriodDays)
+		t.SetStatusGrace(now, graceUntil)
 
 		if err := uc.tenantRepo.Save(txCtx, t); err != nil {
 			return fmt.Errorf("failed to save tenant: %w", err)

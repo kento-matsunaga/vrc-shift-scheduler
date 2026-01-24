@@ -250,7 +250,7 @@ func runPendingPaymentCleanup(ctx context.Context, pool *pgxpool.Pool, dryRun bo
 			// 1. 関連するadminsを削除
 			deleteAdminsQuery := `DELETE FROM admins WHERE tenant_id = $1`
 			if _, err := tx.Exec(ctx, deleteAdminsQuery, t.tenantID); err != nil {
-				tx.Rollback(ctx)
+				_ = tx.Rollback(ctx)
 				log.Printf("   ❌ Failed to delete admins for tenant %s: %v", t.tenantID, err)
 				continue
 			}
@@ -258,7 +258,7 @@ func runPendingPaymentCleanup(ctx context.Context, pool *pgxpool.Pool, dryRun bo
 			// 2. テナントを削除
 			deleteTenantQuery := `DELETE FROM tenants WHERE tenant_id = $1`
 			if _, err := tx.Exec(ctx, deleteTenantQuery, t.tenantID); err != nil {
-				tx.Rollback(ctx)
+				_ = tx.Rollback(ctx)
 				log.Printf("   ❌ Failed to delete tenant %s: %v", t.tenantID, err)
 				continue
 			}

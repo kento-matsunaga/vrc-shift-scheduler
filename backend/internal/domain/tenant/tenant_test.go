@@ -80,6 +80,16 @@ func TestNewTenant_ErrorWhenTimezoneEmpty(t *testing.T) {
 	}
 }
 
+func TestNewTenant_ErrorWhenTimezoneInvalid(t *testing.T) {
+	now := time.Now()
+
+	_, err := tenant.NewTenant(now, "Test Organization", "Invalid/Timezone")
+
+	if err == nil {
+		t.Fatal("NewTenant() should fail when timezone is invalid IANA format")
+	}
+}
+
 func TestTenant_UpdateTenantName_Success(t *testing.T) {
 	now := time.Now()
 	ten, _ := tenant.NewTenant(now, "Original Name", "Asia/Tokyo")

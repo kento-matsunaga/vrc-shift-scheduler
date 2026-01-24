@@ -69,6 +69,8 @@ type Subscription struct {
 	stripeSubscriptionID string
 	status               SubscriptionStatus
 	currentPeriodEnd     *time.Time
+	cancelAtPeriodEnd    bool       // キャンセル予約中かどうか
+	cancelAt             *time.Time // キャンセル予定日時
 	createdAt            time.Time
 	updatedAt            time.Time
 }
@@ -108,6 +110,8 @@ func ReconstructSubscription(
 	stripeSubscriptionID string,
 	status SubscriptionStatus,
 	currentPeriodEnd *time.Time,
+	cancelAtPeriodEnd bool,
+	cancelAt *time.Time,
 	createdAt time.Time,
 	updatedAt time.Time,
 ) (*Subscription, error) {
@@ -118,6 +122,8 @@ func ReconstructSubscription(
 		stripeSubscriptionID: stripeSubscriptionID,
 		status:               status,
 		currentPeriodEnd:     currentPeriodEnd,
+		cancelAtPeriodEnd:    cancelAtPeriodEnd,
+		cancelAt:             cancelAt,
 		createdAt:            createdAt,
 		updatedAt:            updatedAt,
 	}
@@ -185,5 +191,22 @@ func (s *Subscription) IsActive() bool {
 func (s *Subscription) UpdateStatus(now time.Time, status SubscriptionStatus, currentPeriodEnd *time.Time) {
 	s.status = status
 	s.currentPeriodEnd = currentPeriodEnd
+	s.updatedAt = now
+}
+
+// CancelAtPeriodEnd returns whether the subscription is scheduled to cancel at period end
+func (s *Subscription) CancelAtPeriodEnd() bool {
+	return s.cancelAtPeriodEnd
+}
+
+// CancelAt returns the scheduled cancellation time
+func (s *Subscription) CancelAt() *time.Time {
+	return s.cancelAt
+}
+
+// SetCancelAtPeriodEnd updates the cancellation schedule
+func (s *Subscription) SetCancelAtPeriodEnd(now time.Time, cancelAtPeriodEnd bool, cancelAt *time.Time) {
+	s.cancelAtPeriodEnd = cancelAtPeriodEnd
+	s.cancelAt = cancelAt
 	s.updatedAt = now
 }

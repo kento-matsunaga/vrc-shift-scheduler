@@ -92,6 +92,12 @@ func (uc *SubscribeUsecase) Execute(ctx context.Context, input SubscribeInput) (
 	var newTenant *tenant.Tenant
 	var sessionResult *infrastripe.CheckoutSessionResult
 
+	// NOTE: Stripe Checkout Session を先に作成し、その後 DB トランザクションを実行している。
+	// もし DB トランザクションが失敗した場合、Stripe 側に孤立した Session が残るが、
+	// Stripe Checkout Session は 24 時間で自動的に期限切れになるため、特別なクリーンアップ処理は不要。
+	// この設計は意図的なものであり、Session ID を DB に保存してから Stripe API を呼ぶ方式より
+	// シンプルで、失敗時のリカバリも容易である。
+	//
 	// Create Stripe Checkout Session first to get session ID and expiration
 	// Stripe Checkout Session expires after 24 hours by default
 	sessionResult, err = uc.stripeClient.CreateCheckoutSession(infrastripe.CheckoutSessionParams{
