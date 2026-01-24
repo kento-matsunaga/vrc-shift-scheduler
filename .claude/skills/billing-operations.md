@@ -101,16 +101,42 @@ curl -X POST http://localhost:8080/api/v1/public/license/claim \
 
 ## Stripe Webhook
 
-### 設定
+### ⚠️ 開発環境 vs 本番環境の違い（重要）
+
+| 項目 | 開発環境 | 本番環境 |
+|------|---------|---------|
+| Webhook配信 | Stripe CLI経由 | Stripeから直接 |
+| CLI起動 | ✅ `stripe listen --forward-to localhost:8080/api/v1/stripe/webhook` | ❌ **不要** |
+| Webhook Secret | `stripe listen` の出力値 | **Dashboardから取得（別物！）** |
+| APIキー | `sk_test_...` | `sk_live_...` |
+
+### ⚠️ 絶対に間違えてはいけない点
+
+**CLIの`stripe listen`で表示される`whsec_`と、Dashboardで取得する`whsec_`は完全に別物！**
+
+```bash
+# 開発用（CLIが生成）→ 本番では使えない
+stripe listen --forward-to localhost:8080/api/v1/stripe/webhook
+> Ready! Your webhook signing secret is whsec_xxxxxxxx (開発専用)
+
+# 本番用（Dashboardから取得）→ これを使う
+# Stripeダッシュボード → Webhook → エンドポイント → 「署名シークレットを表示」
+# whsec_yyyyyyyy (本番専用)
+```
+
+### 設定（本番環境）
 
 Stripe ダッシュボードでエンドポイントを設定:
-- URL: `https://your-domain.com/api/v1/stripe/webhook`
+- URL: `https://api.vrcshift.com/api/v1/stripe/webhook`
 - イベント:
+  - `checkout.session.completed`
   - `customer.subscription.created`
   - `customer.subscription.updated`
   - `customer.subscription.deleted`
   - `invoice.payment_succeeded`
   - `invoice.payment_failed`
+
+**エンドポイント作成後、「署名シークレットを表示」から`whsec_...`を取得して`.env.prod`に設定すること。**
 
 ### サブスクリプションライフサイクル
 
@@ -255,6 +281,50 @@ WHERE t.tenant_id = '...';
 SELECT * FROM billing_audit_logs
 WHERE target_id = '...'
 ORDER BY created_at DESC;
+```
+
+---
+
+## 開発環境でのStripeテスト
+
+### 前提条件
+
+1. Stripe CLIがインストール済み
+2. Stripeアカウントにログイン済み（`stripe login`）
+3. テスト用APIキーが`.env`に設定済み
+
+### 起動手順
+
+```bash
+# ターミナル1: Docker (DB)
+docker compose up -d
+
+# ターミナル2: Backend
+cd backend && ./server
+
+# ターミナル3: Frontend
+cd web-frontend && npm run dev
+
+# ターミナル4: Stripe CLI（Webhook転送）← 開発環境でのみ必要！
+stripe listen --forward-to localhost:8080/api/v1/stripe/webhook
+# 出力された whsec_ を backend/.env の STRIPE_WEBHOOK_SECRET に設定
+```
+
+### テストカード
+
+| カード番号 | 用途 |
+|-----------|------|
+| `4242 4242 4242 4242` | 成功 |
+| `4000 0000 0000 0002` | 拒否 |
+| `4000 0000 0000 9995` | 残高不足 |
+
+### 手動でWebhookイベント送信
+
+```bash
+# テストイベントをトリガー
+stripe trigger checkout.session.completed
+stripe trigger invoice.payment_succeeded
+stripe trigger customer.subscription.deleted
 ```
 
 ---

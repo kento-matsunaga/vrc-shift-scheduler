@@ -64,7 +64,7 @@ export default function Subscribe() {
     setLoading(true);
 
     try {
-      const response = await fetch('/api/v1/public/subscribe/', {
+      const response = await fetch('/api/v1/public/subscribe', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
