@@ -239,14 +239,20 @@ func (uc *AdminTenantUsecase) UpdateStatus(ctx context.Context, input UpdateTena
 
 		switch input.Status {
 		case tenant.TenantStatusActive:
-			t.SetStatusActive(now)
+			if err := t.SetStatusActive(now); err != nil {
+				return fmt.Errorf("failed to set status to active: %w", err)
+			}
 		case tenant.TenantStatusGrace:
 			if input.GraceUntil == nil {
 				return common.NewDomainError("ERR_INVALID_INPUT", "grace_until is required for grace status")
 			}
-			t.SetStatusGrace(now, *input.GraceUntil)
+			if err := t.SetStatusGrace(now, *input.GraceUntil); err != nil {
+				return fmt.Errorf("failed to set status to grace: %w", err)
+			}
 		case tenant.TenantStatusSuspended:
-			t.SetStatusSuspended(now)
+			if err := t.SetStatusSuspended(now); err != nil {
+				return fmt.Errorf("failed to set status to suspended: %w", err)
+			}
 		default:
 			return common.NewDomainError("ERR_INVALID_STATUS", "Invalid status")
 		}

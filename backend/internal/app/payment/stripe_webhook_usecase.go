@@ -180,7 +180,9 @@ func (uc *StripeWebhookUsecase) handleCheckoutSessionCompleted(ctx context.Conte
 	return uc.txManager.WithTx(ctx, func(txCtx context.Context) error {
 		// Activate tenant
 		previousStatus := t.Status()
-		t.SetStatusActive(now)
+		if err := t.SetStatusActive(now); err != nil {
+			return fmt.Errorf("failed to set tenant status to active: %w", err)
+		}
 		if err := uc.tenantRepo.Save(txCtx, t); err != nil {
 			return fmt.Errorf("failed to save tenant: %w", err)
 		}
@@ -265,7 +267,9 @@ func (uc *StripeWebhookUsecase) handleInvoicePaid(ctx context.Context, now time.
 
 	return uc.txManager.WithTx(ctx, func(txCtx context.Context) error {
 		// Update subscription status
-		sub.UpdateStatus(now, billing.SubscriptionStatusActive, sub.CurrentPeriodEnd())
+		if err := sub.UpdateStatus(now, billing.SubscriptionStatusActive, sub.CurrentPeriodEnd()); err != nil {
+			return fmt.Errorf("failed to update subscription status: %w", err)
+		}
 		if err := uc.subscriptionRepo.Save(txCtx, sub); err != nil {
 			return fmt.Errorf("failed to save subscription: %w", err)
 		}
@@ -277,7 +281,9 @@ func (uc *StripeWebhookUsecase) handleInvoicePaid(ctx context.Context, now time.
 		}
 
 		previousStatus := t.Status()
-		t.SetStatusActive(now)
+		if err := t.SetStatusActive(now); err != nil {
+			return fmt.Errorf("failed to set tenant status to active: %w", err)
+		}
 		if err := uc.tenantRepo.Save(txCtx, t); err != nil {
 			return fmt.Errorf("failed to save tenant: %w", err)
 		}
@@ -327,7 +333,9 @@ func (uc *StripeWebhookUsecase) handleInvoicePaymentFailed(ctx context.Context, 
 
 	return uc.txManager.WithTx(ctx, func(txCtx context.Context) error {
 		// Update subscription status
-		sub.UpdateStatus(now, billing.SubscriptionStatusPastDue, sub.CurrentPeriodEnd())
+		if err := sub.UpdateStatus(now, billing.SubscriptionStatusPastDue, sub.CurrentPeriodEnd()); err != nil {
+			return fmt.Errorf("failed to update subscription status: %w", err)
+		}
 		if err := uc.subscriptionRepo.Save(txCtx, sub); err != nil {
 			return fmt.Errorf("failed to save subscription: %w", err)
 		}
@@ -341,7 +349,9 @@ func (uc *StripeWebhookUsecase) handleInvoicePaymentFailed(ctx context.Context, 
 		// 支払い失敗時はドメイン層で定義されたgrace期間を使用
 		graceUntil := now.AddDate(0, 0, tenant.DefaultGracePeriodDays)
 		previousStatus := t.Status()
-		t.SetStatusGrace(now, graceUntil)
+		if err := t.SetStatusGrace(now, graceUntil); err != nil {
+			return fmt.Errorf("failed to set tenant status to grace: %w", err)
+		}
 		if err := uc.tenantRepo.Save(txCtx, t); err != nil {
 			return fmt.Errorf("failed to save tenant: %w", err)
 		}
@@ -428,7 +438,9 @@ func (uc *StripeWebhookUsecase) handleSubscriptionDeleted(ctx context.Context, n
 	return uc.txManager.WithTx(ctx, func(txCtx context.Context) error {
 		// Update subscription status
 		periodEnd := time.Unix(subscription.CurrentPeriodEnd, 0).UTC()
-		sub.UpdateStatus(now, billing.SubscriptionStatusCanceled, &periodEnd)
+		if err := sub.UpdateStatus(now, billing.SubscriptionStatusCanceled, &periodEnd); err != nil {
+			return fmt.Errorf("failed to update subscription status: %w", err)
+		}
 		if err := uc.subscriptionRepo.Save(txCtx, sub); err != nil {
 			return fmt.Errorf("failed to save subscription: %w", err)
 		}
@@ -450,7 +462,9 @@ func (uc *StripeWebhookUsecase) handleSubscriptionDeleted(ctx context.Context, n
 		// grace_until を計算する
 		//
 		// 例: 1/31に期間終了 → grace_until = 2/14 → 2/15にsuspended
-		t.TransitionToGraceAfterSubscriptionEnd(now, periodEnd)
+		if err := t.TransitionToGraceAfterSubscriptionEnd(now, periodEnd); err != nil {
+			return fmt.Errorf("failed to transition tenant to grace: %w", err)
+		}
 
 		if err := uc.tenantRepo.Save(txCtx, t); err != nil {
 			return fmt.Errorf("failed to save tenant: %w", err)

@@ -1,6 +1,7 @@
 package tenant
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
@@ -61,7 +62,13 @@ var validTransitions = map[TenantStatus][]TenantStatus{
 
 // CanTransitionTo checks if the status can transition to the new status.
 // Returns true if the transition is valid according to the business rules.
+// Note: Same status transitions (e.g., active -> active) are allowed as they
+// represent valid operations like payment renewals where the status doesn't change.
 func (s TenantStatus) CanTransitionTo(newStatus TenantStatus) bool {
+	// Same status is always allowed (no-op but valid for renewals, etc.)
+	if s == newStatus {
+		return true
+	}
 	allowed, ok := validTransitions[s]
 	if !ok {
 		return false
@@ -304,22 +311,34 @@ func (t *Tenant) Delete(now time.Time) {
 	t.updatedAt = now
 }
 
-// SetStatusActive sets the tenant status to active
-func (t *Tenant) SetStatusActive(now time.Time) {
+// SetStatusActive sets the tenant status to active.
+// Returns an error if the transition is not allowed from the current status.
+func (t *Tenant) SetStatusActive(now time.Time) error {
+	if !t.status.CanTransitionTo(TenantStatusActive) {
+		return common.NewValidationError(
+			fmt.Sprintf("invalid status transition from %s to active", t.status), nil)
+	}
 	t.status = TenantStatusActive
 	t.graceUntil = nil
 	t.pendingExpiresAt = nil
 	t.pendingStripeSessionID = nil
 	t.isActive = true
 	t.updatedAt = now
+	return nil
 }
 
-// SetStatusGrace sets the tenant status to grace with a grace period end time
-func (t *Tenant) SetStatusGrace(now time.Time, graceUntil time.Time) {
+// SetStatusGrace sets the tenant status to grace with a grace period end time.
+// Returns an error if the transition is not allowed from the current status.
+func (t *Tenant) SetStatusGrace(now time.Time, graceUntil time.Time) error {
+	if !t.status.CanTransitionTo(TenantStatusGrace) {
+		return common.NewValidationError(
+			fmt.Sprintf("invalid status transition from %s to grace", t.status), nil)
+	}
 	t.status = TenantStatusGrace
 	t.graceUntil = &graceUntil
 	t.isActive = false
 	t.updatedAt = now
+	return nil
 }
 
 // CalculateGraceUntil calculates the grace period end date based on the subscription period end.
@@ -334,29 +353,42 @@ func CalculateGraceUntil(periodEnd time.Time) time.Time {
 // - Payment fails and all retries are exhausted
 //
 // The grace period gives users 14 days to re-subscribe before suspension.
-func (t *Tenant) TransitionToGraceAfterSubscriptionEnd(now time.Time, periodEnd time.Time) {
+// Returns an error if the transition is not allowed from the current status.
+func (t *Tenant) TransitionToGraceAfterSubscriptionEnd(now time.Time, periodEnd time.Time) error {
 	graceUntil := CalculateGraceUntil(periodEnd)
-	t.SetStatusGrace(now, graceUntil)
+	return t.SetStatusGrace(now, graceUntil)
 }
 
-// SetStatusSuspended sets the tenant status to suspended
-func (t *Tenant) SetStatusSuspended(now time.Time) {
+// SetStatusSuspended sets the tenant status to suspended.
+// Returns an error if the transition is not allowed from the current status.
+func (t *Tenant) SetStatusSuspended(now time.Time) error {
+	if !t.status.CanTransitionTo(TenantStatusSuspended) {
+		return common.NewValidationError(
+			fmt.Sprintf("invalid status transition from %s to suspended", t.status), nil)
+	}
 	t.status = TenantStatusSuspended
 	t.graceUntil = nil
 	t.pendingExpiresAt = nil
 	t.pendingStripeSessionID = nil
 	t.isActive = false
 	t.updatedAt = now
+	return nil
 }
 
-// SetStatusPendingPayment sets the tenant status to pending_payment
-func (t *Tenant) SetStatusPendingPayment(now time.Time, stripeSessionID string, expiresAt time.Time) {
+// SetStatusPendingPayment sets the tenant status to pending_payment.
+// Returns an error if the transition is not allowed from the current status.
+func (t *Tenant) SetStatusPendingPayment(now time.Time, stripeSessionID string, expiresAt time.Time) error {
+	if !t.status.CanTransitionTo(TenantStatusPendingPayment) {
+		return common.NewValidationError(
+			fmt.Sprintf("invalid status transition from %s to pending_payment", t.status), nil)
+	}
 	t.status = TenantStatusPendingPayment
 	t.graceUntil = nil
 	t.pendingExpiresAt = &expiresAt
 	t.pendingStripeSessionID = &stripeSessionID
 	t.isActive = false
 	t.updatedAt = now
+	return nil
 }
 
 // IsPendingPayment checks if the tenant is in pending payment status

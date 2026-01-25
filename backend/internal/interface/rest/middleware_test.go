@@ -80,10 +80,10 @@ func TestTenantStatusMiddleware_ActiveTenant_Passes(t *testing.T) {
 }
 
 func TestTenantStatusMiddleware_GraceTenant_Passes(t *testing.T) {
-	// Create a grace tenant
+	// Create a grace tenant (valid transition: active -> grace)
 	graceTenant, _ := tenant.NewTenant(time.Now(), "Test Tenant", "Asia/Tokyo")
 	graceUntil := time.Now().Add(14 * 24 * time.Hour)
-	graceTenant.SetStatusGrace(time.Now(), graceUntil)
+	_ = graceTenant.SetStatusGrace(time.Now(), graceUntil)
 
 	mockRepo := &MockTenantRepository{
 		findByIDFunc: func(ctx context.Context, id common.TenantID) (*tenant.Tenant, error) {
@@ -117,9 +117,10 @@ func TestTenantStatusMiddleware_GraceTenant_Passes(t *testing.T) {
 }
 
 func TestTenantStatusMiddleware_SuspendedTenant_Blocked(t *testing.T) {
-	// Create a suspended tenant
+	// Create a suspended tenant (valid transition: active -> grace -> suspended)
 	suspendedTenant, _ := tenant.NewTenant(time.Now(), "Test Tenant", "Asia/Tokyo")
-	suspendedTenant.SetStatusSuspended(time.Now())
+	_ = suspendedTenant.SetStatusGrace(time.Now(), time.Now().Add(7*24*time.Hour))
+	_ = suspendedTenant.SetStatusSuspended(time.Now())
 
 	mockRepo := &MockTenantRepository{
 		findByIDFunc: func(ctx context.Context, id common.TenantID) (*tenant.Tenant, error) {

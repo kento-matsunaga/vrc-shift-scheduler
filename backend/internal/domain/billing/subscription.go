@@ -1,6 +1,7 @@
 package billing
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
@@ -57,6 +58,52 @@ func (s SubscriptionStatus) IsValid() bool {
 		SubscriptionStatusCanceled, SubscriptionStatusUnpaid,
 		SubscriptionStatusIncomplete, SubscriptionStatusTrialing:
 		return true
+	}
+	return false
+}
+
+// validSubscriptionTransitions defines the allowed state transitions for a subscription.
+// This encapsulates the business rules for subscription lifecycle based on Stripe events:
+//
+//	incomplete → active (payment succeeded)
+//	incomplete → canceled (payment failed / expired)
+//	trialing → active (trial ended, payment succeeded)
+//	trialing → past_due (trial ended, payment failed)
+//	trialing → canceled (trial canceled)
+//	active → past_due (payment failed)
+//	active → canceled (subscription canceled)
+//	active → unpaid (payment failed after retries)
+//	past_due → active (payment succeeded)
+//	past_due → canceled (subscription canceled)
+//	past_due → unpaid (max retries reached)
+//	unpaid → active (payment succeeded)
+//	unpaid → canceled (subscription canceled)
+var validSubscriptionTransitions = map[SubscriptionStatus][]SubscriptionStatus{
+	SubscriptionStatusIncomplete: {SubscriptionStatusActive, SubscriptionStatusCanceled},
+	SubscriptionStatusTrialing:   {SubscriptionStatusActive, SubscriptionStatusPastDue, SubscriptionStatusCanceled},
+	SubscriptionStatusActive:     {SubscriptionStatusPastDue, SubscriptionStatusCanceled, SubscriptionStatusUnpaid},
+	SubscriptionStatusPastDue:    {SubscriptionStatusActive, SubscriptionStatusCanceled, SubscriptionStatusUnpaid},
+	SubscriptionStatusUnpaid:     {SubscriptionStatusActive, SubscriptionStatusCanceled},
+	SubscriptionStatusCanceled:   {}, // Terminal state - no transitions allowed
+}
+
+// CanTransitionTo checks if the status can transition to the new status.
+// Returns true if the transition is valid according to the business rules.
+// Note: Same status transitions (e.g., active -> active) are allowed as they
+// represent valid operations like subscription renewals where the status doesn't change.
+func (s SubscriptionStatus) CanTransitionTo(newStatus SubscriptionStatus) bool {
+	// Same status is always allowed (no-op but valid for renewals, etc.)
+	if s == newStatus {
+		return true
+	}
+	allowed, ok := validSubscriptionTransitions[s]
+	if !ok {
+		return false
+	}
+	for _, status := range allowed {
+		if status == newStatus {
+			return true
+		}
 	}
 	return false
 }
@@ -211,11 +258,17 @@ func (s *Subscription) IsActive() bool {
 	return s.status == SubscriptionStatusActive || s.status == SubscriptionStatusTrialing
 }
 
-// UpdateStatus updates the subscription status
-func (s *Subscription) UpdateStatus(now time.Time, status SubscriptionStatus, currentPeriodEnd *time.Time) {
+// UpdateStatus updates the subscription status.
+// Returns an error if the transition is not allowed from the current status.
+func (s *Subscription) UpdateStatus(now time.Time, status SubscriptionStatus, currentPeriodEnd *time.Time) error {
+	if !s.status.CanTransitionTo(status) {
+		return common.NewValidationError(
+			fmt.Sprintf("invalid subscription status transition from %s to %s", s.status, status), nil)
+	}
 	s.status = status
 	s.currentPeriodEnd = currentPeriodEnd
 	s.updatedAt = now
+	return nil
 }
 
 // CancelAtPeriodEnd returns whether the subscription is scheduled to cancel at period end
