@@ -95,7 +95,7 @@ VRC Shift Scheduler では、新規テナント登録時に Stripe Checkout Sess
 
 ## 関連
 
-- `backend/internal/app/payment/subscribe_usecase.go` - 実装箇所
+- [`backend/internal/app/payment/subscribe_usecase.go`](/backend/internal/app/payment/subscribe_usecase.go) - 実装箇所
 - Stripe Documentation: [Checkout Session Expiration](https://stripe.com/docs/payments/checkout/how-checkout-works#session-expiration)
 
 ## 作成日
