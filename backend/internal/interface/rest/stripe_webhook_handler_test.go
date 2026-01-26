@@ -27,15 +27,7 @@ func TestVerifySignature_ValidSignature(t *testing.T) {
 	}
 
 	payload := []byte(`{"id":"evt_123","type":"checkout.session.completed"}`)
-	timestamp := strconv.FormatInt(time.Now().Unix(), 10)
-
-	// Generate valid signature
-	signedPayload := timestamp + "." + string(payload)
-	mac := hmac.New(sha256.New, []byte(secret))
-	mac.Write([]byte(signedPayload))
-	signature := hex.EncodeToString(mac.Sum(nil))
-
-	sigHeader := "t=" + timestamp + ",v1=" + signature
+	sigHeader := generateStripeSignature(payload, secret, time.Now())
 
 	if !handler.verifySignature(payload, sigHeader) {
 		t.Error("verifySignature should return true for valid signature")
@@ -67,15 +59,8 @@ func TestVerifySignature_WrongSecret(t *testing.T) {
 	}
 
 	payload := []byte(`{"id":"evt_123","type":"checkout.session.completed"}`)
-	timestamp := strconv.FormatInt(time.Now().Unix(), 10)
-
 	// Generate signature with wrong secret
-	signedPayload := timestamp + "." + string(payload)
-	mac := hmac.New(sha256.New, []byte("whsec_wrong_secret"))
-	mac.Write([]byte(signedPayload))
-	signature := hex.EncodeToString(mac.Sum(nil))
-
-	sigHeader := "t=" + timestamp + ",v1=" + signature
+	sigHeader := generateStripeSignature(payload, "whsec_wrong_secret", time.Now())
 
 	if handler.verifySignature(payload, sigHeader) {
 		t.Error("verifySignature should return false when signed with wrong secret")
@@ -91,15 +76,7 @@ func TestVerifySignature_ExpiredTimestamp(t *testing.T) {
 
 	payload := []byte(`{"id":"evt_123","type":"checkout.session.completed"}`)
 	// Timestamp 10 minutes ago (exceeds 5 minute tolerance)
-	timestamp := strconv.FormatInt(time.Now().Add(-10*time.Minute).Unix(), 10)
-
-	// Generate valid signature with expired timestamp
-	signedPayload := timestamp + "." + string(payload)
-	mac := hmac.New(sha256.New, []byte(secret))
-	mac.Write([]byte(signedPayload))
-	signature := hex.EncodeToString(mac.Sum(nil))
-
-	sigHeader := "t=" + timestamp + ",v1=" + signature
+	sigHeader := generateStripeSignature(payload, secret, time.Now().Add(-10*time.Minute))
 
 	if handler.verifySignature(payload, sigHeader) {
 		t.Error("verifySignature should return false for expired timestamp (>5 minutes)")
@@ -183,16 +160,14 @@ func TestVerifySignature_MultipleSignatures(t *testing.T) {
 	}
 
 	payload := []byte(`{"id":"evt_123","type":"checkout.session.completed"}`)
-	timestamp := strconv.FormatInt(time.Now().Unix(), 10)
+	now := time.Now()
 
-	// Generate valid signature
-	signedPayload := timestamp + "." + string(payload)
-	mac := hmac.New(sha256.New, []byte(secret))
-	mac.Write([]byte(signedPayload))
-	validSignature := hex.EncodeToString(mac.Sum(nil))
+	// Generate valid signature using helper
+	validSig := computeStripeSignature(payload, secret, now)
 
 	// Header with multiple signatures (one invalid, one valid)
-	sigHeader := "t=" + timestamp + ",v1=invalid_sig,v1=" + validSignature
+	ts := strconv.FormatInt(now.Unix(), 10)
+	sigHeader := "t=" + ts + ",v1=invalid_sig,v1=" + validSig
 
 	if !handler.verifySignature(payload, sigHeader) {
 		t.Error("verifySignature should return true when at least one signature matches")
@@ -208,14 +183,7 @@ func TestVerifySignature_TimestampAtBoundary(t *testing.T) {
 
 	payload := []byte(`{"id":"evt_123"}`)
 	// Timestamp exactly 4 minutes 59 seconds ago (should pass)
-	timestamp := strconv.FormatInt(time.Now().Add(-4*time.Minute-59*time.Second).Unix(), 10)
-
-	signedPayload := timestamp + "." + string(payload)
-	mac := hmac.New(sha256.New, []byte(secret))
-	mac.Write([]byte(signedPayload))
-	signature := hex.EncodeToString(mac.Sum(nil))
-
-	sigHeader := "t=" + timestamp + ",v1=" + signature
+	sigHeader := generateStripeSignature(payload, secret, time.Now().Add(-4*time.Minute-59*time.Second))
 
 	if !handler.verifySignature(payload, sigHeader) {
 		t.Error("verifySignature should return true for timestamp within 5 minute tolerance")
@@ -227,9 +195,21 @@ func TestVerifySignature_TimestampAtBoundary(t *testing.T) {
 // =====================================================
 
 // MockStripeWebhookUsecase is a mock for testing
+// Note: Currently used for type checking only. Actual mock behavior
+// will be implemented when integration tests are added.
 type MockStripeWebhookUsecase struct {
-	handleWebhookFunc func(event apppayment.StripeEvent, rawBody string) (bool, error)
+	// Intentionally empty - methods will be added as needed for integration tests
 }
+
+// HandleWebhook implements the webhook handling interface for testing
+func (m *MockStripeWebhookUsecase) HandleWebhook(_ apppayment.StripeEvent, _ string) (bool, error) {
+	return true, nil
+}
+
+// Ensure MockStripeWebhookUsecase implements the expected interface
+var _ interface {
+	HandleWebhook(event apppayment.StripeEvent, rawBody string) (bool, error)
+} = (*MockStripeWebhookUsecase)(nil)
 
 func TestHandleWebhook_MissingSignatureHeader(t *testing.T) {
 	handler := &StripeWebhookHandler{
@@ -324,12 +304,18 @@ func TestHandleWebhook_DisabledIntegration(t *testing.T) {
 // Helper functions for generating test signatures
 // =====================================================
 
-// generateStripeSignature creates a valid Stripe webhook signature for testing
-func generateStripeSignature(payload []byte, secret string, timestamp time.Time) string {
+// computeStripeSignature computes only the signature portion (hex string)
+func computeStripeSignature(payload []byte, secret string, timestamp time.Time) string {
 	ts := strconv.FormatInt(timestamp.Unix(), 10)
 	signedPayload := ts + "." + string(payload)
 	mac := hmac.New(sha256.New, []byte(secret))
 	mac.Write([]byte(signedPayload))
-	signature := hex.EncodeToString(mac.Sum(nil))
+	return hex.EncodeToString(mac.Sum(nil))
+}
+
+// generateStripeSignature creates a valid Stripe webhook signature header for testing
+func generateStripeSignature(payload []byte, secret string, timestamp time.Time) string {
+	ts := strconv.FormatInt(timestamp.Unix(), 10)
+	signature := computeStripeSignature(payload, secret, timestamp)
 	return "t=" + ts + ",v1=" + signature
 }
