@@ -102,7 +102,7 @@
 
 ## 関連ファイル
 
-- `backend/internal/app/payment/subscribe_usecase.go` - 実装箇所
+- [`backend/internal/app/payment/subscribe_usecase.go`](/backend/internal/app/payment/subscribe_usecase.go) - 実装箇所
 
 ## 参考
 
