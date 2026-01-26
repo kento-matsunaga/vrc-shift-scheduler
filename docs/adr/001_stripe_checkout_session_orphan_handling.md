@@ -108,3 +108,11 @@
 
 - [Stripe Checkout Session API](https://stripe.com/docs/api/checkout/sessions)
 - [Stripe Session Expiration](https://stripe.com/docs/payments/checkout/custom#session-expiration)
+
+## 作成日
+
+2026-01-26
+
+## 作成者
+
+Claude Opus 4.5 (Code Assistant)

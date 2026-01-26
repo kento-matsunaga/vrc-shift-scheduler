@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import type { SubscribeResponse } from '../types/api';
+import { getErrorMessage, isRateLimitError } from '../utils/errorHandler';
 
 export default function Subscribe() {
   const [email, setEmail] = useState('');
@@ -74,8 +75,17 @@ export default function Subscribe() {
       const data = await response.json();
 
       if (!response.ok) {
-        const errorMessage = data.error?.message || '登録に失敗しました';
-        throw new Error(errorMessage);
+        // Use centralized error handler for better error messages
+        const errorMessage = getErrorMessage(data, '登録に失敗しました');
+
+        // Check for rate limiting - provide more specific guidance
+        if (isRateLimitError(data)) {
+          setError('リクエストが多すぎます。1分ほど待ってから再度お試しください。');
+        } else {
+          setError(errorMessage);
+        }
+        console.error('Subscribe error:', data);
+        return;
       }
 
       const result: SubscribeResponse = data.data;
@@ -83,12 +93,9 @@ export default function Subscribe() {
       // Redirect to Stripe Checkout
       window.location.href = result.checkout_url;
     } catch (err) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError('登録に失敗しました。もう一度お試しください。');
-      }
+      // Network errors or other unexpected errors
       console.error('Subscribe error:', err);
+      setError('通信エラーが発生しました。ネットワーク接続を確認して再度お試しください。');
     } finally {
       setLoading(false);
     }
