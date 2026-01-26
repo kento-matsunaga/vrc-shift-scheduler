@@ -97,6 +97,8 @@ func (uc *SubscribeUsecase) Execute(ctx context.Context, input SubscribeInput) (
 	// この設計は意図的なものであり、Session ID を DB に保存してから Stripe API を呼ぶ方式より
 	// シンプルで、失敗時のリカバリも容易である。
 	//
+	// 詳細な設計意図は ADR-001 を参照: docs/adr/001_stripe_checkout_session_orphan_handling.md
+	//
 	// Create Stripe Checkout Session first to get session ID and expiration
 	// Stripe Checkout Session expires after 24 hours by default
 	sessionResult, err = uc.paymentGateway.CreateCheckoutSession(services.CheckoutSessionParams{
