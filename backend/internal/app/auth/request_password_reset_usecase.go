@@ -66,8 +66,7 @@ func (u *RequestPasswordResetUsecase) Execute(ctx context.Context, input Request
 	admin, err := u.adminRepo.FindByEmailGlobal(ctx, input.Email)
 	if err != nil || admin == nil {
 		// Admin not found - return success to prevent user enumeration
-		slog.Info("Password reset requested for non-existent email",
-			"email", input.Email)
+		slog.Info("Password reset requested for non-existent email")
 		return &RequestPasswordResetOutput{
 			Success: true,
 			Message: "パスワードリセット用のメールを送信しました。メールをご確認ください。",
@@ -140,8 +139,7 @@ func (u *RequestPasswordResetUsecase) Execute(ctx context.Context, input Request
 	}
 
 	slog.Info("Password reset email sent successfully",
-		"admin_id", admin.AdminID().String(),
-		"email", admin.Email())
+		"admin_id", admin.AdminID().String())
 
 	return &RequestPasswordResetOutput{
 		Success: true,

@@ -108,10 +108,11 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 	licenseKeyRepo := db.NewLicenseKeyRepository(dbPool)
 	billingAuditLogRepo := db.NewBillingAuditLogRepository(dbPool)
 	passwordResetTokenRepo := db.NewPasswordResetTokenRepository(dbPool)
+	passwordResetTxManager := db.NewPgxTxManager(dbPool)
 	checkPasswordResetStatusUsecase := auth.NewCheckPasswordResetStatusUsecase(adminRepo, passwordResetClock)
 	verifyAndResetPasswordUsecase := auth.NewVerifyAndResetPasswordUsecase(adminRepo, licenseKeyRepo, passwordHasher, passwordResetClock, billingAuditLogRepo)
 	requestPasswordResetUsecase := auth.NewRequestPasswordResetUsecase(adminRepo, passwordResetTokenRepo, invitationEmailService, passwordResetClock)
-	resetPasswordWithTokenUsecase := auth.NewResetPasswordWithTokenUsecase(adminRepo, passwordResetTokenRepo, passwordHasher, passwordResetClock)
+	resetPasswordWithTokenUsecase := auth.NewResetPasswordWithTokenUsecase(adminRepo, passwordResetTokenRepo, passwordHasher, passwordResetClock, passwordResetTxManager)
 	passwordResetRateLimiter := DefaultPasswordResetRateLimiter()
 
 	// 認証不要ルート

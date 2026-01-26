@@ -9,6 +9,11 @@ import (
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/services"
 )
 
+// TxManager defines the transaction manager interface
+type TxManager interface {
+	WithTx(ctx context.Context, fn func(context.Context) error) error
+}
+
 // ResetPasswordWithTokenInput represents the input for resetting password with token
 type ResetPasswordWithTokenInput struct {
 	Token       string // パスワードリセットトークン
@@ -27,6 +32,7 @@ type ResetPasswordWithTokenUsecase struct {
 	passwordResetTokenRepo auth.PasswordResetTokenRepository
 	passwordHasher         services.PasswordHasher
 	clock                  services.Clock
+	txManager              TxManager
 }
 
 // NewResetPasswordWithTokenUsecase creates a new ResetPasswordWithTokenUsecase
@@ -35,12 +41,14 @@ func NewResetPasswordWithTokenUsecase(
 	passwordResetTokenRepo auth.PasswordResetTokenRepository,
 	passwordHasher services.PasswordHasher,
 	clock services.Clock,
+	txManager TxManager,
 ) *ResetPasswordWithTokenUsecase {
 	return &ResetPasswordWithTokenUsecase{
 		adminRepo:              adminRepo,
 		passwordResetTokenRepo: passwordResetTokenRepo,
 		passwordHasher:         passwordHasher,
 		clock:                  clock,
+		txManager:              txManager,
 	}
 }
 
@@ -107,36 +115,45 @@ func (u *ResetPasswordWithTokenUsecase) Execute(ctx context.Context, input Reset
 		return nil, err
 	}
 
-	// Save the admin
-	if err := u.adminRepo.Save(ctx, admin); err != nil {
-		slog.Error("Failed to save admin after password reset",
-			"admin_id", admin.AdminID().String(),
-			"error", err)
-		return nil, common.NewDomainError("ERR_INTERNAL", "パスワードの保存中にエラーが発生しました")
-	}
-
-	// Mark the token as used
+	// Mark the token as used before transaction
 	if err := resetToken.MarkAsUsed(now); err != nil {
 		slog.Error("Failed to mark token as used",
 			"token_id", resetToken.TokenID().String(),
 			"error", err)
-		// Continue - password was already reset successfully
+		return nil, common.NewValidationError("無効または期限切れのトークンです", nil)
 	}
 
-	// Save the token to persist the used_at timestamp
-	if err := u.passwordResetTokenRepo.Save(ctx, resetToken); err != nil {
-		slog.Error("Failed to save token after marking as used",
-			"token_id", resetToken.TokenID().String(),
-			"error", err)
-		// Continue - password was already reset successfully
-	}
+	// Execute all DB operations in a transaction
+	err = u.txManager.WithTx(ctx, func(txCtx context.Context) error {
+		// Save the admin
+		if err := u.adminRepo.Save(txCtx, admin); err != nil {
+			slog.Error("Failed to save admin after password reset",
+				"admin_id", admin.AdminID().String(),
+				"error", err)
+			return common.NewDomainError("ERR_INTERNAL", "パスワードの保存中にエラーが発生しました")
+		}
 
-	// Invalidate all other tokens for this admin
-	if err := u.passwordResetTokenRepo.InvalidateAllByAdminID(ctx, admin.AdminID()); err != nil {
-		slog.Error("Failed to invalidate other tokens",
-			"admin_id", admin.AdminID().String(),
-			"error", err)
-		// Continue - password was already reset successfully
+		// Save the token to persist the used_at timestamp
+		if err := u.passwordResetTokenRepo.Save(txCtx, resetToken); err != nil {
+			slog.Error("Failed to save token after marking as used",
+				"token_id", resetToken.TokenID().String(),
+				"error", err)
+			return common.NewDomainError("ERR_INTERNAL", "トークンの更新中にエラーが発生しました")
+		}
+
+		// Invalidate all other tokens for this admin
+		if err := u.passwordResetTokenRepo.InvalidateAllByAdminID(txCtx, admin.AdminID()); err != nil {
+			slog.Error("Failed to invalidate other tokens",
+				"admin_id", admin.AdminID().String(),
+				"error", err)
+			return common.NewDomainError("ERR_INTERNAL", "トークンの無効化中にエラーが発生しました")
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
 	}
 
 	slog.Info("Password reset successful",
@@ -146,12 +163,4 @@ func (u *ResetPasswordWithTokenUsecase) Execute(ctx context.Context, input Reset
 		Success: true,
 		Message: "パスワードが正常にリセットされました",
 	}, nil
-}
-
-// min returns the minimum of two integers
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }
