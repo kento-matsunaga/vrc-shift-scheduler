@@ -1,9 +1,10 @@
 import { SEO_CONFIG } from './seoConfig';
-import { JsonLd, schemas, type FAQPageSchema } from './JsonLd';
+import { JsonLd, schemas, type JsonLdSchema } from './JsonLd';
 
 interface SEOProps {
   title?: string;
   description?: string;
+  keywords?: string;
   path?: string;
   ogImage?: string;
   ogType?: 'website' | 'article';
@@ -26,6 +27,7 @@ interface SEOProps {
 export function SEO({
   title = SEO_CONFIG.defaultMeta.title,
   description = SEO_CONFIG.defaultMeta.description,
+  keywords = 'VRChat,シフト管理,イベント管理,出欠確認,スケジュール',
   path = '/',
   ogImage = SEO_CONFIG.defaultMeta.ogImage,
   ogType = 'website',
@@ -38,13 +40,7 @@ export function SEO({
     : `${SEO_CONFIG.baseUrl}${ogImage}`;
 
   // Build JSON-LD schemas
-  const jsonLdSchemas: (
-    | ReturnType<typeof schemas.organization>
-    | ReturnType<typeof schemas.webSite>
-    | ReturnType<typeof schemas.softwareApplication>
-    | FAQPageSchema
-    | ReturnType<typeof schemas.breadcrumbList>
-  )[] = [];
+  const jsonLdSchemas: JsonLdSchema[] = [];
 
   if (jsonLd?.organization) {
     jsonLdSchemas.push(schemas.organization());
@@ -67,6 +63,9 @@ export function SEO({
       {/* Basic Meta Tags - React 19 hoists these to <head> */}
       <title>{title}</title>
       <meta name="description" content={description} />
+      <meta name="keywords" content={keywords} />
+      <meta name="author" content={SEO_CONFIG.siteName} />
+      <meta name="theme-color" content="#4F46E5" />
 
       {/* Robots */}
       {noindex && <meta name="robots" content="noindex, nofollow" />}

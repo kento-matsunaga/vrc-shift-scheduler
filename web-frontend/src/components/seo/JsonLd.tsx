@@ -72,7 +72,10 @@ export interface BreadcrumbListSchema {
   }[];
 }
 
-type JsonLdSchema =
+/**
+ * Union type for all JSON-LD schemas
+ */
+export type JsonLdSchema =
   | OrganizationSchema
   | WebSiteSchema
   | SoftwareApplicationSchema
