@@ -30,18 +30,23 @@ type SubscribeOutput struct {
 
 // SubscribeUsecase handles new subscription creation via Stripe Checkout
 type SubscribeUsecase struct {
-	txManager      services.TxManager
-	tenantRepo     tenant.TenantRepository
-	adminRepo      auth.AdminRepository
-	passwordHasher services.PasswordHasher
-	paymentGateway services.PaymentGateway
-	clock          services.Clock
-	successURL     string
-	cancelURL      string
-	stripePriceID  string
+	txManager             services.TxManager
+	tenantRepo            tenant.TenantRepository
+	adminRepo             auth.AdminRepository
+	passwordHasher        services.PasswordHasher
+	paymentGateway        services.PaymentGateway
+	clock                 services.Clock
+	successURL            string
+	cancelURL             string
+	stripePriceID         string
+	checkoutExpireMinutes int // Configurable checkout session expiration (default: 1440 = 24 hours)
 }
 
 // NewSubscribeUsecase creates a new SubscribeUsecase
+// checkoutExpireMinutes: minutes until checkout session expires
+//   - 0 or negative: uses default (24 hours / 1440 minutes)
+//   - below minimum (30): clamped to minimum
+//   - above maximum (1440): clamped to maximum
 func NewSubscribeUsecase(
 	txManager services.TxManager,
 	tenantRepo tenant.TenantRepository,
@@ -52,17 +57,27 @@ func NewSubscribeUsecase(
 	successURL string,
 	cancelURL string,
 	stripePriceID string,
+	checkoutExpireMinutes int,
 ) *SubscribeUsecase {
+	// Normalize checkout expiration to valid Stripe range
+	if checkoutExpireMinutes <= 0 {
+		checkoutExpireMinutes = services.DefaultCheckoutExpireMinutes
+	} else if checkoutExpireMinutes < services.MinCheckoutExpireMinutes {
+		checkoutExpireMinutes = services.MinCheckoutExpireMinutes
+	} else if checkoutExpireMinutes > services.MaxCheckoutExpireMinutes {
+		checkoutExpireMinutes = services.MaxCheckoutExpireMinutes
+	}
 	return &SubscribeUsecase{
-		txManager:      txManager,
-		tenantRepo:     tenantRepo,
-		adminRepo:      adminRepo,
-		passwordHasher: passwordHasher,
-		paymentGateway: paymentGateway,
-		clock:          clock,
-		successURL:     successURL,
-		cancelURL:      cancelURL,
-		stripePriceID:  stripePriceID,
+		txManager:             txManager,
+		tenantRepo:            tenantRepo,
+		adminRepo:             adminRepo,
+		passwordHasher:        passwordHasher,
+		paymentGateway:        paymentGateway,
+		clock:                 clock,
+		successURL:            successURL,
+		cancelURL:             cancelURL,
+		stripePriceID:         stripePriceID,
+		checkoutExpireMinutes: checkoutExpireMinutes,
 	}
 }
 
@@ -93,14 +108,14 @@ func (uc *SubscribeUsecase) Execute(ctx context.Context, input SubscribeInput) (
 
 	// NOTE: Stripe Checkout Session を先に作成し、その後 DB トランザクションを実行している。
 	// もし DB トランザクションが失敗した場合、Stripe 側に孤立した Session が残るが、
-	// Stripe Checkout Session は 24 時間で自動的に期限切れになるため、特別なクリーンアップ処理は不要。
+	// Stripe Checkout Session は設定された期限で自動的に期限切れになるため、特別なクリーンアップ処理は不要。
 	// この設計は意図的なものであり、Session ID を DB に保存してから Stripe API を呼ぶ方式より
 	// シンプルで、失敗時のリカバリも容易である。
 	//
 	// 詳細な設計意図は ADR-001 を参照: docs/adr/001_stripe_checkout_session_orphan_handling.md
 	//
 	// Create Stripe Checkout Session first to get session ID and expiration
-	// Stripe Checkout Session expires after 24 hours by default
+	// Session expiration is configurable via CHECKOUT_SESSION_EXPIRE_MINUTES (default: 24 hours)
 	sessionResult, err = uc.paymentGateway.CreateCheckoutSession(services.CheckoutSessionParams{
 		PriceID:       uc.stripePriceID,
 		CustomerEmail: input.Email,
@@ -108,6 +123,7 @@ func (uc *SubscribeUsecase) Execute(ctx context.Context, input SubscribeInput) (
 		CancelURL:     uc.cancelURL,
 		TenantID:      "", // Will be set after tenant creation
 		TenantName:    input.TenantName,
+		ExpireMinutes: uc.checkoutExpireMinutes,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create checkout session: %w", err)

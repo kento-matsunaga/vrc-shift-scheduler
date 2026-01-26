@@ -862,6 +862,24 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			paymentGateway := infrastripe.NewStripePaymentGateway(stripeClient)
 			subscribeClock := &clock.RealClock{}
 
+			// Read checkout session expiration from environment variable
+			// Valid range: 30-1440 minutes (Stripe API constraint)
+			checkoutExpireMinutes := 0 // 0 means use default (24 hours)
+			if envExpire := os.Getenv("CHECKOUT_SESSION_EXPIRE_MINUTES"); envExpire != "" {
+				if minutes, err := strconv.Atoi(envExpire); err == nil {
+					if minutes >= services.MinCheckoutExpireMinutes && minutes <= services.MaxCheckoutExpireMinutes {
+						checkoutExpireMinutes = minutes
+						slog.Info("Checkout session expiration configured from environment", "minutes", minutes)
+					} else {
+						slog.Warn("CHECKOUT_SESSION_EXPIRE_MINUTES out of valid range, using default",
+							"value", minutes,
+							"validRange", "30-1440")
+					}
+				} else {
+					slog.Warn("Invalid CHECKOUT_SESSION_EXPIRE_MINUTES format, using default", "value", envExpire)
+				}
+			}
+
 			subscribeUsecase := apppayment.NewSubscribeUsecase(
 				txManager,
 				tenantRepo,
@@ -872,6 +890,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 				successURL,
 				cancelURL,
 				stripePriceID,
+				checkoutExpireMinutes,
 			)
 			subscribeHandler := NewSubscribeHandler(subscribeUsecase, subscribeRateLimiter)
 

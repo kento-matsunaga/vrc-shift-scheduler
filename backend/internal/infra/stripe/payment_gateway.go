@@ -28,6 +28,7 @@ func (g *StripePaymentGateway) CreateCheckoutSession(params services.CheckoutSes
 		CancelURL:     params.CancelURL,
 		TenantID:      params.TenantID,
 		TenantName:    params.TenantName,
+		ExpireMinutes: params.ExpireMinutes,
 	})
 	if err != nil {
 		return nil, err

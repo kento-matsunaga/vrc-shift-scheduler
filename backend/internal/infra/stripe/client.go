@@ -2,6 +2,7 @@ package stripe
 
 import (
 	"errors"
+	"time"
 
 	"github.com/stripe/stripe-go/v76"
 	portalsession "github.com/stripe/stripe-go/v76/billingportal/session"
@@ -100,6 +101,7 @@ type CheckoutSessionParams struct {
 	CancelURL     string
 	TenantID      string
 	TenantName    string
+	ExpireMinutes int // Optional: minutes until session expires (default: 1440 = 24 hours)
 }
 
 // CheckoutSessionResult contains the result of creating a checkout session
@@ -132,6 +134,14 @@ func (c *Client) CreateCheckoutSession(params CheckoutSessionParams) (*CheckoutS
 				"tenant_name": params.TenantName,
 			},
 		},
+	}
+
+	// Set expiration time if provided
+	// Note: Validation is done at the usecase layer (NewSubscribeUsecase)
+	// Valid range: 30-1440 minutes (Stripe API constraint)
+	if params.ExpireMinutes > 0 {
+		expiresAt := time.Now().Add(time.Duration(params.ExpireMinutes) * time.Minute).Unix()
+		sessionParams.ExpiresAt = stripe.Int64(expiresAt)
 	}
 
 	// Set customer email if provided

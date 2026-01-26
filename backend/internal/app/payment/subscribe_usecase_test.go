@@ -109,7 +109,8 @@ func (m *MockAdminRepository) ExistsByEmail(ctx context.Context, tenantID common
 
 // MockPasswordHasher is a mock implementation of PasswordHasher
 type MockPasswordHasher struct {
-	hashFunc func(password string) (string, error)
+	hashFunc    func(password string) (string, error)
+	compareFunc func(hash, password string) error
 }
 
 func (m *MockPasswordHasher) Hash(password string) (string, error) {
@@ -117,6 +118,13 @@ func (m *MockPasswordHasher) Hash(password string) (string, error) {
 		return m.hashFunc(password)
 	}
 	return "$2a$10$mockhash", nil
+}
+
+func (m *MockPasswordHasher) Compare(hash, password string) error {
+	if m.compareFunc != nil {
+		return m.compareFunc(hash, password)
+	}
+	return nil
 }
 
 // MockClock is a mock implementation of Clock
@@ -305,5 +313,150 @@ func TestSubscribeInput_Structure(t *testing.T) {
 
 	if input.Timezone != "Asia/Tokyo" {
 		t.Error("Timezone should be set correctly")
+	}
+}
+
+// =====================================================
+// CheckoutExpireMinutes Configuration Tests
+// =====================================================
+
+func TestNewSubscribeUsecase_CheckoutExpireMinutes_DefaultValue(t *testing.T) {
+	// When checkoutExpireMinutes is 0, should use default (1440)
+	uc := NewSubscribeUsecase(
+		&MockTxManager{},
+		&MockTenantRepository{},
+		&MockAdminRepository{},
+		&MockPasswordHasher{},
+		&MockPaymentGateway{},
+		&MockClock{},
+		"https://example.com/success",
+		"https://example.com/cancel",
+		"price_test",
+		0, // Should use default
+	)
+
+	if uc.checkoutExpireMinutes != services.DefaultCheckoutExpireMinutes {
+		t.Errorf("checkoutExpireMinutes should be %d when 0 is passed, got %d",
+			services.DefaultCheckoutExpireMinutes, uc.checkoutExpireMinutes)
+	}
+}
+
+func TestNewSubscribeUsecase_CheckoutExpireMinutes_NegativeValue(t *testing.T) {
+	// When checkoutExpireMinutes is negative, should use default
+	uc := NewSubscribeUsecase(
+		&MockTxManager{},
+		&MockTenantRepository{},
+		&MockAdminRepository{},
+		&MockPasswordHasher{},
+		&MockPaymentGateway{},
+		&MockClock{},
+		"https://example.com/success",
+		"https://example.com/cancel",
+		"price_test",
+		-10, // Should use default
+	)
+
+	if uc.checkoutExpireMinutes != services.DefaultCheckoutExpireMinutes {
+		t.Errorf("checkoutExpireMinutes should be %d when negative is passed, got %d",
+			services.DefaultCheckoutExpireMinutes, uc.checkoutExpireMinutes)
+	}
+}
+
+func TestNewSubscribeUsecase_CheckoutExpireMinutes_BelowMinimum(t *testing.T) {
+	// When checkoutExpireMinutes is below minimum (30), should be clamped to 30
+	uc := NewSubscribeUsecase(
+		&MockTxManager{},
+		&MockTenantRepository{},
+		&MockAdminRepository{},
+		&MockPasswordHasher{},
+		&MockPaymentGateway{},
+		&MockClock{},
+		"https://example.com/success",
+		"https://example.com/cancel",
+		"price_test",
+		10, // Below minimum
+	)
+
+	if uc.checkoutExpireMinutes != services.MinCheckoutExpireMinutes {
+		t.Errorf("checkoutExpireMinutes should be clamped to %d when below minimum, got %d",
+			services.MinCheckoutExpireMinutes, uc.checkoutExpireMinutes)
+	}
+}
+
+func TestNewSubscribeUsecase_CheckoutExpireMinutes_AboveMaximum(t *testing.T) {
+	// When checkoutExpireMinutes is above maximum (1440), should be clamped to 1440
+	uc := NewSubscribeUsecase(
+		&MockTxManager{},
+		&MockTenantRepository{},
+		&MockAdminRepository{},
+		&MockPasswordHasher{},
+		&MockPaymentGateway{},
+		&MockClock{},
+		"https://example.com/success",
+		"https://example.com/cancel",
+		"price_test",
+		2000, // Above maximum
+	)
+
+	if uc.checkoutExpireMinutes != services.MaxCheckoutExpireMinutes {
+		t.Errorf("checkoutExpireMinutes should be clamped to %d when above maximum, got %d",
+			services.MaxCheckoutExpireMinutes, uc.checkoutExpireMinutes)
+	}
+}
+
+func TestNewSubscribeUsecase_CheckoutExpireMinutes_ValidCustomValue(t *testing.T) {
+	// When checkoutExpireMinutes is within valid range, should use that value
+	customMinutes := 60 // 1 hour
+
+	uc := NewSubscribeUsecase(
+		&MockTxManager{},
+		&MockTenantRepository{},
+		&MockAdminRepository{},
+		&MockPasswordHasher{},
+		&MockPaymentGateway{},
+		&MockClock{},
+		"https://example.com/success",
+		"https://example.com/cancel",
+		"price_test",
+		customMinutes,
+	)
+
+	if uc.checkoutExpireMinutes != customMinutes {
+		t.Errorf("checkoutExpireMinutes should be %d, got %d", customMinutes, uc.checkoutExpireMinutes)
+	}
+}
+
+func TestNewSubscribeUsecase_CheckoutExpireMinutes_BoundaryValues(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    int
+		expected int
+	}{
+		{"exactly minimum (30)", 30, 30},
+		{"exactly maximum (1440)", 1440, 1440},
+		{"one below minimum (29)", 29, 30},
+		{"one above maximum (1441)", 1441, 1440},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			uc := NewSubscribeUsecase(
+				&MockTxManager{},
+				&MockTenantRepository{},
+				&MockAdminRepository{},
+				&MockPasswordHasher{},
+				&MockPaymentGateway{},
+				&MockClock{},
+				"https://example.com/success",
+				"https://example.com/cancel",
+				"price_test",
+				tt.input,
+			)
+
+			if uc.checkoutExpireMinutes != tt.expected {
+				t.Errorf("checkoutExpireMinutes with input %d should be %d, got %d",
+					tt.input, tt.expected, uc.checkoutExpireMinutes)
+			}
+		})
 	}
 }

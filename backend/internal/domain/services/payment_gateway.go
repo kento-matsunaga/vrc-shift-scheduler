@@ -1,5 +1,17 @@
 package services
 
+// Checkout session expiration constants (Stripe API constraints)
+const (
+	// MinCheckoutExpireMinutes is the minimum expiration time for Stripe checkout sessions (30 minutes)
+	MinCheckoutExpireMinutes = 30
+
+	// MaxCheckoutExpireMinutes is the maximum expiration time for Stripe checkout sessions (24 hours)
+	MaxCheckoutExpireMinutes = 1440
+
+	// DefaultCheckoutExpireMinutes is the default expiration time for checkout sessions (24 hours)
+	DefaultCheckoutExpireMinutes = 1440
+)
+
 // CheckoutSessionParams contains parameters for creating a checkout session
 type CheckoutSessionParams struct {
 	PriceID       string
@@ -8,6 +20,7 @@ type CheckoutSessionParams struct {
 	CancelURL     string
 	TenantID      string
 	TenantName    string
+	ExpireMinutes int // Optional: minutes until session expires (default: 1440 = 24 hours, min: 30, max: 1440)
 }
 
 // CheckoutSessionResult contains the result of creating a checkout session

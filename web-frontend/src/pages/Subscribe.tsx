@@ -1,15 +1,8 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
+import type { SubscribeResponse } from '../types/api';
 import { getErrorMessage, isRateLimitError } from '../utils/errorHandler';
-
-interface SubscribeResponse {
-  checkout_url: string;
-  session_id: string;
-  tenant_id: string;
-  expires_at: number;
-  message: string;
-}
 
 export default function Subscribe() {
   const [email, setEmail] = useState('');

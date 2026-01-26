@@ -1,102 +1,113 @@
-# ADR-001: Stripe Checkout Session 孤立化の許容
+# ADR-001: Stripe Checkout Session の孤立セッション処理
 
 ## ステータス
 
-承認済み（Accepted）
+承認済み (Accepted)
 
 ## コンテキスト
 
-VRC Shift Scheduler では、新規テナント登録時に Stripe Checkout Session を使用して決済を行う。
-この処理には以下の2つの操作が含まれる：
+新規サブスクリプション登録フローでは、以下の処理が必要:
 
-1. Stripe API で Checkout Session を作成
-2. DB トランザクションでテナントと管理者を作成
+1. Stripe Checkout Session の作成
+2. データベースへのテナント・管理者の保存
 
-これらの操作は原子的に実行できないため、どちらかが失敗した場合のリカバリ方法を決定する必要がある。
+これらの処理の実行順序と、失敗時のリカバリ方法を決定する必要がある。
 
-## 検討した選択肢
+### 問題点
 
-### Option A: Session 作成 → DB 保存（採用）
+- DB保存が失敗した場合、Stripe側に孤立したCheckout Sessionが残る可能性がある
+- Stripe API呼び出しが失敗した場合、DBに不整合なデータが残る可能性がある
+
+## 検討したオプション
+
+### オプション1: DB先行（Session IDをプレースホルダで保存）
 
 ```
-1. Stripe Checkout Session を作成（session_id を取得）
-2. DB トランザクションでテナント作成（session_id を保存）
-3. (失敗時) Stripe 側に孤立 Session が残る
+1. DBにテナント作成（pending_stripe_session_id = "pending"）
+2. Stripe API呼び出し
+3. DBを更新（pending_stripe_session_id = 実際のSession ID）
+```
+
+**メリット:**
+- DBトランザクションで一貫性を保てる
+
+**デメリット:**
+- 2段階更新が必要で複雑
+- ステップ2-3間で障害が発生すると、"pending"のまま残る
+
+### オプション2: Stripe先行（採用）
+
+```
+1. Stripe Checkout Session 作成
+2. DBトランザクションでテナント・管理者を保存
 ```
 
 **メリット:**
 - シンプルな実装
-- 孤立 Session は 24 時間で自動期限切れ
-- テナント作成失敗時、ユーザーは再試行可能
+- DB障害時のリカバリが容易（Stripeセッションは自動期限切れ）
 
 **デメリット:**
-- Stripe 側に一時的に孤立 Session が残る可能性
+- DB保存失敗時にStripe側に孤立セッションが残る
 
-### Option B: DB 保存 → Session 作成
+### オプション3: Sagaパターン（補償トランザクション）
 
 ```
-1. DB トランザクションでテナント作成（session_id = null）
-2. Stripe Checkout Session を作成
-3. DB で session_id を更新
-4. (失敗時) DB に孤立テナントが残る
+1. Stripe Checkout Session 作成
+2. DB保存
+3. 失敗時: Stripe Session をキャンセル
 ```
 
 **メリット:**
-- Stripe 側に孤立 Session が残らない
+- 完全な一貫性
 
 **デメリット:**
-- 複雑な実装（3ステップ）
-- DB に孤立テナントが残る可能性があり、クリーンアップが必要
-- 孤立テナントのステータス管理が複雑
-
-### Option C: Session 作成失敗時に明示的に expire
-
-```
-1. Stripe Checkout Session を作成
-2. DB トランザクションでテナント作成
-3. (DB失敗時) Stripe Session を明示的に expire
-```
-
-**メリット:**
-- 孤立 Session を即座にクリーンアップ
-
-**デメリット:**
-- Stripe API 呼び出しが増える（expire 処理）
-- expire API 呼び出しも失敗する可能性がある
-- 結局 Option A と同等の孤立リスクが残る
+- 実装が複雑
+- キャンセル処理自体が失敗する可能性
 
 ## 決定
 
-**Option A を採用する。**
+**オプション2（Stripe先行）を採用**
 
-理由：
-1. **シンプルさ**: 実装がシンプルで理解しやすい
-2. **Stripe の自動クリーンアップ**: Checkout Session は 24 時間で自動的に期限切れになる
-3. **リスクの低さ**: 孤立 Session による実害がない（課金されない、ユーザーに影響なし）
-4. **リカバリの容易さ**: DB トランザクション失敗時、ユーザーは単純に再試行できる
+## 理由
 
-## 結果
+1. **Stripe Checkout Sessionの自動期限切れ**
+   - 設定された期限（デフォルト24時間、`CHECKOUT_SESSION_EXPIRE_MINUTES`で設定可能）で自動的に期限切れになる
+   - 特別なクリーンアップ処理が不要
 
-### 影響
+2. **シンプルさの優先**
+   - 複雑な補償トランザクションより、シンプルな実装を優先
+   - 障害からのリカバリが容易
 
-- `subscribe_usecase.go` で Session 作成を先に行い、その後 DB トランザクションを実行
-- 孤立 Session は Stripe 側で 24 時間後に自動削除
-- 特別なクリーンアップ処理は実装しない
+3. **ビジネスへの影響が限定的**
+   - 孤立セッションはStripe側で自動処理される
+   - 課金は発生しない（セッション完了前）
+   - ユーザーは再度登録を試行可能
+
+## 影響
+
+### 許容される状態
+
+- **正常系**: Stripe Session作成 → DB保存成功 → ユーザーがCheckoutで決済
+- **DB失敗時**: Stripe Session作成 → DB保存失敗 → 孤立Session（24時間後に自動期限切れ）
 
 ### 監視
 
-- Stripe Dashboard で未完了の Checkout Session 数を定期確認
-- 異常に多い場合は DB トランザクション失敗率を調査
+- Stripeダッシュボードで期限切れSessionの件数を確認可能
+- 大量の孤立Sessionが発生する場合は、DB障害の可能性を調査
 
 ### 許容範囲
 
-- 孤立 Session 数: 通常運用で 1-2 件/日 は許容範囲
-- 大量発生時（10 件/日以上）: システム障害の可能性を調査
+- 孤立Sessionの発生頻度: 月間数件程度であれば正常
+- それ以上の場合は、DBやネットワークの問題を調査
 
-## 関連
+## 関連ファイル
 
 - [`backend/internal/app/payment/subscribe_usecase.go`](/backend/internal/app/payment/subscribe_usecase.go) - 実装箇所
-- Stripe Documentation: [Checkout Session Expiration](https://stripe.com/docs/payments/checkout/how-checkout-works#session-expiration)
+
+## 参考
+
+- [Stripe Checkout Session API](https://stripe.com/docs/api/checkout/sessions)
+- [Stripe Session Expiration](https://stripe.com/docs/payments/checkout/custom#session-expiration)
 
 ## 作成日
 
