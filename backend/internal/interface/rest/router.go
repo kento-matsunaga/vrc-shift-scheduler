@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 
 	appannouncement "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/announcement"
@@ -861,6 +862,17 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			paymentGateway := infrastripe.NewStripePaymentGateway(stripeClient)
 			subscribeClock := &clock.RealClock{}
 
+			// Read checkout session expiration from environment variable (default: 1440 minutes = 24 hours)
+			checkoutExpireMinutes := 0 // 0 means use default (24 hours)
+			if envExpire := os.Getenv("CHECKOUT_SESSION_EXPIRE_MINUTES"); envExpire != "" {
+				if minutes, err := strconv.Atoi(envExpire); err == nil && minutes > 0 {
+					checkoutExpireMinutes = minutes
+					slog.Info("Checkout session expiration configured from environment", "minutes", minutes)
+				} else {
+					slog.Warn("Invalid CHECKOUT_SESSION_EXPIRE_MINUTES value, using default", "value", envExpire)
+				}
+			}
+
 			subscribeUsecase := apppayment.NewSubscribeUsecase(
 				txManager,
 				tenantRepo,
@@ -871,6 +883,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 				successURL,
 				cancelURL,
 				stripePriceID,
+				checkoutExpireMinutes,
 			)
 			subscribeHandler := NewSubscribeHandler(subscribeUsecase, subscribeRateLimiter)
 

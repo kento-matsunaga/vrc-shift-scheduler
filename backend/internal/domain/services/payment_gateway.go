@@ -1,5 +1,8 @@
 package services
 
+// DefaultCheckoutExpireMinutes is the default expiration time for checkout sessions (24 hours)
+const DefaultCheckoutExpireMinutes = 1440 // 24 hours
+
 // CheckoutSessionParams contains parameters for creating a checkout session
 type CheckoutSessionParams struct {
 	PriceID       string
@@ -8,6 +11,7 @@ type CheckoutSessionParams struct {
 	CancelURL     string
 	TenantID      string
 	TenantName    string
+	ExpireMinutes int // Optional: minutes until session expires (default: 1440 = 24 hours, min: 30, max: 1440)
 }
 
 // CheckoutSessionResult contains the result of creating a checkout session

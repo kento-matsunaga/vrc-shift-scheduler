@@ -1,14 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
-
-interface SubscribeResponse {
-  checkout_url: string;
-  session_id: string;
-  tenant_id: string;
-  expires_at: number;
-  message: string;
-}
+import type { SubscribeResponse } from '../types/api';
 
 export default function Subscribe() {
   const [email, setEmail] = useState('');
