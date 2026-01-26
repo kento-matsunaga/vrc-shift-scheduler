@@ -30,6 +30,9 @@ import AttendanceResponse from './pages/public/AttendanceResponse';
 import ScheduleResponse from './pages/public/ScheduleResponse';
 import LicenseClaim from './pages/public/LicenseClaim';
 import PasswordReset from './pages/public/PasswordReset';
+import Subscribe from './pages/Subscribe';
+import SubscribeComplete from './pages/SubscribeComplete';
+import SubscribeCancel from './pages/SubscribeCancel';
 
 /**
  * ログイン状態をチェック
@@ -94,8 +97,10 @@ function App() {
       {/* パスワードリセット（認証不要） */}
       <Route path="/reset-password" element={<PasswordReset />} />
 
-      {/* Stripe サブスク登録（認証不要・未実装、将来用） */}
-      <Route path="/subscribe" element={<div className="p-8 text-center text-white bg-gray-900 min-h-screen">Coming Soon - Subscribe Page</div>} />
+      {/* Stripe サブスク登録（認証不要） */}
+      <Route path="/subscribe" element={<Subscribe />} />
+      <Route path="/subscribe/complete" element={<SubscribeComplete />} />
+      <Route path="/subscribe/cancel" element={<SubscribeCancel />} />
 
       {/* ログイン必須の画面（Layoutでラップ） */}
       <Route element={isLoggedIn ? <Layout /> : <Navigate to="/admin/login" replace />}>

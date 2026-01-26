@@ -27,21 +27,24 @@ func (r *TenantRepository) FindByID(ctx context.Context, tenantID common.TenantI
 	query := `
 		SELECT
 			tenant_id, tenant_name, timezone, is_active, status, grace_until,
+			pending_expires_at, pending_stripe_session_id,
 			created_at, updated_at, deleted_at
 		FROM tenants
 		WHERE tenant_id = $1 AND deleted_at IS NULL
 	`
 
 	var (
-		tenantIDStr string
-		tenantName  string
-		timezone    string
-		isActive    bool
-		status      string
-		graceUntil  sql.NullTime
-		createdAt   time.Time
-		updatedAt   time.Time
-		deletedAt   sql.NullTime
+		tenantIDStr            string
+		tenantName             string
+		timezone               string
+		isActive               bool
+		status                 string
+		graceUntil             sql.NullTime
+		pendingExpiresAt       sql.NullTime
+		pendingStripeSessionID sql.NullString
+		createdAt              time.Time
+		updatedAt              time.Time
+		deletedAt              sql.NullTime
 	)
 
 	err := r.db.QueryRow(ctx, query, tenantID.String()).Scan(
@@ -51,6 +54,8 @@ func (r *TenantRepository) FindByID(ctx context.Context, tenantID common.TenantI
 		&isActive,
 		&status,
 		&graceUntil,
+		&pendingExpiresAt,
+		&pendingStripeSessionID,
 		&createdAt,
 		&updatedAt,
 		&deletedAt,
@@ -78,6 +83,16 @@ func (r *TenantRepository) FindByID(ctx context.Context, tenantID common.TenantI
 		graceUntilPtr = &graceUntil.Time
 	}
 
+	var pendingExpiresAtPtr *time.Time
+	if pendingExpiresAt.Valid {
+		pendingExpiresAtPtr = &pendingExpiresAt.Time
+	}
+
+	var pendingStripeSessionIDPtr *string
+	if pendingStripeSessionID.Valid {
+		pendingStripeSessionIDPtr = &pendingStripeSessionID.String
+	}
+
 	return tenant.ReconstructTenant(
 		parsedTenantID,
 		tenantName,
@@ -85,6 +100,94 @@ func (r *TenantRepository) FindByID(ctx context.Context, tenantID common.TenantI
 		isActive,
 		tenant.TenantStatus(status),
 		graceUntilPtr,
+		pendingExpiresAtPtr,
+		pendingStripeSessionIDPtr,
+		createdAt,
+		updatedAt,
+		deletedAtPtr,
+	)
+}
+
+// FindByPendingStripeSessionID finds a tenant by pending Stripe session ID
+func (r *TenantRepository) FindByPendingStripeSessionID(ctx context.Context, sessionID string) (*tenant.Tenant, error) {
+	query := `
+		SELECT
+			tenant_id, tenant_name, timezone, is_active, status, grace_until,
+			pending_expires_at, pending_stripe_session_id,
+			created_at, updated_at, deleted_at
+		FROM tenants
+		WHERE pending_stripe_session_id = $1 AND deleted_at IS NULL
+	`
+
+	var (
+		tenantIDStr            string
+		tenantName             string
+		timezone               string
+		isActive               bool
+		status                 string
+		graceUntil             sql.NullTime
+		pendingExpiresAt       sql.NullTime
+		pendingStripeSessionID sql.NullString
+		createdAt              time.Time
+		updatedAt              time.Time
+		deletedAt              sql.NullTime
+	)
+
+	err := r.db.QueryRow(ctx, query, sessionID).Scan(
+		&tenantIDStr,
+		&tenantName,
+		&timezone,
+		&isActive,
+		&status,
+		&graceUntil,
+		&pendingExpiresAt,
+		&pendingStripeSessionID,
+		&createdAt,
+		&updatedAt,
+		&deletedAt,
+	)
+
+	if err == pgx.ErrNoRows {
+		return nil, common.NewNotFoundError("Tenant", sessionID)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to find tenant by session_id: %w", err)
+	}
+
+	parsedTenantID, err := common.ParseTenantID(tenantIDStr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse tenant_id: %w", err)
+	}
+
+	var deletedAtPtr *time.Time
+	if deletedAt.Valid {
+		deletedAtPtr = &deletedAt.Time
+	}
+
+	var graceUntilPtr *time.Time
+	if graceUntil.Valid {
+		graceUntilPtr = &graceUntil.Time
+	}
+
+	var pendingExpiresAtPtr *time.Time
+	if pendingExpiresAt.Valid {
+		pendingExpiresAtPtr = &pendingExpiresAt.Time
+	}
+
+	var pendingStripeSessionIDPtr *string
+	if pendingStripeSessionID.Valid {
+		pendingStripeSessionIDPtr = &pendingStripeSessionID.String
+	}
+
+	return tenant.ReconstructTenant(
+		parsedTenantID,
+		tenantName,
+		timezone,
+		isActive,
+		tenant.TenantStatus(status),
+		graceUntilPtr,
+		pendingExpiresAtPtr,
+		pendingStripeSessionIDPtr,
 		createdAt,
 		updatedAt,
 		deletedAtPtr,
@@ -96,14 +199,17 @@ func (r *TenantRepository) Save(ctx context.Context, t *tenant.Tenant) error {
 	query := `
 		INSERT INTO tenants (
 			tenant_id, tenant_name, timezone, is_active, status, grace_until,
+			pending_expires_at, pending_stripe_session_id,
 			created_at, updated_at, deleted_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 		ON CONFLICT (tenant_id) DO UPDATE SET
 			tenant_name = EXCLUDED.tenant_name,
 			timezone = EXCLUDED.timezone,
 			is_active = EXCLUDED.is_active,
 			status = EXCLUDED.status,
 			grace_until = EXCLUDED.grace_until,
+			pending_expires_at = EXCLUDED.pending_expires_at,
+			pending_stripe_session_id = EXCLUDED.pending_stripe_session_id,
 			updated_at = EXCLUDED.updated_at,
 			deleted_at = EXCLUDED.deleted_at
 	`
@@ -115,6 +221,8 @@ func (r *TenantRepository) Save(ctx context.Context, t *tenant.Tenant) error {
 		t.IsActive(),
 		t.Status().String(),
 		t.GraceUntil(),
+		t.PendingExpiresAt(),
+		t.PendingStripeSessionID(),
 		t.CreatedAt(),
 		t.UpdatedAt(),
 		t.DeletedAt(),
@@ -147,6 +255,7 @@ func (r *TenantRepository) ListAll(ctx context.Context, status *tenant.TenantSta
 	query := `
 		SELECT
 			tenant_id, tenant_name, timezone, is_active, status, grace_until,
+			pending_expires_at, pending_stripe_session_id,
 			created_at, updated_at, deleted_at
 		FROM tenants
 		WHERE deleted_at IS NULL
@@ -172,15 +281,17 @@ func (r *TenantRepository) ListAll(ctx context.Context, status *tenant.TenantSta
 	var tenants []*tenant.Tenant
 	for rows.Next() {
 		var (
-			tenantIDStr string
-			tenantName  string
-			timezone    string
-			isActive    bool
-			statusStr   string
-			graceUntil  sql.NullTime
-			createdAt   time.Time
-			updatedAt   time.Time
-			deletedAt   sql.NullTime
+			tenantIDStr            string
+			tenantName             string
+			timezone               string
+			isActive               bool
+			statusStr              string
+			graceUntil             sql.NullTime
+			pendingExpiresAt       sql.NullTime
+			pendingStripeSessionID sql.NullString
+			createdAt              time.Time
+			updatedAt              time.Time
+			deletedAt              sql.NullTime
 		)
 
 		if err := rows.Scan(
@@ -190,6 +301,8 @@ func (r *TenantRepository) ListAll(ctx context.Context, status *tenant.TenantSta
 			&isActive,
 			&statusStr,
 			&graceUntil,
+			&pendingExpiresAt,
+			&pendingStripeSessionID,
 			&createdAt,
 			&updatedAt,
 			&deletedAt,
@@ -212,6 +325,16 @@ func (r *TenantRepository) ListAll(ctx context.Context, status *tenant.TenantSta
 			graceUntilPtr = &graceUntil.Time
 		}
 
+		var pendingExpiresAtPtr *time.Time
+		if pendingExpiresAt.Valid {
+			pendingExpiresAtPtr = &pendingExpiresAt.Time
+		}
+
+		var pendingStripeSessionIDPtr *string
+		if pendingStripeSessionID.Valid {
+			pendingStripeSessionIDPtr = &pendingStripeSessionID.String
+		}
+
 		t, err := tenant.ReconstructTenant(
 			parsedTenantID,
 			tenantName,
@@ -219,6 +342,8 @@ func (r *TenantRepository) ListAll(ctx context.Context, status *tenant.TenantSta
 			isActive,
 			tenant.TenantStatus(statusStr),
 			graceUntilPtr,
+			pendingExpiresAtPtr,
+			pendingStripeSessionIDPtr,
 			createdAt,
 			updatedAt,
 			deletedAtPtr,

@@ -26,20 +26,21 @@ func NewPlanRepository(db *pgxpool.Pool) *PlanRepository {
 func (r *PlanRepository) FindByCode(ctx context.Context, planCode string) (*billing.Plan, error) {
 	query := `
 		SELECT
-			plan_code, plan_type, display_name, price_jpy, features_json,
+			plan_code, plan_type, display_name, price_jpy, stripe_price_id, features_json,
 			created_at, updated_at
 		FROM plans
 		WHERE plan_code = $1
 	`
 
 	var (
-		code         string
-		planType     string
-		displayName  string
-		priceJPY     sql.NullInt32
-		featuresJSON string
-		createdAt    time.Time
-		updatedAt    time.Time
+		code          string
+		planType      string
+		displayName   string
+		priceJPY      sql.NullInt32
+		stripePriceID sql.NullString
+		featuresJSON  string
+		createdAt     time.Time
+		updatedAt     time.Time
 	)
 
 	err := r.db.QueryRow(ctx, query, planCode).Scan(
@@ -47,6 +48,7 @@ func (r *PlanRepository) FindByCode(ctx context.Context, planCode string) (*bill
 		&planType,
 		&displayName,
 		&priceJPY,
+		&stripePriceID,
 		&featuresJSON,
 		&createdAt,
 		&updatedAt,
@@ -65,11 +67,79 @@ func (r *PlanRepository) FindByCode(ctx context.Context, planCode string) (*bill
 		pricePtr = &price
 	}
 
+	var stripePriceIDPtr *string
+	if stripePriceID.Valid {
+		stripePriceIDPtr = &stripePriceID.String
+	}
+
 	return billing.ReconstructPlan(
 		code,
 		billing.PlanType(planType),
 		displayName,
 		pricePtr,
+		stripePriceIDPtr,
+		featuresJSON,
+		createdAt,
+		updatedAt,
+	), nil
+}
+
+// FindByStripePriceID finds a plan by its Stripe Price ID
+func (r *PlanRepository) FindByStripePriceID(ctx context.Context, stripePriceID string) (*billing.Plan, error) {
+	query := `
+		SELECT
+			plan_code, plan_type, display_name, price_jpy, stripe_price_id, features_json,
+			created_at, updated_at
+		FROM plans
+		WHERE stripe_price_id = $1
+	`
+
+	var (
+		code             string
+		planType         string
+		displayName      string
+		priceJPY         sql.NullInt32
+		stripePriceIDCol sql.NullString
+		featuresJSON     string
+		createdAt        time.Time
+		updatedAt        time.Time
+	)
+
+	err := r.db.QueryRow(ctx, query, stripePriceID).Scan(
+		&code,
+		&planType,
+		&displayName,
+		&priceJPY,
+		&stripePriceIDCol,
+		&featuresJSON,
+		&createdAt,
+		&updatedAt,
+	)
+
+	if err == pgx.ErrNoRows {
+		return nil, common.NewNotFoundError("Plan", stripePriceID)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to find plan by stripe_price_id: %w", err)
+	}
+
+	var pricePtr *int
+	if priceJPY.Valid {
+		price := int(priceJPY.Int32)
+		pricePtr = &price
+	}
+
+	var stripePriceIDPtr *string
+	if stripePriceIDCol.Valid {
+		stripePriceIDPtr = &stripePriceIDCol.String
+	}
+
+	return billing.ReconstructPlan(
+		code,
+		billing.PlanType(planType),
+		displayName,
+		pricePtr,
+		stripePriceIDPtr,
 		featuresJSON,
 		createdAt,
 		updatedAt,
@@ -80,7 +150,7 @@ func (r *PlanRepository) FindByCode(ctx context.Context, planCode string) (*bill
 func (r *PlanRepository) FindAll(ctx context.Context) ([]*billing.Plan, error) {
 	query := `
 		SELECT
-			plan_code, plan_type, display_name, price_jpy, features_json,
+			plan_code, plan_type, display_name, price_jpy, stripe_price_id, features_json,
 			created_at, updated_at
 		FROM plans
 		ORDER BY plan_code
@@ -95,13 +165,14 @@ func (r *PlanRepository) FindAll(ctx context.Context) ([]*billing.Plan, error) {
 	var plans []*billing.Plan
 	for rows.Next() {
 		var (
-			code         string
-			planType     string
-			displayName  string
-			priceJPY     sql.NullInt32
-			featuresJSON string
-			createdAt    time.Time
-			updatedAt    time.Time
+			code          string
+			planType      string
+			displayName   string
+			priceJPY      sql.NullInt32
+			stripePriceID sql.NullString
+			featuresJSON  string
+			createdAt     time.Time
+			updatedAt     time.Time
 		)
 
 		if err := rows.Scan(
@@ -109,6 +180,7 @@ func (r *PlanRepository) FindAll(ctx context.Context) ([]*billing.Plan, error) {
 			&planType,
 			&displayName,
 			&priceJPY,
+			&stripePriceID,
 			&featuresJSON,
 			&createdAt,
 			&updatedAt,
@@ -122,11 +194,17 @@ func (r *PlanRepository) FindAll(ctx context.Context) ([]*billing.Plan, error) {
 			pricePtr = &price
 		}
 
+		var stripePriceIDPtr *string
+		if stripePriceID.Valid {
+			stripePriceIDPtr = &stripePriceID.String
+		}
+
 		plan := billing.ReconstructPlan(
 			code,
 			billing.PlanType(planType),
 			displayName,
 			pricePtr,
+			stripePriceIDPtr,
 			featuresJSON,
 			createdAt,
 			updatedAt,
