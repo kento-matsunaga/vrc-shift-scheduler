@@ -107,17 +107,24 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 	passwordResetClock := &clock.RealClock{}
 	licenseKeyRepo := db.NewLicenseKeyRepository(dbPool)
 	billingAuditLogRepo := db.NewBillingAuditLogRepository(dbPool)
+	passwordResetTokenRepo := db.NewPasswordResetTokenRepository(dbPool)
+	passwordResetTxManager := db.NewPgxTxManager(dbPool)
 	checkPasswordResetStatusUsecase := auth.NewCheckPasswordResetStatusUsecase(adminRepo, passwordResetClock)
 	verifyAndResetPasswordUsecase := auth.NewVerifyAndResetPasswordUsecase(adminRepo, licenseKeyRepo, passwordHasher, passwordResetClock, billingAuditLogRepo)
+	requestPasswordResetUsecase := auth.NewRequestPasswordResetUsecase(adminRepo, passwordResetTokenRepo, invitationEmailService, passwordResetClock)
+	resetPasswordWithTokenUsecase := auth.NewResetPasswordWithTokenUsecase(adminRepo, passwordResetTokenRepo, passwordHasher, passwordResetClock, passwordResetTxManager)
 	passwordResetRateLimiter := DefaultPasswordResetRateLimiter()
 
 	// 認証不要ルート
 	r.Route("/api/v1/auth", func(r chi.Router) {
 		r.Post("/login", authHandler.Login)
 		// Password reset public endpoints (with rate limiting)
-		passwordResetHandler := NewPasswordResetHandler(nil, checkPasswordResetStatusUsecase, verifyAndResetPasswordUsecase, passwordResetRateLimiter)
+		passwordResetHandler := NewPasswordResetHandler(nil, checkPasswordResetStatusUsecase, verifyAndResetPasswordUsecase, requestPasswordResetUsecase, resetPasswordWithTokenUsecase, passwordResetRateLimiter)
 		r.Get("/password-reset-status", passwordResetHandler.CheckPasswordResetStatus)
 		r.Post("/reset-password", passwordResetHandler.ResetPassword)
+		// New email-based password reset endpoints
+		r.Post("/forgot-password", passwordResetHandler.ForgotPassword)
+		r.Post("/reset-password-with-token", passwordResetHandler.ResetPasswordWithToken)
 	})
 
 	// Billing guard dependencies
@@ -271,7 +278,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 
 		// PasswordResetHandler dependencies (authenticated endpoint - no rate limiting needed)
 		allowPasswordResetUsecase := auth.NewAllowPasswordResetUsecase(adminRepo, systemClock)
-		authPasswordResetHandler := NewPasswordResetHandler(allowPasswordResetUsecase, nil, nil, nil)
+		authPasswordResetHandler := NewPasswordResetHandler(allowPasswordResetUsecase, nil, nil, nil, nil, nil)
 
 		// Event API
 		r.Route("/events", func(r chi.Router) {

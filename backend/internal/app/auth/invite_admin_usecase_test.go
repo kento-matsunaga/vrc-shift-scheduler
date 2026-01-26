@@ -110,12 +110,20 @@ func (m *MockTenantRepository) ListAll(ctx context.Context, status *tenant.Tenan
 
 // MockEmailService is a mock implementation of services.EmailService
 type MockEmailService struct {
-	sendInvitationEmailFunc func(ctx context.Context, input services.SendInvitationEmailInput) error
+	sendInvitationEmailFunc     func(ctx context.Context, input services.SendInvitationEmailInput) error
+	sendPasswordResetEmailFunc  func(ctx context.Context, input services.SendPasswordResetEmailInput) error
 }
 
 func (m *MockEmailService) SendInvitationEmail(ctx context.Context, input services.SendInvitationEmailInput) error {
 	if m.sendInvitationEmailFunc != nil {
 		return m.sendInvitationEmailFunc(ctx, input)
+	}
+	return nil
+}
+
+func (m *MockEmailService) SendPasswordResetEmail(ctx context.Context, input services.SendPasswordResetEmailInput) error {
+	if m.sendPasswordResetEmailFunc != nil {
+		return m.sendPasswordResetEmailFunc(ctx, input)
 	}
 	return nil
 }

@@ -79,5 +79,51 @@ func (s *ResendEmailService) SendInvitationEmail(ctx context.Context, input serv
 	return nil
 }
 
+// SendPasswordResetEmail sends a password reset email via Resend
+func (s *ResendEmailService) SendPasswordResetEmail(ctx context.Context, input services.SendPasswordResetEmailInput) error {
+	resetURL := s.baseURL + "/reset-password/" + input.Token
+
+	data := PasswordResetEmailData{
+		ResetURL:  resetURL,
+		ExpiresAt: FormatExpiresAt(input.ExpiresAt),
+	}
+
+	htmlBody, err := RenderPasswordResetHTML(data)
+	if err != nil {
+		return fmt.Errorf("failed to render HTML template: %w", err)
+	}
+
+	textBody, err := RenderPasswordResetText(data)
+	if err != nil {
+		return fmt.Errorf("failed to render text template: %w", err)
+	}
+
+	subject := "[VRC Shift Scheduler] パスワードリセット"
+
+	params := &resend.SendEmailRequest{
+		From:    s.fromEmail,
+		To:      []string{input.To},
+		Subject: subject,
+		Html:    htmlBody,
+		Text:    textBody,
+	}
+
+	sent, err := s.client.Emails.Send(params)
+	if err != nil {
+		slog.Error("Resend password reset email send failed",
+			"error", err,
+			"to", input.To,
+			"from", s.fromEmail,
+			"subject", subject)
+		return fmt.Errorf("failed to send password reset email via Resend: %w", err)
+	}
+
+	slog.Info("Password reset email sent successfully",
+		"email_id", sent.Id,
+		"to", input.To)
+
+	return nil
+}
+
 // Ensure ResendEmailService implements EmailService
 var _ services.EmailService = (*ResendEmailService)(nil)

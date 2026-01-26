@@ -84,7 +84,8 @@ model: opus
 
 ## 5. テスト戦略
 
-- [ ] ユニットテスト: [対象]
+- [ ] Lintチェック: `cd backend && golangci-lint run`
+- [ ] ユニットテスト: `cd backend && go test ./...`
 - [ ] 統合テスト: [対象]
 - [ ] E2Eテスト: [シナリオ]
 
@@ -95,10 +96,13 @@ model: opus
 
 ## 重要ルール
 
-1. **コードを書く前に必ず計画を承認してもらう**
-2. DDDパターンに従う（Domain → App → Infra → Interface）
-3. テナント分離を常に考慮
-4. 既存のコーディング規約を遵守
+1. **計画承認後、実装開始前に必ず `develop` ブランチから新規ブランチを作成する**
+   - ブランチ名例: `feat/xxx`, `fix/xxx`, `refactor/xxx`
+   - コマンド: `git checkout develop && git pull && git checkout -b feat/xxx`
+2. **コードを書く前に必ず計画を承認してもらう**
+3. DDDパターンに従う（Domain → App → Infra → Interface）
+4. テナント分離を常に考慮
+5. 既存のコーディング規約を遵守
 
 ## 参照すべきドキュメント
 
