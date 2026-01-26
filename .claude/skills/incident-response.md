@@ -224,6 +224,6 @@ docker exec vrc-shift-backend /app/migrate -action=up
 
 ## 関連ドキュメント
 
-- `docs/PRODUCTION_DEPLOYMENT.md` - デプロイ手順
-- `docs/BRANCH_STRATEGY.md` - ブランチ運用
+- `docs/deployment/PRODUCTION_DEPLOYMENT.md` - デプロイ手順
+- `docs/development/BRANCH_STRATEGY.md` - ブランチ運用
 - `docs/incidents/` - 過去のインシデント報告

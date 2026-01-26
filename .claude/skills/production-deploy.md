@@ -380,6 +380,6 @@ openssl rand -base64 64 | tr -d '\n'
 
 ## 関連ドキュメント
 
-- `docs/PRODUCTION_DEPLOYMENT.md` - 完全なデプロイ手順
-- `docs/ENVIRONMENT_VARIABLES.md` - 環境変数一覧
-- `DEBUG_GUIDE.md` - デバッグガイド
+- `docs/deployment/PRODUCTION_DEPLOYMENT.md` - 完全なデプロイ手順
+- `docs/setup/ENVIRONMENT_VARIABLES.md` - 環境変数一覧
+- `docs/guides/DEBUG_GUIDE.md` - デバッグガイド

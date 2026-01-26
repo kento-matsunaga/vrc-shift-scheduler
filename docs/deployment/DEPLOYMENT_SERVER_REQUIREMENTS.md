@@ -315,7 +315,7 @@
 | `POSTGRES_USER` | ユーザー名 | `vrc_shift_user` |
 | `POSTGRES_PASSWORD` | パスワード | `secure_password_here` |
 
-詳細は [docs/ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md) を参照してください。
+詳細は [環境変数一覧](../setup/ENVIRONMENT_VARIABLES.md) を参照してください。
 
 ---
 

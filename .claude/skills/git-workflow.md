@@ -233,5 +233,5 @@ git push --force origin main
 
 ## 関連ドキュメント
 
-- `docs/BRANCH_STRATEGY.md` - 詳細なブランチ運用ガイド
-- `docs/PRODUCTION_DEPLOYMENT.md` - 本番デプロイ手順
+- `docs/development/BRANCH_STRATEGY.md` - 詳細なブランチ運用ガイド
+- `docs/deployment/PRODUCTION_DEPLOYMENT.md` - 本番デプロイ手順
