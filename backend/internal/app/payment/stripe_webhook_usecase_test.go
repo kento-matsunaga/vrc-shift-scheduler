@@ -237,6 +237,7 @@ func createWebhookUsecase(
 		entitlementRepo,
 		webhookEventRepo,
 		auditLogRepo,
+		14, // Default grace period days for tests
 	)
 }
 

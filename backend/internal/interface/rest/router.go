@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 
 	appannouncement "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/announcement"
@@ -886,6 +887,17 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		webhookEventRepo := db.NewWebhookEventRepository(dbPool)
 		billingAuditLogRepo := db.NewBillingAuditLogRepository(dbPool)
 
+		// Read grace period from environment variable (default: 14 days)
+		gracePeriodDays := tenant.DefaultGracePeriodDays
+		if envGracePeriod := os.Getenv("GRACE_PERIOD_DAYS"); envGracePeriod != "" {
+			if days, err := strconv.Atoi(envGracePeriod); err == nil && days > 0 {
+				gracePeriodDays = days
+				slog.Info("Grace period configured from environment", "days", days)
+			} else {
+				slog.Warn("Invalid GRACE_PERIOD_DAYS value, using default", "value", envGracePeriod, "default", tenant.DefaultGracePeriodDays)
+			}
+		}
+
 		stripeWebhookUsecase := apppayment.NewStripeWebhookUsecase(
 			txManager,
 			tenantRepo,
@@ -893,6 +905,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			entitlementRepo,
 			webhookEventRepo,
 			billingAuditLogRepo,
+			gracePeriodDays,
 		)
 		stripeWebhookHandler := NewStripeWebhookHandler(stripeWebhookUsecase)
 

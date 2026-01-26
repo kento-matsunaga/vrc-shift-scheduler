@@ -89,9 +89,11 @@ type StripeWebhookUsecase struct {
 	entitlementRepo  billing.EntitlementRepository
 	webhookEventRepo billing.WebhookEventRepository
 	auditLogRepo     billing.BillingAuditLogRepository
+	gracePeriodDays  int // Configurable grace period (default: 14 days)
 }
 
 // NewStripeWebhookUsecase creates a new StripeWebhookUsecase
+// gracePeriodDays: number of days for grace period (use tenant.DefaultGracePeriodDays if <= 0)
 func NewStripeWebhookUsecase(
 	txManager services.TxManager,
 	tenantRepo tenant.TenantRepository,
@@ -99,7 +101,11 @@ func NewStripeWebhookUsecase(
 	entitlementRepo billing.EntitlementRepository,
 	webhookEventRepo billing.WebhookEventRepository,
 	auditLogRepo billing.BillingAuditLogRepository,
+	gracePeriodDays int,
 ) *StripeWebhookUsecase {
+	if gracePeriodDays <= 0 {
+		gracePeriodDays = tenant.DefaultGracePeriodDays
+	}
 	return &StripeWebhookUsecase{
 		txManager:        txManager,
 		tenantRepo:       tenantRepo,
@@ -107,6 +113,7 @@ func NewStripeWebhookUsecase(
 		entitlementRepo:  entitlementRepo,
 		webhookEventRepo: webhookEventRepo,
 		auditLogRepo:     auditLogRepo,
+		gracePeriodDays:  gracePeriodDays,
 	}
 }
 
@@ -346,8 +353,8 @@ func (uc *StripeWebhookUsecase) handleInvoicePaymentFailed(ctx context.Context, 
 			return fmt.Errorf("failed to find tenant: %w", err)
 		}
 
-		// 支払い失敗時はドメイン層で定義されたgrace期間を使用
-		graceUntil := now.AddDate(0, 0, tenant.DefaultGracePeriodDays)
+		// 支払い失敗時は設定されたgrace期間を使用（環境変数 GRACE_PERIOD_DAYS で設定可能）
+		graceUntil := now.AddDate(0, 0, uc.gracePeriodDays)
 		previousStatus := t.Status()
 		if err := t.SetStatusGrace(now, graceUntil); err != nil {
 			return fmt.Errorf("failed to set tenant status to grace: %w", err)
