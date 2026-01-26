@@ -7,7 +7,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/aws/aws-sdk-go-v2/config"
 	appannouncement "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/announcement"
 	appattendance "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/attendance"
 	appaudit "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/audit"
@@ -37,29 +36,23 @@ import (
 )
 
 // initEmailService creates an email service based on environment configuration
-// If AWS SES is configured, it returns SESEmailService; otherwise MockEmailService
+// If Resend is configured, it returns ResendEmailService; otherwise MockEmailService
 func initEmailService() services.EmailService {
 	baseURL := os.Getenv("INVITATION_BASE_URL")
 	if baseURL == "" {
 		baseURL = "https://vrcshift.com"
 	}
 
-	// Check if AWS SES is configured
-	fromEmail := os.Getenv("AWS_SES_FROM_EMAIL")
-	if fromEmail == "" {
-		slog.Info("AWS SES not configured, using mock email service")
+	// Check if Resend is configured
+	apiKey := os.Getenv("RESEND_API_KEY")
+	fromEmail := os.Getenv("RESEND_FROM_EMAIL")
+	if apiKey == "" || fromEmail == "" {
+		slog.Info("Resend not configured, using mock email service")
 		return email.NewMockEmailService(baseURL)
 	}
 
-	// Initialize AWS SDK
-	cfg, err := config.LoadDefaultConfig(context.Background())
-	if err != nil {
-		slog.Warn("Failed to load AWS config, using mock email service", "error", err)
-		return email.NewMockEmailService(baseURL)
-	}
-
-	slog.Info("AWS SES configured", "from_email", fromEmail)
-	return email.NewSESEmailService(cfg, fromEmail, baseURL)
+	slog.Info("Resend configured", "from_email", fromEmail)
+	return email.NewResendEmailService(apiKey, fromEmail, baseURL)
 }
 
 // NewRouter creates a new HTTP router with all routes configured
