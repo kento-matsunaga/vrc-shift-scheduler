@@ -84,7 +84,8 @@ model: opus
 
 ## 5. テスト戦略
 
-- [ ] ユニットテスト: [対象]
+- [ ] Lintチェック: `cd backend && golangci-lint run`
+- [ ] ユニットテスト: `cd backend && go test ./...`
 - [ ] 統合テスト: [対象]
 - [ ] E2Eテスト: [シナリオ]
 

@@ -1,8 +1,6 @@
 package auth
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"time"
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
@@ -130,12 +128,4 @@ func (prt *PasswordResetToken) ExpiresAt() time.Time                 { return pr
 func (prt *PasswordResetToken) UsedAt() *time.Time                   { return prt.usedAt }
 func (prt *PasswordResetToken) CreatedAt() time.Time                 { return prt.createdAt }
 
-// generateSecureRandomToken は暗号学的に安全なランダムトークンを生成する
-// 注: invitation.go にも同様の関数があるが、パッケージ内で共有
-func generateSecureRandomToken(length int) (string, error) {
-	bytes := make([]byte, length)
-	if _, err := rand.Read(bytes); err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(bytes), nil
-}
+// generateSecureToken は invitation.go で定義済み（同一パッケージ内で共有）
