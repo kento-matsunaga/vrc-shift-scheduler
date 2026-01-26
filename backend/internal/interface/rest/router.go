@@ -2,6 +2,7 @@ package rest
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 	"os"
 	"strings"
@@ -23,15 +24,47 @@ import (
 	apptenant "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/tenant"
 	apptutorial "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/tutorial"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/services"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/tenant"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/clock"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/db"
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/email"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/security"
 	infrastripe "github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/stripe"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+// initEmailService creates an email service based on environment configuration
+// If Resend is configured, it returns ResendEmailService; otherwise MockEmailService
+func initEmailService() services.EmailService {
+	baseURL := os.Getenv("INVITATION_BASE_URL")
+	if baseURL == "" {
+		baseURL = "https://vrcshift.com"
+	}
+
+	// Check if Resend is configured
+	apiKey := os.Getenv("RESEND_API_KEY")
+	fromEmail := os.Getenv("RESEND_FROM_EMAIL")
+	if apiKey == "" || fromEmail == "" {
+		slog.Info("Resend not configured, using mock email service")
+		return email.NewMockEmailService(baseURL)
+	}
+
+	// Validate API key format
+	if len(apiKey) < 3 || apiKey[:3] != "re_" {
+		slog.Warn("RESEND_API_KEY does not start with 're_', may be invalid")
+	}
+
+	// Validate email format (basic check)
+	if !strings.Contains(fromEmail, "@") || !strings.Contains(fromEmail, ".") {
+		slog.Warn("RESEND_FROM_EMAIL appears to be invalid", "from_email", fromEmail)
+	}
+
+	slog.Info("Resend configured", "from_email", fromEmail)
+	return email.NewResendEmailService(apiKey, fromEmail, baseURL)
+}
 
 // NewRouter creates a new HTTP router with all routes configured
 func NewRouter(dbPool *pgxpool.Pool) http.Handler {
@@ -60,8 +93,10 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 	// InvitationHandler dependencies
 	invitationRepo := db.NewInvitationRepository(dbPool)
 	invitationClock := &clock.RealClock{}
+	invitationTenantRepo := db.NewTenantRepository(dbPool)
+	invitationEmailService := initEmailService()
 	invitationHandler := NewInvitationHandler(
-		auth.NewInviteAdminUsecase(adminRepo, invitationRepo, invitationClock),
+		auth.NewInviteAdminUsecase(adminRepo, invitationRepo, invitationTenantRepo, invitationEmailService, invitationClock),
 		auth.NewAcceptInvitationUsecase(adminRepo, invitationRepo, passwordHasher, invitationClock),
 	)
 

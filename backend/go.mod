@@ -11,6 +11,7 @@ require (
 	github.com/jackc/pgx/v5 v5.7.1
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/oklog/ulid/v2 v2.1.1
+	github.com/resend/resend-go/v2 v2.28.0
 	golang.org/x/crypto v0.45.0
 )
 

@@ -25,6 +25,10 @@ services:
       APP_ENV: development
       PORT: "8080"
       JWT_SECRET: ${JWT_SECRET:-dev-secret-change-in-production-32chars}
+      # Resend (Email) - Optional, uses mock if not set
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      RESEND_FROM_EMAIL: ${RESEND_FROM_EMAIL:-}
+      INVITATION_BASE_URL: ${INVITATION_BASE_URL:-https://vrcshift.com}
       # Stripe Configuration (set in project root .env)
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
