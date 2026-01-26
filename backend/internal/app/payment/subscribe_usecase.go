@@ -43,7 +43,10 @@ type SubscribeUsecase struct {
 }
 
 // NewSubscribeUsecase creates a new SubscribeUsecase
-// checkoutExpireMinutes: minutes until checkout session expires (0 or negative uses Stripe default of 24 hours)
+// checkoutExpireMinutes: minutes until checkout session expires
+//   - 0 or negative: uses default (24 hours / 1440 minutes)
+//   - below minimum (30): clamped to minimum
+//   - above maximum (1440): clamped to maximum
 func NewSubscribeUsecase(
 	txManager services.TxManager,
 	tenantRepo tenant.TenantRepository,
@@ -56,8 +59,13 @@ func NewSubscribeUsecase(
 	stripePriceID string,
 	checkoutExpireMinutes int,
 ) *SubscribeUsecase {
+	// Normalize checkout expiration to valid Stripe range
 	if checkoutExpireMinutes <= 0 {
 		checkoutExpireMinutes = services.DefaultCheckoutExpireMinutes
+	} else if checkoutExpireMinutes < services.MinCheckoutExpireMinutes {
+		checkoutExpireMinutes = services.MinCheckoutExpireMinutes
+	} else if checkoutExpireMinutes > services.MaxCheckoutExpireMinutes {
+		checkoutExpireMinutes = services.MaxCheckoutExpireMinutes
 	}
 	return &SubscribeUsecase{
 		txManager:             txManager,

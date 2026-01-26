@@ -136,18 +136,11 @@ func (c *Client) CreateCheckoutSession(params CheckoutSessionParams) (*CheckoutS
 		},
 	}
 
-	// Set expiration time if provided (Stripe allows 30 minutes to 24 hours)
-	// If not provided, Stripe defaults to 24 hours
+	// Set expiration time if provided
+	// Note: Validation is done at the usecase layer (NewSubscribeUsecase)
+	// Valid range: 30-1440 minutes (Stripe API constraint)
 	if params.ExpireMinutes > 0 {
-		// Clamp to valid range: 30 minutes to 1440 minutes (24 hours)
-		expireMinutes := params.ExpireMinutes
-		if expireMinutes < 30 {
-			expireMinutes = 30
-		}
-		if expireMinutes > 1440 {
-			expireMinutes = 1440
-		}
-		expiresAt := time.Now().Add(time.Duration(expireMinutes) * time.Minute).Unix()
+		expiresAt := time.Now().Add(time.Duration(params.ExpireMinutes) * time.Minute).Unix()
 		sessionParams.ExpiresAt = stripe.Int64(expiresAt)
 	}
 
