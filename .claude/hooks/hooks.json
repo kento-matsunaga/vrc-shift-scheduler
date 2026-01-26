@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "tool == \"Bash\" && tool_input.command matches \"git push.*--force\"",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '[Hook] WARNING: force pushは危険な操作です。本当に実行しますか？' >&2 && exit 1"
+          }
+        ],
+        "description": "force pushをブロック"
+      },
+      {
+        "matcher": "tool == \"Bash\" && tool_input.command matches \"docker-compose\\.yml\"",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '[Hook] WARNING: 本番環境ではdocker-compose.prod.ymlを使用してください' >&2"
+          }
+        ],
+        "description": "本番環境での誤ったdocker-compose使用を警告"
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "tool == \"Bash\" && tool_input.command matches \"go test\"",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'read -r d; if echo \"$d\" | grep -q \"FAIL\"; then echo \"[Hook] テスト失敗を検出\" >&2; fi; echo \"$d\"'"
+          }
+        ],
+        "description": "テスト失敗時に警告"
+      },
+      {
+        "matcher": "tool == \"Bash\" && tool_input.command matches \"gh pr create\"",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'read -r d; if url=$(echo \"$d\" | grep -oP \"https://github.com/[^/]+/[^/]+/pull/\\d+\"); then echo \"[Hook] PR作成完了: $url\" >&2; fi; echo \"$d\"'"
+          }
+        ],
+        "description": "PR作成後にURLを表示"
+      },
+      {
+        "matcher": "tool == \"Edit\" && tool_input.file_path matches \"\\.go$\"",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'read -r d; file=$(echo \"$d\" | jq -r \".tool_input.file_path // empty\"); if [ -n \"$file\" ] && [ -f \"$file\" ]; then if grep -n \"fmt.Println\" \"$file\" 2>/dev/null; then echo \"[Hook] WARNING: fmt.Printlnが残っています\" >&2; fi; fi; echo \"$d\"'"
+          }
+        ],
+        "description": "Goファイル編集後にfmt.Printlnをチェック"
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'if git rev-parse --git-dir > /dev/null 2>&1; then files=$(git diff --name-only HEAD 2>/dev/null | grep \"\\.go$\"); if [ -n \"$files\" ]; then for f in $files; do if [ -f \"$f\" ] && grep -l \"fmt.Println\" \"$f\" 2>/dev/null; then echo \"[Hook] WARNING: $f にfmt.Printlnが残っています\" >&2; fi; done; fi; fi'"
+          }
+        ],
+        "description": "レスポンス終了時にGoファイルのfmt.Printlnをチェック"
+      }
+    ]
+  }
+}

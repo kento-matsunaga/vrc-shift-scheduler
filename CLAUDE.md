@@ -182,5 +182,15 @@ curl -X POST http://localhost:8080/api/v1/auth/login \
 | `billing-operations` | 課金運用手順 |
 | `production-deploy` | 本番デプロイ手順 |
 | `api-integration` | API統合パターン |
+| `stripe-integration` | Stripe決済連携パターン |
+| `error-handling` | エラーハンドリングパターン |
+
+### Hooks（自動実行）
+
+| トリガー | 動作 |
+|---------|------|
+| `PreToolUse` | force push警告、本番docker-compose警告 |
+| `PostToolUse` | テスト失敗検出、PR URL表示、fmt.Printlnチェック |
+| `Stop` | Goファイルのfmt.Println残留チェック |
 
 詳細は `.claude/` ディレクトリを参照
