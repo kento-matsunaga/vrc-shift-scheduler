@@ -4,7 +4,7 @@ VRChat コミュニティ向けシフト管理システム
 
 ## 🚀 Quick Start
 
-> 🪟 **Windows 11 の方へ**：まずは **[docs/setup-windows.md](docs/setup-windows.md)** を実施してください（Windows Terminal / WSL2 Ubuntu / Docker Desktop の準備と起動方法）。
+> 🪟 **Windows 11 の方へ**：まずは **[docs/setup/WINDOWS_SETUP.md](docs/setup/WINDOWS_SETUP.md)** を実施してください（Windows Terminal / WSL2 Ubuntu / Docker Desktop の準備と起動方法）。
 
 ### Docker Compose で起動（推奨）
 
@@ -45,12 +45,12 @@ cd web-frontend && npm run dev
 
 | ドキュメント | 説明 |
 |-------------|------|
-| [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | **開発ガイド（テストアカウント・API情報）** |
-| [docs/setup-windows.md](docs/setup-windows.md) | Windows 11 セットアップ（WSL2 + Docker Desktop） |
-| [SETUP.md](SETUP.md) | 詳細なセットアップ手順（macOS / Linux） |
-| [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md) | 環境変数の説明 |
-| [docs/DEPLOYMENT_SERVER_REQUIREMENTS.md](docs/DEPLOYMENT_SERVER_REQUIREMENTS.md) | **サーバー選定・デプロイメント要件まとめ** |
-| [docs/PRODUCTION_DEPLOYMENT.md](docs/PRODUCTION_DEPLOYMENT.md) | **本番デプロイ運用ガイド** |
+| [docs/development/DEVELOPMENT.md](docs/development/DEVELOPMENT.md) | **開発ガイド（テストアカウント・API情報）** |
+| [docs/setup/WINDOWS_SETUP.md](docs/setup/WINDOWS_SETUP.md) | Windows 11 セットアップ（WSL2 + Docker Desktop） |
+| [docs/setup/SETUP.md](docs/setup/SETUP.md) | 詳細なセットアップ手順（macOS / Linux） |
+| [docs/setup/ENVIRONMENT_VARIABLES.md](docs/setup/ENVIRONMENT_VARIABLES.md) | 環境変数の説明 |
+| [docs/deployment/DEPLOYMENT_SERVER_REQUIREMENTS.md](docs/deployment/DEPLOYMENT_SERVER_REQUIREMENTS.md) | **サーバー選定・デプロイメント要件まとめ** |
+| [docs/deployment/PRODUCTION_DEPLOYMENT.md](docs/deployment/PRODUCTION_DEPLOYMENT.md) | **本番デプロイ運用ガイド** |
 
 ---
 

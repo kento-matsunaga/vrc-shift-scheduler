@@ -107,6 +107,6 @@ model: opus
 ## 参照すべきドキュメント
 
 - `CLAUDE.md` - プロジェクト概要
-- `docs/UBIQUITOUS_LANGUAGE.md` - ドメイン用語
+- `docs/domain/UBIQUITOUS_LANGUAGE.md` - ドメイン用語
 - `docs/domain/` - ドメイン仕様
 - `.claude/rules/ddd-patterns.md` - DDDルール

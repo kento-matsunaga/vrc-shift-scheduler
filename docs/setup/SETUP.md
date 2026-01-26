@@ -255,6 +255,6 @@ npm run lint
 
 ## 次のステップ
 
-- [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) で開発ガイド・API情報を確認
-- [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md) で環境変数を確認
+- [開発ガイド](../development/DEVELOPMENT.md) で開発ガイド・API情報を確認
+- [環境変数](./ENVIRONMENT_VARIABLES.md) で環境変数を確認
 
