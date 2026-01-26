@@ -3,6 +3,7 @@ package email
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/services"
 	"github.com/resend/resend-go/v2"
@@ -26,7 +27,7 @@ func NewResendEmailService(apiKey, fromEmail, baseURL string) *ResendEmailServic
 
 // SendInvitationEmail sends an invitation email via Resend
 func (s *ResendEmailService) SendInvitationEmail(ctx context.Context, input services.SendInvitationEmailInput) error {
-	invitationURL := s.baseURL + "/invitation/" + input.Token
+	invitationURL := s.baseURL + "/invite/" + input.Token
 
 	data := InvitationEmailData{
 		InviterName:   input.InviterName,
@@ -57,10 +58,23 @@ func (s *ResendEmailService) SendInvitationEmail(ctx context.Context, input serv
 		Text:    textBody,
 	}
 
-	_, err = s.client.Emails.Send(params)
+	sent, err := s.client.Emails.Send(params)
 	if err != nil {
+		slog.Error("Resend email send failed",
+			"error", err,
+			"to", input.To,
+			"from", s.fromEmail,
+			"subject", subject,
+			"tenant", input.TenantName,
+			"role", input.Role)
 		return fmt.Errorf("failed to send email via Resend: %w", err)
 	}
+
+	slog.Info("Invitation email sent successfully",
+		"email_id", sent.Id,
+		"to", input.To,
+		"tenant", input.TenantName,
+		"role", input.Role)
 
 	return nil
 }

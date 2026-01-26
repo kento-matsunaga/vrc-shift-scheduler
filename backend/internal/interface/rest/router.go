@@ -52,6 +52,16 @@ func initEmailService() services.EmailService {
 		return email.NewMockEmailService(baseURL)
 	}
 
+	// Validate API key format
+	if len(apiKey) < 3 || apiKey[:3] != "re_" {
+		slog.Warn("RESEND_API_KEY does not start with 're_', may be invalid")
+	}
+
+	// Validate email format (basic check)
+	if !strings.Contains(fromEmail, "@") || !strings.Contains(fromEmail, ".") {
+		slog.Warn("RESEND_FROM_EMAIL appears to be invalid", "from_email", fromEmail)
+	}
+
 	slog.Info("Resend configured", "from_email", fromEmail)
 	return email.NewResendEmailService(apiKey, fromEmail, baseURL)
 }

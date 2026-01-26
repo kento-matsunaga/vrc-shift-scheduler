@@ -22,7 +22,7 @@ func NewMockEmailService(baseURL string) *MockEmailService {
 
 // SendInvitationEmail logs the invitation email content
 func (s *MockEmailService) SendInvitationEmail(ctx context.Context, input services.SendInvitationEmailInput) error {
-	invitationURL := s.baseURL + "/invitation/" + input.Token
+	invitationURL := s.baseURL + "/invite/" + input.Token
 
 	slog.Info("=== Mock Email Service: Invitation Email ===",
 		"to", input.To,
