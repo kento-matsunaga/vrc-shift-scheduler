@@ -237,6 +237,7 @@ func createWebhookUsecase(
 		entitlementRepo,
 		webhookEventRepo,
 		auditLogRepo,
+		14, // Default grace period days for tests
 	)
 }
 
@@ -774,6 +775,165 @@ func TestStripeWebhookUsecase_SubscriptionDeleted_PeriodEnded(t *testing.T) {
 				t.Errorf("GraceUntil should be periodEnd + 14 days, got %v, want %v", savedTenant.GraceUntil(), expectedGraceUntil)
 			}
 		}
+	}
+}
+
+// =====================================================
+// GracePeriodDays Configuration Tests
+// =====================================================
+
+func TestNewStripeWebhookUsecase_GracePeriodDays_DefaultValue(t *testing.T) {
+	// When gracePeriodDays is 0, should use default
+	uc := NewStripeWebhookUsecase(
+		&MockWebhookTxManager{},
+		&MockWebhookTenantRepository{},
+		&MockWebhookSubscriptionRepository{},
+		&MockWebhookEntitlementRepository{},
+		&MockWebhookEventRepository{},
+		&MockWebhookBillingAuditLogRepository{},
+		0, // Invalid: should use default
+	)
+
+	if uc.gracePeriodDays != tenant.DefaultGracePeriodDays {
+		t.Errorf("gracePeriodDays should be %d when 0 is passed, got %d",
+			tenant.DefaultGracePeriodDays, uc.gracePeriodDays)
+	}
+}
+
+func TestNewStripeWebhookUsecase_GracePeriodDays_NegativeValue(t *testing.T) {
+	// When gracePeriodDays is negative, should use default
+	uc := NewStripeWebhookUsecase(
+		&MockWebhookTxManager{},
+		&MockWebhookTenantRepository{},
+		&MockWebhookSubscriptionRepository{},
+		&MockWebhookEntitlementRepository{},
+		&MockWebhookEventRepository{},
+		&MockWebhookBillingAuditLogRepository{},
+		-5, // Invalid: should use default
+	)
+
+	if uc.gracePeriodDays != tenant.DefaultGracePeriodDays {
+		t.Errorf("gracePeriodDays should be %d when negative is passed, got %d",
+			tenant.DefaultGracePeriodDays, uc.gracePeriodDays)
+	}
+}
+
+func TestNewStripeWebhookUsecase_GracePeriodDays_CustomValue(t *testing.T) {
+	// When gracePeriodDays is positive, should use that value
+	customDays := 7
+
+	uc := NewStripeWebhookUsecase(
+		&MockWebhookTxManager{},
+		&MockWebhookTenantRepository{},
+		&MockWebhookSubscriptionRepository{},
+		&MockWebhookEntitlementRepository{},
+		&MockWebhookEventRepository{},
+		&MockWebhookBillingAuditLogRepository{},
+		customDays,
+	)
+
+	if uc.gracePeriodDays != customDays {
+		t.Errorf("gracePeriodDays should be %d, got %d", customDays, uc.gracePeriodDays)
+	}
+}
+
+func TestStripeWebhookUsecase_InvoicePaymentFailed_CustomGracePeriod(t *testing.T) {
+	customGraceDays := 7 // Custom: 7 days instead of default 14
+
+	testTenant := createTestActiveTenant(t)
+	testSubscription := createTestWebhookSubscription(t, testTenant.TenantID())
+
+	var savedTenant *tenant.Tenant
+
+	tenantRepo := &MockWebhookTenantRepository{
+		findByIDFunc: func(ctx context.Context, tenantID common.TenantID) (*tenant.Tenant, error) {
+			return testTenant, nil
+		},
+		saveFunc: func(ctx context.Context, t *tenant.Tenant) error {
+			savedTenant = t
+			return nil
+		},
+	}
+
+	subscriptionRepo := &MockWebhookSubscriptionRepository{
+		findByStripeSubscriptionIDFunc: func(ctx context.Context, stripeSubID string) (*billing.Subscription, error) {
+			if stripeSubID == "sub_test123" {
+				return testSubscription, nil
+			}
+			return nil, nil
+		},
+		saveFunc: func(ctx context.Context, sub *billing.Subscription) error {
+			return nil
+		},
+	}
+
+	webhookEventRepo := &MockWebhookEventRepository{
+		tryInsertFunc: func(ctx context.Context, provider string, eventID string, payloadJSON *string) (bool, error) {
+			return true, nil
+		},
+	}
+
+	auditLogRepo := &MockWebhookBillingAuditLogRepository{
+		saveFunc: func(ctx context.Context, log *billing.BillingAuditLog) error {
+			return nil
+		},
+	}
+
+	// Create usecase with custom grace period
+	usecase := NewStripeWebhookUsecase(
+		&MockWebhookTxManager{},
+		tenantRepo,
+		subscriptionRepo,
+		&MockWebhookEntitlementRepository{},
+		webhookEventRepo,
+		auditLogRepo,
+		customGraceDays,
+	)
+
+	invoiceData := StripeInvoice{
+		ID:           "in_test123",
+		Customer:     "cus_test123",
+		Subscription: "sub_test123",
+		Status:       "open",
+		Paid:         false,
+	}
+	invoiceJSON, _ := json.Marshal(invoiceData)
+
+	event := StripeEvent{
+		ID:   "evt_test123",
+		Type: "invoice.payment_failed",
+		Data: StripeEventData{Object: invoiceJSON},
+	}
+
+	processed, err := usecase.HandleWebhook(context.Background(), event, string(invoiceJSON))
+
+	if err != nil {
+		t.Fatalf("HandleWebhook() should succeed, got error: %v", err)
+	}
+
+	if !processed {
+		t.Error("HandleWebhook() should return processed=true")
+	}
+
+	if savedTenant == nil {
+		t.Fatal("Tenant should have been saved")
+	}
+
+	if savedTenant.Status() != tenant.TenantStatusGrace {
+		t.Errorf("Tenant status should be grace, got %s", savedTenant.Status())
+	}
+
+	// Verify grace_until is set to custom days (7 days from now)
+	if savedTenant.GraceUntil() == nil {
+		t.Fatal("GraceUntil should be set")
+	}
+
+	expectedGraceUntil := time.Now().AddDate(0, 0, customGraceDays)
+	diff := savedTenant.GraceUntil().Sub(expectedGraceUntil)
+	// Allow 5 second tolerance for test execution time
+	if diff < -5*time.Second || diff > 5*time.Second {
+		t.Errorf("GraceUntil should be approximately %d days from now, got %v (diff: %v)",
+			customGraceDays, savedTenant.GraceUntil(), diff)
 	}
 }
 

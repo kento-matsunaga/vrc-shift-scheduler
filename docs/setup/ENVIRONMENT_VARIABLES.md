@@ -40,6 +40,7 @@ VRC Shift Scheduler で使用する環境変数の詳細説明です。
 | `STRIPE_SECRET_KEY` | Stripe シークレットキー | なし | `sk_live_...` |
 | `STRIPE_WEBHOOK_SECRET` | Stripe Webhook署名シークレット | なし | `whsec_...` |
 | `STRIPE_PRICE_ID` | Stripe 価格ID（月額プラン） | なし | `price_...` |
+| `GRACE_PERIOD_DAYS` | 支払い失敗後の猶予期間（日数、1-90） | `14` | `7`, `14`, `30` |
 | `LICENSE_KEY_PREFIX` | ライセンスキーのプレフィックス | `VRCSS-` | `VRCSS-` |
 
 ### 設定例
