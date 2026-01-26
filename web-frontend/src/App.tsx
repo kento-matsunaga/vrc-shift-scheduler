@@ -30,6 +30,8 @@ import AttendanceResponse from './pages/public/AttendanceResponse';
 import ScheduleResponse from './pages/public/ScheduleResponse';
 import LicenseClaim from './pages/public/LicenseClaim';
 import PasswordReset from './pages/public/PasswordReset';
+import ForgotPassword from './pages/public/ForgotPassword';
+import ResetPasswordWithToken from './pages/public/ResetPasswordWithToken';
 import Subscribe from './pages/Subscribe';
 import SubscribeComplete from './pages/SubscribeComplete';
 import SubscribeCancel from './pages/SubscribeCancel';
@@ -96,6 +98,8 @@ function App() {
 
       {/* パスワードリセット（認証不要） */}
       <Route path="/reset-password" element={<PasswordReset />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password/:token" element={<ResetPasswordWithToken />} />
 
       {/* Stripe サブスク登録（認証不要） */}
       <Route path="/subscribe" element={<Subscribe />} />

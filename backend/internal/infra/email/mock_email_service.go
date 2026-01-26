@@ -41,5 +41,23 @@ func (s *MockEmailService) SendInvitationEmail(ctx context.Context, input servic
 	return nil
 }
 
+// SendPasswordResetEmail logs the password reset email content
+func (s *MockEmailService) SendPasswordResetEmail(ctx context.Context, input services.SendPasswordResetEmailInput) error {
+	resetURL := s.baseURL + "/reset-password/" + input.Token
+
+	slog.Info("=== Mock Email Service: Password Reset Email ===",
+		"to", input.To,
+		"expires_at", input.ExpiresAt.Format("2006-01-02 15:04"),
+		"reset_url", resetURL,
+	)
+
+	slog.Info("Mock email content",
+		"subject", "[VRC Shift Scheduler] パスワードリセット",
+		"body_preview", "パスワードリセットのリクエストを受け付けました",
+	)
+
+	return nil
+}
+
 // Ensure MockEmailService implements EmailService
 var _ services.EmailService = (*MockEmailService)(nil)

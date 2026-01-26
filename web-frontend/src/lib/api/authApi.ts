@@ -308,3 +308,123 @@ export async function resetPassword(data: ResetPasswordRequest): Promise<ResetPa
   return result.data;
 }
 
+// ============================================================
+// メールベースのパスワードリセット関連
+// ============================================================
+
+/**
+ * パスワードリセットリクエスト（メール送信）
+ */
+export interface ForgotPasswordRequest {
+  email: string;
+}
+
+/**
+ * パスワードリセットリクエストレスポンス
+ */
+export interface ForgotPasswordResponse {
+  success: boolean;
+  message: string;
+}
+
+/**
+ * パスワードリセット用メールを送信
+ * (認証不要)
+ */
+export async function forgotPassword(data: ForgotPasswordRequest): Promise<ForgotPasswordResponse> {
+  const baseURL = import.meta.env.VITE_API_BASE_URL || '';
+
+  const response = await fetch(`${baseURL}/api/v1/auth/forgot-password`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    let errorData: any;
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+      try {
+        errorData = await response.json();
+      } catch (e) {
+        const text = await response.text();
+        throw new Error(`リクエストに失敗しました: ${text || response.statusText}`);
+      }
+    } else {
+      const text = await response.text();
+      throw new Error(`リクエストに失敗しました: ${text || response.statusText}`);
+    }
+    throw new Error(errorData.error?.message || 'Failed to request password reset');
+  }
+
+  const contentType = response.headers.get('content-type');
+  if (!contentType || !contentType.includes('application/json')) {
+    const text = await response.text();
+    throw new Error(`予期しないレスポンス形式: ${text}`);
+  }
+
+  const result: ApiResponse<ForgotPasswordResponse> = await response.json();
+  return result.data;
+}
+
+/**
+ * トークンによるパスワードリセットリクエスト
+ */
+export interface ResetPasswordWithTokenRequest {
+  token: string;
+  new_password: string;
+  confirm_new_password: string;
+}
+
+/**
+ * トークンによるパスワードリセットレスポンス
+ */
+export interface ResetPasswordWithTokenResponse {
+  success: boolean;
+  message: string;
+}
+
+/**
+ * トークンを使用してパスワードをリセット
+ * (認証不要)
+ */
+export async function resetPasswordWithToken(data: ResetPasswordWithTokenRequest): Promise<ResetPasswordWithTokenResponse> {
+  const baseURL = import.meta.env.VITE_API_BASE_URL || '';
+
+  const response = await fetch(`${baseURL}/api/v1/auth/reset-password-with-token`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    let errorData: any;
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+      try {
+        errorData = await response.json();
+      } catch (e) {
+        const text = await response.text();
+        throw new Error(`リセットに失敗しました: ${text || response.statusText}`);
+      }
+    } else {
+      const text = await response.text();
+      throw new Error(`リセットに失敗しました: ${text || response.statusText}`);
+    }
+    throw new Error(errorData.error?.message || 'Failed to reset password with token');
+  }
+
+  const contentType = response.headers.get('content-type');
+  if (!contentType || !contentType.includes('application/json')) {
+    const text = await response.text();
+    throw new Error(`予期しないレスポンス形式: ${text}`);
+  }
+
+  const result: ApiResponse<ResetPasswordWithTokenResponse> = await response.json();
+  return result.data;
+}
+

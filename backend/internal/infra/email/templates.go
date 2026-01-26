@@ -175,3 +175,142 @@ func RenderInvitationText(data InvitationEmailData) (string, error) {
 func FormatExpiresAt(t time.Time) string {
 	return t.In(time.FixedZone("JST", 9*60*60)).Format("2006年1月2日 15:04")
 }
+
+// PasswordResetEmailData represents data for the password reset email template
+type PasswordResetEmailData struct {
+	ResetURL  string
+	ExpiresAt string
+}
+
+// Cached password reset templates
+var (
+	passwordResetHTMLTemplateOnce sync.Once
+	passwordResetTextTemplateOnce sync.Once
+	cachedPasswordResetHTMLTmpl   *template.Template
+	cachedPasswordResetTextTmpl   *template.Template
+)
+
+// passwordResetHTMLTemplate is the HTML template for password reset emails
+const passwordResetHTMLTemplate = `<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>パスワードリセット</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif; background-color: #f5f5f5;">
+    <table role="presentation" style="width: 100%; border-collapse: collapse;">
+        <tr>
+            <td align="center" style="padding: 40px 0;">
+                <table role="presentation" style="width: 600px; max-width: 100%; border-collapse: collapse; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                    <!-- Header -->
+                    <tr>
+                        <td style="padding: 32px 40px; background-color: #4F46E5; border-radius: 8px 8px 0 0;">
+                            <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 600;">VRC Shift Scheduler</h1>
+                        </td>
+                    </tr>
+                    <!-- Content -->
+                    <tr>
+                        <td style="padding: 40px;">
+                            <h2 style="margin: 0 0 24px; font-size: 20px; color: #333333;">パスワードリセットのリクエスト</h2>
+                            <p style="margin: 0 0 24px; font-size: 16px; line-height: 1.6; color: #333333;">
+                                パスワードリセットのリクエストを受け付けました。<br>
+                                下記のボタンをクリックして、新しいパスワードを設定してください。
+                            </p>
+
+                            <!-- CTA Button -->
+                            <table role="presentation" style="width: 100%; border-collapse: collapse; margin: 32px 0;">
+                                <tr>
+                                    <td align="center">
+                                        <a href="{{.ResetURL}}" style="display: inline-block; padding: 16px 48px; background-color: #4F46E5; color: #ffffff; text-decoration: none; font-size: 16px; font-weight: 600; border-radius: 6px;">
+                                            パスワードをリセット
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <!-- Expiration Notice -->
+                            <table role="presentation" style="width: 100%; border-collapse: collapse; margin: 24px 0; background-color: #fef3c7; border-radius: 6px; border-left: 4px solid #f59e0b;">
+                                <tr>
+                                    <td style="padding: 16px 20px;">
+                                        <p style="margin: 0; font-size: 14px; color: #92400e;">
+                                            <strong>有効期限:</strong> {{.ExpiresAt}}<br>
+                                            このリンクは1時間のみ有効です。
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <p style="margin: 24px 0 0; font-size: 14px; line-height: 1.6; color: #666666;">
+                                ※ このリクエストに心当たりがない場合は、このメールを無視してください。<br>
+                                ※ パスワードは変更されません。
+                            </p>
+                        </td>
+                    </tr>
+                    <!-- Footer -->
+                    <tr>
+                        <td style="padding: 24px 40px; background-color: #f8f9fa; border-radius: 0 0 8px 8px; border-top: 1px solid #e5e7eb;">
+                            <p style="margin: 0; font-size: 12px; color: #9ca3af; text-align: center;">
+                                このメールは VRC Shift Scheduler から自動送信されています。<br>
+                                <a href="https://vrcshift.com" style="color: #4F46E5; text-decoration: none;">https://vrcshift.com</a>
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>`
+
+// passwordResetTextTemplate is the plain text template for password reset emails
+const passwordResetTextTemplate = `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+VRC Shift Scheduler
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+パスワードリセットのリクエスト
+
+パスワードリセットのリクエストを受け付けました。
+下記のリンクから新しいパスワードを設定してください。
+
+{{.ResetURL}}
+
+■ 有効期限
+  {{.ExpiresAt}}
+  ※ このリンクは1時間のみ有効です。
+
+※ このリクエストに心当たりがない場合は、このメールを無視してください。
+※ パスワードは変更されません。
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+このメールは VRC Shift Scheduler から自動送信されています。
+https://vrcshift.com
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`
+
+// RenderPasswordResetHTML renders the HTML version of the password reset email
+func RenderPasswordResetHTML(data PasswordResetEmailData) (string, error) {
+	passwordResetHTMLTemplateOnce.Do(func() {
+		cachedPasswordResetHTMLTmpl = template.Must(template.New("password_reset_html").Parse(passwordResetHTMLTemplate))
+	})
+
+	var buf bytes.Buffer
+	if err := cachedPasswordResetHTMLTmpl.Execute(&buf, data); err != nil {
+		return "", err
+	}
+
+	return buf.String(), nil
+}
+
+// RenderPasswordResetText renders the plain text version of the password reset email
+func RenderPasswordResetText(data PasswordResetEmailData) (string, error) {
+	passwordResetTextTemplateOnce.Do(func() {
+		cachedPasswordResetTextTmpl = template.Must(template.New("password_reset_text").Parse(passwordResetTextTemplate))
+	})
+
+	var buf bytes.Buffer
+	if err := cachedPasswordResetTextTmpl.Execute(&buf, data); err != nil {
+		return "", err
+	}
+
+	return buf.String(), nil
+}

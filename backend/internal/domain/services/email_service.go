@@ -15,8 +15,18 @@ type SendInvitationEmailInput struct {
 	ExpiresAt   time.Time // 有効期限
 }
 
+// SendPasswordResetEmailInput represents the input for sending a password reset email
+type SendPasswordResetEmailInput struct {
+	To        string    // 送信先メールアドレス
+	Token     string    // パスワードリセットトークン
+	ExpiresAt time.Time // 有効期限
+}
+
 // EmailService defines the interface for sending emails
 type EmailService interface {
 	// SendInvitationEmail sends an invitation email to a new admin
 	SendInvitationEmail(ctx context.Context, input SendInvitationEmailInput) error
+
+	// SendPasswordResetEmail sends a password reset email
+	SendPasswordResetEmail(ctx context.Context, input SendPasswordResetEmailInput) error
 }
