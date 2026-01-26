@@ -6,6 +6,31 @@ import {
   CTASection,
   Footer,
 } from '../components/landing';
+import { SEO, PAGE_SEO } from '../components/seo';
+
+// FAQ data for structured data
+const FAQ_DATA = [
+  {
+    question: 'VRC Shift Schedulerとは何ですか？',
+    answer:
+      'VRChatイベント向けのシフト管理システムです。出欠収集、シフト割り当て、日程調整などの機能を提供しています。',
+  },
+  {
+    question: '料金はいくらですか？',
+    answer:
+      '月額200円でフル機能をご利用いただけます。初期費用や追加料金はありません。',
+  },
+  {
+    question: 'どのような機能がありますか？',
+    answer:
+      'イベント・シフト枠の作成、メンバーの出欠収集、シフトの割り当て・調整、日程調整機能などがあります。',
+  },
+  {
+    question: '支払い方法は何がありますか？',
+    answer:
+      'クレジットカード（Stripe経由）またはBOOTHでのライセンスキー購入に対応しています。',
+  },
+];
 
 export default function Landing() {
   return (
@@ -50,6 +75,19 @@ export default function Landing() {
           }}
         />
       </div>
+
+      {/* SEO - React 19 hoists meta tags to <head> */}
+      <SEO
+        title={PAGE_SEO.landing.title}
+        description={PAGE_SEO.landing.description}
+        path={PAGE_SEO.landing.path}
+        jsonLd={{
+          organization: true,
+          webSite: true,
+          softwareApplication: true,
+          faq: FAQ_DATA,
+        }}
+      />
 
       {/* Content */}
       <div className="relative z-10">

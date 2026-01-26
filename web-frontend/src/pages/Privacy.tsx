@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { SEO, PAGE_SEO, SEO_CONFIG } from '../components/seo';
 
 export default function Privacy() {
   return (
@@ -9,6 +10,19 @@ export default function Privacy() {
         fontFamily: '"Noto Sans JP", "Inter", system-ui, sans-serif',
       }}
     >
+      {/* SEO */}
+      <SEO
+        title={PAGE_SEO.privacy.title}
+        description={PAGE_SEO.privacy.description}
+        path={PAGE_SEO.privacy.path}
+        jsonLd={{
+          breadcrumbs: [
+            { name: 'ホーム', url: SEO_CONFIG.baseUrl },
+            { name: 'プライバシーポリシー' },
+          ],
+        }}
+      />
+
       {/* Header */}
       <header
         className="fixed top-0 left-0 right-0 z-50 py-4"

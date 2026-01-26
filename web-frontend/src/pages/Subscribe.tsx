@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import type { SubscribeResponse } from '../types/api';
 import { getErrorMessage, isRateLimitError } from '../utils/errorHandler';
+import { SEO, PAGE_SEO, SEO_CONFIG } from '../components/seo';
 
 export default function Subscribe() {
   const [email, setEmail] = useState('');
@@ -13,8 +13,6 @@ export default function Subscribe() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [agreedToTerms, setAgreedToTerms] = useState(false);
-
-  useDocumentTitle('新規登録');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -109,6 +107,19 @@ export default function Subscribe() {
         fontFamily: '"Noto Sans JP", "Inter", system-ui, sans-serif',
       }}
     >
+      {/* SEO */}
+      <SEO
+        title={PAGE_SEO.subscribe.title}
+        description={PAGE_SEO.subscribe.description}
+        path={PAGE_SEO.subscribe.path}
+        jsonLd={{
+          breadcrumbs: [
+            { name: 'ホーム', url: SEO_CONFIG.baseUrl },
+            { name: '新規登録' },
+          ],
+        }}
+      />
+
       {/* Header */}
       <header
         className="fixed top-0 left-0 right-0 z-50 py-4"
