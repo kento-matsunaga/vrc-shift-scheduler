@@ -19,7 +19,7 @@ Disallow: /settings
 Disallow: /p/*
 Disallow: /invite/*
 Disallow: /register
-Disallow: /reset-password*
+Disallow: /reset-password
 Disallow: /forgot-password
 
 # API endpoints - Disallow crawling

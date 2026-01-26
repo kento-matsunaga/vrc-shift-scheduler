@@ -85,9 +85,13 @@ interface JsonLdProps {
 
 /**
  * JSON-LD Structured Data Component
+ *
+ * XSS対策: HTMLタグ文字をUnicodeエスケープ
  */
 export function JsonLd({ data }: JsonLdProps) {
-  const jsonLdString = JSON.stringify(data);
+  const jsonLdString = JSON.stringify(data)
+    .replace(/</g, '\\u003c')
+    .replace(/>/g, '\\u003e');
 
   return (
     <script
