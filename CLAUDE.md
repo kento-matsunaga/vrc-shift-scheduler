@@ -163,6 +163,7 @@ curl -X POST http://localhost:8080/api/v1/auth/login \
 | `code-reviewer` | コード品質・セキュリティレビュー |
 | `ddd-reviewer` | DDD/クリーンアーキテクチャ準拠確認 |
 | `security-reviewer` | セキュリティ脆弱性分析 |
+| `planner` | 機能実装計画の立案 |
 
 ### ルール（常時適用）
 
@@ -184,6 +185,9 @@ curl -X POST http://localhost:8080/api/v1/auth/login \
 | `api-integration` | API統合パターン |
 | `stripe-integration` | Stripe決済連携パターン |
 | `error-handling` | エラーハンドリングパターン |
+| `frontend-patterns` | React/TypeScript/Tailwind CSSパターン |
+| `database-patterns` | PostgreSQL/pgxパターン |
+| `incident-response` | インシデント対応手順 |
 
 ### Hooks（自動実行）
 
