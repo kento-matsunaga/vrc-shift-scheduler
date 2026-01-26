@@ -74,14 +74,22 @@ func (m *MockClock) Now() time.Time {
 
 // MockTenantRepository is a mock implementation of tenant.TenantRepository
 type MockTenantRepository struct {
-	findByIDFunc func(ctx context.Context, tenantID common.TenantID) (*tenant.Tenant, error)
-	saveFunc     func(ctx context.Context, t *tenant.Tenant) error
-	listAllFunc  func(ctx context.Context, status *tenant.TenantStatus, limit, offset int) ([]*tenant.Tenant, int, error)
+	findByIDFunc                      func(ctx context.Context, tenantID common.TenantID) (*tenant.Tenant, error)
+	findByPendingStripeSessionIDFunc  func(ctx context.Context, sessionID string) (*tenant.Tenant, error)
+	saveFunc                          func(ctx context.Context, t *tenant.Tenant) error
+	listAllFunc                       func(ctx context.Context, status *tenant.TenantStatus, limit, offset int) ([]*tenant.Tenant, int, error)
 }
 
 func (m *MockTenantRepository) FindByID(ctx context.Context, tenantID common.TenantID) (*tenant.Tenant, error) {
 	if m.findByIDFunc != nil {
 		return m.findByIDFunc(ctx, tenantID)
+	}
+	return nil, errors.New("not implemented")
+}
+
+func (m *MockTenantRepository) FindByPendingStripeSessionID(ctx context.Context, sessionID string) (*tenant.Tenant, error) {
+	if m.findByPendingStripeSessionIDFunc != nil {
+		return m.findByPendingStripeSessionIDFunc(ctx, sessionID)
 	}
 	return nil, errors.New("not implemented")
 }
@@ -142,7 +150,9 @@ func createTestTenant(t *testing.T, tenantID common.TenantID) *tenant.Tenant {
 		"Asia/Tokyo",
 		true,
 		tenant.TenantStatusActive,
-		nil,
+		nil,  // graceUntil
+		nil,  // pendingExpiresAt
+		nil,  // pendingStripeSessionID
 		now,
 		now,
 		nil,

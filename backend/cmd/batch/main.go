@@ -18,12 +18,12 @@ type Config struct {
 
 func main() {
 	// コマンドライン引数のパース
-	taskFlag := flag.String("task", "", "Task to run: grace-expiry, webhook-cleanup")
+	taskFlag := flag.String("task", "", "Task to run: grace-expiry, webhook-cleanup, pending-cleanup")
 	dryRun := flag.Bool("dry-run", false, "Dry run mode (no changes)")
 	flag.Parse()
 
 	if *taskFlag == "" {
-		log.Fatal("Please specify a task with -task flag. Available tasks: grace-expiry, webhook-cleanup")
+		log.Fatal("Please specify a task with -task flag. Available tasks: grace-expiry, webhook-cleanup, pending-cleanup")
 	}
 
 	log.Printf("🔄 VRC Shift Scheduler - Batch Processing")
@@ -55,6 +55,10 @@ func main() {
 	case "webhook-cleanup":
 		if err := runWebhookCleanup(ctx, pool, *dryRun); err != nil {
 			log.Fatalf("Failed to run webhook-cleanup task: %v", err)
+		}
+	case "pending-cleanup":
+		if err := runPendingPaymentCleanup(ctx, pool, *dryRun); err != nil {
+			log.Fatalf("Failed to run pending-cleanup task: %v", err)
 		}
 	default:
 		log.Fatalf("Unknown task: %s", *taskFlag)
@@ -181,6 +185,105 @@ func runWebhookCleanup(ctx context.Context, pool *pgxpool.Pool, dryRun bool) err
 		log.Printf("   ✅ Deleted %d old webhook logs", result.RowsAffected())
 	} else {
 		log.Printf("   🔍 [DRY RUN] Would delete %d old webhook logs", count)
+	}
+
+	return nil
+}
+
+// runPendingPaymentCleanup cleans up expired pending_payment tenants and their associated data
+func runPendingPaymentCleanup(ctx context.Context, pool *pgxpool.Pool, dryRun bool) error {
+	log.Println("🧹 Running pending payment cleanup...")
+
+	now := time.Now()
+
+	// pending_payment状態で、pending_expires_atが過去のテナントを取得
+	query := `
+		SELECT tenant_id, tenant_name, pending_expires_at
+		FROM tenants
+		WHERE status = 'pending_payment'
+		AND pending_expires_at IS NOT NULL
+		AND pending_expires_at < $1
+	`
+
+	rows, err := pool.Query(ctx, query, now)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	var expiredTenants []struct {
+		tenantID         string
+		tenantName       string
+		pendingExpiresAt time.Time
+	}
+
+	for rows.Next() {
+		var t struct {
+			tenantID         string
+			tenantName       string
+			pendingExpiresAt time.Time
+		}
+		if err := rows.Scan(&t.tenantID, &t.tenantName, &t.pendingExpiresAt); err != nil {
+			return err
+		}
+		expiredTenants = append(expiredTenants, t)
+	}
+
+	if len(expiredTenants) == 0 {
+		log.Println("   ✅ No expired pending payment tenants found")
+		return nil
+	}
+
+	log.Printf("   ⚠️ Found %d tenants with expired pending payment", len(expiredTenants))
+
+	for _, t := range expiredTenants {
+		log.Printf("   - %s (%s) - expired at %s", t.tenantName, t.tenantID, t.pendingExpiresAt.Format(time.RFC3339))
+
+		if !dryRun {
+			// トランザクションで関連データを削除
+			tx, err := pool.Begin(ctx)
+			if err != nil {
+				log.Printf("   ❌ Failed to begin transaction for tenant %s: %v", t.tenantID, err)
+				continue
+			}
+
+			// 1. 関連するadminsを削除
+			deleteAdminsQuery := `DELETE FROM admins WHERE tenant_id = $1`
+			if _, err := tx.Exec(ctx, deleteAdminsQuery, t.tenantID); err != nil {
+				_ = tx.Rollback(ctx)
+				log.Printf("   ❌ Failed to delete admins for tenant %s: %v", t.tenantID, err)
+				continue
+			}
+
+			// 2. テナントを削除
+			deleteTenantQuery := `DELETE FROM tenants WHERE tenant_id = $1`
+			if _, err := tx.Exec(ctx, deleteTenantQuery, t.tenantID); err != nil {
+				_ = tx.Rollback(ctx)
+				log.Printf("   ❌ Failed to delete tenant %s: %v", t.tenantID, err)
+				continue
+			}
+
+			// 3. 監査ログを記録
+			logID := common.NewULID()
+			auditQuery := `
+				INSERT INTO billing_audit_logs (log_id, actor_type, action, target_type, target_id, after_json, created_at)
+				VALUES ($1, 'system', 'tenant_deleted', 'tenant', $2, $3, $4)
+			`
+			afterJSON := `{"reason":"pending_payment_expired"}`
+			if _, err := tx.Exec(ctx, auditQuery, logID, t.tenantID, afterJSON, now); err != nil {
+				log.Printf("   ⚠️ Failed to log audit for tenant %s: %v", t.tenantID, err)
+				// 監査ログ失敗は無視して続行
+			}
+
+			if err := tx.Commit(ctx); err != nil {
+				log.Printf("   ❌ Failed to commit transaction for tenant %s: %v", t.tenantID, err)
+				continue
+			}
+
+			log.Printf("   ✅ Deleted expired pending tenant %s", t.tenantID)
+		} else {
+			log.Printf("   🔍 [DRY RUN] Would delete tenant %s and associated admins", t.tenantID)
+		}
 	}
 
 	return nil

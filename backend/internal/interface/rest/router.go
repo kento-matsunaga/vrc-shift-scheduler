@@ -30,6 +30,7 @@ import (
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/db"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/email"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/security"
+	infrastripe "github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/stripe"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -121,6 +122,8 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 	r.Route("/api/v1", func(r chi.Router) {
 		// 認証ミドルウェアを適用（JWT優先、X-Tenant-IDフォールバック）
 		r.Use(Auth(jwtManager))
+		// テナントステータスチェック（suspended状態はアクセス拒否）
+		r.Use(TenantStatusMiddleware(tenantRepo))
 		// 課金状態に基づくアクセス制御
 		r.Use(BillingGuard(billingGuardDeps))
 
@@ -506,6 +509,42 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			r.Get("/", tutorialHandler.List)
 			r.Get("/{id}", tutorialHandler.Get)
 		})
+
+		// Billing API（課金管理 - Stripeカスタマーポータル、課金状態）
+		stripeSecretKey := os.Getenv("STRIPE_SECRET_KEY")
+		billingPortalReturnURL := os.Getenv("BILLING_PORTAL_RETURN_URL")
+		if billingPortalReturnURL == "" {
+			billingPortalReturnURL = "https://vrcshift.com/admin/settings"
+		}
+
+		billingSubscriptionRepo := db.NewSubscriptionRepository(dbPool)
+		billingStatusUsecase := apppayment.NewBillingStatusUsecase(
+			billingSubscriptionRepo,
+			entitlementRepo,
+		)
+
+		var billingHandler *BillingHandler
+		if stripeSecretKey != "" {
+			billingStripeClient := infrastripe.NewClient(stripeSecretKey)
+			billingPaymentGateway := infrastripe.NewStripePaymentGateway(billingStripeClient)
+			billingPortalUsecase := apppayment.NewBillingPortalUsecase(
+				billingSubscriptionRepo,
+				billingPaymentGateway,
+				billingPortalReturnURL,
+			)
+			billingHandler = NewBillingHandler(billingPortalUsecase, billingStatusUsecase)
+		} else {
+			billingHandler = NewBillingHandler(nil, billingStatusUsecase)
+		}
+
+		r.Route("/billing", func(r chi.Router) {
+			// 課金状態取得
+			r.Get("/status", billingHandler.GetStatus)
+			// カスタマーポータルセッション作成（カード変更、解約など）- Stripe設定時のみ
+			if stripeSecretKey != "" {
+				r.Post("/portal", billingHandler.CreatePortalSession)
+			}
+		})
 	})
 
 	// ============================================================
@@ -521,6 +560,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		// Initialize dependencies for admin billing
 		txManager := db.NewPgxTxManager(dbPool)
 		licenseKeyRepo := db.NewLicenseKeyRepository(dbPool)
+		subscriptionRepo := db.NewSubscriptionRepository(dbPool)
 		billingAuditLogRepo := db.NewBillingAuditLogRepository(dbPool)
 
 		adminLicenseKeyUsecase := applicense.NewAdminLicenseKeyUsecase(
@@ -533,6 +573,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			tenantRepo,
 			adminRepo,
 			entitlementRepo,
+			subscriptionRepo,
 			billingAuditLogRepo,
 		)
 		adminAuditLogUsecase := appaudit.NewAdminAuditLogUsecase(
@@ -775,6 +816,49 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		licenseClaimHandler := NewLicenseClaimHandler(claimUsecase, claimRateLimiter)
 
 		r.Post("/claim", licenseClaimHandler.Claim)
+	})
+
+	// Subscribe API（Stripe Checkout経由での新規登録、認証不要、レート制限あり）
+	r.Route("/api/v1/public/subscribe", func(r chi.Router) {
+		// Initialize dependencies for subscribe
+		txManager := db.NewPgxTxManager(dbPool)
+		subscribeRateLimiter := DefaultClaimRateLimiter() // 同じレート制限を使用
+
+		// Stripe client configuration from environment
+		stripeSecretKey := os.Getenv("STRIPE_SECRET_KEY")
+		stripePriceID := os.Getenv("STRIPE_PRICE_SUB_200")
+		successURL := os.Getenv("STRIPE_SUCCESS_URL")
+		cancelURL := os.Getenv("STRIPE_CANCEL_URL")
+
+		// Default URLs if not configured
+		if successURL == "" {
+			successURL = "https://vrcshift.com/subscribe/complete"
+		}
+		if cancelURL == "" {
+			cancelURL = "https://vrcshift.com/subscribe/cancel"
+		}
+
+		// Only register route if Stripe is configured
+		if stripeSecretKey != "" && stripePriceID != "" {
+			stripeClient := infrastripe.NewClient(stripeSecretKey)
+			paymentGateway := infrastripe.NewStripePaymentGateway(stripeClient)
+			subscribeClock := &clock.RealClock{}
+
+			subscribeUsecase := apppayment.NewSubscribeUsecase(
+				txManager,
+				tenantRepo,
+				adminRepo,
+				passwordHasher,
+				paymentGateway,
+				subscribeClock,
+				successURL,
+				cancelURL,
+				stripePriceID,
+			)
+			subscribeHandler := NewSubscribeHandler(subscribeUsecase, subscribeRateLimiter)
+
+			r.Post("/", subscribeHandler.Subscribe)
+		}
 	})
 
 	// Stripe Webhook API（認証不要、署名検証のみ）

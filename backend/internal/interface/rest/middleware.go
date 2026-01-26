@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/tenant"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/security"
 )
 
@@ -204,4 +205,40 @@ func GetAdminID(ctx context.Context) (common.AdminID, bool) {
 func GetRole(ctx context.Context) (string, bool) {
 	role, ok := ctx.Value(ContextKeyRole).(string)
 	return role, ok
+}
+
+// TenantStatusMiddleware はテナントのステータスをチェックし、
+// suspended状態の場合はアクセスを拒否するミドルウェア
+// grace状態はログイン可能、suspended状態はログイン不可
+func TenantStatusMiddleware(tenantRepo tenant.TenantRepository) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// コンテキストからテナントIDを取得
+			tenantID, ok := GetTenantID(r.Context())
+			if !ok {
+				// テナントIDがない場合はスキップ（Auth middleware で既に処理済みのはず）
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			// テナントを取得
+			t, err := tenantRepo.FindByID(r.Context(), tenantID)
+			if err != nil {
+				// テナント取得失敗時は後続の処理に任せる
+				log.Printf("[TenantStatusMiddleware] Failed to find tenant %s: %v", tenantID, err)
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			// suspended状態の場合はアクセス拒否
+			if t.Status() == tenant.TenantStatusSuspended {
+				RespondError(w, http.StatusForbidden, "ERR_TENANT_SUSPENDED",
+					"お支払いが確認できないため、サービスを一時停止しています。", nil)
+				return
+			}
+
+			// grace, active, pending_payment は通過
+			next.ServeHTTP(w, r)
+		})
+	}
 }
