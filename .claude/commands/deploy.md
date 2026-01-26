@@ -7,6 +7,20 @@
 1. developブランチが最新か確認
 2. 全テストがパス
 3. コードレビュー完了
+4. SSHコンフィグが設定済み（下記参照）
+
+## SSH設定（初回のみ）
+
+`~/.ssh/config` に以下を追加:
+
+```
+Host vrcshift-prod
+    HostName <本番サーバーIP>
+    User vrcshift
+    IdentityFile ~/.ssh/id_rsa
+```
+
+**注意**: 本番サーバーのIPアドレスは `docs/PRODUCTION_DEPLOYMENT.md` を参照
 
 ## デプロイ手順
 
@@ -19,13 +33,13 @@
 ### 2. サーバーへ転送
 
 ```bash
-scp vrcshift-*.tar.gz vrcshift@163.44.103.76:/opt/vrcshift/
+scp vrcshift-*.tar.gz vrcshift-prod:/opt/vrcshift/
 ```
 
 ### 3. サーバーで展開
 
 ```bash
-ssh vrcshift@163.44.103.76
+ssh vrcshift-prod
 cd /opt/vrcshift
 tar -xzf vrcshift-*.tar.gz
 ```

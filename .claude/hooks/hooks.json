@@ -29,7 +29,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'read -r d; if echo \"$d\" | grep -q \"FAIL\"; then echo \"[Hook] テスト失敗を検出\" >&2; fi; echo \"$d\"'"
+            "command": "bash .claude/hooks/check-test-result.sh"
           }
         ],
         "description": "テスト失敗時に警告"
@@ -39,7 +39,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'read -r d; if url=$(echo \"$d\" | grep -oP \"https://github.com/[^/]+/[^/]+/pull/\\d+\"); then echo \"[Hook] PR作成完了: $url\" >&2; fi; echo \"$d\"'"
+            "command": "bash .claude/hooks/show-pr-url.sh"
           }
         ],
         "description": "PR作成後にURLを表示"
@@ -49,7 +49,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'read -r d; file=$(echo \"$d\" | jq -r \".tool_input.file_path // empty\"); if [ -n \"$file\" ] && [ -f \"$file\" ]; then if grep -n \"fmt.Println\" \"$file\" 2>/dev/null; then echo \"[Hook] WARNING: fmt.Printlnが残っています\" >&2; fi; fi; echo \"$d\"'"
+            "command": "bash .claude/hooks/check-fmt-println.sh --file"
           }
         ],
         "description": "Goファイル編集後にfmt.Printlnをチェック"
@@ -61,7 +61,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'if git rev-parse --git-dir > /dev/null 2>&1; then files=$(git diff --name-only HEAD 2>/dev/null | grep \"\\.go$\"); if [ -n \"$files\" ]; then for f in $files; do if [ -f \"$f\" ] && grep -l \"fmt.Println\" \"$f\" 2>/dev/null; then echo \"[Hook] WARNING: $f にfmt.Printlnが残っています\" >&2; fi; done; fi; fi'"
+            "command": "bash .claude/hooks/check-fmt-println.sh --git"
           }
         ],
         "description": "レスポンス終了時にGoファイルのfmt.Printlnをチェック"
