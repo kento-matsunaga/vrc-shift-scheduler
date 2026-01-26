@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "tool == \"Bash\" && tool_input.command matches \"git push.*--force\"",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '[Hook] WARNING: force pushは危険な操作です。本当に実行しますか？' >&2 && exit 1"
+          }
+        ],
+        "description": "force pushをブロック"
+      },
+      {
+        "matcher": "tool == \"Bash\" && tool_input.command matches \"docker-compose\\.yml\"",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '[Hook] WARNING: 本番環境ではdocker-compose.prod.ymlを使用してください' >&2"
+          }
+        ],
+        "description": "本番環境での誤ったdocker-compose使用を警告"
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "tool == \"Bash\" && tool_input.command matches \"go test\"",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/check-test-result.sh"
+          }
+        ],
+        "description": "テスト失敗時に警告"
+      },
+      {
+        "matcher": "tool == \"Bash\" && tool_input.command matches \"gh pr create\"",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/show-pr-url.sh"
+          }
+        ],
+        "description": "PR作成後にURLを表示"
+      },
+      {
+        "matcher": "tool == \"Edit\" && tool_input.file_path matches \"\\.go$\"",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/check-fmt-println.sh --file"
+          }
+        ],
+        "description": "Goファイル編集後にfmt.Printlnをチェック"
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/check-fmt-println.sh --git"
+          }
+        ],
+        "description": "レスポンス終了時にGoファイルのfmt.Printlnをチェック"
+      }
+    ]
+  }
+}
