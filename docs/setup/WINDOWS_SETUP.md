@@ -291,20 +291,14 @@ docker compose ps
 ### 10-1. マイグレーション
 
 ```bash
-docker compose exec backend /app/migrate
+docker compose exec backend go run ./cmd/migrate/main.go
 ```
 
 ### 10-2. シード（任意）
 
 ```bash
-docker compose exec backend /app/seed
+docker compose exec backend go run ./cmd/seed/main.go
 ```
-
-シード投入後のログイン情報：
-- **Email**: `admin1@example.com`
-- **Password**: `password123`
-
-> **注意**: 上記コマンドが動かない場合は、先に `docker compose build backend` でコンテナを再ビルドしてください。
 
 ---
 
@@ -319,45 +313,11 @@ docker compose exec backend /app/seed
 
 ### バックエンド
 
-バックエンドのテストはローカルでGoをインストールして実行します：
-
 ```bash
-# Goのインストール（Ubuntu）
-sudo apt update && sudo apt install -y golang-go
-
-# backendディレクトリでテスト実行
-cd backend
-DATABASE_URL="postgres://vrcshift:vrcshift@localhost:5432/vrcshift?sslmode=disable" JWT_SECRET=test go test ./...
+docker compose exec backend go test ./...
 ```
 
-### フロントエンド（Playwright）
-
-フロントエンドのテストはPlaywrightを使用します。
-
-#### APIテスト（ブラウザ不要）
-
-バックエンドとの疎通テストを実行：
-
-```bash
-# Docker環境が起動していることを確認
-docker compose exec web-frontend npm run test:api
-```
-
-#### E2Eテスト（ブラウザ必要）
-
-初回のみ、ブラウザをインストール：
-
-```bash
-docker compose exec web-frontend npm run test:install
-```
-
-E2Eテストを実行：
-
-```bash
-docker compose exec web-frontend npm run test:e2e
-```
-
-#### 全テスト実行
+### フロントエンド（用意されている場合）
 
 ```bash
 docker compose exec web-frontend npm test
@@ -469,7 +429,7 @@ ssh -T git@github.com
 - [ ] `docker compose up -d --build` が成功
 - [ ] [http://localhost:5173](http://localhost:5173) が表示される
 - [ ] [http://localhost:8080/health](http://localhost:8080/health) が応答する
-- [ ] `docker compose exec backend /app/migrate` でマイグレーションが通る
+- [ ] `docker compose exec backend go test ./...` が通る
 - [ ] ブランチ作ってPR作成までできる
 
 ---
