@@ -125,18 +125,18 @@ curl -X POST http://localhost:8080/api/v1/auth/login \
 - **デプロイ方法**: tarball作成 → SCP → 展開 → `docker-compose.prod.yml` で起動
 - **重要**: 必ず `docker-compose.prod.yml` を使用（開発用 `docker-compose.yml` 禁止）
 
-詳細は `LOCAL_DEPLOY_GUIDE.md`、`docs/PRODUCTION_DEPLOYMENT.md` 参照
+詳細は `LOCAL_DEPLOY_GUIDE.md`、`docs/deployment/PRODUCTION_DEPLOYMENT.md` 参照
 
 ## 主要ドキュメント
 
 | ドキュメント | 内容 |
 |-------------|------|
-| `docs/BEGINNER_GUIDE.md` | 初心者向けセットアップ |
-| `docs/DEVELOPMENT.md` | 開発環境・テストアカウント |
-| `docs/UBIQUITOUS_LANGUAGE.md` | ドメイン用語辞書（853行） |
-| `docs/api-endpoints.md` | API一覧 |
-| `docs/BILLING_OPERATIONS.md` | 課金運用手順 |
-| `docs/BRANCH_STRATEGY.md` | ブランチ運用ガイド |
+| `docs/guides/BEGINNER_GUIDE.md` | 初心者向けセットアップ |
+| `docs/development/DEVELOPMENT.md` | 開発環境・テストアカウント |
+| `docs/domain/UBIQUITOUS_LANGUAGE.md` | ドメイン用語辞書（853行） |
+| `docs/api/api-endpoints.md` | API一覧 |
+| `docs/operations/BILLING_OPERATIONS.md` | 課金運用手順 |
+| `docs/development/BRANCH_STRATEGY.md` | ブランチ運用ガイド |
 
 ## 現在のバージョン
 

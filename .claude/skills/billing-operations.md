@@ -350,5 +350,5 @@ stripe trigger customer.subscription.deleted
 
 ## 関連ドキュメント
 
-- `docs/BILLING_OPERATIONS.md` - 完全な課金運用ガイド
-- `docs/ENVIRONMENT_VARIABLES.md` - 環境変数一覧
+- `docs/operations/BILLING_OPERATIONS.md` - 完全な課金運用ガイド
+- `docs/setup/ENVIRONMENT_VARIABLES.md` - 環境変数一覧

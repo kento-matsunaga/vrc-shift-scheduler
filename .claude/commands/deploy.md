@@ -20,7 +20,7 @@ Host vrcshift-prod
     IdentityFile ~/.ssh/id_rsa
 ```
 
-**注意**: 本番サーバーのIPアドレスは `docs/PRODUCTION_DEPLOYMENT.md` を参照
+**注意**: 本番サーバーのIPアドレスは `docs/deployment/PRODUCTION_DEPLOYMENT.md` を参照
 
 ## デプロイ手順
 
