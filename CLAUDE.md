@@ -142,3 +142,45 @@ curl -X POST http://localhost:8080/api/v1/auth/login \
 
 - **本番**: v1.7.1
 - **マイグレーション**: 039（migrate_instance_data）
+
+---
+
+## Claude Code 設定
+
+### 利用可能なコマンド
+
+| コマンド | 説明 |
+|---------|------|
+| `/review` | コード品質・セキュリティレビュー |
+| `/test` | バックエンドテスト実行 |
+| `/migrate` | DBマイグレーション管理 |
+| `/deploy` | 本番デプロイ手順 |
+
+### エージェント
+
+| エージェント | 用途 |
+|-------------|------|
+| `code-reviewer` | コード品質・セキュリティレビュー |
+| `ddd-reviewer` | DDD/クリーンアーキテクチャ準拠確認 |
+| `security-reviewer` | セキュリティ脆弱性分析 |
+
+### ルール（常時適用）
+
+| ルール | 内容 |
+|-------|------|
+| `go-coding-style` | Goコーディング規約 |
+| `ddd-patterns` | DDD/クリーンアーキテクチャルール |
+| `security` | セキュリティルール |
+| `testing` | テストルール |
+
+### スキル
+
+| スキル | 内容 |
+|-------|------|
+| `domain-knowledge` | ドメイン知識（エンティティ、制約） |
+| `git-workflow` | Git/PRワークフロー |
+| `billing-operations` | 課金運用手順 |
+| `production-deploy` | 本番デプロイ手順 |
+| `api-integration` | API統合パターン |
+
+詳細は `.claude/` ディレクトリを参照
