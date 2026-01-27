@@ -35,6 +35,12 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     -o /app/bin/seed \
     ./cmd/seed/main.go
 
+# バッチコマンドもビルド
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+    -ldflags="-w -s" \
+    -o /app/bin/batch \
+    ./cmd/batch/main.go
+
 # ========== Runtime Stage ==========
 FROM alpine:latest
 
@@ -48,6 +54,7 @@ WORKDIR /app
 COPY --from=builder /app/bin/server /app/server
 COPY --from=builder /app/bin/migrate /app/migrate
 COPY --from=builder /app/bin/seed /app/seed
+COPY --from=builder /app/bin/batch /app/batch
 
 # マイグレーションファイルをコピー
 COPY --from=builder /app/internal/infra/db/migrations /app/internal/infra/db/migrations
