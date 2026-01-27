@@ -70,14 +70,40 @@ export default function TenantDetail() {
       active: 'bg-green-100 text-green-800',
       grace: 'bg-yellow-100 text-yellow-800',
       suspended: 'bg-red-100 text-red-800',
+      pending_payment: 'bg-blue-100 text-blue-800',
     };
     const labels: Record<string, string> = {
       active: '有効',
       grace: '猶予中',
       suspended: '停止',
+      pending_payment: '決済待ち',
     };
     return (
       <span className={`px-3 py-1 text-sm font-medium rounded-full ${colors[status] || 'bg-gray-100'}`}>
+        {labels[status] || status}
+      </span>
+    );
+  };
+
+  const getSubscriptionStatusBadge = (status: string) => {
+    const colors: Record<string, string> = {
+      active: 'bg-green-100 text-green-800',
+      trialing: 'bg-blue-100 text-blue-800',
+      past_due: 'bg-yellow-100 text-yellow-800',
+      canceled: 'bg-gray-100 text-gray-800',
+      unpaid: 'bg-red-100 text-red-800',
+      incomplete: 'bg-orange-100 text-orange-800',
+    };
+    const labels: Record<string, string> = {
+      active: '有効',
+      trialing: 'トライアル',
+      past_due: '支払い遅延',
+      canceled: 'キャンセル済',
+      unpaid: '未払い',
+      incomplete: '不完全',
+    };
+    return (
+      <span className={`px-2 py-1 text-xs font-medium rounded-full ${colors[status] || 'bg-gray-100'}`}>
         {labels[status] || status}
       </span>
     );
@@ -150,6 +176,64 @@ export default function TenantDetail() {
             </div>
           )}
         </dl>
+      </div>
+
+      {/* サブスクリプション */}
+      <div className="bg-white shadow rounded-lg p-6 mb-6">
+        <h3 className="text-lg font-medium text-gray-900 mb-4">Stripeサブスクリプション</h3>
+        {tenant.subscription ? (
+          <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div>
+              <dt className="text-sm font-medium text-gray-500">ステータス</dt>
+              <dd className="text-sm text-gray-900 flex items-center space-x-2">
+                {getSubscriptionStatusBadge(tenant.subscription.status)}
+                {tenant.subscription.cancel_at_period_end && (
+                  <span className="px-2 py-1 text-xs font-medium rounded-full bg-orange-100 text-orange-800">
+                    キャンセル予約中
+                  </span>
+                )}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-sm font-medium text-gray-500">Stripe Customer ID</dt>
+              <dd className="text-sm text-gray-900 font-mono">{tenant.subscription.stripe_customer_id}</dd>
+            </div>
+            <div>
+              <dt className="text-sm font-medium text-gray-500">Stripe Subscription ID</dt>
+              <dd className="text-sm text-gray-900 font-mono">{tenant.subscription.stripe_subscription_id}</dd>
+            </div>
+            <div>
+              <dt className="text-sm font-medium text-gray-500">現在の請求期間終了日</dt>
+              <dd className="text-sm text-gray-900">
+                {tenant.subscription.current_period_end
+                  ? new Date(tenant.subscription.current_period_end).toLocaleString('ja-JP')
+                  : '未設定'}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-sm font-medium text-gray-500">作成日</dt>
+              <dd className="text-sm text-gray-900">
+                {new Date(tenant.subscription.created_at).toLocaleString('ja-JP')}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-sm font-medium text-gray-500">更新日</dt>
+              <dd className="text-sm text-gray-900">
+                {new Date(tenant.subscription.updated_at).toLocaleString('ja-JP')}
+              </dd>
+            </div>
+            {tenant.subscription.cancel_at_period_end && tenant.subscription.cancel_at && (
+              <div>
+                <dt className="text-sm font-medium text-gray-500">キャンセル予定日</dt>
+                <dd className="text-sm text-orange-600 font-medium">
+                  {new Date(tenant.subscription.cancel_at).toLocaleString('ja-JP')}
+                </dd>
+              </div>
+            )}
+          </dl>
+        ) : (
+          <p className="text-sm text-gray-500">サブスクリプションがありません（ライセンスキー利用の可能性があります）</p>
+        )}
       </div>
 
       {/* エンタイトルメント */}

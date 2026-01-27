@@ -14,10 +14,12 @@ import (
 
 // PasswordResetHandler handles password reset related HTTP requests
 type PasswordResetHandler struct {
-	allowPasswordResetUsecase       *appAuth.AllowPasswordResetUsecase
-	checkPasswordResetStatusUsecase *appAuth.CheckPasswordResetStatusUsecase
-	verifyAndResetPasswordUsecase   *appAuth.VerifyAndResetPasswordUsecase
-	rateLimiter                     *RateLimiter
+	allowPasswordResetUsecase        *appAuth.AllowPasswordResetUsecase
+	checkPasswordResetStatusUsecase  *appAuth.CheckPasswordResetStatusUsecase
+	verifyAndResetPasswordUsecase    *appAuth.VerifyAndResetPasswordUsecase
+	requestPasswordResetUsecase      *appAuth.RequestPasswordResetUsecase
+	resetPasswordWithTokenUsecase    *appAuth.ResetPasswordWithTokenUsecase
+	rateLimiter                      *RateLimiter
 }
 
 // NewPasswordResetHandler creates a new PasswordResetHandler
@@ -25,13 +27,17 @@ func NewPasswordResetHandler(
 	allowPasswordResetUsecase *appAuth.AllowPasswordResetUsecase,
 	checkPasswordResetStatusUsecase *appAuth.CheckPasswordResetStatusUsecase,
 	verifyAndResetPasswordUsecase *appAuth.VerifyAndResetPasswordUsecase,
+	requestPasswordResetUsecase *appAuth.RequestPasswordResetUsecase,
+	resetPasswordWithTokenUsecase *appAuth.ResetPasswordWithTokenUsecase,
 	rateLimiter *RateLimiter,
 ) *PasswordResetHandler {
 	return &PasswordResetHandler{
-		allowPasswordResetUsecase:       allowPasswordResetUsecase,
-		checkPasswordResetStatusUsecase: checkPasswordResetStatusUsecase,
-		verifyAndResetPasswordUsecase:   verifyAndResetPasswordUsecase,
-		rateLimiter:                     rateLimiter,
+		allowPasswordResetUsecase:        allowPasswordResetUsecase,
+		checkPasswordResetStatusUsecase:  checkPasswordResetStatusUsecase,
+		verifyAndResetPasswordUsecase:    verifyAndResetPasswordUsecase,
+		requestPasswordResetUsecase:      requestPasswordResetUsecase,
+		resetPasswordWithTokenUsecase:    resetPasswordWithTokenUsecase,
+		rateLimiter:                      rateLimiter,
 	}
 }
 
@@ -258,5 +264,128 @@ func (h *PasswordResetHandler) ResetPassword(w http.ResponseWriter, r *http.Requ
 	RespondSuccess(w, ResetPasswordResponse{
 		Success: output.Success,
 		Message: "パスワードをリセットしました",
+	})
+}
+
+// ForgotPasswordRequest represents the request body for forgot password
+type ForgotPasswordRequest struct {
+	Email string `json:"email"`
+}
+
+// ForgotPasswordResponse represents the response for forgot password
+type ForgotPasswordResponse struct {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+}
+
+// ForgotPassword handles POST /api/v1/auth/forgot-password
+// Public endpoint to request a password reset email
+func (h *PasswordResetHandler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// Rate limiting check (if rate limiter is configured)
+	if h.rateLimiter != nil {
+		clientIP := getClientIP(r)
+		if !h.rateLimiter.Allow(clientIP) {
+			time.Sleep(1 * time.Second) // Delay to slow down attackers
+			RespondError(w, http.StatusTooManyRequests, "ERR_RATE_LIMITED",
+				"リクエストが多すぎます。しばらくしてから再度お試しください。", nil)
+			return
+		}
+	}
+
+	// Parse request body
+	var req ForgotPasswordRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		RespondBadRequest(w, "リクエストの形式が不正です")
+		return
+	}
+
+	// Execute usecase - always returns success to prevent user enumeration
+	output, err := h.requestPasswordResetUsecase.Execute(ctx, appAuth.RequestPasswordResetInput{
+		Email: req.Email,
+	})
+	if err != nil {
+		// Should never happen as usecase always returns success
+		RespondSuccess(w, ForgotPasswordResponse{
+			Success: true,
+			Message: "パスワードリセット用のメールを送信しました。メールをご確認ください。",
+		})
+		return
+	}
+
+	RespondSuccess(w, ForgotPasswordResponse{
+		Success: output.Success,
+		Message: output.Message,
+	})
+}
+
+// ResetPasswordWithTokenRequest represents the request body for resetting password with token
+type ResetPasswordWithTokenRequest struct {
+	Token              string `json:"token"`
+	NewPassword        string `json:"new_password"`
+	ConfirmNewPassword string `json:"confirm_new_password"`
+}
+
+// ResetPasswordWithTokenResponse represents the response for resetting password with token
+type ResetPasswordWithTokenResponse struct {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+}
+
+// ResetPasswordWithToken handles POST /api/v1/auth/reset-password-with-token
+// Public endpoint to reset password using a token received via email
+func (h *PasswordResetHandler) ResetPasswordWithToken(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// Rate limiting check (if rate limiter is configured)
+	if h.rateLimiter != nil {
+		clientIP := getClientIP(r)
+		if !h.rateLimiter.Allow(clientIP) {
+			time.Sleep(1 * time.Second) // Delay to slow down attackers
+			RespondError(w, http.StatusTooManyRequests, "ERR_RATE_LIMITED",
+				"リクエストが多すぎます。しばらくしてから再度お試しください。", nil)
+			return
+		}
+	}
+
+	// Parse request body
+	var req ResetPasswordWithTokenRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		RespondBadRequest(w, "リクエストの形式が不正です")
+		return
+	}
+
+	// Validation
+	if req.Token == "" {
+		RespondBadRequest(w, "トークンが必要です")
+		return
+	}
+	if req.NewPassword == "" {
+		RespondBadRequest(w, "新しいパスワードを入力してください")
+		return
+	}
+	if req.ConfirmNewPassword == "" {
+		RespondBadRequest(w, "確認用パスワードを入力してください")
+		return
+	}
+	if req.NewPassword != req.ConfirmNewPassword {
+		RespondBadRequest(w, "新しいパスワードと確認用パスワードが一致しません")
+		return
+	}
+
+	// Execute usecase
+	output, err := h.resetPasswordWithTokenUsecase.Execute(ctx, appAuth.ResetPasswordWithTokenInput{
+		Token:       req.Token,
+		NewPassword: req.NewPassword,
+	})
+	if err != nil {
+		RespondDomainError(w, err)
+		return
+	}
+
+	RespondSuccess(w, ResetPasswordWithTokenResponse{
+		Success: output.Success,
+		Message: output.Message,
 	})
 }

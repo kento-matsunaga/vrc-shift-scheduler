@@ -1,5 +1,35 @@
+import { apiClient } from '../apiClient';
+
 // 公開API（ライセンスクレーム用）
 // 管理者APIは admin-frontend に移動しました
+
+/**
+ * 課金状態を表すインターフェース
+ */
+export interface BillingStatus {
+  plan_type: 'subscription' | 'lifetime' | 'none';
+  plan_name: string;
+  status: string;
+  current_period_end?: string;
+  cancel_at_period_end: boolean;
+}
+
+/**
+ * 課金状態を取得
+ */
+export async function getBillingStatus(): Promise<BillingStatus> {
+  const response = await apiClient.get<{ data: BillingStatus }>('/api/v1/billing/status');
+  return response.data;
+}
+
+/**
+ * Stripe Customer Portalセッションを作成
+ * カード情報の変更、サブスクリプションの解約などが可能
+ */
+export async function createBillingPortalSession(): Promise<{ portal_url: string }> {
+  const response = await apiClient.post<{ data: { portal_url: string } }>('/api/v1/billing/portal', {});
+  return response.data;
+}
 
 export async function claimLicense(request: {
   email: string;

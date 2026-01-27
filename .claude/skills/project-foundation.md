@@ -174,6 +174,6 @@ WHERE deleted_at IS NULL
 
 ## 関連ドキュメント
 
-- `docs/UBIQUITOUS_LANGUAGE.md` - 完全な用語辞書（853行）
+- `docs/domain/UBIQUITOUS_LANGUAGE.md` - 完全な用語辞書（853行）
 - `docs/domain/` - 各ドメインの詳細設計
-- `docs/api-endpoints.md` - API仕様
+- `docs/api/api-endpoints.md` - API仕様
