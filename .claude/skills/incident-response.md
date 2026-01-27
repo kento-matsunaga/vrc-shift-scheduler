@@ -31,25 +31,34 @@ VRC Shift Scheduler のインシデント対応手順と過去の教訓。
 ### バックエンドのロールバック
 
 ```bash
-# 1. 本番サーバーに接続
-ssh vrcshift@163.44.103.76
+# 非対話的環境からの場合（Claude Code等）
+DISPLAY=:0 SSH_ASKPASS=/tmp/askpass.sh SSH_ASKPASS_REQUIRE=force \
+  setsid -w ssh -o StrictHostKeyChecking=no root@163.44.103.76 "
+    cd /opt/vrcshift && \
+    docker-compose -f docker-compose.prod.yml --env-file .env.prod down && \
+    git checkout v1.8.0 && \
+    docker-compose -f docker-compose.prod.yml --env-file .env.prod up -d
+  "
 
-# 2. 前バージョンのtarballがあることを確認
-ls -la /opt/vrcshift/backups/
+# 対話的環境からの場合
+ssh root@163.44.103.76
 
-# 3. 現在のバージョンをバックアップ
+# サーバー上で実行
 cd /opt/vrcshift
-tar -czf backups/vrcshift-$(date +%Y%m%d-%H%M%S).tar.gz .
 
-# 4. 前バージョンを展開
-tar -xzf backups/vrcshift-previous.tar.gz
+# 利用可能なタグを確認
+git tag --list 'v*' --sort=-v:refname | head -10
 
-# 5. サービス再起動
-docker-compose -f docker-compose.prod.yml down
-docker-compose -f docker-compose.prod.yml up -d
+# 戻したいバージョンにチェックアウト
+git fetch origin
+git checkout v1.8.0
 
-# 6. ログ確認
-docker-compose -f docker-compose.prod.yml logs -f --tail=100
+# サービス再起動（docker-composeを使用）
+docker-compose -f docker-compose.prod.yml --env-file .env.prod down
+docker-compose -f docker-compose.prod.yml --env-file .env.prod up -d
+
+# ログ確認
+docker logs vrc-shift-backend --tail=100 -f
 ```
 
 ### データベースのロールバック
@@ -97,6 +106,34 @@ git push --force origin main
 - Git の merge 戦略は事前にチームで統一
 - ブランチ運用ルールはドキュメント化必須
 - 本番デプロイ前にローカルでマージテスト
+
+### 2026-01-27: v1.9.0 デプロイ時の学び
+
+**概要**: デプロイ自体は成功したが、複数の技術的問題に遭遇
+
+**遭遇した問題と解決策**:
+
+1. **SSH_ASKPASSが動作しない**
+   - 原因: `setsid`を使用していなかった
+   - 解決: `setsid -w ssh ...`で実行
+
+2. **docker compose vs docker-compose**
+   - 原因: サーバーには古い`docker-compose`（ハイフン付き）がインストール
+   - 解決: `docker-compose`を使用
+
+3. **環境変数が反映されない**
+   - 原因: `restart`ではなく`rm`→`up`が必要
+   - 解決: コンテナを再作成
+
+4. **batchバイナリがない**
+   - 原因: Dockerfileにbatchのビルドが含まれていなかった
+   - 解決: Dockerfileを修正
+
+**教訓**:
+- 非対話的環境でSSH_ASKPASSを使う場合は`setsid`必須
+- サーバーのDockerバージョンを事前確認
+- 環境変数変更時はコンテナ再作成
+- 新しいバイナリ追加時はDockerfileも更新
 
 ---
 

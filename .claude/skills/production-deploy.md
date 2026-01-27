@@ -24,6 +24,7 @@ VRC Shift Scheduler の本番環境デプロイ・運用手順。
 - **サーバー**: ConoHa VPS (163.44.103.76)
 - **デプロイパス**: /opt/vrcshift
 - **重要**: 必ず `docker-compose.prod.yml` を使用
+- **コマンド**: `docker-compose`（ハイフン付き）を使用（`docker compose`ではない）
 
 ---
 
@@ -33,10 +34,14 @@ VRC Shift Scheduler の本番環境デプロイ・運用手順。
 - [ ] ローカルでビルド・テストが成功
 - [ ] 破壊的変更がある場合、マイグレーション手順を確認済み
 - [ ] `.env.prod` の設定が最新
+- [ ] 新しいバイナリ（batch等）がある場合、Dockerfileに含まれている
+- [ ] Cronジョブの確認（新規バッチタスク追加時）
 
 ---
 
 ## デプロイコマンド（サーバーで実行）
+
+> **注意**: サーバーでは `docker-compose`（ハイフン付き）を使用
 
 ```bash
 # 1. プロジェクトディレクトリに移動
@@ -52,15 +57,15 @@ git rev-parse HEAD > /tmp/deploy_commit.txt
 echo "Deploying commit: $(cat /tmp/deploy_commit.txt)"
 
 # 4. コンテナを再ビルド・起動
-docker compose -f docker-compose.prod.yml --env-file .env.prod down
-docker compose -f docker-compose.prod.yml --env-file .env.prod build --no-cache
-docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
+docker-compose -f docker-compose.prod.yml --env-file .env.prod down
+docker-compose -f docker-compose.prod.yml --env-file .env.prod build --no-cache
+docker-compose -f docker-compose.prod.yml --env-file .env.prod up -d
 
 # 5. コンテナの起動確認
-docker compose -f docker-compose.prod.yml ps
+docker-compose -f docker-compose.prod.yml ps
 
 # 6. ログの確認
-docker compose -f docker-compose.prod.yml logs --tail=50 backend
+docker-compose -f docker-compose.prod.yml logs --tail=50 backend
 ```
 
 ---
@@ -68,11 +73,27 @@ docker compose -f docker-compose.prod.yml logs --tail=50 backend
 ## マイグレーション
 
 ```bash
-# マイグレーションを実行
-docker compose -f docker-compose.prod.yml exec backend ./migrate up
+# マイグレーション状態の確認（デプロイ前に必ず確認）
+docker exec vrc-shift-backend /app/migrate -action=status
 
-# マイグレーション状態の確認
-docker compose -f docker-compose.prod.yml exec backend ./migrate version
+# マイグレーションを実行
+docker exec vrc-shift-backend /app/migrate -action=up
+```
+
+---
+
+## 環境変数の変更
+
+**重要**: `.env.prod`を変更した場合、`restart`ではなくコンテナの再作成が必要
+
+```bash
+# NG: restartでは環境変数が反映されない
+docker-compose -f docker-compose.prod.yml restart backend
+
+# OK: コンテナを削除して再作成
+docker stop vrc-shift-backend
+docker rm vrc-shift-backend
+docker-compose -f docker-compose.prod.yml --env-file .env.prod up -d backend
 ```
 
 ---
@@ -138,15 +159,15 @@ git fetch origin
 git checkout v0.2.0
 
 # コンテナを再起動
-docker compose -f docker-compose.prod.yml --env-file .env.prod down
-docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
+docker-compose -f docker-compose.prod.yml --env-file .env.prod down
+docker-compose -f docker-compose.prod.yml --env-file .env.prod up -d
 ```
 
 ### マイグレーションのロールバック
 
 ```bash
 # 1つ前のバージョンに戻す
-docker compose -f docker-compose.prod.yml exec backend ./migrate down 1
+docker exec vrc-shift-backend /app/migrate -action=down -steps=1
 ```
 
 ---
@@ -156,14 +177,14 @@ docker compose -f docker-compose.prod.yml exec backend ./migrate down 1
 ### コンテナが起動しない
 
 ```bash
-docker compose -f docker-compose.prod.yml logs backend
-docker compose -f docker-compose.prod.yml logs db
+docker logs vrc-shift-backend
+docker logs vrc-shift-db
 ```
 
 ### データベース接続エラー
 
 ```bash
-docker compose -f docker-compose.prod.yml exec db psql -U vrcshift -d vrcshift -c '\l'
+docker exec vrc-shift-db psql -U vrcshift -d vrcshift -c '\l'
 ```
 
 ### ディスク容量不足
@@ -325,9 +346,10 @@ docker logs vrc-shift-backend --tail=100 | grep -i stripe
 nano .env.prod
 # STRIPE_SECRET_KEY=...  ← コメントアウト
 
-# 再起動
-docker compose -f docker-compose.prod.yml --env-file .env.prod down
-docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
+# コンテナを再作成（restartではなく再作成が必要）
+docker stop vrc-shift-backend
+docker rm vrc-shift-backend
+docker-compose -f docker-compose.prod.yml --env-file .env.prod up -d backend
 ```
 
 ---
@@ -378,8 +400,72 @@ openssl rand -base64 64 | tr -d '\n'
 
 ---
 
+---
+
+## SSHアクセス（非対話的環境から）
+
+Claude Code等の非対話的環境からSSH接続する場合、`setsid`が必要。
+
+```bash
+# SSH接続（出力を取得する場合は -w オプション）
+DISPLAY=:0 SSH_ASKPASS=/tmp/askpass.sh SSH_ASKPASS_REQUIRE=force \
+  setsid -w ssh -o StrictHostKeyChecking=no root@163.44.103.76 "command"
+
+# SCP転送
+DISPLAY=:0 SSH_ASKPASS=/tmp/askpass.sh SSH_ASKPASS_REQUIRE=force \
+  setsid scp -o StrictHostKeyChecking=no /path/to/file root@163.44.103.76:/path/
+
+# askpass.sh の内容
+#!/bin/bash
+echo 'パスワード'
+```
+
+**注意**: `setsid`がないとSSH_ASKPASSが動作しない
+
+---
+
+## Tarballデプロイ方式
+
+gitが使えない場合やクリーンな状態でデプロイしたい場合。
+
+```bash
+# 1. ローカルでtarball作成
+tar -czf /tmp/vrcshift-deploy.tar.gz \
+  --exclude='node_modules' \
+  --exclude='.git' \
+  --exclude='*.tar.gz' \
+  --exclude='.vite' \
+  --exclude='dist' \
+  .
+
+# 2. サーバーにアップロード
+scp /tmp/vrcshift-deploy.tar.gz root@163.44.103.76:/tmp/
+
+# 3. サーバーで展開（.env.prod保持）
+ssh root@163.44.103.76 "
+  cp /opt/vrcshift/.env.prod /tmp/.env.prod.bak && \
+  rm -rf /opt/vrcshift && \
+  mkdir -p /opt/vrcshift && \
+  cd /opt/vrcshift && \
+  tar -xzf /tmp/vrcshift-deploy.tar.gz && \
+  mv /tmp/.env.prod.bak .env.prod
+"
+
+# 4. Docker再ビルド・再起動
+ssh root@163.44.103.76 "
+  cd /opt/vrcshift && \
+  docker-compose -f docker-compose.prod.yml --env-file .env.prod down && \
+  docker-compose -f docker-compose.prod.yml --env-file .env.prod build --no-cache && \
+  docker-compose -f docker-compose.prod.yml --env-file .env.prod up -d
+"
+```
+
+---
+
 ## 関連ドキュメント
 
+- `LOCAL_DEPLOY_GUIDE.md` - 詳細なデプロイ手順（パスワード等含む）
 - `docs/deployment/PRODUCTION_DEPLOYMENT.md` - 完全なデプロイ手順
 - `docs/setup/ENVIRONMENT_VARIABLES.md` - 環境変数一覧
 - `docs/guides/DEBUG_GUIDE.md` - デバッグガイド
+- `docs/incidents/` - 過去のインシデントレポート
