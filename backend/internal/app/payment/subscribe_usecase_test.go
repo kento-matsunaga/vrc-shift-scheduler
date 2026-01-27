@@ -106,6 +106,9 @@ func (m *MockAdminRepository) Delete(ctx context.Context, tenantID common.Tenant
 func (m *MockAdminRepository) ExistsByEmail(ctx context.Context, tenantID common.TenantID, email string) (bool, error) {
 	return false, errors.New("not implemented")
 }
+func (m *MockAdminRepository) ExistsByEmailGlobal(ctx context.Context, email string) (bool, error) {
+	return false, errors.New("not implemented")
+}
 
 // MockPasswordHasher is a mock implementation of PasswordHasher
 type MockPasswordHasher struct {

@@ -276,6 +276,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		// AdminHandler dependencies (reusing adminRepo and passwordHasher from auth setup)
 		adminHandler := NewAdminHandler(
 			auth.NewChangePasswordUsecase(adminRepo, passwordHasher),
+			auth.NewChangeEmailUsecase(adminRepo, passwordHasher),
 		)
 
 		// PasswordResetHandler dependencies (authenticated endpoint - no rate limiting needed)
@@ -468,9 +469,10 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			r.Put("/me", tenantHandler.UpdateCurrentTenant)
 		})
 
-		// Admin API (テナント管理者のパスワード変更、PWリセット許可)
+		// Admin API (テナント管理者のパスワード変更、メールアドレス変更、PWリセット許可)
 		r.Route("/admins", func(r chi.Router) {
 			r.Post("/me/change-password", adminHandler.ChangePassword)
+			r.Post("/me/change-email", adminHandler.ChangeEmail)
 			// PWリセット許可（Ownerのみ実行可能 - Usecase内でチェック）
 			r.Post("/{admin_id}/allow-password-reset", authPasswordResetHandler.AllowPasswordReset)
 		})
