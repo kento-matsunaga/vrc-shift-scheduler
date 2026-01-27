@@ -1,0 +1,29 @@
+# VRC Shift Scheduler - Robots.txt
+# https://vrcshift.com
+
+User-agent: *
+
+# Public pages - Allow crawling
+Allow: /
+Allow: /terms
+Allow: /privacy
+Allow: /subscribe
+
+# Admin and authenticated areas - Disallow crawling
+Disallow: /admin/*
+Disallow: /events/*
+Disallow: /members
+Disallow: /attendance/*
+Disallow: /schedules/*
+Disallow: /settings
+Disallow: /p/*
+Disallow: /invite/*
+Disallow: /register
+Disallow: /reset-password
+Disallow: /forgot-password
+
+# API endpoints - Disallow crawling
+Disallow: /api/*
+
+# Sitemap location
+Sitemap: https://vrcshift.com/sitemap.xml

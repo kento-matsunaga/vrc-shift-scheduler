@@ -6,6 +6,7 @@ import TenantDetail from './pages/TenantDetail';
 import AuditLogs from './pages/AuditLogs';
 import Announcements from './pages/Announcements';
 import Tutorials from './pages/Tutorials';
+import SystemSettings from './pages/SystemSettings';
 
 function App() {
   return (
@@ -17,6 +18,7 @@ function App() {
         <Route path="audit-logs" element={<AuditLogs />} />
         <Route path="announcements" element={<Announcements />} />
         <Route path="tutorials" element={<Tutorials />} />
+        <Route path="system" element={<SystemSettings />} />
       </Route>
     </Routes>
   );

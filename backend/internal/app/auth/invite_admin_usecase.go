@@ -2,11 +2,14 @@ package auth
 
 import (
 	"context"
+	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/auth"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/services"
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/tenant"
 )
 
 // InviteAdminInput represents the input for inviting an admin
@@ -29,6 +32,8 @@ type InviteAdminOutput struct {
 type InviteAdminUsecase struct {
 	adminRepo      auth.AdminRepository
 	invitationRepo auth.InvitationRepository
+	tenantRepo     tenant.TenantRepository
+	emailService   services.EmailService
 	clock          services.Clock
 }
 
@@ -36,13 +41,34 @@ type InviteAdminUsecase struct {
 func NewInviteAdminUsecase(
 	adminRepo auth.AdminRepository,
 	invitationRepo auth.InvitationRepository,
+	tenantRepo tenant.TenantRepository,
+	emailService services.EmailService,
 	clk services.Clock,
 ) *InviteAdminUsecase {
 	return &InviteAdminUsecase{
 		adminRepo:      adminRepo,
 		invitationRepo: invitationRepo,
+		tenantRepo:     tenantRepo,
+		emailService:   emailService,
 		clock:          clk,
 	}
+}
+
+// isValidEmail performs basic email format validation
+func isValidEmail(email string) bool {
+	// 長さチェック
+	if len(email) < 3 || len(email) > 320 {
+		return false
+	}
+	// @の位置チェック
+	atIndex := strings.LastIndex(email, "@")
+	if atIndex < 1 || atIndex >= len(email)-1 {
+		return false
+	}
+	// ドメイン部分に.が含まれているかチェック
+	domain := email[atIndex+1:]
+	dotIndex := strings.LastIndex(domain, ".")
+	return dotIndex > 0 && dotIndex < len(domain)-1
 }
 
 // Execute executes the invite admin use case
@@ -60,19 +86,27 @@ func (u *InviteAdminUsecase) Execute(ctx context.Context, input InviteAdminInput
 		return nil, err
 	}
 
-	// 2. Role検証
+	// 2. メールアドレス検証
+	if input.Email == "" {
+		return nil, common.NewValidationError("email is required", nil)
+	}
+	if !isValidEmail(input.Email) {
+		return nil, common.NewValidationError("invalid email format", nil)
+	}
+
+	// 3. Role検証
 	role, err := auth.NewRole(input.Role)
 	if err != nil {
 		return nil, err
 	}
 
-	// 3. 既に同じメールアドレスの管理者が存在するかチェック
+	// 4. 既に同じメールアドレスの管理者が存在するかチェック
 	existsAdmin, _ := u.adminRepo.FindByEmailGlobal(ctx, input.Email)
 	if existsAdmin != nil {
 		return nil, common.NewValidationError("admin with this email already exists", nil)
 	}
 
-	// 4. 既に同じメールアドレスの未受理招待が存在するかチェック
+	// 5. 既に同じメールアドレスの未受理招待が存在するかチェック
 	existsPending, err := u.invitationRepo.ExistsPendingByEmail(ctx, inviterAdmin.TenantID(), input.Email)
 	if err != nil {
 		return nil, err
@@ -81,7 +115,7 @@ func (u *InviteAdminUsecase) Execute(ctx context.Context, input InviteAdminInput
 		return nil, common.NewValidationError("pending invitation for this email already exists", nil)
 	}
 
-	// 5. 招待作成（7日間有効）
+	// 6. 招待作成（7日間有効）
 	invitation, err := auth.NewInvitation(
 		now,
 		inviterAdmin, // Admin集約を渡す（tenantIDが自動設定される）
@@ -93,9 +127,35 @@ func (u *InviteAdminUsecase) Execute(ctx context.Context, input InviteAdminInput
 		return nil, err
 	}
 
-	// 6. 招待を保存
+	// 7. 招待を保存
 	if err := u.invitationRepo.Save(ctx, invitation); err != nil {
 		return nil, err
+	}
+
+	// 8. テナント情報を取得してメール送信
+	tenantEntity, err := u.tenantRepo.FindByID(ctx, inviterAdmin.TenantID())
+	if err != nil {
+		return nil, err
+	}
+
+	emailInput := services.SendInvitationEmailInput{
+		To:          invitation.Email(),
+		InviterName: inviterAdmin.DisplayName(),
+		TenantName:  tenantEntity.TenantName(),
+		Role:        invitation.Role().String(),
+		Token:       invitation.Token(),
+		ExpiresAt:   invitation.ExpiresAt(),
+	}
+
+	if err := u.emailService.SendInvitationEmail(ctx, emailInput); err != nil {
+		// メール送信失敗時は招待をロールバック
+		if deleteErr := u.invitationRepo.Delete(ctx, invitation.InvitationID()); deleteErr != nil {
+			slog.Error("failed to rollback invitation after email failure",
+				"invitation_id", invitation.InvitationID().String(),
+				"email_error", err,
+				"delete_error", deleteErr)
+		}
+		return nil, common.NewDomainError("ERR_EMAIL_SEND_FAILED", "failed to send invitation email: "+err.Error())
 	}
 
 	return &InviteAdminOutput{

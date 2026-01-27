@@ -142,7 +142,7 @@ export default function AdminLogin() {
             <div className="text-center">
               <button
                 type="button"
-                onClick={() => navigate('/reset-password')}
+                onClick={() => navigate('/forgot-password')}
                 className="text-sm text-accent hover:underline"
               >
                 パスワードを忘れた場合

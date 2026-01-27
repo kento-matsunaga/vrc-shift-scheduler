@@ -49,6 +49,10 @@ func (m *MockTenantRepository) FindByID(ctx context.Context, tenantID common.Ten
 	return nil, errors.New("not implemented")
 }
 
+func (m *MockTenantRepository) FindByPendingStripeSessionID(ctx context.Context, sessionID string) (*tenant.Tenant, error) {
+	return nil, errors.New("not implemented")
+}
+
 func (m *MockTenantRepository) ListAll(ctx context.Context, status *tenant.TenantStatus, limit, offset int) ([]*tenant.Tenant, int, error) {
 	return nil, 0, errors.New("not implemented")
 }

@@ -262,6 +262,6 @@ npm install
 
 ## 関連ドキュメント
 
-- `docs/DEVELOPMENT.md` - 開発ガイド
-- `docs/ENVIRONMENT_VARIABLES.md` - 環境変数詳細
-- `SETUP.md` - セットアップ手順
+- `docs/development/DEVELOPMENT.md` - 開発ガイド
+- `docs/setup/ENVIRONMENT_VARIABLES.md` - 環境変数詳細
+- `docs/setup/SETUP.md` - セットアップ手順

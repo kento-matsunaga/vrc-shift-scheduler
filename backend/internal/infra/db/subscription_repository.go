@@ -27,11 +27,13 @@ func (r *SubscriptionRepository) Save(ctx context.Context, s *billing.Subscripti
 	query := `
 		INSERT INTO subscriptions (
 			subscription_id, tenant_id, stripe_customer_id, stripe_subscription_id,
-			status, current_period_end, created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+			status, current_period_end, cancel_at_period_end, cancel_at, created_at, updated_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 		ON CONFLICT (subscription_id) DO UPDATE SET
 			status = EXCLUDED.status,
 			current_period_end = EXCLUDED.current_period_end,
+			cancel_at_period_end = EXCLUDED.cancel_at_period_end,
+			cancel_at = EXCLUDED.cancel_at,
 			updated_at = EXCLUDED.updated_at
 	`
 
@@ -42,6 +44,8 @@ func (r *SubscriptionRepository) Save(ctx context.Context, s *billing.Subscripti
 		s.StripeSubscriptionID(),
 		s.Status().String(),
 		s.CurrentPeriodEnd(),
+		s.CancelAtPeriodEnd(),
+		s.CancelAt(),
 		s.CreatedAt(),
 		s.UpdatedAt(),
 	)
@@ -58,7 +62,7 @@ func (r *SubscriptionRepository) FindByTenantID(ctx context.Context, tenantID co
 	query := `
 		SELECT
 			subscription_id, tenant_id, stripe_customer_id, stripe_subscription_id,
-			status, current_period_end, created_at, updated_at
+			status, current_period_end, cancel_at_period_end, cancel_at, created_at, updated_at
 		FROM subscriptions
 		WHERE tenant_id = $1
 	`
@@ -71,7 +75,7 @@ func (r *SubscriptionRepository) FindByStripeSubscriptionID(ctx context.Context,
 	query := `
 		SELECT
 			subscription_id, tenant_id, stripe_customer_id, stripe_subscription_id,
-			status, current_period_end, created_at, updated_at
+			status, current_period_end, cancel_at_period_end, cancel_at, created_at, updated_at
 		FROM subscriptions
 		WHERE stripe_subscription_id = $1
 	`
@@ -87,6 +91,8 @@ func (r *SubscriptionRepository) scanSubscription(ctx context.Context, query str
 		stripeSubscriptionID string
 		status               string
 		currentPeriodEnd     sql.NullTime
+		cancelAtPeriodEnd    bool
+		cancelAt             sql.NullTime
 		createdAt            time.Time
 		updatedAt            time.Time
 	)
@@ -98,6 +104,8 @@ func (r *SubscriptionRepository) scanSubscription(ctx context.Context, query str
 		&stripeSubscriptionID,
 		&status,
 		&currentPeriodEnd,
+		&cancelAtPeriodEnd,
+		&cancelAt,
 		&createdAt,
 		&updatedAt,
 	)
@@ -124,6 +132,11 @@ func (r *SubscriptionRepository) scanSubscription(ctx context.Context, query str
 		currentPeriodEndPtr = &currentPeriodEnd.Time
 	}
 
+	var cancelAtPtr *time.Time
+	if cancelAt.Valid {
+		cancelAtPtr = &cancelAt.Time
+	}
+
 	return billing.ReconstructSubscription(
 		subscriptionID,
 		tenantID,
@@ -131,6 +144,8 @@ func (r *SubscriptionRepository) scanSubscription(ctx context.Context, query str
 		stripeSubscriptionID,
 		billing.SubscriptionStatus(status),
 		currentPeriodEndPtr,
+		cancelAtPeriodEnd,
+		cancelAtPtr,
 		createdAt,
 		updatedAt,
 	)

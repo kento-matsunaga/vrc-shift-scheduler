@@ -203,3 +203,34 @@ export interface SaveAsTemplateRequest {
   description: string;
 }
 
+// Billing/Subscription 関連
+export type BillingStatus = 'active' | 'grace' | 'suspended' | 'pending_payment';
+
+export interface SubscribeRequest {
+  email: string;
+  password: string;
+  tenant_name: string;
+  display_name: string;
+  timezone: string;
+}
+
+export interface SubscribeResponse {
+  checkout_url: string;
+  session_id: string;
+  tenant_id: string;
+  expires_at: number;
+  message?: string;
+}
+
+export interface BillingStatusResponse {
+  status: BillingStatus;
+  grace_until?: string; // ISO 8601
+  subscription_id?: string;
+  current_period_end?: string; // ISO 8601
+  cancel_at_period_end?: boolean;
+}
+
+export interface BillingPortalResponse {
+  portal_url: string;
+}
+
