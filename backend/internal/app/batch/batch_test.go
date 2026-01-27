@@ -16,18 +16,12 @@ type testConfig struct {
 	DatabaseURL string `envconfig:"DATABASE_URL" required:"true"`
 }
 
-// testLogger captures log output for testing
-type testLogger struct {
-	messages []string
-}
+// testLogger suppresses log output during tests
+type testLogger struct{}
 
-func (l *testLogger) Printf(format string, v ...interface{}) {
-	// Suppress output during tests
-}
+func (l *testLogger) Printf(format string, v ...interface{}) {}
 
-func (l *testLogger) Println(v ...interface{}) {
-	// Suppress output during tests
-}
+func (l *testLogger) Println(v ...interface{}) {}
 
 func setupTestDB(t *testing.T) *pgxpool.Pool {
 	t.Helper()

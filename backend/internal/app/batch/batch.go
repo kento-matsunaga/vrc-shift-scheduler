@@ -121,6 +121,7 @@ func (b *BatchProcessor) suspendTenant(ctx context.Context, tenantID string, now
 	if err != nil {
 		return err
 	}
+	// Rollback is no-op after Commit, so we can safely ignore the error
 	defer func() { _ = tx.Rollback(ctx) }()
 
 	// Update tenant status
@@ -281,6 +282,7 @@ func (b *BatchProcessor) deletePendingTenant(ctx context.Context, tenantID strin
 	if err != nil {
 		return err
 	}
+	// Rollback is no-op after Commit, so we can safely ignore the error
 	defer func() { _ = tx.Rollback(ctx) }()
 
 	// Delete associated admins
