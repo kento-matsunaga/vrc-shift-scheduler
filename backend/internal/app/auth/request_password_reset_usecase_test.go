@@ -63,6 +63,10 @@ func (m *MockAdminRepositoryForPasswordReset) ExistsByEmail(ctx context.Context,
 	return false, nil
 }
 
+func (m *MockAdminRepositoryForPasswordReset) ExistsByEmailGlobal(ctx context.Context, email string) (bool, error) {
+	return false, nil
+}
+
 func (m *MockAdminRepositoryForPasswordReset) FindActiveByTenantID(ctx context.Context, tenantID common.TenantID) ([]*auth.Admin, error) {
 	return nil, nil
 }

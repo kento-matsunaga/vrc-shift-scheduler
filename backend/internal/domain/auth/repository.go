@@ -41,4 +41,8 @@ type AdminRepository interface {
 
 	// ExistsByEmail checks if an admin with the given email exists within a tenant
 	ExistsByEmail(ctx context.Context, tenantID common.TenantID, email string) (bool, error)
+
+	// ExistsByEmailGlobal checks if an admin with the given email exists globally
+	// メールアドレス変更時のグローバル重複チェックで使用
+	ExistsByEmailGlobal(ctx context.Context, email string) (bool, error)
 }

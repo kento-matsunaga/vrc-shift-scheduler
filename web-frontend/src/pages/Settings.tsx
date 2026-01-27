@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getEvents, deleteEvent, getCurrentTenant, updateTenant, changePassword, getManagerPermissions, updateManagerPermissions, createBillingPortalSession, getBillingStatus } from '../lib/api';
+import { getEvents, deleteEvent, getCurrentTenant, updateTenant, changePassword, changeEmail, getManagerPermissions, updateManagerPermissions, createBillingPortalSession, getBillingStatus } from '../lib/api';
 import type { Event } from '../types/api';
 import type { Tenant, ManagerPermissions } from '../lib/api/tenantApi';
 import type { BillingStatus } from '../lib/api/billingApi';
@@ -25,6 +25,14 @@ export default function Settings() {
   const [changingPassword, setChangingPassword] = useState(false);
   const [passwordError, setPasswordError] = useState('');
   const [passwordSuccess, setPasswordSuccess] = useState('');
+
+  // Email change state
+  const [emailCurrentPassword, setEmailCurrentPassword] = useState('');
+  const [newEmail, setNewEmail] = useState('');
+  const [confirmNewEmail, setConfirmNewEmail] = useState('');
+  const [changingEmail, setChangingEmail] = useState(false);
+  const [emailError, setEmailError] = useState('');
+  const [emailSuccess, setEmailSuccess] = useState('');
 
   // Events state
   const [events, setEvents] = useState<Event[]>([]);
@@ -184,6 +192,64 @@ export default function Settings() {
       console.error('Failed to change password:', err);
     } finally {
       setChangingPassword(false);
+    }
+  };
+
+  // Email change handlers
+  const handleChangeEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setEmailError('');
+    setEmailSuccess('');
+
+    // Validation
+    if (!emailCurrentPassword) {
+      setEmailError('現在のパスワードを入力してください');
+      return;
+    }
+    if (!newEmail) {
+      setEmailError('新しいメールアドレスを入力してください');
+      return;
+    }
+    if (!confirmNewEmail) {
+      setEmailError('確認用メールアドレスを入力してください');
+      return;
+    }
+    if (newEmail !== confirmNewEmail) {
+      setEmailError('新しいメールアドレスと確認用メールアドレスが一致しません');
+      return;
+    }
+    if (newEmail.length > 255) {
+      setEmailError('メールアドレスは255文字以内で入力してください');
+      return;
+    }
+
+    setChangingEmail(true);
+
+    try {
+      await changeEmail({
+        current_password: emailCurrentPassword,
+        new_email: newEmail,
+        confirm_new_email: confirmNewEmail,
+      });
+      setEmailSuccess('メールアドレスを変更しました。次回ログイン時から新しいメールアドレスをご使用ください。');
+      setEmailCurrentPassword('');
+      setNewEmail('');
+      setConfirmNewEmail('');
+    } catch (err) {
+      if (err instanceof ApiClientError) {
+        if (err.message.includes('incorrect') || err.message.includes('Unauthorized')) {
+          setEmailError('現在のパスワードが正しくありません');
+        } else if (err.message.includes('already') || err.message.includes('Conflict')) {
+          setEmailError('このメールアドレスは既に使用されています');
+        } else {
+          setEmailError(err.getUserMessage());
+        }
+      } else {
+        setEmailError('メールアドレスの変更に失敗しました');
+      }
+      console.error('Failed to change email:', err);
+    } finally {
+      setChangingEmail(false);
     }
   };
 
@@ -479,6 +545,83 @@ export default function Settings() {
             className="btn-primary"
           >
             {changingPassword ? 'パスワード変更中...' : 'パスワードを変更'}
+          </button>
+        </form>
+      </div>
+
+      {/* メールアドレス変更セクション */}
+      <div className="card mb-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+          </svg>
+          メールアドレス変更
+        </h3>
+
+        {emailError && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+            <p className="text-sm text-red-800">{emailError}</p>
+          </div>
+        )}
+
+        {emailSuccess && (
+          <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
+            <p className="text-sm text-green-800">{emailSuccess}</p>
+          </div>
+        )}
+
+        <form onSubmit={handleChangeEmail} className="space-y-4">
+          <div>
+            <label htmlFor="emailCurrentPassword" className="block text-sm font-medium text-gray-700 mb-1">
+              現在のパスワード
+            </label>
+            <input
+              type="password"
+              id="emailCurrentPassword"
+              value={emailCurrentPassword}
+              onChange={(e) => setEmailCurrentPassword(e.target.value)}
+              className="input-field"
+              disabled={changingEmail}
+              autoComplete="current-password"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="newEmail" className="block text-sm font-medium text-gray-700 mb-1">
+              新しいメールアドレス
+            </label>
+            <input
+              type="email"
+              id="newEmail"
+              value={newEmail}
+              onChange={(e) => setNewEmail(e.target.value)}
+              className="input-field"
+              disabled={changingEmail}
+              autoComplete="email"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="confirmNewEmail" className="block text-sm font-medium text-gray-700 mb-1">
+              新しいメールアドレス（確認）
+            </label>
+            <input
+              type="email"
+              id="confirmNewEmail"
+              value={confirmNewEmail}
+              onChange={(e) => setConfirmNewEmail(e.target.value)}
+              className="input-field"
+              disabled={changingEmail}
+              autoComplete="email"
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={changingEmail || !emailCurrentPassword || !newEmail || !confirmNewEmail}
+            className="btn-primary"
+          >
+            {changingEmail ? 'メールアドレス変更中...' : 'メールアドレスを変更'}
           </button>
         </form>
       </div>
