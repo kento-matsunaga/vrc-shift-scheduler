@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/system"
 )
 
@@ -29,7 +30,11 @@ func (uc *Usecase) GetReleaseStatus(ctx context.Context) (*GetReleaseStatusOutpu
 	setting, err := uc.settingRepo.FindByKey(ctx, system.SettingKeyReleaseStatus)
 	if err != nil {
 		// 設定が見つからない場合はデフォルト（リリース前）を返す
-		return &GetReleaseStatusOutput{Released: false}, nil
+		if common.IsNotFoundError(err) {
+			return &GetReleaseStatusOutput{Released: false}, nil
+		}
+		// その他のエラー（DBエラーなど）は呼び出し元に伝播
+		return nil, err
 	}
 
 	status, err := system.ParseReleaseStatus(setting.Value())
@@ -58,9 +63,14 @@ func (uc *Usecase) UpdateReleaseStatus(ctx context.Context, input UpdateReleaseS
 	// 既存の設定を取得するか、新規作成
 	setting, err := uc.settingRepo.FindByKey(ctx, system.SettingKeyReleaseStatus)
 	if err != nil {
-		// 設定が存在しない場合は新規作成
-		setting, err = system.NewSetting(system.SettingKeyReleaseStatus, value, now)
-		if err != nil {
+		if common.IsNotFoundError(err) {
+			// 設定が存在しない場合は新規作成
+			setting, err = system.NewSetting(system.SettingKeyReleaseStatus, value, now)
+			if err != nil {
+				return err
+			}
+		} else {
+			// その他のエラー（DBエラーなど）は呼び出し元に伝播
 			return err
 		}
 	} else {

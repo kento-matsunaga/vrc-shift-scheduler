@@ -78,7 +78,5 @@ func (h *SystemHandler) UpdateReleaseStatus(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	RespondSuccess(w, ReleaseStatusResponse{
-		Released: req.Released,
-	})
+	RespondSuccess(w, ReleaseStatusResponse(req))
 }
