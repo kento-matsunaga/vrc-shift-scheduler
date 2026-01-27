@@ -231,12 +231,10 @@ export default function Settings() {
         new_email: newEmail,
         confirm_new_email: confirmNewEmail,
       });
-      setEmailSuccess('メールアドレスを変更しました');
+      setEmailSuccess('メールアドレスを変更しました。次回ログイン時から新しいメールアドレスをご使用ください。');
       setEmailCurrentPassword('');
       setNewEmail('');
       setConfirmNewEmail('');
-      // ローカルストレージの更新（表示用）
-      localStorage.setItem('admin_email', newEmail);
     } catch (err) {
       if (err instanceof ApiClientError) {
         if (err.message.includes('incorrect') || err.message.includes('Unauthorized')) {

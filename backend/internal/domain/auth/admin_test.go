@@ -280,6 +280,32 @@ func TestAdmin_UpdateEmail_ErrorWhenTooLong(t *testing.T) {
 	}
 }
 
+func TestAdmin_UpdateEmail_ErrorWhenInvalidFormat(t *testing.T) {
+	now := time.Now()
+	tenantID := common.NewTenantID()
+	admin, _ := NewAdmin(now, tenantID, "old@example.com", "$2a$10$hash", "Admin", RoleOwner)
+
+	tests := []struct {
+		name  string
+		email string
+	}{
+		{"missing @ symbol", "invalidemail.com"},
+		{"missing domain", "invalid@"},
+		{"missing local part", "@example.com"},
+		{"missing dot in domain", "test@examplecom"},
+		{"too short", "a@b"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := admin.UpdateEmail(now, tt.email)
+			if err == nil {
+				t.Errorf("UpdateEmail() should return error for invalid email: %s", tt.email)
+			}
+		})
+	}
+}
+
 func TestAdmin_UpdatePasswordHash_Success(t *testing.T) {
 	now := time.Now()
 	tenantID := common.NewTenantID()
