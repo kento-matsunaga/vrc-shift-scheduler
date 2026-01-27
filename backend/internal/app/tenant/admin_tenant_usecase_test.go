@@ -30,10 +30,10 @@ func (m *MockTxManager) WithTx(ctx context.Context, fn func(context.Context) err
 
 // MockTenantRepository is a mock implementation of tenant.TenantRepository
 type MockTenantRepository struct {
-	findByIDFunc                    func(ctx context.Context, tenantID common.TenantID) (*tenant.Tenant, error)
+	findByIDFunc                     func(ctx context.Context, tenantID common.TenantID) (*tenant.Tenant, error)
 	findByPendingStripeSessionIDFunc func(ctx context.Context, sessionID string) (*tenant.Tenant, error)
-	saveFunc                        func(ctx context.Context, t *tenant.Tenant) error
-	listAllFunc                     func(ctx context.Context, status *tenant.TenantStatus, limit, offset int) ([]*tenant.Tenant, int, error)
+	saveFunc                         func(ctx context.Context, t *tenant.Tenant) error
+	listAllFunc                      func(ctx context.Context, status *tenant.TenantStatus, limit, offset int) ([]*tenant.Tenant, int, error)
 }
 
 func (m *MockTenantRepository) FindByID(ctx context.Context, tenantID common.TenantID) (*tenant.Tenant, error) {
@@ -130,9 +130,9 @@ func (m *MockEntitlementRepository) HasRevokedByTenantID(ctx context.Context, te
 
 // MockSubscriptionRepository is a mock implementation of billing.SubscriptionRepository
 type MockSubscriptionRepository struct {
-	findByTenantIDFunc           func(ctx context.Context, tenantID common.TenantID) (*billing.Subscription, error)
+	findByTenantIDFunc             func(ctx context.Context, tenantID common.TenantID) (*billing.Subscription, error)
 	findByStripeSubscriptionIDFunc func(ctx context.Context, stripeSubID string) (*billing.Subscription, error)
-	saveFunc                     func(ctx context.Context, sub *billing.Subscription) error
+	saveFunc                       func(ctx context.Context, sub *billing.Subscription) error
 }
 
 func (m *MockSubscriptionRepository) FindByTenantID(ctx context.Context, tenantID common.TenantID) (*billing.Subscription, error) {

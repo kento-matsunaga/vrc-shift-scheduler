@@ -60,20 +60,20 @@ func ParseBusinessDayID(s string) (BusinessDayID, error) {
 // Event とは独立したエンティティ（Event集約には含まれない）
 // Event は「営業の定義」、EventBusinessDay は「生成されたインスタンス」
 type EventBusinessDay struct {
-	businessDayID       BusinessDayID
-	tenantID            common.TenantID
-	eventID             common.EventID
-	targetDate          time.Time // DATE型として扱う
-	startTime           time.Time // TIME型として扱う（HH:MM:SS）
-	endTime             time.Time // TIME型として扱う（HH:MM:SS）
-	occurrenceType      OccurrenceType
-	recurringPatternID  *common.EventID // recurring の場合のみ
-	isActive            bool
-	validFrom           *time.Time // DATE型として扱う
-	validTo             *time.Time // DATE型として扱う
-	createdAt           time.Time
-	updatedAt           time.Time
-	deletedAt           *time.Time
+	businessDayID      BusinessDayID
+	tenantID           common.TenantID
+	eventID            common.EventID
+	targetDate         time.Time // DATE型として扱う
+	startTime          time.Time // TIME型として扱う（HH:MM:SS）
+	endTime            time.Time // TIME型として扱う（HH:MM:SS）
+	occurrenceType     OccurrenceType
+	recurringPatternID *common.EventID // recurring の場合のみ
+	isActive           bool
+	validFrom          *time.Time // DATE型として扱う
+	validTo            *time.Time // DATE型として扱う
+	createdAt          time.Time
+	updatedAt          time.Time
+	deletedAt          *time.Time
 }
 
 // NewEventBusinessDay creates a new EventBusinessDay entity
@@ -340,4 +340,3 @@ func (b *EventBusinessDay) DayOfWeekString() DayOfWeek {
 		return ""
 	}
 }
-

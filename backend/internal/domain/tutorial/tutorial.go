@@ -89,14 +89,14 @@ func Reconstruct(
 }
 
 // Getters
-func (t *Tutorial) ID() TutorialID     { return t.id }
-func (t *Tutorial) Category() string   { return t.category }
-func (t *Tutorial) Title() string      { return t.title }
-func (t *Tutorial) Body() string       { return t.body }
-func (t *Tutorial) DisplayOrder() int  { return t.displayOrder }
-func (t *Tutorial) IsPublished() bool  { return t.isPublished }
-func (t *Tutorial) CreatedAt() time.Time { return t.createdAt }
-func (t *Tutorial) UpdatedAt() time.Time { return t.updatedAt }
+func (t *Tutorial) ID() TutorialID        { return t.id }
+func (t *Tutorial) Category() string      { return t.category }
+func (t *Tutorial) Title() string         { return t.title }
+func (t *Tutorial) Body() string          { return t.body }
+func (t *Tutorial) DisplayOrder() int     { return t.displayOrder }
+func (t *Tutorial) IsPublished() bool     { return t.isPublished }
+func (t *Tutorial) CreatedAt() time.Time  { return t.createdAt }
+func (t *Tutorial) UpdatedAt() time.Time  { return t.updatedAt }
 func (t *Tutorial) DeletedAt() *time.Time { return t.deletedAt }
 
 // Update updates the tutorial

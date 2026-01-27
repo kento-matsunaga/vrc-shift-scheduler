@@ -14,17 +14,17 @@ import (
 
 // AttendanceHandler handles attendance-related HTTP requests
 type AttendanceHandler struct {
-	createCollectionUsecase         *attendance.CreateCollectionUsecase
-	submitResponseUsecase           *attendance.SubmitResponseUsecase
-	closeCollectionUsecase          *attendance.CloseCollectionUsecase
-	deleteCollectionUsecase         *attendance.DeleteCollectionUsecase
-	getCollectionUsecase            *attendance.GetCollectionUsecase
-	getCollectionByTokenUsecase     *attendance.GetCollectionByTokenUsecase
-	getResponsesUsecase             *attendance.GetResponsesUsecase
-	listCollectionsUsecase          *attendance.ListCollectionsUsecase
-	getMemberResponsesUsecase       *attendance.GetMemberResponsesUsecase
-	getAllPublicResponsesUsecase    *attendance.GetAllPublicResponsesUsecase
-	adminUpdateResponseUsecase      *attendance.AdminUpdateResponseUsecase
+	createCollectionUsecase      *attendance.CreateCollectionUsecase
+	submitResponseUsecase        *attendance.SubmitResponseUsecase
+	closeCollectionUsecase       *attendance.CloseCollectionUsecase
+	deleteCollectionUsecase      *attendance.DeleteCollectionUsecase
+	getCollectionUsecase         *attendance.GetCollectionUsecase
+	getCollectionByTokenUsecase  *attendance.GetCollectionByTokenUsecase
+	getResponsesUsecase          *attendance.GetResponsesUsecase
+	listCollectionsUsecase       *attendance.ListCollectionsUsecase
+	getMemberResponsesUsecase    *attendance.GetMemberResponsesUsecase
+	getAllPublicResponsesUsecase *attendance.GetAllPublicResponsesUsecase
+	adminUpdateResponseUsecase   *attendance.AdminUpdateResponseUsecase
 }
 
 // NewAttendanceHandler creates a new AttendanceHandler with injected usecases
@@ -42,17 +42,17 @@ func NewAttendanceHandler(
 	adminUpdateResponseUC *attendance.AdminUpdateResponseUsecase,
 ) *AttendanceHandler {
 	return &AttendanceHandler{
-		createCollectionUsecase:         createCollectionUC,
-		submitResponseUsecase:           submitResponseUC,
-		closeCollectionUsecase:          closeCollectionUC,
-		deleteCollectionUsecase:         deleteCollectionUC,
-		getCollectionUsecase:            getCollectionUC,
-		getCollectionByTokenUsecase:     getCollectionByTokenUC,
-		getResponsesUsecase:             getResponsesUC,
-		listCollectionsUsecase:          listCollectionsUC,
-		getMemberResponsesUsecase:       getMemberResponsesUC,
-		getAllPublicResponsesUsecase:    getAllPublicResponsesUC,
-		adminUpdateResponseUsecase:      adminUpdateResponseUC,
+		createCollectionUsecase:      createCollectionUC,
+		submitResponseUsecase:        submitResponseUC,
+		closeCollectionUsecase:       closeCollectionUC,
+		deleteCollectionUsecase:      deleteCollectionUC,
+		getCollectionUsecase:         getCollectionUC,
+		getCollectionByTokenUsecase:  getCollectionByTokenUC,
+		getResponsesUsecase:          getResponsesUC,
+		listCollectionsUsecase:       listCollectionsUC,
+		getMemberResponsesUsecase:    getMemberResponsesUC,
+		getAllPublicResponsesUsecase: getAllPublicResponsesUC,
+		adminUpdateResponseUsecase:   adminUpdateResponseUC,
 	}
 }
 
@@ -105,8 +105,8 @@ type CollectionResponse struct {
 // SubmitResponseRequest represents the request body for submitting an attendance response
 type SubmitResponseRequest struct {
 	MemberID      string  `json:"member_id"`
-	TargetDateID  string  `json:"target_date_id"`          // 対象日ID
-	Response      string  `json:"response"`                // "attending" or "absent" or "undecided"
+	TargetDateID  string  `json:"target_date_id"` // 対象日ID
+	Response      string  `json:"response"`       // "attending" or "absent" or "undecided"
 	Note          string  `json:"note"`
 	AvailableFrom *string `json:"available_from,omitempty"` // 参加可能開始時間 (HH:MM)
 	AvailableTo   *string `json:"available_to,omitempty"`   // 参加可能終了時間 (HH:MM)
@@ -116,9 +116,9 @@ type SubmitResponseRequest struct {
 type ResponseDTO struct {
 	ResponseID    string    `json:"response_id"`
 	MemberID      string    `json:"member_id"`
-	MemberName    string    `json:"member_name"`             // メンバー表示名
-	TargetDateID  string    `json:"target_date_id"`          // 対象日ID
-	TargetDate    string    `json:"target_date"`             // 対象日（ISO 8601）
+	MemberName    string    `json:"member_name"`    // メンバー表示名
+	TargetDateID  string    `json:"target_date_id"` // 対象日ID
+	TargetDate    string    `json:"target_date"`    // 対象日（ISO 8601）
 	Response      string    `json:"response"`
 	Note          string    `json:"note"`
 	AvailableFrom *string   `json:"available_from,omitempty"` // 参加可能開始時間

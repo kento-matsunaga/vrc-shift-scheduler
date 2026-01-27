@@ -186,4 +186,3 @@ func GetRoleFromContext(ctx context.Context) (string, bool) {
 	role, ok := ctx.Value(ContextKeyRole).(string)
 	return role, ok
 }
-

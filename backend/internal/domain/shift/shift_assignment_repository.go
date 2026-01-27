@@ -46,4 +46,3 @@ type ShiftAssignmentRepository interface {
 	// Used for actual attendance calculation
 	HasConfirmedByMemberAndBusinessDayID(ctx context.Context, tenantID common.TenantID, memberID common.MemberID, businessDayID string) (bool, error)
 }
-

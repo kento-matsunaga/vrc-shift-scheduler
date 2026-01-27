@@ -123,12 +123,12 @@ func (uc *ConfirmManualAssignmentUsecase) Execute(
 
 // GetAssignmentsInput represents the input for getting assignments
 type GetAssignmentsInput struct {
-	TenantID       common.TenantID
-	MemberID       *common.MemberID
-	SlotID         *shift.SlotID
-	Status         string
-	StartDate      *time.Time
-	EndDate        *time.Time
+	TenantID  common.TenantID
+	MemberID  *common.MemberID
+	SlotID    *shift.SlotID
+	Status    string
+	StartDate *time.Time
+	EndDate   *time.Time
 }
 
 // AssignmentWithDetails represents an assignment with JOIN data

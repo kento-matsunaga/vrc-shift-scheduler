@@ -9,9 +9,9 @@ import (
 
 // MemberMatcher handles matching member names from CSV to existing members
 type MemberMatcher struct {
-	members       []*member.Member
-	nameIndex     map[string]*member.Member
-	fuzzyEnabled  bool
+	members      []*member.Member
+	nameIndex    map[string]*member.Member
+	fuzzyEnabled bool
 }
 
 // NewMemberMatcher creates a new member matcher

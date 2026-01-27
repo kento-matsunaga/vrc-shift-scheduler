@@ -318,4 +318,3 @@ func TestReconstructAttendanceResponse_ErrorWhenInvalid(t *testing.T) {
 		t.Fatal("ReconstructAttendanceResponse() should fail when tenant ID is invalid")
 	}
 }
-

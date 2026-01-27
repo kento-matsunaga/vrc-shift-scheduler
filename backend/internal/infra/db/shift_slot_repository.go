@@ -294,4 +294,3 @@ func (r *ShiftSlotRepository) scanToShiftSlot(
 		deletedAtPtr,
 	)
 }
-

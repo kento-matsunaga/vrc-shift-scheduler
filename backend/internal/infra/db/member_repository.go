@@ -68,15 +68,15 @@ func (r *MemberRepository) FindByID(ctx context.Context, tenantID common.TenantI
 	`
 
 	var (
-		memberIDStr     string
-		tenantIDStr     string
-		displayName     string
-		discordUserID   sql.NullString
-		email           sql.NullString
-		isActive        bool
-		createdAt       time.Time
-		updatedAt       time.Time
-		deletedAt       sql.NullTime
+		memberIDStr   string
+		tenantIDStr   string
+		displayName   string
+		discordUserID sql.NullString
+		email         sql.NullString
+		isActive      bool
+		createdAt     time.Time
+		updatedAt     time.Time
+		deletedAt     sql.NullTime
 	)
 
 	err := r.db.QueryRow(ctx, query, tenantID.String(), memberID.String()).Scan(
@@ -143,15 +143,15 @@ func (r *MemberRepository) FindByDiscordUserID(ctx context.Context, tenantID com
 	`
 
 	var (
-		memberIDStr       string
-		tenantIDStr       string
-		displayName       string
-		discordUserIDVal  sql.NullString
-		email             sql.NullString
-		isActive          bool
-		createdAt         time.Time
-		updatedAt         time.Time
-		deletedAt         sql.NullTime
+		memberIDStr      string
+		tenantIDStr      string
+		displayName      string
+		discordUserIDVal sql.NullString
+		email            sql.NullString
+		isActive         bool
+		createdAt        time.Time
+		updatedAt        time.Time
+		deletedAt        sql.NullTime
 	)
 
 	err := r.db.QueryRow(ctx, query, tenantID.String(), discordUserID).Scan(
@@ -190,15 +190,15 @@ func (r *MemberRepository) FindByEmail(ctx context.Context, tenantID common.Tena
 	`
 
 	var (
-		memberIDStr     string
-		tenantIDStr     string
-		displayName     string
-		discordUserID   sql.NullString
-		email           sql.NullString
-		isActive        bool
-		createdAt       time.Time
-		updatedAt       time.Time
-		deletedAt       sql.NullTime
+		memberIDStr   string
+		tenantIDStr   string
+		displayName   string
+		discordUserID sql.NullString
+		email         sql.NullString
+		isActive      bool
+		createdAt     time.Time
+		updatedAt     time.Time
+		deletedAt     sql.NullTime
 	)
 
 	err := r.db.QueryRow(ctx, query, tenantID.String(), emailAddr).Scan(
@@ -237,15 +237,15 @@ func (r *MemberRepository) FindByDisplayName(ctx context.Context, tenantID commo
 	`
 
 	var (
-		memberIDStr       string
-		tenantIDStr       string
-		displayNameVal    string
-		discordUserID     sql.NullString
-		email             sql.NullString
-		isActive          bool
-		createdAt         time.Time
-		updatedAt         time.Time
-		deletedAt         sql.NullTime
+		memberIDStr    string
+		tenantIDStr    string
+		displayNameVal string
+		discordUserID  sql.NullString
+		email          sql.NullString
+		isActive       bool
+		createdAt      time.Time
+		updatedAt      time.Time
+		deletedAt      sql.NullTime
 	)
 
 	err := r.db.QueryRow(ctx, query, tenantID.String(), displayName).Scan(
@@ -339,15 +339,15 @@ func (r *MemberRepository) queryMembers(ctx context.Context, query string, args 
 	var members []*member.Member
 	for rows.Next() {
 		var (
-			memberIDStr     string
-			tenantIDStr     string
-			displayName     string
-			discordUserID   sql.NullString
-			email           sql.NullString
-			isActive        bool
-			createdAt       time.Time
-			updatedAt       time.Time
-			deletedAt       sql.NullTime
+			memberIDStr   string
+			tenantIDStr   string
+			displayName   string
+			discordUserID sql.NullString
+			email         sql.NullString
+			isActive      bool
+			createdAt     time.Time
+			updatedAt     time.Time
+			deletedAt     sql.NullTime
 		)
 
 		err := rows.Scan(
@@ -424,4 +424,3 @@ func stringValue(ns sql.NullString) string {
 	}
 	return ""
 }
-

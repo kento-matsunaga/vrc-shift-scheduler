@@ -130,9 +130,9 @@ func (c CustomPatternConfig) ToJSON() ([]byte, error) {
 // RecurringPattern represents a recurring pattern entity
 // 1 Event につき 1 RecurringPattern を基本とする
 type RecurringPattern struct {
-	patternID common.EventID // ULID
-	tenantID  common.TenantID
-	eventID   common.EventID
+	patternID   common.EventID // ULID
+	tenantID    common.TenantID
+	eventID     common.EventID
 	patternType PatternType
 	config      RecurringPatternConfig
 	createdAt   time.Time
@@ -306,4 +306,3 @@ func (p *RecurringPattern) Delete() {
 	p.deletedAt = &now
 	p.updatedAt = now
 }
-

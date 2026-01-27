@@ -117,9 +117,9 @@ func (s SubscriptionStatus) CanTransitionTo(newStatus SubscriptionStatus) bool {
 //   - Subscription holds TenantID as a foreign key reference
 //   - Both are aggregate roots with their own identity (SubscriptionID, TenantID)
 //   - Subscription lifecycle events affect Tenant state:
-//     - checkout.session.completed: Tenant -> active
-//     - invoice.payment_failed: Tenant -> grace (after retries exhausted)
-//     - customer.subscription.deleted: Tenant -> grace -> suspended
+//   - checkout.session.completed: Tenant -> active
+//   - invoice.payment_failed: Tenant -> grace (after retries exhausted)
+//   - customer.subscription.deleted: Tenant -> grace -> suspended
 //
 // # Design Rationale
 //

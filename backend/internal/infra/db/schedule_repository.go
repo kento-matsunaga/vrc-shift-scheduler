@@ -121,9 +121,9 @@ func (r *ScheduleRepository) FindByID(ctx context.Context, tenantID common.Tenan
 
 	var (
 		scheduleIDStr, tenantIDStr, title, description, publicTokenStr, statusStr string
-		eventIDStr, decidedCandidateIDStr *string
-		deadline, deletedAt sql.NullTime
-		createdAt, updatedAt time.Time
+		eventIDStr, decidedCandidateIDStr                                         *string
+		deadline, deletedAt                                                       sql.NullTime
+		createdAt, updatedAt                                                      time.Time
 	)
 
 	err := executor.QueryRow(ctx, query, tenantID.String(), id.String()).Scan(
@@ -160,9 +160,9 @@ func (r *ScheduleRepository) FindByToken(ctx context.Context, token common.Publi
 
 	var (
 		scheduleIDStr, tenantIDStr, title, description, publicTokenStr, statusStr string
-		eventIDStr, decidedCandidateIDStr *string
-		deadline, deletedAt sql.NullTime
-		createdAt, updatedAt time.Time
+		eventIDStr, decidedCandidateIDStr                                         *string
+		deadline, deletedAt                                                       sql.NullTime
+		createdAt, updatedAt                                                      time.Time
 	)
 
 	err := executor.QueryRow(ctx, query, token.String()).Scan(
@@ -208,9 +208,9 @@ func (r *ScheduleRepository) FindByTenantID(ctx context.Context, tenantID common
 	for rows.Next() {
 		var (
 			scheduleIDStr, tenantIDStr, title, description, publicTokenStr, statusStr string
-			eventIDStr, decidedCandidateIDStr *string
-			deadline, deletedAt sql.NullTime
-			createdAt, updatedAt time.Time
+			eventIDStr, decidedCandidateIDStr                                         *string
+			deadline, deletedAt                                                       sql.NullTime
+			createdAt, updatedAt                                                      time.Time
 		)
 
 		err := rows.Scan(&scheduleIDStr, &tenantIDStr, &title, &description, &eventIDStr, &publicTokenStr, &statusStr,
@@ -289,7 +289,7 @@ func (r *ScheduleRepository) FindResponsesByScheduleID(ctx context.Context, sche
 	for rows.Next() {
 		var (
 			responseIDStr, tenantIDStr, scheduleIDStr, memberIDStr, candidateIDStr, availabilityStr, note string
-			respondedAt, createdAt, updatedAt time.Time
+			respondedAt, createdAt, updatedAt                                                             time.Time
 		)
 
 		err := rows.Scan(&responseIDStr, &tenantIDStr, &scheduleIDStr, &memberIDStr, &candidateIDStr, &availabilityStr, &note,

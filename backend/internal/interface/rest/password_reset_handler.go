@@ -14,12 +14,12 @@ import (
 
 // PasswordResetHandler handles password reset related HTTP requests
 type PasswordResetHandler struct {
-	allowPasswordResetUsecase        *appAuth.AllowPasswordResetUsecase
-	checkPasswordResetStatusUsecase  *appAuth.CheckPasswordResetStatusUsecase
-	verifyAndResetPasswordUsecase    *appAuth.VerifyAndResetPasswordUsecase
-	requestPasswordResetUsecase      *appAuth.RequestPasswordResetUsecase
-	resetPasswordWithTokenUsecase    *appAuth.ResetPasswordWithTokenUsecase
-	rateLimiter                      *RateLimiter
+	allowPasswordResetUsecase       *appAuth.AllowPasswordResetUsecase
+	checkPasswordResetStatusUsecase *appAuth.CheckPasswordResetStatusUsecase
+	verifyAndResetPasswordUsecase   *appAuth.VerifyAndResetPasswordUsecase
+	requestPasswordResetUsecase     *appAuth.RequestPasswordResetUsecase
+	resetPasswordWithTokenUsecase   *appAuth.ResetPasswordWithTokenUsecase
+	rateLimiter                     *RateLimiter
 }
 
 // NewPasswordResetHandler creates a new PasswordResetHandler
@@ -32,12 +32,12 @@ func NewPasswordResetHandler(
 	rateLimiter *RateLimiter,
 ) *PasswordResetHandler {
 	return &PasswordResetHandler{
-		allowPasswordResetUsecase:        allowPasswordResetUsecase,
-		checkPasswordResetStatusUsecase:  checkPasswordResetStatusUsecase,
-		verifyAndResetPasswordUsecase:    verifyAndResetPasswordUsecase,
-		requestPasswordResetUsecase:      requestPasswordResetUsecase,
-		resetPasswordWithTokenUsecase:    resetPasswordWithTokenUsecase,
-		rateLimiter:                      rateLimiter,
+		allowPasswordResetUsecase:       allowPasswordResetUsecase,
+		checkPasswordResetStatusUsecase: checkPasswordResetStatusUsecase,
+		verifyAndResetPasswordUsecase:   verifyAndResetPasswordUsecase,
+		requestPasswordResetUsecase:     requestPasswordResetUsecase,
+		resetPasswordWithTokenUsecase:   resetPasswordWithTokenUsecase,
+		rateLimiter:                     rateLimiter,
 	}
 }
 

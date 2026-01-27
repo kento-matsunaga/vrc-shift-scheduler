@@ -138,9 +138,9 @@ func TestNewRole_SuccessWithEmptyOptionalFields(t *testing.T) {
 	r, err := role.NewRole(
 		tenantID,
 		"Minimal Role",
-		"",  // Empty description (optional)
-		"",  // Empty color (optional)
-		0,   // Zero display order
+		"", // Empty description (optional)
+		"", // Empty color (optional)
+		0,  // Zero display order
 	)
 
 	if err != nil {

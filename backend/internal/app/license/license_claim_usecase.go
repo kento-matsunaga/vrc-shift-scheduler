@@ -38,13 +38,13 @@ type TxManager interface {
 
 // LicenseClaimUsecase handles the license claim process
 type LicenseClaimUsecase struct {
-	txManager        TxManager
-	tenantRepo       tenant.TenantRepository
-	adminRepo        auth.AdminRepository
-	licenseKeyRepo   billing.LicenseKeyRepository
-	entitlementRepo  billing.EntitlementRepository
-	auditLogRepo     billing.BillingAuditLogRepository
-	passwordHasher   PasswordHasher
+	txManager       TxManager
+	tenantRepo      tenant.TenantRepository
+	adminRepo       auth.AdminRepository
+	licenseKeyRepo  billing.LicenseKeyRepository
+	entitlementRepo billing.EntitlementRepository
+	auditLogRepo    billing.BillingAuditLogRepository
+	passwordHasher  PasswordHasher
 }
 
 // PasswordHasher defines the interface for password hashing

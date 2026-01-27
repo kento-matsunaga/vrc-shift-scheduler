@@ -18,10 +18,10 @@ import (
 
 // MockShiftSlotTemplateRepository is a mock implementation of shift.ShiftSlotTemplateRepository
 type MockShiftSlotTemplateRepository struct {
-	saveFunc        func(ctx context.Context, template *shift.ShiftSlotTemplate) error
-	findByIDFunc    func(ctx context.Context, tenantID common.TenantID, templateID common.ShiftSlotTemplateID) (*shift.ShiftSlotTemplate, error)
+	saveFunc          func(ctx context.Context, template *shift.ShiftSlotTemplate) error
+	findByIDFunc      func(ctx context.Context, tenantID common.TenantID, templateID common.ShiftSlotTemplateID) (*shift.ShiftSlotTemplate, error)
 	findByEventIDFunc func(ctx context.Context, tenantID common.TenantID, eventID common.EventID) ([]*shift.ShiftSlotTemplate, error)
-	deleteFunc      func(ctx context.Context, tenantID common.TenantID, templateID common.ShiftSlotTemplateID) error
+	deleteFunc        func(ctx context.Context, tenantID common.TenantID, templateID common.ShiftSlotTemplateID) error
 }
 
 func (m *MockShiftSlotTemplateRepository) Save(ctx context.Context, template *shift.ShiftSlotTemplate) error {
@@ -106,11 +106,11 @@ func (m *MockShiftSlotRepository) Delete(ctx context.Context, tenantID common.Te
 
 // MockInstanceRepository is a mock implementation of shift.InstanceRepository
 type MockInstanceRepository struct {
-	saveFunc              func(ctx context.Context, instance *shift.Instance) error
-	findByIDFunc          func(ctx context.Context, tenantID common.TenantID, instanceID shift.InstanceID) (*shift.Instance, error)
-	findByEventIDFunc     func(ctx context.Context, tenantID common.TenantID, eventID common.EventID) ([]*shift.Instance, error)
+	saveFunc                 func(ctx context.Context, instance *shift.Instance) error
+	findByIDFunc             func(ctx context.Context, tenantID common.TenantID, instanceID shift.InstanceID) (*shift.Instance, error)
+	findByEventIDFunc        func(ctx context.Context, tenantID common.TenantID, eventID common.EventID) ([]*shift.Instance, error)
 	findByEventIDAndNameFunc func(ctx context.Context, tenantID common.TenantID, eventID common.EventID, name string) (*shift.Instance, error)
-	deleteFunc            func(ctx context.Context, tenantID common.TenantID, instanceID shift.InstanceID) error
+	deleteFunc               func(ctx context.Context, tenantID common.TenantID, instanceID shift.InstanceID) error
 }
 
 func (m *MockInstanceRepository) Save(ctx context.Context, instance *shift.Instance) error {

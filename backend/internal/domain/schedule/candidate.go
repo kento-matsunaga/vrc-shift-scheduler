@@ -8,13 +8,13 @@ import (
 
 // CandidateDate represents a candidate date entity
 type CandidateDate struct {
-	candidateID  common.CandidateID
-	scheduleID   common.ScheduleID
-	candidateDate time.Time // date part
-	startTime    *time.Time // time part (optional)
-	endTime      *time.Time // time part (optional)
-	displayOrder int
-	createdAt    time.Time
+	candidateID   common.CandidateID
+	scheduleID    common.ScheduleID
+	candidateDate time.Time  // date part
+	startTime     *time.Time // time part (optional)
+	endTime       *time.Time // time part (optional)
+	displayOrder  int
+	createdAt     time.Time
 }
 
 // NewCandidateDate creates a new CandidateDate entity
