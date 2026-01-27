@@ -137,6 +137,61 @@ func TestChangeEmailUsecase_Execute_ErrorWhenPasswordIncorrect(t *testing.T) {
 	}
 }
 
+func TestChangeEmailUsecase_Execute_ErrorWhenInvalidEmailFormat(t *testing.T) {
+	now := time.Now()
+	tenantID := common.NewTenantID()
+	testAdmin, _ := auth.NewAdmin(now, tenantID, "old@example.com", "$2a$10$hash", "Test Admin", auth.RoleOwner)
+	adminID := testAdmin.AdminID()
+
+	mockRepo := &MockAdminRepository{
+		findByIDWithTenantFunc: func(ctx context.Context, tID common.TenantID, aID common.AdminID) (*auth.Admin, error) {
+			return testAdmin, nil
+		},
+	}
+
+	mockHasher := &MockPasswordHasher{
+		compareFunc: func(hash, password string) error {
+			return nil // Password is correct
+		},
+	}
+
+	usecase := NewChangeEmailUsecase(mockRepo, mockHasher)
+
+	tests := []struct {
+		name     string
+		newEmail string
+	}{
+		{"missing @ symbol", "invalidemail.com"},
+		{"missing domain", "invalid@"},
+		{"missing local part", "@example.com"},
+		{"missing dot in domain", "test@examplecom"},
+		{"too short", "a@b"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			input := ChangeEmailInput{
+				AdminID:         adminID,
+				TenantID:        tenantID,
+				CurrentPassword: "correctpassword",
+				NewEmail:        tt.newEmail,
+			}
+
+			err := usecase.Execute(context.Background(), input)
+
+			if err == nil {
+				t.Errorf("Execute() should return error for invalid email: %s", tt.newEmail)
+			}
+
+			// Should be a validation error
+			var validationErr *common.DomainError
+			if !errors.As(err, &validationErr) {
+				t.Errorf("Expected validation error for %s, got %v", tt.newEmail, err)
+			}
+		})
+	}
+}
+
 func TestChangeEmailUsecase_Execute_ErrorWhenSameEmail(t *testing.T) {
 	now := time.Now()
 	tenantID := common.NewTenantID()

@@ -47,12 +47,17 @@ func (u *ChangeEmailUsecase) Execute(ctx context.Context, input ChangeEmailInput
 		return ErrInvalidCredentials
 	}
 
-	// 3. 現在のメールアドレスと同じでないことを確認
+	// 3. メールアドレス形式を検証
+	if !isValidEmail(input.NewEmail) {
+		return common.NewValidationError("invalid email format", nil)
+	}
+
+	// 4. 現在のメールアドレスと同じでないことを確認
 	if admin.Email() == input.NewEmail {
 		return common.NewValidationError("new email must be different from current email", nil)
 	}
 
-	// 4. グローバルで重複チェック
+	// 5. グローバルで重複チェック
 	exists, err := u.adminRepo.ExistsByEmailGlobal(ctx, input.NewEmail)
 	if err != nil {
 		return err
@@ -61,12 +66,12 @@ func (u *ChangeEmailUsecase) Execute(ctx context.Context, input ChangeEmailInput
 		return ErrEmailAlreadyExists
 	}
 
-	// 5. メールアドレスを更新
+	// 6. メールアドレスを更新
 	if err := admin.UpdateEmail(time.Now(), input.NewEmail); err != nil {
 		return err
 	}
 
-	// 6. 保存
+	// 7. 保存
 	if err := u.adminRepo.Save(ctx, admin); err != nil {
 		return err
 	}
