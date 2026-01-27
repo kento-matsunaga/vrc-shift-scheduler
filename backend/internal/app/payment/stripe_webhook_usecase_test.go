@@ -30,10 +30,10 @@ func (m *MockWebhookTxManager) WithTx(ctx context.Context, fn func(context.Conte
 
 // MockWebhookTenantRepository is a mock implementation of tenant.TenantRepository
 type MockWebhookTenantRepository struct {
-	findByIDFunc                    func(ctx context.Context, tenantID common.TenantID) (*tenant.Tenant, error)
+	findByIDFunc                     func(ctx context.Context, tenantID common.TenantID) (*tenant.Tenant, error)
 	findByPendingStripeSessionIDFunc func(ctx context.Context, sessionID string) (*tenant.Tenant, error)
-	saveFunc                        func(ctx context.Context, t *tenant.Tenant) error
-	listAllFunc                     func(ctx context.Context, status *tenant.TenantStatus, limit, offset int) ([]*tenant.Tenant, int, error)
+	saveFunc                         func(ctx context.Context, t *tenant.Tenant) error
+	listAllFunc                      func(ctx context.Context, status *tenant.TenantStatus, limit, offset int) ([]*tenant.Tenant, int, error)
 }
 
 func (m *MockWebhookTenantRepository) FindByID(ctx context.Context, tenantID common.TenantID) (*tenant.Tenant, error) {

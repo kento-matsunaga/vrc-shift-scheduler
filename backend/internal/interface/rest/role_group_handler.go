@@ -11,12 +11,12 @@ import (
 
 // RoleGroupHandler handles role group-related HTTP requests
 type RoleGroupHandler struct {
-	createGroupUsecase  *role_group.CreateGroupUsecase
-	updateGroupUsecase  *role_group.UpdateGroupUsecase
-	getGroupUsecase     *role_group.GetGroupUsecase
-	listGroupsUsecase   *role_group.ListGroupsUsecase
-	deleteGroupUsecase  *role_group.DeleteGroupUsecase
-	assignRolesUsecase  *role_group.AssignRolesUsecase
+	createGroupUsecase *role_group.CreateGroupUsecase
+	updateGroupUsecase *role_group.UpdateGroupUsecase
+	getGroupUsecase    *role_group.GetGroupUsecase
+	listGroupsUsecase  *role_group.ListGroupsUsecase
+	deleteGroupUsecase *role_group.DeleteGroupUsecase
+	assignRolesUsecase *role_group.AssignRolesUsecase
 }
 
 // NewRoleGroupHandler creates a new RoleGroupHandler with injected usecases

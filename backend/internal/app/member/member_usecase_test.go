@@ -617,7 +617,7 @@ func TestBulkImportMembersUsecase_Execute_PartialFailure(t *testing.T) {
 		TenantID: tenantID,
 		Members: []appmember.BulkImportMemberInput{
 			{DisplayName: "メンバー1"},
-			{DisplayName: ""},       // Empty name - should fail
+			{DisplayName: ""}, // Empty name - should fail
 			{DisplayName: "メンバー3"},
 		},
 	}

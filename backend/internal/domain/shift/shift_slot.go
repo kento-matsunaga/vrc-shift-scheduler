@@ -54,9 +54,9 @@ type ShiftSlot struct {
 	businessDayID event.BusinessDayID
 	instanceID    *InstanceID // インスタンスへの参照（FK）- nullable for migration
 	slotName      string
-	instanceName  string      // Deprecated: 移行完了後に削除予定。instanceID を使用してください。
-	startTime     time.Time   // TIME型として扱う（HH:MM:SS）
-	endTime       time.Time   // TIME型として扱う（HH:MM:SS）
+	instanceName  string    // Deprecated: 移行完了後に削除予定。instanceID を使用してください。
+	startTime     time.Time // TIME型として扱う（HH:MM:SS）
+	endTime       time.Time // TIME型として扱う（HH:MM:SS）
 	requiredCount int
 	priority      int
 	createdAt     time.Time
@@ -318,4 +318,3 @@ func (s *ShiftSlot) StartTimeString() string {
 func (s *ShiftSlot) EndTimeString() string {
 	return s.endTime.Format("15:04")
 }
-

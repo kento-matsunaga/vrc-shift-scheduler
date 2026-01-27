@@ -66,15 +66,15 @@ func (r *InvitationRepository) FindByToken(ctx context.Context, token string) (*
 	`
 
 	var (
-		invitationIDStr    string
-		tenantIDStr        string
-		email              string
-		roleStr            string
-		tokenStr           string
+		invitationIDStr     string
+		tenantIDStr         string
+		email               string
+		roleStr             string
+		tokenStr            string
 		createdByAdminIDStr string
-		expiresAt          time.Time
-		acceptedAt         sql.NullTime
-		createdAt          time.Time
+		expiresAt           time.Time
+		acceptedAt          sql.NullTime
+		createdAt           time.Time
 	)
 
 	err := r.db.QueryRow(ctx, query, token).Scan(
@@ -150,15 +150,15 @@ func (r *InvitationRepository) FindByTenantID(ctx context.Context, tenantID comm
 
 	for rows.Next() {
 		var (
-			invitationIDStr    string
-			tenantIDStr        string
-			email              string
-			roleStr            string
-			tokenStr           string
+			invitationIDStr     string
+			tenantIDStr         string
+			email               string
+			roleStr             string
+			tokenStr            string
 			createdByAdminIDStr string
-			expiresAt          time.Time
-			acceptedAt         sql.NullTime
-			createdAt          time.Time
+			expiresAt           time.Time
+			acceptedAt          sql.NullTime
+			createdAt           time.Time
 		)
 
 		err := rows.Scan(

@@ -48,10 +48,10 @@ type CreateCollectionOutput struct {
 
 // SubmitResponseInput represents the input for submitting an attendance response
 type SubmitResponseInput struct {
-	PublicToken   string  // from URL path (公開API)
-	MemberID      string  // from request body
-	TargetDateID  string  // from request body - 対象日ID
-	Response      string  // "attending" or "absent" or "undecided"
+	PublicToken   string // from URL path (公開API)
+	MemberID      string // from request body
+	TargetDateID  string // from request body - 対象日ID
+	Response      string // "attending" or "absent" or "undecided"
 	Note          string
 	AvailableFrom *string // 参加可能開始時間 (HH:MM)
 	AvailableTo   *string // 参加可能終了時間 (HH:MM)
@@ -116,9 +116,9 @@ type GetResponsesInput struct {
 type ResponseDTO struct {
 	ResponseID    string    `json:"response_id"`
 	MemberID      string    `json:"member_id"`
-	MemberName    string    `json:"member_name"`              // メンバー表示名
-	TargetDateID  string    `json:"target_date_id"`           // 対象日ID
-	TargetDate    time.Time `json:"target_date"`              // 対象日
+	MemberName    string    `json:"member_name"`    // メンバー表示名
+	TargetDateID  string    `json:"target_date_id"` // 対象日ID
+	TargetDate    time.Time `json:"target_date"`    // 対象日
 	Response      string    `json:"response"`
 	Note          string    `json:"note"`
 	AvailableFrom *string   `json:"available_from,omitempty"` // 参加可能開始時間
@@ -170,11 +170,11 @@ type DeleteCollectionOutput struct {
 // AdminUpdateResponseInput represents the input for admin updating an attendance response
 // 管理者による出欠回答の更新（締め切り後も可能）
 type AdminUpdateResponseInput struct {
-	TenantID      string  // from JWT context (管理API)
-	CollectionID  string  // from URL path
-	MemberID      string  // from request body
-	TargetDateID  string  // from request body
-	Response      string  // "attending" or "absent" or "undecided"
+	TenantID      string // from JWT context (管理API)
+	CollectionID  string // from URL path
+	MemberID      string // from request body
+	TargetDateID  string // from request body
+	Response      string // "attending" or "absent" or "undecided"
 	Note          string
 	AvailableFrom *string // 参加可能開始時間 (HH:MM)
 	AvailableTo   *string // 参加可能終了時間 (HH:MM)

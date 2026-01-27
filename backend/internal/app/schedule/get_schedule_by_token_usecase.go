@@ -95,4 +95,3 @@ func (u *GetScheduleByTokenUsecase) Execute(ctx context.Context, input GetSchedu
 		UpdatedAt:          sched.UpdatedAt(),
 	}, nil
 }
-

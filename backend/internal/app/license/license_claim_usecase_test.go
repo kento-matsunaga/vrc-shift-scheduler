@@ -31,7 +31,7 @@ func (m *MockTxManager) WithTx(ctx context.Context, fn func(context.Context) err
 
 // MockTenantRepository is a mock implementation of tenant.TenantRepository
 type MockTenantRepository struct {
-	saveFunc    func(ctx context.Context, t *tenant.Tenant) error
+	saveFunc     func(ctx context.Context, t *tenant.Tenant) error
 	findByIDFunc func(ctx context.Context, tenantID common.TenantID) (*tenant.Tenant, error)
 }
 

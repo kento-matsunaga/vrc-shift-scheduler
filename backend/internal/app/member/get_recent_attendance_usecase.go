@@ -41,7 +41,7 @@ type GetRecentAttendanceInput struct {
 
 // GetRecentAttendanceOutput represents the output for getting recent attendance
 type GetRecentAttendanceOutput struct {
-	TargetDates       []TargetDateInfo         `json:"target_dates"`        // Recent target dates (newest first)
+	TargetDates       []TargetDateInfo         `json:"target_dates"`       // Recent target dates (newest first)
 	MemberAttendances []MemberAttendanceStatus `json:"member_attendances"` // Attendance status per member
 }
 
@@ -73,10 +73,10 @@ func (u *GetRecentAttendanceUsecase) Execute(ctx context.Context, input GetRecen
 
 	// 3. Collect all target dates from all collections
 	type dateWithCollection struct {
-		TargetDateID   string
-		TargetDate     time.Time
-		DisplayOrder   int
-		CollectionID   string
+		TargetDateID string
+		TargetDate   time.Time
+		DisplayOrder int
+		CollectionID string
 	}
 
 	var allDates []dateWithCollection
@@ -87,10 +87,10 @@ func (u *GetRecentAttendanceUsecase) Execute(ctx context.Context, input GetRecen
 		}
 		for _, td := range targetDates {
 			allDates = append(allDates, dateWithCollection{
-				TargetDateID:   td.TargetDateID().String(),
-				TargetDate:     td.TargetDateValue(),
-				DisplayOrder:   td.DisplayOrder(),
-				CollectionID:   col.CollectionID().String(),
+				TargetDateID: td.TargetDateID().String(),
+				TargetDate:   td.TargetDateValue(),
+				DisplayOrder: td.DisplayOrder(),
+				CollectionID: col.CollectionID().String(),
 			})
 		}
 	}

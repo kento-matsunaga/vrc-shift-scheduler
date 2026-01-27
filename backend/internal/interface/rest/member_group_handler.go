@@ -11,11 +11,11 @@ import (
 
 // MemberGroupHandler handles member group-related HTTP requests
 type MemberGroupHandler struct {
-	createGroupUsecase  *member_group.CreateGroupUsecase
-	updateGroupUsecase  *member_group.UpdateGroupUsecase
-	getGroupUsecase     *member_group.GetGroupUsecase
-	listGroupsUsecase   *member_group.ListGroupsUsecase
-	deleteGroupUsecase  *member_group.DeleteGroupUsecase
+	createGroupUsecase   *member_group.CreateGroupUsecase
+	updateGroupUsecase   *member_group.UpdateGroupUsecase
+	getGroupUsecase      *member_group.GetGroupUsecase
+	listGroupsUsecase    *member_group.ListGroupsUsecase
+	deleteGroupUsecase   *member_group.DeleteGroupUsecase
 	assignMembersUsecase *member_group.AssignMembersUsecase
 }
 

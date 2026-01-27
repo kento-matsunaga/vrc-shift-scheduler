@@ -321,4 +321,3 @@ func (a *ShiftAssignment) Delete() {
 	a.deletedAt = &now
 	a.updatedAt = now
 }
-

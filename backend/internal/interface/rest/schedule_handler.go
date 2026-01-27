@@ -14,16 +14,16 @@ import (
 )
 
 type ScheduleHandler struct {
-	createScheduleUsecase          *schedule.CreateScheduleUsecase
-	submitResponseUsecase          *schedule.SubmitResponseUsecase
-	decideScheduleUsecase          *schedule.DecideScheduleUsecase
-	closeScheduleUsecase           *schedule.CloseScheduleUsecase
-	deleteScheduleUsecase          *schedule.DeleteScheduleUsecase
-	getScheduleUsecase             *schedule.GetScheduleUsecase
-	getScheduleByTokenUsecase      *schedule.GetScheduleByTokenUsecase
-	getResponsesUsecase            *schedule.GetResponsesUsecase
-	listSchedulesUsecase           *schedule.ListSchedulesUsecase
-	getAllPublicResponsesUsecase   *schedule.GetAllPublicResponsesUsecase
+	createScheduleUsecase        *schedule.CreateScheduleUsecase
+	submitResponseUsecase        *schedule.SubmitResponseUsecase
+	decideScheduleUsecase        *schedule.DecideScheduleUsecase
+	closeScheduleUsecase         *schedule.CloseScheduleUsecase
+	deleteScheduleUsecase        *schedule.DeleteScheduleUsecase
+	getScheduleUsecase           *schedule.GetScheduleUsecase
+	getScheduleByTokenUsecase    *schedule.GetScheduleByTokenUsecase
+	getResponsesUsecase          *schedule.GetResponsesUsecase
+	listSchedulesUsecase         *schedule.ListSchedulesUsecase
+	getAllPublicResponsesUsecase *schedule.GetAllPublicResponsesUsecase
 }
 
 // NewScheduleHandler creates a new ScheduleHandler with injected usecases
@@ -40,16 +40,16 @@ func NewScheduleHandler(
 	getAllPublicResponsesUC *schedule.GetAllPublicResponsesUsecase,
 ) *ScheduleHandler {
 	return &ScheduleHandler{
-		createScheduleUsecase:          createScheduleUC,
-		submitResponseUsecase:          submitResponseUC,
-		decideScheduleUsecase:          decideScheduleUC,
-		closeScheduleUsecase:           closeScheduleUC,
-		deleteScheduleUsecase:          deleteScheduleUC,
-		getScheduleUsecase:             getScheduleUC,
-		getScheduleByTokenUsecase:      getScheduleByTokenUC,
-		getResponsesUsecase:            getResponsesUC,
-		listSchedulesUsecase:           listSchedulesUC,
-		getAllPublicResponsesUsecase:   getAllPublicResponsesUC,
+		createScheduleUsecase:        createScheduleUC,
+		submitResponseUsecase:        submitResponseUC,
+		decideScheduleUsecase:        decideScheduleUC,
+		closeScheduleUsecase:         closeScheduleUC,
+		deleteScheduleUsecase:        deleteScheduleUC,
+		getScheduleUsecase:           getScheduleUC,
+		getScheduleByTokenUsecase:    getScheduleByTokenUC,
+		getResponsesUsecase:          getResponsesUC,
+		listSchedulesUsecase:         listSchedulesUC,
+		getAllPublicResponsesUsecase: getAllPublicResponsesUC,
 	}
 }
 

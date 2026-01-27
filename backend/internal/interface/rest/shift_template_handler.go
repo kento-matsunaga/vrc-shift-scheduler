@@ -17,11 +17,11 @@ import (
 
 // ShiftTemplateHandler handles shift template-related HTTP requests
 type ShiftTemplateHandler struct {
-	createTemplateUC        *appshift.CreateShiftTemplateUsecase
-	listTemplatesUC         *appshift.ListShiftTemplatesUsecase
-	getTemplateUC           *appshift.GetShiftTemplateUsecase
-	updateTemplateUC        *appshift.UpdateShiftTemplateUsecase
-	deleteTemplateUC        *appshift.DeleteShiftTemplateUsecase
+	createTemplateUC            *appshift.CreateShiftTemplateUsecase
+	listTemplatesUC             *appshift.ListShiftTemplatesUsecase
+	getTemplateUC               *appshift.GetShiftTemplateUsecase
+	updateTemplateUC            *appshift.UpdateShiftTemplateUsecase
+	deleteTemplateUC            *appshift.DeleteShiftTemplateUsecase
 	saveBusinessDayAsTemplateUC *appshift.SaveBusinessDayAsTemplateUsecase
 }
 

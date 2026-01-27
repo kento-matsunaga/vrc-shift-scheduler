@@ -130,14 +130,14 @@ func (r *ShiftSlotTemplateRepository) FindByID(ctx context.Context, tenantID com
 	`
 
 	var (
-		templateIDStr   string
-		tenantIDStr     string
-		eventIDStr      string
-		templateName    string
-		description     string
-		createdAt       time.Time
-		updatedAt       time.Time
-		deletedAt       sql.NullTime
+		templateIDStr string
+		tenantIDStr   string
+		eventIDStr    string
+		templateName  string
+		description   string
+		createdAt     time.Time
+		updatedAt     time.Time
+		deletedAt     sql.NullTime
 	)
 
 	err := r.db.QueryRow(ctx, templateQuery, tenantID.String(), templateID.String()).Scan(

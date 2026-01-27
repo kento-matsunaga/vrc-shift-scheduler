@@ -8,13 +8,13 @@ import (
 
 // TargetDate は出欠確認の対象日エンティティ
 type TargetDate struct {
-	targetDateID  common.TargetDateID
-	collectionID  common.CollectionID
-	targetDate    time.Time // 日付部分のみ使用
-	startTime     *string   // 開始時間（HH:MM形式、任意）
-	endTime       *string   // 終了時間（HH:MM形式、任意）
-	displayOrder  int
-	createdAt     time.Time
+	targetDateID common.TargetDateID
+	collectionID common.CollectionID
+	targetDate   time.Time // 日付部分のみ使用
+	startTime    *string   // 開始時間（HH:MM形式、任意）
+	endTime      *string   // 終了時間（HH:MM形式、任意）
+	displayOrder int
+	createdAt    time.Time
 }
 
 // NewTargetDate creates a new TargetDate entity

@@ -14,10 +14,10 @@ import (
 
 // ShiftAssignmentHandler handles shift assignment-related HTTP requests
 type ShiftAssignmentHandler struct {
-	confirmAssignmentUC     *appshift.ConfirmManualAssignmentUsecase
-	getAssignmentsUC        *appshift.GetAssignmentsUsecase
-	getAssignmentDetailUC   *appshift.GetAssignmentDetailUsecase
-	cancelAssignmentUC      *appshift.CancelAssignmentUsecase
+	confirmAssignmentUC   *appshift.ConfirmManualAssignmentUsecase
+	getAssignmentsUC      *appshift.GetAssignmentsUsecase
+	getAssignmentDetailUC *appshift.GetAssignmentDetailUsecase
+	cancelAssignmentUC    *appshift.CancelAssignmentUsecase
 }
 
 // NewShiftAssignmentHandler creates a new ShiftAssignmentHandler with injected usecases

@@ -214,4 +214,3 @@ func (m *Member) Delete() {
 	m.deletedAt = &now
 	m.updatedAt = now
 }
-

@@ -16,12 +16,12 @@ import (
 // =====================================================
 
 type MockEventRepository struct {
-	saveFunc              func(ctx context.Context, e *event.Event) error
-	findByIDFunc          func(ctx context.Context, tenantID common.TenantID, eventID common.EventID) (*event.Event, error)
-	findByTenantFunc      func(ctx context.Context, tenantID common.TenantID) ([]*event.Event, error)
+	saveFunc               func(ctx context.Context, e *event.Event) error
+	findByIDFunc           func(ctx context.Context, tenantID common.TenantID, eventID common.EventID) (*event.Event, error)
+	findByTenantFunc       func(ctx context.Context, tenantID common.TenantID) ([]*event.Event, error)
 	findActiveByTenantFunc func(ctx context.Context, tenantID common.TenantID) ([]*event.Event, error)
-	existsByNameFunc      func(ctx context.Context, tenantID common.TenantID, name string) (bool, error)
-	deleteFunc            func(ctx context.Context, tenantID common.TenantID, eventID common.EventID) error
+	existsByNameFunc       func(ctx context.Context, tenantID common.TenantID, name string) (bool, error)
+	deleteFunc             func(ctx context.Context, tenantID common.TenantID, eventID common.EventID) error
 }
 
 func (m *MockEventRepository) Save(ctx context.Context, e *event.Event) error {

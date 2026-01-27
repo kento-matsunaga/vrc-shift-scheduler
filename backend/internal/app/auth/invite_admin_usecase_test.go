@@ -18,11 +18,11 @@ import (
 
 // MockInvitationRepository is a mock implementation of auth.InvitationRepository
 type MockInvitationRepository struct {
-	saveFunc               func(ctx context.Context, invitation *auth.Invitation) error
-	findByTokenFunc        func(ctx context.Context, token string) (*auth.Invitation, error)
-	findByTenantIDFunc     func(ctx context.Context, tenantID common.TenantID) ([]*auth.Invitation, error)
+	saveFunc                 func(ctx context.Context, invitation *auth.Invitation) error
+	findByTokenFunc          func(ctx context.Context, token string) (*auth.Invitation, error)
+	findByTenantIDFunc       func(ctx context.Context, tenantID common.TenantID) ([]*auth.Invitation, error)
 	existsPendingByEmailFunc func(ctx context.Context, tenantID common.TenantID, email string) (bool, error)
-	deleteFunc             func(ctx context.Context, invitationID auth.InvitationID) error
+	deleteFunc               func(ctx context.Context, invitationID auth.InvitationID) error
 }
 
 func (m *MockInvitationRepository) Save(ctx context.Context, invitation *auth.Invitation) error {
@@ -74,10 +74,10 @@ func (m *MockClock) Now() time.Time {
 
 // MockTenantRepository is a mock implementation of tenant.TenantRepository
 type MockTenantRepository struct {
-	findByIDFunc                      func(ctx context.Context, tenantID common.TenantID) (*tenant.Tenant, error)
-	findByPendingStripeSessionIDFunc  func(ctx context.Context, sessionID string) (*tenant.Tenant, error)
-	saveFunc                          func(ctx context.Context, t *tenant.Tenant) error
-	listAllFunc                       func(ctx context.Context, status *tenant.TenantStatus, limit, offset int) ([]*tenant.Tenant, int, error)
+	findByIDFunc                     func(ctx context.Context, tenantID common.TenantID) (*tenant.Tenant, error)
+	findByPendingStripeSessionIDFunc func(ctx context.Context, sessionID string) (*tenant.Tenant, error)
+	saveFunc                         func(ctx context.Context, t *tenant.Tenant) error
+	listAllFunc                      func(ctx context.Context, status *tenant.TenantStatus, limit, offset int) ([]*tenant.Tenant, int, error)
 }
 
 func (m *MockTenantRepository) FindByID(ctx context.Context, tenantID common.TenantID) (*tenant.Tenant, error) {
@@ -110,8 +110,8 @@ func (m *MockTenantRepository) ListAll(ctx context.Context, status *tenant.Tenan
 
 // MockEmailService is a mock implementation of services.EmailService
 type MockEmailService struct {
-	sendInvitationEmailFunc     func(ctx context.Context, input services.SendInvitationEmailInput) error
-	sendPasswordResetEmailFunc  func(ctx context.Context, input services.SendPasswordResetEmailInput) error
+	sendInvitationEmailFunc    func(ctx context.Context, input services.SendInvitationEmailInput) error
+	sendPasswordResetEmailFunc func(ctx context.Context, input services.SendPasswordResetEmailInput) error
 }
 
 func (m *MockEmailService) SendInvitationEmail(ctx context.Context, input services.SendInvitationEmailInput) error {
@@ -158,9 +158,9 @@ func createTestTenant(t *testing.T, tenantID common.TenantID) *tenant.Tenant {
 		"Asia/Tokyo",
 		true,
 		tenant.TenantStatusActive,
-		nil,  // graceUntil
-		nil,  // pendingExpiresAt
-		nil,  // pendingStripeSessionID
+		nil, // graceUntil
+		nil, // pendingExpiresAt
+		nil, // pendingStripeSessionID
 		now,
 		now,
 		nil,

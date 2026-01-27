@@ -82,19 +82,19 @@ func (r *ShiftAssignmentRepository) FindByID(ctx context.Context, tenantID commo
 	`
 
 	var (
-		assignmentIDStr      string
-		tenantIDStr          string
-		planIDStr            sql.NullString
-		slotIDStr            string
-		memberIDStr          string
-		assignmentStatusStr  string
-		assignmentMethodStr  string
-		isOutsidePreference  bool
-		assignedAt           time.Time
-		cancelledAt          sql.NullTime
-		createdAt            time.Time
-		updatedAt            time.Time
-		deletedAt            sql.NullTime
+		assignmentIDStr     string
+		tenantIDStr         string
+		planIDStr           sql.NullString
+		slotIDStr           string
+		memberIDStr         string
+		assignmentStatusStr string
+		assignmentMethodStr string
+		isOutsidePreference bool
+		assignedAt          time.Time
+		cancelledAt         sql.NullTime
+		createdAt           time.Time
+		updatedAt           time.Time
+		deletedAt           sql.NullTime
 	)
 
 	err := r.db.QueryRow(ctx, query, tenantID.String(), assignmentID.String()).Scan(
@@ -290,19 +290,19 @@ func (r *ShiftAssignmentRepository) queryShiftAssignments(ctx context.Context, q
 	var assignments []*shift.ShiftAssignment
 	for rows.Next() {
 		var (
-			assignmentIDStr      string
-			tenantIDStr          string
-			planIDStr            sql.NullString
-			slotIDStr            string
-			memberIDStr          string
-			assignmentStatusStr  string
-			assignmentMethodStr  string
-			isOutsidePreference  bool
-			assignedAt           time.Time
-			cancelledAt          sql.NullTime
-			createdAt            time.Time
-			updatedAt            time.Time
-			deletedAt            sql.NullTime
+			assignmentIDStr     string
+			tenantIDStr         string
+			planIDStr           sql.NullString
+			slotIDStr           string
+			memberIDStr         string
+			assignmentStatusStr string
+			assignmentMethodStr string
+			isOutsidePreference bool
+			assignedAt          time.Time
+			cancelledAt         sql.NullTime
+			createdAt           time.Time
+			updatedAt           time.Time
+			deletedAt           sql.NullTime
 		)
 
 		err := rows.Scan(
@@ -379,4 +379,3 @@ func (r *ShiftAssignmentRepository) scanToShiftAssignment(
 		deletedAtPtr,
 	)
 }
-

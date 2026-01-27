@@ -627,6 +627,7 @@ func createSchedules(ctx context.Context, repo *db.ScheduleRepository, tenantID 
 
 	return count, nil
 }
+
 // createWeeklyBusinessDays creates business days for every Saturday
 // Includes November 2025 and surrounding months
 func createWeeklyBusinessDays(ctx context.Context, repo *db.EventBusinessDayRepository, tenantID common.TenantID, eventID common.EventID) ([]event.BusinessDayID, []event.BusinessDayID, error) {
@@ -928,11 +929,11 @@ func createRolesAndAssignToMembers(ctx context.Context, pool *pgxpool.Pool, tena
 		color        string
 		displayOrder int
 	}{
-		{"リーダー", "チームをまとめる責任者", "#EF4444", 1},         // 赤
+		{"リーダー", "チームをまとめる責任者", "#EF4444", 1},     // 赤
 		{"サブリーダー", "リーダーをサポートする役割", "#8B5CF6", 2}, // 紫
-		{"ベテラン", "経験豊富なメンバー", "#3B82F6", 3},            // 青
-		{"レギュラー", "通常メンバー", "#10B981", 4},                // 緑
-		{"新人", "新しく参加したメンバー", "#F59E0B", 5},            // オレンジ
+		{"ベテラン", "経験豊富なメンバー", "#3B82F6", 3},       // 青
+		{"レギュラー", "通常メンバー", "#10B981", 4},         // 緑
+		{"新人", "新しく参加したメンバー", "#F59E0B", 5},       // オレンジ
 	}
 
 	roleIDs := make([]string, 0, len(roles))
