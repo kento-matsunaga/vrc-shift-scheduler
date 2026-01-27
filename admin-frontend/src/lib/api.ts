@@ -374,3 +374,21 @@ export async function updateTutorial(
 export async function deleteTutorial(id: string): Promise<void> {
   await request('DELETE', `/tutorials/${id}`);
 }
+
+// ============================================================
+// システム設定 API
+// ============================================================
+
+export interface ReleaseStatus {
+  released: boolean;
+}
+
+export async function getReleaseStatus(): Promise<ApiResponse<ReleaseStatus>> {
+  return request('GET', '/system/release-status');
+}
+
+export async function updateReleaseStatus(
+  released: boolean
+): Promise<ApiResponse<ReleaseStatus>> {
+  return request('PUT', '/system/release-status', { released });
+}

@@ -7,6 +7,7 @@ import {
   Footer,
 } from '../components/landing';
 import { SEO, PAGE_SEO } from '../components/seo';
+import { ReleaseStatusProvider } from '../hooks/useReleaseStatus';
 
 // FAQ data for structured data
 const FAQ_DATA = [
@@ -34,6 +35,7 @@ const FAQ_DATA = [
 
 export default function Landing() {
   return (
+    <ReleaseStatusProvider>
     <div
       className="min-h-screen text-white overflow-x-hidden"
       style={{
@@ -142,5 +144,6 @@ export default function Landing() {
         }
       `}</style>
     </div>
+    </ReleaseStatusProvider>
   );
 }

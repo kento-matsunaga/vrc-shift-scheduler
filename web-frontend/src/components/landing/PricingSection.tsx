@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { AnimatedSection } from './AnimatedSection';
+import { useReleaseStatus } from '../../hooks/useReleaseStatus';
 
 const pricingFeatures = [
   '全機能利用可能',
@@ -11,6 +12,8 @@ const pricingFeatures = [
 ];
 
 export function PricingSection() {
+  const { released, isLoading } = useReleaseStatus();
+
   return (
     <section id="pricing" className="relative py-16 sm:py-24 px-4 sm:px-6">
       <div className="max-w-4xl mx-auto">
@@ -87,16 +90,27 @@ export function PricingSection() {
               </ul>
 
               {/* CTA */}
-              <Link
-                to="/subscribe"
-                className="block w-full py-3.5 sm:py-4 rounded-lg sm:rounded-xl font-semibold text-base sm:text-lg transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] text-white min-h-[48px] flex items-center justify-center"
-                style={{
-                  background: 'linear-gradient(135deg, #4F46E5 0%, #8B5CF6 100%)',
-                  boxShadow: '0 8px 30px rgba(79, 70, 229, 0.4)',
-                }}
-              >
-                今すぐ始める
-              </Link>
+              {released ? (
+                <Link
+                  to="/subscribe"
+                  className="block w-full py-3.5 sm:py-4 rounded-lg sm:rounded-xl font-semibold text-base sm:text-lg transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] text-white min-h-[48px] flex items-center justify-center"
+                  style={{
+                    background: 'linear-gradient(135deg, #4F46E5 0%, #8B5CF6 100%)',
+                    boxShadow: '0 8px 30px rgba(79, 70, 229, 0.4)',
+                  }}
+                >
+                  今すぐ始める
+                </Link>
+              ) : (
+                <div
+                  className="block w-full py-3.5 sm:py-4 rounded-lg sm:rounded-xl font-semibold text-base sm:text-lg text-white min-h-[48px] flex items-center justify-center cursor-not-allowed opacity-75"
+                  style={{
+                    background: 'linear-gradient(135deg, #6b7280 0%, #9ca3af 100%)',
+                  }}
+                >
+                  {isLoading ? '読み込み中...' : 'リリース前です'}
+                </div>
+              )}
             </div>
           </div>
         </AnimatedSection>

@@ -22,6 +22,7 @@ import (
 	approlegroup "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/role_group"
 	appschedule "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/schedule"
 	appshift "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/shift"
+	appsystem "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/system"
 	apptenant "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/tenant"
 	apptutorial "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/tutorial"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
@@ -658,6 +659,15 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			r.Put("/{id}", adminTutorialHandler.Update)
 			r.Delete("/{id}", adminTutorialHandler.Delete)
 		})
+
+		// Admin System Settings (Release Status Toggle)
+		adminSystemSettingRepo := db.NewSystemSettingRepository(dbPool)
+		adminSystemUsecase := appsystem.NewUsecase(adminSystemSettingRepo)
+		adminSystemHandler := NewSystemHandler(adminSystemUsecase)
+		r.Route("/system", func(r chi.Router) {
+			r.Get("/release-status", adminSystemHandler.GetReleaseStatusAdmin)
+			r.Put("/release-status", adminSystemHandler.UpdateReleaseStatus)
+		})
 	})
 
 	// Public API（認証不要）
@@ -896,6 +906,16 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 
 			r.Post("/", subscribeHandler.Subscribe)
 		}
+	})
+
+	// System Settings Public API（認証不要）
+	// リリース状態などのシステム設定を公開
+	r.Route("/api/v1/public/system", func(r chi.Router) {
+		systemSettingRepo := db.NewSystemSettingRepository(dbPool)
+		systemUsecase := appsystem.NewUsecase(systemSettingRepo)
+		systemHandler := NewSystemHandler(systemUsecase)
+
+		r.Get("/release-status", systemHandler.GetReleaseStatus)
 	})
 
 	// Stripe Webhook API（認証不要、署名検証のみ）
