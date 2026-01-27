@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { useReleaseStatus } from '../../hooks/useReleaseStatus';
 
 export function Header() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { released, isLoading } = useReleaseStatus();
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
@@ -47,16 +49,27 @@ export function Header() {
           <Link to="/admin/login" className="text-gray-400 hover:text-white transition-colors text-sm">
             ログイン
           </Link>
-          <Link
-            to="/subscribe"
-            className="px-5 py-2.5 rounded-full text-sm font-medium transition-all duration-300 hover:scale-105 text-white"
-            style={{
-              background: 'linear-gradient(135deg, #4F46E5 0%, #8B5CF6 100%)',
-              boxShadow: '0 4px 20px rgba(79, 70, 229, 0.4)',
-            }}
-          >
-            今すぐ始める
-          </Link>
+          {released ? (
+            <Link
+              to="/subscribe"
+              className="px-5 py-2.5 rounded-full text-sm font-medium transition-all duration-300 hover:scale-105 text-white"
+              style={{
+                background: 'linear-gradient(135deg, #4F46E5 0%, #8B5CF6 100%)',
+                boxShadow: '0 4px 20px rgba(79, 70, 229, 0.4)',
+              }}
+            >
+              今すぐ始める
+            </Link>
+          ) : (
+            <span
+              className="px-5 py-2.5 rounded-full text-sm font-medium text-white cursor-not-allowed opacity-75"
+              style={{
+                background: 'linear-gradient(135deg, #6b7280 0%, #9ca3af 100%)',
+              }}
+            >
+              {isLoading ? '...' : 'リリース前'}
+            </span>
+          )}
         </nav>
 
         {/* Mobile Menu Button */}
@@ -109,16 +122,27 @@ export function Header() {
           >
             ログイン
           </Link>
-          <Link
-            to="/subscribe"
-            className="px-5 py-3 rounded-full text-center font-medium mt-4 text-white min-h-[44px] flex items-center justify-center"
-            style={{
-              background: 'linear-gradient(135deg, #4F46E5 0%, #8B5CF6 100%)',
-            }}
-            onClick={() => setMobileMenuOpen(false)}
-          >
-            今すぐ始める
-          </Link>
+          {released ? (
+            <Link
+              to="/subscribe"
+              className="px-5 py-3 rounded-full text-center font-medium mt-4 text-white min-h-[44px] flex items-center justify-center"
+              style={{
+                background: 'linear-gradient(135deg, #4F46E5 0%, #8B5CF6 100%)',
+              }}
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              今すぐ始める
+            </Link>
+          ) : (
+            <span
+              className="px-5 py-3 rounded-full text-center font-medium mt-4 text-white min-h-[44px] flex items-center justify-center cursor-not-allowed opacity-75"
+              style={{
+                background: 'linear-gradient(135deg, #6b7280 0%, #9ca3af 100%)',
+              }}
+            >
+              {isLoading ? '...' : 'リリース前です'}
+            </span>
+          )}
         </nav>
       </div>
     </header>
