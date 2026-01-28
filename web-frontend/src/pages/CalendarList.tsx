@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { SEO } from '../components/seo';
+import CalendarGrid from '../components/CalendarGrid';
 import {
   getCalendars,
   createCalendar,
@@ -8,7 +9,8 @@ import {
   getPublicCalendarUrl,
 } from '../lib/api/calendarApi';
 import type { Calendar } from '../lib/api/calendarApi';
-import { getEvents } from '../lib/api';
+import type { PublicEvent } from '../lib/api/publicApi';
+import { getEvents, getEventDetail, getEventBusinessDays } from '../lib/api';
 import type { Event } from '../types/api';
 import { ApiClientError } from '../lib/apiClient';
 
@@ -21,6 +23,9 @@ export default function CalendarList() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingCalendar, setEditingCalendar] = useState<Calendar | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [previewCalendar, setPreviewCalendar] = useState<Calendar | null>(null);
+  const [previewEvents, setPreviewEvents] = useState<PublicEvent[]>([]);
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -94,6 +99,43 @@ export default function CalendarList() {
       setTimeout(() => setSuccess(''), 3000);
     } catch {
       setError('URLのコピーに失敗しました');
+    }
+  };
+
+  const handlePreview = async (calendar: Calendar) => {
+    setPreviewLoading(true);
+    setPreviewCalendar(calendar);
+
+    try {
+      // カレンダーに紐づくイベントの詳細を取得
+      const eventDetails = await Promise.all(
+        calendar.event_ids.map(async (eventId) => {
+          try {
+            const event = await getEventDetail(eventId);
+            const businessDays = await getEventBusinessDays(eventId);
+
+            // PublicEvent形式に変換
+            return {
+              title: event.event_name,
+              description: event.description || '',
+              business_days: businessDays.map((bd) => ({
+                date: bd.target_date,
+                start_time: bd.start_time,
+                end_time: bd.end_time,
+              })),
+            } as PublicEvent;
+          } catch {
+            return null;
+          }
+        })
+      );
+
+      setPreviewEvents(eventDetails.filter((e): e is PublicEvent => e !== null));
+    } catch (err) {
+      console.error('Failed to load preview:', err);
+      setError('プレビューの読み込みに失敗しました');
+    } finally {
+      setPreviewLoading(false);
     }
   };
 
@@ -192,6 +234,12 @@ export default function CalendarList() {
               {/* アクションボタン */}
               <div className="flex gap-2">
                 <button
+                  onClick={() => handlePreview(calendar)}
+                  className="flex-1 px-3 py-2 text-sm text-accent bg-accent/10 hover:bg-accent/20 rounded-md transition-colors"
+                >
+                  プレビュー
+                </button>
+                <button
                   onClick={() => setEditingCalendar(calendar)}
                   className="flex-1 px-3 py-2 text-sm text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
                 >
@@ -227,6 +275,44 @@ export default function CalendarList() {
           onClose={() => setEditingCalendar(null)}
           onSuccess={handleEditSuccess}
         />
+      )}
+
+      {/* プレビューモーダル */}
+      {previewCalendar && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b">
+              <h3 className="text-xl font-bold text-gray-900">
+                {previewCalendar.title} - プレビュー
+              </h3>
+              <button
+                onClick={() => {
+                  setPreviewCalendar(null);
+                  setPreviewEvents([]);
+                }}
+                className="p-2 hover:bg-gray-100 rounded-full"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4">
+              {previewLoading ? (
+                <div className="text-center py-12">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent mx-auto"></div>
+                  <p className="mt-4 text-gray-600">読み込み中...</p>
+                </div>
+              ) : previewEvents.length > 0 ? (
+                <CalendarGrid events={previewEvents} />
+              ) : (
+                <div className="text-center py-12 text-gray-500">
+                  表示するイベントがありません
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -317,7 +403,7 @@ function CalendarFormModal({
               id="title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="例: 2月のイベントカレンダー"
+              placeholder="例: ○○イベントのスケジュール"
               className="input-field"
               disabled={loading}
               autoFocus
