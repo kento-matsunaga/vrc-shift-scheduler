@@ -87,3 +87,98 @@ export async function deleteCalendar(id: string): Promise<void> {
 export function getPublicCalendarUrl(publicToken: string): string {
   return `${window.location.origin}/p/calendar/${publicToken}`;
 }
+
+// ==========================================
+// CalendarEntry API
+// ==========================================
+
+/**
+ * CalendarEntry の型定義
+ */
+export interface CalendarEntry {
+  entry_id: string;
+  calendar_id: string;
+  tenant_id: string;
+  title: string;
+  date: string;        // YYYY-MM-DD
+  start_time?: string; // HH:MM
+  end_time?: string;   // HH:MM
+  note: string;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * CalendarEntry 作成リクエストの型
+ */
+export interface CreateCalendarEntryRequest {
+  title: string;
+  date: string;
+  start_time?: string;
+  end_time?: string;
+  note?: string;
+}
+
+/**
+ * CalendarEntry 更新リクエストの型
+ */
+export interface UpdateCalendarEntryRequest {
+  title: string;
+  date: string;
+  start_time?: string;
+  end_time?: string;
+  note?: string;
+}
+
+/**
+ * CalendarEntry 一覧レスポンスの型
+ */
+export interface CalendarEntryListResponse {
+  entries: CalendarEntry[];
+}
+
+/**
+ * CalendarEntry 一覧取得
+ */
+export async function getCalendarEntries(calendarId: string): Promise<CalendarEntryListResponse> {
+  const res = await apiClient.get<ApiResponse<CalendarEntryListResponse>>(
+    `/api/v1/calendars/${calendarId}/entries`
+  );
+  return res.data;
+}
+
+/**
+ * CalendarEntry 作成
+ */
+export async function createCalendarEntry(
+  calendarId: string,
+  data: CreateCalendarEntryRequest
+): Promise<CalendarEntry> {
+  const res = await apiClient.post<ApiResponse<CalendarEntry>>(
+    `/api/v1/calendars/${calendarId}/entries`,
+    data
+  );
+  return res.data;
+}
+
+/**
+ * CalendarEntry 更新
+ */
+export async function updateCalendarEntry(
+  calendarId: string,
+  entryId: string,
+  data: UpdateCalendarEntryRequest
+): Promise<CalendarEntry> {
+  const res = await apiClient.put<ApiResponse<CalendarEntry>>(
+    `/api/v1/calendars/${calendarId}/entries/${entryId}`,
+    data
+  );
+  return res.data;
+}
+
+/**
+ * CalendarEntry 削除
+ */
+export async function deleteCalendarEntry(calendarId: string, entryId: string): Promise<void> {
+  await apiClient.delete(`/api/v1/calendars/${calendarId}/entries/${entryId}`);
+}

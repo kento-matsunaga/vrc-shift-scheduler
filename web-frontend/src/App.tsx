@@ -25,6 +25,7 @@ import TemplateDetail from './pages/TemplateDetail';
 import InstanceList from './pages/InstanceList';
 import Settings from './pages/Settings';
 import CalendarList from './pages/CalendarList';
+import CalendarDetail from './pages/CalendarDetail';
 // BillingManagement は管理フロントエンド（admin-frontend）に移動しました
 import Layout from './components/Layout';
 import AttendanceResponse from './pages/public/AttendanceResponse';
@@ -133,6 +134,7 @@ function App() {
         <Route path="/admin/invite" element={<AdminInvitation />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/calendars" element={<CalendarList />} />
+        <Route path="/calendars/:calendarId" element={<CalendarDetail />} />
       </Route>
 
       {/* 404 */}

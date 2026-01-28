@@ -1,29 +1,33 @@
 import { useState, useMemo } from 'react';
-import type { PublicEvent, PublicBusinessDay } from '../lib/api/publicApi';
+import type { PublicEvent, PublicBusinessDay, PublicCalendarEntry } from '../lib/api/publicApi';
 
 interface CalendarGridProps {
   events: PublicEvent[];
+  entries?: PublicCalendarEntry[];
 }
 
-interface DayEvent {
-  eventTitle: string;
-  eventDescription: string;
-  startTime: string;
-  endTime: string;
+interface DayItem {
+  type: 'event' | 'entry';
+  title: string;
+  description?: string;
+  startTime?: string;
+  endTime?: string;
+  note?: string;
 }
 
-type EventsByDate = Record<string, DayEvent[]>;
+type ItemsByDate = Record<string, DayItem[]>;
 
 const WEEKDAYS = ['日', '月', '火', '水', '木', '金', '土'];
 
-export default function CalendarGrid({ events }: CalendarGridProps) {
+export default function CalendarGrid({ events, entries = [] }: CalendarGridProps) {
   const [currentDate, setCurrentDate] = useState(() => new Date());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
-  // イベントを日付ごとにグループ化
-  const eventsByDate = useMemo(() => {
-    const grouped: EventsByDate = {};
+  // イベントとエントリを日付ごとにグループ化
+  const itemsByDate = useMemo(() => {
+    const grouped: ItemsByDate = {};
 
+    // イベント（営業日）を追加
     events.forEach((event) => {
       event.business_days.forEach((bd: PublicBusinessDay) => {
         const dateKey = bd.date;
@@ -31,21 +35,41 @@ export default function CalendarGrid({ events }: CalendarGridProps) {
           grouped[dateKey] = [];
         }
         grouped[dateKey].push({
-          eventTitle: event.title,
-          eventDescription: event.description,
+          type: 'event',
+          title: event.title,
+          description: event.description,
           startTime: bd.start_time,
           endTime: bd.end_time,
         });
       });
     });
 
-    // 各日付のイベントを時間順にソート
+    // 自由予定（エントリ）を追加
+    entries.forEach((entry) => {
+      const dateKey = entry.date;
+      if (!grouped[dateKey]) {
+        grouped[dateKey] = [];
+      }
+      grouped[dateKey].push({
+        type: 'entry',
+        title: entry.title,
+        startTime: entry.start_time,
+        endTime: entry.end_time,
+        note: entry.note,
+      });
+    });
+
+    // 各日付のアイテムを時間順にソート（時間がないものは後ろに）
     Object.keys(grouped).forEach((dateKey) => {
-      grouped[dateKey].sort((a, b) => a.startTime.localeCompare(b.startTime));
+      grouped[dateKey].sort((a, b) => {
+        const aTime = a.startTime || '99:99';
+        const bTime = b.startTime || '99:99';
+        return aTime.localeCompare(bTime);
+      });
     });
 
     return grouped;
-  }, [events]);
+  }, [events, entries]);
 
   // カレンダーグリッドのデータを生成
   const calendarData = useMemo(() => {
@@ -118,7 +142,7 @@ export default function CalendarGrid({ events }: CalendarGridProps) {
 
   const handleDateClick = (date: Date) => {
     const dateKey = formatDateKey(date);
-    if (eventsByDate[dateKey]?.length > 0) {
+    if (itemsByDate[dateKey]?.length > 0) {
       setSelectedDate(selectedDate === dateKey ? null : dateKey);
     }
   };
@@ -179,8 +203,8 @@ export default function CalendarGrid({ events }: CalendarGridProps) {
         {calendarData.weeks.map((week, weekIndex) =>
           week.map((date, dayIndex) => {
             const dateKey = formatDateKey(date);
-            const dayEvents = eventsByDate[dateKey] || [];
-            const hasEvents = dayEvents.length > 0;
+            const dayItems = itemsByDate[dateKey] || [];
+            const hasItems = dayItems.length > 0;
             const isSelected = selectedDate === dateKey;
 
             return (
@@ -190,7 +214,7 @@ export default function CalendarGrid({ events }: CalendarGridProps) {
                 className={`
                   min-h-[80px] md:min-h-[100px] border-b border-r p-1 transition
                   ${!isCurrentMonth(date) ? 'bg-gray-50 text-gray-400' : 'bg-white'}
-                  ${hasEvents ? 'cursor-pointer hover:bg-blue-50' : ''}
+                  ${hasItems ? 'cursor-pointer hover:bg-blue-50' : ''}
                   ${isSelected ? 'bg-blue-100' : ''}
                 `}
               >
@@ -205,21 +229,25 @@ export default function CalendarGrid({ events }: CalendarGridProps) {
                   {date.getDate()}
                 </div>
 
-                {/* イベント表示（最大2件 + more） */}
+                {/* アイテム表示（最大2件 + more） */}
                 <div className="space-y-0.5">
-                  {dayEvents.slice(0, 2).map((event, eventIndex) => (
+                  {dayItems.slice(0, 2).map((item, itemIndex) => (
                     <div
-                      key={eventIndex}
-                      className="text-xs bg-accent/10 text-accent rounded px-1 py-0.5 truncate"
-                      title={`${event.eventTitle} ${event.startTime}-${event.endTime}`}
+                      key={itemIndex}
+                      className={`text-xs rounded px-1 py-0.5 truncate ${
+                        item.type === 'event'
+                          ? 'bg-accent/10 text-accent'
+                          : 'bg-emerald-100 text-emerald-700'
+                      }`}
+                      title={`${item.title}${item.startTime ? ` ${item.startTime}` : ''}${item.endTime ? `-${item.endTime}` : ''}`}
                     >
-                      <span className="hidden md:inline">{event.startTime} </span>
-                      {event.eventTitle}
+                      {item.startTime && <span className="hidden md:inline">{item.startTime} </span>}
+                      {item.title}
                     </div>
                   ))}
-                  {dayEvents.length > 2 && (
+                  {dayItems.length > 2 && (
                     <div className="text-xs text-gray-500 pl-1">
-                      +{dayEvents.length - 2}件
+                      +{dayItems.length - 2}件
                     </div>
                   )}
                 </div>
@@ -230,7 +258,7 @@ export default function CalendarGrid({ events }: CalendarGridProps) {
       </div>
 
       {/* 選択された日付の詳細 */}
-      {selectedDate && eventsByDate[selectedDate] && (
+      {selectedDate && itemsByDate[selectedDate] && (
         <div className="p-4 border-t bg-blue-50">
           <h3 className="font-bold text-gray-900 mb-3">
             {new Date(selectedDate + 'T00:00:00').toLocaleDateString('ja-JP', {
@@ -239,20 +267,54 @@ export default function CalendarGrid({ events }: CalendarGridProps) {
               day: 'numeric',
               weekday: 'short',
             })}
-            のイベント
+            の予定
           </h3>
           <div className="space-y-3">
-            {eventsByDate[selectedDate].map((event, index) => (
-              <div key={index} className="bg-white rounded-md p-3 shadow-sm">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-accent font-medium">
-                    {event.startTime} - {event.endTime}
-                  </span>
-                </div>
-                <div className="font-medium text-gray-900">{event.eventTitle}</div>
-                {event.eventDescription && (
+            {itemsByDate[selectedDate].map((item, index) => (
+              <div
+                key={index}
+                className={`rounded-md p-3 shadow-sm ${
+                  item.type === 'event' ? 'bg-white' : 'bg-emerald-50'
+                }`}
+              >
+                {(item.startTime || item.endTime) && (
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className={`font-medium ${
+                      item.type === 'event' ? 'text-accent' : 'text-emerald-600'
+                    }`}>
+                      {item.startTime && item.endTime
+                        ? `${item.startTime} - ${item.endTime}`
+                        : item.startTime || item.endTime}
+                    </span>
+                    <span className={`text-xs px-1.5 py-0.5 rounded ${
+                      item.type === 'event'
+                        ? 'bg-accent/10 text-accent'
+                        : 'bg-emerald-100 text-emerald-700'
+                    }`}>
+                      {item.type === 'event' ? 'イベント' : '予定'}
+                    </span>
+                  </div>
+                )}
+                {!item.startTime && !item.endTime && (
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className={`text-xs px-1.5 py-0.5 rounded ${
+                      item.type === 'event'
+                        ? 'bg-accent/10 text-accent'
+                        : 'bg-emerald-100 text-emerald-700'
+                    }`}>
+                      {item.type === 'event' ? 'イベント' : '予定'}
+                    </span>
+                  </div>
+                )}
+                <div className="font-medium text-gray-900">{item.title}</div>
+                {item.description && (
                   <div className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">
-                    {event.eventDescription}
+                    {item.description}
+                  </div>
+                )}
+                {item.note && (
+                  <div className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">
+                    {item.note}
                   </div>
                 )}
               </div>

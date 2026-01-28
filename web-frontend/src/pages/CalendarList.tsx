@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { SEO } from '../components/seo';
 import CalendarGrid from '../components/CalendarGrid';
 import {
@@ -233,15 +234,21 @@ export default function CalendarList() {
 
               {/* アクションボタン */}
               <div className="flex gap-2">
+                <Link
+                  to={`/calendars/${calendar.id}`}
+                  className="flex-1 px-3 py-2 text-sm text-center text-accent bg-accent/10 hover:bg-accent/20 rounded-md transition-colors"
+                >
+                  詳細
+                </Link>
                 <button
                   onClick={() => handlePreview(calendar)}
-                  className="flex-1 px-3 py-2 text-sm text-accent bg-accent/10 hover:bg-accent/20 rounded-md transition-colors"
+                  className="flex-1 px-3 py-2 text-sm text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
                 >
                   プレビュー
                 </button>
                 <button
                   onClick={() => setEditingCalendar(calendar)}
-                  className="flex-1 px-3 py-2 text-sm text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+                  className="px-3 py-2 text-sm text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
                 >
                   編集
                 </button>
