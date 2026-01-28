@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { SEO } from '../components/seo';
-import { getSchedule, getScheduleResponses, deleteSchedule, type Schedule, type ScheduleResponse } from '../lib/api/scheduleApi';
+import { getSchedule, getScheduleResponses, deleteSchedule, convertToAttendance, type Schedule, type ScheduleResponse } from '../lib/api/scheduleApi';
 import { getMembers } from '../lib/api';
 import { getMemberGroups, getMemberGroupDetail, type MemberGroup } from '../lib/api/memberGroupApi';
 import { ApiClientError } from '../lib/apiClient';
@@ -33,6 +33,12 @@ export default function ScheduleDetail() {
   const [publicUrl, setPublicUrl] = useState('');
   const [copied, setCopied] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  // 出欠確認変換モーダル状態
+  const [showConvertModal, setShowConvertModal] = useState(false);
+  const [selectedCandidateIds, setSelectedCandidateIds] = useState<string[]>([]);
+  const [convertTitle, setConvertTitle] = useState('');
+  const [converting, setConverting] = useState(false);
 
   // ソート状態
   const [sortKey, setSortKey] = useState<SortKey>('name');
@@ -126,6 +132,43 @@ export default function ScheduleDetail() {
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
       console.error('Failed to copy:', err);
+    }
+  };
+
+  const handleOpenConvertModal = () => {
+    setSelectedCandidateIds([]);
+    setConvertTitle(schedule?.title || '');
+    setShowConvertModal(true);
+  };
+
+  const handleToggleCandidate = (candidateId: string) => {
+    setSelectedCandidateIds((prev) =>
+      prev.includes(candidateId)
+        ? prev.filter((id) => id !== candidateId)
+        : [...prev, candidateId]
+    );
+  };
+
+  const handleConvertToAttendance = async () => {
+    if (!scheduleId || selectedCandidateIds.length === 0) return;
+
+    try {
+      setConverting(true);
+      const result = await convertToAttendance(scheduleId, {
+        candidate_ids: selectedCandidateIds,
+        title: convertTitle || undefined,
+      });
+      setShowConvertModal(false);
+      alert('出欠確認に変換しました');
+      navigate(`/attendance/${result.collection_id}`);
+    } catch (err) {
+      if (err instanceof ApiClientError) {
+        alert(err.getUserMessage());
+      } else {
+        alert(err instanceof Error ? err.message : '変換に失敗しました');
+      }
+    } finally {
+      setConverting(false);
     }
   };
 
@@ -280,6 +323,12 @@ export default function ScheduleDetail() {
           </div>
           <div className="flex gap-2 items-center">
             {getStatusBadge(schedule.status)}
+            <button
+              onClick={handleOpenConvertModal}
+              className="px-4 py-2 bg-accent text-white rounded-md hover:bg-accent-dark transition text-sm"
+            >
+              出欠確認に変換
+            </button>
             <button
               onClick={handleDelete}
               disabled={deleting}
@@ -531,6 +580,99 @@ export default function ScheduleDetail() {
           </table>
         </div>
       </div>
+
+      {/* 出欠確認変換モーダル */}
+      {showConvertModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">出欠確認に変換</h3>
+            </div>
+            <div className="p-6 space-y-4">
+              {/* タイトル入力 */}
+              <div>
+                <label htmlFor="convert-title" className="block text-sm font-medium text-gray-700 mb-1">
+                  タイトル
+                </label>
+                <input
+                  id="convert-title"
+                  type="text"
+                  value={convertTitle}
+                  onChange={(e) => setConvertTitle(e.target.value)}
+                  placeholder={schedule.title}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent"
+                />
+                <p className="text-xs text-gray-500 mt-1">空の場合は元のタイトルが使用されます</p>
+              </div>
+
+              {/* 候補日選択 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  対象日を選択してください
+                </label>
+                <div className="space-y-2 max-h-60 overflow-y-auto border border-gray-200 rounded-md p-3">
+                  {candidates.map((candidate) => {
+                    const stats = candidateStats.find((s) => s.candidateId === candidate.candidate_id);
+                    const isSelected = selectedCandidateIds.includes(candidate.candidate_id);
+                    return (
+                      <label
+                        key={candidate.candidate_id}
+                        className={`flex items-center justify-between p-3 rounded-md cursor-pointer transition ${
+                          isSelected ? 'bg-accent/10 border border-accent' : 'bg-gray-50 hover:bg-gray-100'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => handleToggleCandidate(candidate.candidate_id)}
+                            className="w-4 h-4 text-accent border-gray-300 rounded focus:ring-accent"
+                          />
+                          <div>
+                            <span className="font-medium">
+                              {new Date(candidate.date).toLocaleDateString('ja-JP', {
+                                month: '2-digit',
+                                day: '2-digit',
+                                weekday: 'short',
+                              })}
+                            </span>
+                            {(candidate.start_time || candidate.end_time) && (
+                              <span className="text-sm text-gray-500 ml-2">
+                                {formatTimeRange(candidate.start_time, candidate.end_time, '-')}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <span className="text-sm text-gray-600">
+                          {stats?.availableCount || 0}名が参加可能
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+                {selectedCandidateIds.length === 0 && (
+                  <p className="text-xs text-red-500 mt-1">少なくとも1つの日付を選択してください</p>
+                )}
+              </div>
+            </div>
+            <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
+              <button
+                onClick={() => setShowConvertModal(false)}
+                className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md transition"
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={handleConvertToAttendance}
+                disabled={converting || selectedCandidateIds.length === 0}
+                className="px-4 py-2 bg-accent text-white rounded-md hover:bg-accent-dark transition disabled:bg-gray-400"
+              >
+                {converting ? '変換中...' : '変換する'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
