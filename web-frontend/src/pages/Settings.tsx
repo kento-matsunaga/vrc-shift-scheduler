@@ -5,6 +5,7 @@ import type { Tenant, ManagerPermissions } from '../lib/api/tenantApi';
 import type { BillingStatus } from '../lib/api/billingApi';
 import { ApiClientError } from '../lib/apiClient';
 import BulkImport from '../components/BulkImport';
+import { SEO } from '../components/seo';
 
 type SettingsTab = 'general' | 'import';
 
@@ -355,6 +356,7 @@ export default function Settings() {
 
   return (
     <div className="max-w-4xl mx-auto">
+      <SEO noindex={true} />
       <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-6">設定</h2>
 
       {/* Tab Navigation */}

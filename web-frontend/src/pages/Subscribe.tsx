@@ -115,7 +115,7 @@ export default function Subscribe() {
         jsonLd={{
           breadcrumbs: [
             { name: 'ホーム', url: SEO_CONFIG.baseUrl },
-            { name: '新規登録' },
+            { name: 'プラン・料金' },
           ],
         }}
       />

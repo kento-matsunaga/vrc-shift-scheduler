@@ -1,12 +1,15 @@
 import { Link } from 'react-router-dom';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
+import { SEO } from '../components/seo';
 
 export default function SubscribeComplete() {
   useDocumentTitle('登録完了');
 
   return (
-    <div
-      className="min-h-screen text-white flex items-center justify-center"
+    <>
+      <SEO noindex={true} />
+      <div
+        className="min-h-screen text-white flex items-center justify-center"
       style={{
         background: 'linear-gradient(180deg, #0a0a0f 0%, #0f0f1a 50%, #0a0a0f 100%)',
         fontFamily: '"Noto Sans JP", "Inter", system-ui, sans-serif',
@@ -59,6 +62,7 @@ export default function SubscribeComplete() {
           </Link>
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 }

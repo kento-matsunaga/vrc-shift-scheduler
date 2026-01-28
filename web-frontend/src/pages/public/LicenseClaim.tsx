@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { claimLicense } from '../../lib/api/billingApi';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
+import { SEO } from '../../components/seo';
 
 export default function LicenseClaim() {
   const navigate = useNavigate();
@@ -96,8 +97,10 @@ export default function LicenseClaim() {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-gray-100 flex flex-col">
-        {/* ヘッダー */}
+      <>
+        <SEO noindex={true} />
+        <div className="min-h-screen bg-gray-100 flex flex-col">
+          {/* ヘッダー */}
         <header className="bg-vrc-dark text-white shadow">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
             <h1 className="text-xl font-bold">VRC Shift Scheduler</h1>
@@ -130,25 +133,28 @@ export default function LicenseClaim() {
             </p>
           </div>
         </footer>
-      </div>
+        </div>
+      </>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col">
-      {/* ヘッダー */}
-      <header className="bg-vrc-dark text-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <h1 className="text-xl font-bold">VRC Shift Scheduler</h1>
-        </div>
-      </header>
+    <>
+      <SEO noindex={true} />
+      <div className="min-h-screen bg-gray-100 flex flex-col">
+        {/* ヘッダー */}
+        <header className="bg-vrc-dark text-white shadow">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <h1 className="text-xl font-bold">VRC Shift Scheduler</h1>
+          </div>
+        </header>
 
-      {/* メインコンテンツ */}
-      <main className="flex-1 flex items-center justify-center p-4">
-        <div className="bg-white rounded-lg shadow-md max-w-md w-full p-8">
-          <div className="text-center mb-8">
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">
-              ライセンスキーで登録
+        {/* メインコンテンツ */}
+        <main className="flex-1 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-md max-w-md w-full p-8">
+            <div className="text-center mb-8">
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                ライセンスキーで登録
             </h2>
             <p className="text-sm text-gray-500">
               BOOTHで購入したライセンスキーを入力してアカウントを作成してください
@@ -295,14 +301,15 @@ export default function LicenseClaim() {
         </div>
       </main>
 
-      {/* フッター */}
-      <footer className="bg-white border-t">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <p className="text-center text-sm text-gray-500">
-            VRC Shift Scheduler
-          </p>
-        </div>
-      </footer>
-    </div>
+        {/* フッター */}
+        <footer className="bg-white border-t">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <p className="text-center text-sm text-gray-500">
+              VRC Shift Scheduler
+            </p>
+          </div>
+        </footer>
+      </div>
+    </>
   );
 }

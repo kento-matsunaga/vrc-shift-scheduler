@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { listRoles, createRole, updateRole, deleteRole, type Role, type CreateRoleInput, type UpdateRoleInput } from '../lib/api/roleApi';
 import { ApiClientError } from '../lib/apiClient';
+import { SEO } from '../components/seo';
 
 export default function RoleList() {
   const [roles, setRoles] = useState<Role[]>([]);
@@ -69,6 +70,7 @@ export default function RoleList() {
 
   return (
     <div>
+      <SEO noindex={true} />
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
         <div>
           <h2 className="text-xl sm:text-2xl font-bold text-gray-900">ロール管理</h2>

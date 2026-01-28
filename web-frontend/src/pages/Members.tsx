@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { SEO } from '../components/seo';
 import { getMembers, createMember, updateMember, getRecentAttendance, deleteMember, bulkImportMembers, bulkUpdateRoles, type BulkImportMemberInput } from '../lib/api/memberApi';
 import { getActualAttendance } from '../lib/api/actualAttendanceApi';
 import { listRoles, type Role } from '../lib/api/roleApi';
@@ -277,6 +278,7 @@ export default function Members() {
 
   return (
     <div>
+      <SEO noindex={true} />
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
         <h2 className="text-xl sm:text-2xl font-bold text-gray-900">メンバー管理</h2>
         <div className="flex flex-wrap gap-2 sm:gap-3">

@@ -12,6 +12,7 @@ import {
 import { getEventDetail } from '../lib/api/eventApi';
 import type { Event } from '../types/api';
 import { ApiClientError } from '../lib/apiClient';
+import { SEO } from '../components/seo';
 
 export default function InstanceList() {
   const { eventId } = useParams<{ eventId: string }>();
@@ -89,6 +90,7 @@ export default function InstanceList() {
 
   return (
     <div>
+      <SEO noindex={true} />
       {/* パンくず */}
       <nav className="mb-4 text-sm text-gray-600">
         <Link to="/events" className="text-accent hover:underline">

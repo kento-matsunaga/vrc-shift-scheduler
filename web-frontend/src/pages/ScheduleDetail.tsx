@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { SEO } from '../components/seo';
 import { getSchedule, getScheduleResponses, deleteSchedule, convertToAttendance, type Schedule, type ScheduleResponse } from '../lib/api/scheduleApi';
 import { getMembers } from '../lib/api';
 import { getMemberGroups, getMemberGroupDetail, type MemberGroup } from '../lib/api/memberGroupApi';
@@ -301,6 +302,7 @@ export default function ScheduleDetail() {
 
   return (
     <div className="max-w-7xl mx-auto">
+      <SEO noindex={true} />
       {/* パンくずリスト */}
       <nav className="mb-6 text-sm text-gray-600">
         <Link to="/schedules" className="hover:text-gray-900">

@@ -25,9 +25,9 @@ export const SEO_CONFIG = {
  */
 export const PAGE_SEO = {
   landing: {
-    title: 'VRC Shift Scheduler - VRChatイベントのシフト管理ツール',
+    title: 'VRCShift - VRChat イベント向けシフト管理システム | 無料で始められる',
     description:
-      'VRChatイベント向けのシフト管理システム。出欠収集からシフト調整まで一括管理。Discord連携対応。月額200円から。',
+      'VRChat イベントのシフト管理を簡単に。メンバーの空き時間調整、シフト表作成、出欠確認がワンストップで。無料プランあり。今すぐ始めよう。',
     path: '/',
   },
   terms: {
@@ -43,9 +43,9 @@ export const PAGE_SEO = {
     path: '/privacy',
   },
   subscribe: {
-    title: '新規登録 | VRC Shift Scheduler',
+    title: 'プラン・料金 | VRCShift - VRChat シフト管理',
     description:
-      'VRC Shift Schedulerに新規登録して、シフト管理を始めましょう。月額200円でフル機能をご利用いただけます。',
+      'VRCShiftの料金プランと新規登録。月額200円でシフト管理を始められます。VRChatイベント向けの出欠・シフト管理ツール。',
     path: '/subscribe',
   },
 } as const;

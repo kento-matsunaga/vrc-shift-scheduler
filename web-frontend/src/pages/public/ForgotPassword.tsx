@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { forgotPassword } from '../../lib/api/authApi';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
+import { SEO } from '../../components/seo';
 
 export default function ForgotPassword() {
   const navigate = useNavigate();
@@ -40,6 +41,8 @@ export default function ForgotPassword() {
 
   if (submitted) {
     return (
+      <>
+      <SEO noindex={true} />
       <div className="min-h-screen bg-gray-100 flex flex-col">
         <header className="bg-vrc-dark text-white shadow-soft">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
@@ -83,10 +86,13 @@ export default function ForgotPassword() {
           </div>
         </footer>
       </div>
+      </>
     );
   }
 
   return (
+    <>
+    <SEO noindex={true} />
     <div className="min-h-screen bg-gray-100 flex flex-col">
       <header className="bg-vrc-dark text-white shadow-soft">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
@@ -168,5 +174,6 @@ export default function ForgotPassword() {
         </div>
       </footer>
     </div>
+    </>
   );
 }
