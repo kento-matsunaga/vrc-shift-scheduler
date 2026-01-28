@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { SEO } from '../components/seo';
+import GenerateBusinessDaysModal from '../components/GenerateBusinessDaysModal';
 import {
   getEvents,
   createEvent,
@@ -33,7 +34,8 @@ export default function EventList() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [generatingEventId, setGeneratingEventId] = useState<string | null>(null);
+  const [generatingEvent, setGeneratingEvent] = useState<Event | null>(null);
+  const [generateLoading, setGenerateLoading] = useState(false);
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
   const [savingEventId, setSavingEventId] = useState<string | null>(null);
@@ -67,18 +69,23 @@ export default function EventList() {
     loadEvents();
   };
 
-  const handleGenerateBusinessDays = async (eventId: string, e: React.MouseEvent) => {
-    e.preventDefault(); // Link のクリックを防止
+  const handleGenerateClick = (event: Event, e: React.MouseEvent) => {
+    e.preventDefault();
     e.stopPropagation();
+    setGeneratingEvent(event);
+  };
 
-    setGeneratingEventId(eventId);
+  const handleGenerateConfirm = async (months: number) => {
+    if (!generatingEvent) return;
+
+    setGenerateLoading(true);
     setError('');
     setSuccess('');
 
     try {
-      const result = await generateBusinessDays(eventId);
-      setSuccess(result.message);
-      // 3秒後にメッセージを消す
+      const result = await generateBusinessDays(generatingEvent.event_id, months);
+      setSuccess(result.message || `${months}ヶ月分の営業日を生成しました`);
+      setGeneratingEvent(null);
       setTimeout(() => setSuccess(''), 5000);
     } catch (err) {
       if (err instanceof ApiClientError) {
@@ -88,7 +95,7 @@ export default function EventList() {
       }
       console.error('Failed to generate business days:', err);
     } finally {
-      setGeneratingEventId(null);
+      setGenerateLoading(false);
     }
   };
 
@@ -312,11 +319,10 @@ export default function EventList() {
                 </button>
                 {event.recurrence_type !== 'none' && (
                   <button
-                    onClick={(e) => handleGenerateBusinessDays(event.event_id, e)}
-                    disabled={generatingEventId === event.event_id}
+                    onClick={(e) => handleGenerateClick(event, e)}
                     className="flex-1 btn-secondary text-sm py-2"
                   >
-                    {generatingEventId === event.event_id ? '生成中...' : '営業日生成'}
+                    営業日生成
                   </button>
                 )}
               </div>
@@ -342,6 +348,16 @@ export default function EventList() {
             setSuccess('グループ設定を更新しました');
             setTimeout(() => setSuccess(''), 3000);
           }}
+        />
+      )}
+
+      {/* 営業日生成モーダル */}
+      {generatingEvent && (
+        <GenerateBusinessDaysModal
+          eventName={generatingEvent.event_name}
+          onConfirm={handleGenerateConfirm}
+          onCancel={() => setGeneratingEvent(null)}
+          loading={generateLoading}
         />
       )}
     </div>

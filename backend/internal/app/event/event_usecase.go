@@ -217,6 +217,7 @@ func (uc *GetEventUsecase) Execute(ctx context.Context, input GetEventInput) (*e
 type GenerateBusinessDaysInput struct {
 	TenantID common.TenantID
 	EventID  common.EventID
+	Months   int // 何ヶ月先まで生成するか（デフォルト2、最大24）
 }
 
 // GenerateBusinessDaysOutput represents the output of generating business days
@@ -253,7 +254,7 @@ func (uc *GenerateBusinessDaysUsecase) Execute(ctx context.Context, input Genera
 	}
 
 	// 営業日を生成
-	generatedCount, err := uc.generateBusinessDays(ctx, e)
+	generatedCount, err := uc.generateBusinessDays(ctx, e, input.Months)
 	if err != nil {
 		return nil, err
 	}
@@ -342,8 +343,8 @@ func (uc *DeleteEventUsecase) Execute(ctx context.Context, input DeleteEventInpu
 }
 
 // generateBusinessDays generates business days for recurring events
-// 今月と来月末までの営業日を自動生成し、生成された件数を返す
-func (uc *GenerateBusinessDaysUsecase) generateBusinessDays(ctx context.Context, e *event.Event) (int, error) {
+// 今月からmonths月後までの営業日を自動生成し、生成された件数を返す
+func (uc *GenerateBusinessDaysUsecase) generateBusinessDays(ctx context.Context, e *event.Event, months int) (int, error) {
 	if !e.HasRecurrence() {
 		return 0, nil
 	}
@@ -353,13 +354,21 @@ func (uc *GenerateBusinessDaysUsecase) generateBusinessDays(ctx context.Context,
 		return 0, common.NewValidationError("recurrence fields are incomplete", nil)
 	}
 
+	// months のバリデーション（デフォルト2、最大24）
+	if months <= 0 {
+		months = 2
+	}
+	if months > 24 {
+		months = 24
+	}
+
 	now := time.Now()
 	startDate := *e.RecurrenceStartDate()
 	targetDayOfWeek := time.Weekday(*e.RecurrenceDayOfWeek())
 
-	// 今月の最初の日と来月末の日を計算
+	// 今月の最初の日から months+1 ヶ月後の末日を計算
 	currentMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.Local)
-	nextMonthEnd := currentMonth.AddDate(0, 2, 0).AddDate(0, 0, -1)
+	endDate := currentMonth.AddDate(0, months+1, 0).AddDate(0, 0, -1)
 
 	// 定期開始日から次の指定曜日を見つける
 	candidateDate := startDate
@@ -375,7 +384,7 @@ func (uc *GenerateBusinessDaysUsecase) generateBusinessDays(ctx context.Context,
 
 	generatedCount := 0
 
-	for candidateDate.Before(nextMonthEnd) || candidateDate.Equal(nextMonthEnd) {
+	for candidateDate.Before(endDate) || candidateDate.Equal(endDate) {
 		// 開始日より前の日付はスキップ
 		if candidateDate.Before(startDate) {
 			candidateDate = candidateDate.AddDate(0, 0, interval)
