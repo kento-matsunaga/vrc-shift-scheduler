@@ -536,13 +536,20 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 
 		// Calendar API（カレンダー機能）
 		calendarRepo := db.NewCalendarRepository(dbPool)
+		calendarEntryRepo := db.NewCalendarEntryRepository(dbPool)
 		calendarHandler := NewCalendarHandler(
 			appcalendar.NewCreateCalendarUsecase(calendarRepo, eventRepo),
 			appcalendar.NewGetCalendarUsecase(calendarRepo, eventRepo, businessDayRepo),
 			appcalendar.NewListCalendarsUsecase(calendarRepo),
 			appcalendar.NewUpdateCalendarUsecase(calendarRepo, eventRepo),
 			appcalendar.NewDeleteCalendarUsecase(calendarRepo),
-			appcalendar.NewGetCalendarByTokenUsecase(calendarRepo, eventRepo, businessDayRepo),
+			appcalendar.NewGetCalendarByTokenUsecase(calendarRepo, eventRepo, businessDayRepo, calendarEntryRepo),
+		)
+		calendarEntryHandler := NewCalendarEntryHandler(
+			appcalendar.NewCreateCalendarEntryUsecase(calendarRepo, calendarEntryRepo),
+			appcalendar.NewListCalendarEntriesUsecase(calendarEntryRepo),
+			appcalendar.NewUpdateCalendarEntryUsecase(calendarEntryRepo),
+			appcalendar.NewDeleteCalendarEntryUsecase(calendarEntryRepo),
 		)
 		r.Route("/calendars", func(r chi.Router) {
 			r.Post("/", calendarHandler.Create)
@@ -550,6 +557,14 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			r.Get("/{id}", calendarHandler.GetByID)
 			r.Put("/{id}", calendarHandler.Update)
 			r.Delete("/{id}", calendarHandler.Delete)
+
+			// Calendar Entry routes
+			r.Route("/{calendar_id}/entries", func(r chi.Router) {
+				r.Post("/", calendarEntryHandler.CreateCalendarEntry)
+				r.Get("/", calendarEntryHandler.ListCalendarEntries)
+				r.Put("/{entry_id}", calendarEntryHandler.UpdateCalendarEntry)
+				r.Delete("/{entry_id}", calendarEntryHandler.DeleteCalendarEntry)
+			})
 		})
 
 		// Billing API（課金管理 - Stripeカスタマーポータル、課金状態）
@@ -747,13 +762,14 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		publicCalendarRepo := db.NewCalendarRepository(dbPool)
 		publicEventRepo := db.NewEventRepository(dbPool)
 		publicBusinessDayRepo := db.NewEventBusinessDayRepository(dbPool)
+		publicCalendarEntryRepo := db.NewCalendarEntryRepository(dbPool)
 		publicCalendarHandler := NewCalendarHandler(
 			nil, // Create not needed for public handler
 			nil, // Get not needed for public handler
 			nil, // List not needed for public handler
 			nil, // Update not needed for public handler
 			nil, // Delete not needed for public handler
-			appcalendar.NewGetCalendarByTokenUsecase(publicCalendarRepo, publicEventRepo, publicBusinessDayRepo),
+			appcalendar.NewGetCalendarByTokenUsecase(publicCalendarRepo, publicEventRepo, publicBusinessDayRepo, publicCalendarEntryRepo),
 		)
 		r.Get("/{token}", publicCalendarHandler.GetByPublicToken)
 	})
