@@ -14,16 +14,17 @@ import (
 )
 
 type ScheduleHandler struct {
-	createScheduleUsecase        *schedule.CreateScheduleUsecase
-	submitResponseUsecase        *schedule.SubmitResponseUsecase
-	decideScheduleUsecase        *schedule.DecideScheduleUsecase
-	closeScheduleUsecase         *schedule.CloseScheduleUsecase
-	deleteScheduleUsecase        *schedule.DeleteScheduleUsecase
-	getScheduleUsecase           *schedule.GetScheduleUsecase
-	getScheduleByTokenUsecase    *schedule.GetScheduleByTokenUsecase
-	getResponsesUsecase          *schedule.GetResponsesUsecase
-	listSchedulesUsecase         *schedule.ListSchedulesUsecase
-	getAllPublicResponsesUsecase *schedule.GetAllPublicResponsesUsecase
+	createScheduleUsecase          *schedule.CreateScheduleUsecase
+	submitResponseUsecase          *schedule.SubmitResponseUsecase
+	decideScheduleUsecase          *schedule.DecideScheduleUsecase
+	closeScheduleUsecase           *schedule.CloseScheduleUsecase
+	deleteScheduleUsecase          *schedule.DeleteScheduleUsecase
+	getScheduleUsecase             *schedule.GetScheduleUsecase
+	getScheduleByTokenUsecase      *schedule.GetScheduleByTokenUsecase
+	getResponsesUsecase            *schedule.GetResponsesUsecase
+	listSchedulesUsecase           *schedule.ListSchedulesUsecase
+	getAllPublicResponsesUsecase   *schedule.GetAllPublicResponsesUsecase
+	convertToAttendanceUsecase     *schedule.ConvertToAttendanceUsecase
 }
 
 // NewScheduleHandler creates a new ScheduleHandler with injected usecases
@@ -38,18 +39,20 @@ func NewScheduleHandler(
 	getResponsesUC *schedule.GetResponsesUsecase,
 	listSchedulesUC *schedule.ListSchedulesUsecase,
 	getAllPublicResponsesUC *schedule.GetAllPublicResponsesUsecase,
+	convertToAttendanceUC *schedule.ConvertToAttendanceUsecase,
 ) *ScheduleHandler {
 	return &ScheduleHandler{
-		createScheduleUsecase:        createScheduleUC,
-		submitResponseUsecase:        submitResponseUC,
-		decideScheduleUsecase:        decideScheduleUC,
-		closeScheduleUsecase:         closeScheduleUC,
-		deleteScheduleUsecase:        deleteScheduleUC,
-		getScheduleUsecase:           getScheduleUC,
-		getScheduleByTokenUsecase:    getScheduleByTokenUC,
-		getResponsesUsecase:          getResponsesUC,
-		listSchedulesUsecase:         listSchedulesUC,
-		getAllPublicResponsesUsecase: getAllPublicResponsesUC,
+		createScheduleUsecase:          createScheduleUC,
+		submitResponseUsecase:          submitResponseUC,
+		decideScheduleUsecase:          decideScheduleUC,
+		closeScheduleUsecase:           closeScheduleUC,
+		deleteScheduleUsecase:          deleteScheduleUC,
+		getScheduleUsecase:             getScheduleUC,
+		getScheduleByTokenUsecase:      getScheduleByTokenUC,
+		getResponsesUsecase:            getResponsesUC,
+		listSchedulesUsecase:           listSchedulesUC,
+		getAllPublicResponsesUsecase:   getAllPublicResponsesUC,
+		convertToAttendanceUsecase:     convertToAttendanceUC,
 	}
 }
 
@@ -757,4 +760,77 @@ func (h *ScheduleHandler) GetAllPublicResponses(w http.ResponseWriter, r *http.R
 			"responses": responses,
 		},
 	})
+}
+
+// ConvertToAttendanceRequest represents the request body for converting a schedule to attendance
+type ConvertToAttendanceRequest struct {
+	CandidateIDs []string `json:"candidate_ids"`
+	Title        string   `json:"title,omitempty"`
+}
+
+// ConvertToAttendanceResponse represents the response for converting a schedule to attendance
+type ConvertToAttendanceResponse struct {
+	CollectionID string `json:"collection_id"`
+	PublicToken  string `json:"public_token"`
+	Title        string `json:"title"`
+}
+
+// ConvertToAttendance handles POST /api/v1/schedules/:schedule_id/convert-to-attendance
+func (h *ScheduleHandler) ConvertToAttendance(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	tenantID, ok := GetTenantID(ctx)
+	if !ok {
+		RespondBadRequest(w, "tenant_id is required")
+		return
+	}
+
+	scheduleID := chi.URLParam(r, "schedule_id")
+	if scheduleID == "" {
+		RespondBadRequest(w, "schedule_id is required")
+		return
+	}
+
+	var req ConvertToAttendanceRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		RespondBadRequest(w, "invalid request body")
+		return
+	}
+
+	if len(req.CandidateIDs) == 0 {
+		RespondBadRequest(w, "at least one candidate_id is required")
+		return
+	}
+
+	input := schedule.ConvertToAttendanceInput{
+		TenantID:     tenantID.String(),
+		ScheduleID:   scheduleID,
+		CandidateIDs: req.CandidateIDs,
+		Title:        req.Title,
+	}
+
+	output, err := h.convertToAttendanceUsecase.Execute(ctx, input)
+	if err != nil {
+		var domainErr *common.DomainError
+		if errors.As(err, &domainErr) {
+			switch domainErr.Code() {
+			case common.ErrNotFound:
+				RespondNotFound(w, domainErr.Error())
+				return
+			case common.ErrInvalidInput:
+				RespondBadRequest(w, domainErr.Error())
+				return
+			}
+		}
+		RespondInternalError(w)
+		return
+	}
+
+	resp := ConvertToAttendanceResponse{
+		CollectionID: output.CollectionID,
+		PublicToken:  output.PublicToken,
+		Title:        output.Title,
+	}
+
+	RespondJSON(w, http.StatusOK, SuccessResponse{Data: resp})
 }
