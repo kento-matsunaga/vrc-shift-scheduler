@@ -267,6 +267,35 @@ func (uc *GetBusinessDayUsecase) Execute(ctx context.Context, input GetBusinessD
 	return foundBusinessDay, nil
 }
 
+// DeleteBusinessDayInput defines the input for deleting a business day
+type DeleteBusinessDayInput struct {
+	BusinessDayID event.BusinessDayID
+	TenantID      common.TenantID
+}
+
+// DeleteBusinessDayUsecase handles business day deletion
+type DeleteBusinessDayUsecase struct {
+	businessDayRepo event.EventBusinessDayRepository
+}
+
+// NewDeleteBusinessDayUsecase creates a new DeleteBusinessDayUsecase
+func NewDeleteBusinessDayUsecase(repo event.EventBusinessDayRepository) *DeleteBusinessDayUsecase {
+	return &DeleteBusinessDayUsecase{businessDayRepo: repo}
+}
+
+// Execute deletes a business day (logical delete)
+func (u *DeleteBusinessDayUsecase) Execute(ctx context.Context, input DeleteBusinessDayInput) error {
+	bd, err := u.businessDayRepo.FindByID(ctx, input.TenantID, input.BusinessDayID)
+	if err != nil {
+		return err
+	}
+	if bd == nil {
+		return common.NewNotFoundError("BusinessDay", string(input.BusinessDayID))
+	}
+	bd.Delete()
+	return u.businessDayRepo.Save(ctx, bd)
+}
+
 // ApplyTemplateInput represents the input for applying a template to a business day
 type ApplyTemplateInput struct {
 	TenantID      common.TenantID

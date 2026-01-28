@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { SEO } from '../components/seo';
 import { getEventDetail, getBusinessDays, createBusinessDay, getMembers } from '../lib/api';
+import { deleteBusinessDay } from '../lib/api/businessDayApi';
 import { listSchedules, getSchedule, getScheduleResponses, type Schedule, type ScheduleResponse } from '../lib/api/scheduleApi';
 import { listTemplates } from '../lib/api/templateApi';
 import type { Event, BusinessDay, Member, Template } from '../types/api';
@@ -14,6 +15,7 @@ export default function BusinessDayList() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   // 現在表示中の月を管理（YYYY-MM形式）
   const now = new Date();
@@ -52,6 +54,28 @@ export default function BusinessDayList() {
   const handleCreateSuccess = () => {
     setShowCreateModal(false);
     loadData();
+  };
+
+  const handleDelete = async (e: React.MouseEvent, businessDayId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!confirm('この営業日を削除しますか？')) return;
+
+    try {
+      setDeletingId(businessDayId);
+      await deleteBusinessDay(businessDayId);
+      loadData();
+    } catch (err) {
+      if (err instanceof ApiClientError) {
+        setError(err.getUserMessage());
+      } else {
+        setError('営業日の削除に失敗しました');
+      }
+      console.error('Failed to delete business day:', err);
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   // 営業日を月ごとにグループ化
@@ -282,7 +306,7 @@ export default function BusinessDayList() {
                   <Link
                     key={day.business_day_id}
                     to={`/business-days/${day.business_day_id}/shift-slots`}
-                    className="card hover:shadow-lg transition-shadow"
+                    className="card hover:shadow-lg transition-shadow relative group"
                   >
                     <div className="flex justify-between items-start mb-2">
                       <div>
@@ -297,15 +321,34 @@ export default function BusinessDayList() {
                           {day.start_time.slice(0, 5)} 〜 {day.end_time.slice(0, 5)}
                         </div>
                       </div>
-                      <span
-                        className={`inline-block px-2 py-1 text-xs font-semibold rounded ${
-                          day.occurrence_type === 'recurring'
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-orange-100 text-orange-800'
-                        }`}
-                      >
-                        {day.occurrence_type === 'recurring' ? '通常営業' : '特別営業'}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`inline-block px-2 py-1 text-xs font-semibold rounded ${
+                            day.occurrence_type === 'recurring'
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-orange-100 text-orange-800'
+                          }`}
+                        >
+                          {day.occurrence_type === 'recurring' ? '通常営業' : '特別営業'}
+                        </span>
+                        <button
+                          onClick={(e) => handleDelete(e, day.business_day_id)}
+                          disabled={deletingId === day.business_day_id}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded"
+                          title="削除"
+                        >
+                          {deletingId === day.business_day_id ? (
+                            <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                          ) : (
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          )}
+                        </button>
+                      </div>
                     </div>
                     {!day.is_active && (
                       <div className="mt-2 text-xs text-red-600">（非アクティブ）</div>
