@@ -8,8 +8,8 @@ description: DDD/クリーンアーキテクチャのユースケース層テス
 
 ## 前提条件
 
-- Go 1.21+
-- testify パッケージ（assert, require, mock）
+- Go 1.24+
+- 標準の testing パッケージ
 - DDD/クリーンアーキテクチャ構成
 
 ## 1. モックリポジトリの作成
@@ -35,7 +35,7 @@ func (m *mockXxxRepository) FindByID(ctx context.Context, tenantID common.Tenant
     if m.findByIDFunc != nil {
         return m.findByIDFunc(ctx, tenantID, id)
     }
-    return nil, nil
+    return nil, errors.New("not implemented")
 }
 ```
 
@@ -43,41 +43,62 @@ func (m *mockXxxRepository) FindByID(ctx context.Context, tenantID common.Tenant
 
 - 関数フィールド方式でテストケースごとに振る舞いをカスタマイズ
 - `xxxFunc != nil` チェックでデフォルト動作を提供
-- 戻り値が nil の可能性がある場合は nil チェック
+- 未実装メソッドは `errors.New("not implemented")` を返す（nil, nil だと誤って成功する可能性あり）
 
-## 2. テストヘルパーの作成
+## 2. テストデータの作成
 
 ```go
-func createTestTenantID(t *testing.T) common.TenantID {
-    t.Helper()
-    return common.NewTenantIDWithTime(time.Now())
-}
+// 推奨: common パッケージの関数を直接呼び出す
+tenantID := common.NewTenantID()
+eventID := common.NewEventID()
+now := time.Now()
 
-func createTestEntity(t *testing.T, tenantID common.TenantID) *domain.Xxx {
-    t.Helper()
-    now := time.Now()
-    entity, err := domain.NewXxx(now, tenantID, "Test Name", "Test Description")
-    if err != nil {
-        t.Fatalf("failed to create test entity: %v", err)
-    }
-    return entity
+// エンティティ作成
+entity, err := domain.NewXxx(now, tenantID, "Test Name", "Test Description")
+if err != nil {
+    t.Fatalf("failed to create test entity: %v", err)
 }
 ```
 
 ### ポイント
 
-- `t.Helper()` を必ず呼び出す（エラー時のスタックトレース改善）
-- 生成に失敗した場合は `t.Fatalf` で即座に終了
+- ID生成は `common.NewXxxID()` を直接呼び出す（ヘルパー関数は不要）
+- エンティティ生成に失敗した場合は `t.Fatalf` で即座に終了
 
-## 3. テストケースの構造
+## 3. テーブル駆動テスト
+
+複数のケースを効率的にテストする場合：
+
+```go
+func TestXxxUsecase_Validation(t *testing.T) {
+    tests := []struct {
+        name    string
+        input   XxxInput
+        wantErr bool
+    }{
+        {"valid input", validInput, false},
+        {"empty title", emptyTitleInput, true},
+        {"title too long", longTitleInput, true},
+    }
+
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            // テスト実行
+        })
+    }
+}
+```
+
+## 4. テストケースの構造
 
 ### 正常系テスト
 
 ```go
 func TestXxxUsecase_Success(t *testing.T) {
     // Arrange
-    tenantID := createTestTenantID(t)
-    testEntity := createTestEntity(t, tenantID)
+    tenantID := common.NewTenantID()
+    now := time.Now()
+    testEntity, _ := domain.NewXxx(now, tenantID, "Test Name", "Test Description")
 
     mockRepo := &mockXxxRepository{
         createFunc: func(ctx context.Context, entity *domain.Xxx) error {
@@ -112,8 +133,8 @@ func TestXxxUsecase_Success(t *testing.T) {
 
 ```go
 func TestXxxUsecase_ErrorWhenNotFound(t *testing.T) {
-    tenantID := createTestTenantID(t)
-    entityID := createTestEntityID(t)
+    tenantID := common.NewTenantID()
+    entityID := common.NewXxxID()
 
     mockRepo := &mockXxxRepository{
         findByIDFunc: func(ctx context.Context, tid common.TenantID, eid common.XxxID) (*domain.Xxx, error) {
@@ -142,11 +163,11 @@ func TestXxxUsecase_ErrorWhenNotFound(t *testing.T) {
 }
 ```
 
-## 4. 副作用の検証
+## 5. 副作用の検証
 
 ```go
 func TestXxxUsecase_SideEffect(t *testing.T) {
-    tenantID := createTestTenantID(t)
+    tenantID := common.NewTenantID()
 
     deleteCalled := false
     mockRepo := &mockXxxRepository{
@@ -165,7 +186,7 @@ func TestXxxUsecase_SideEffect(t *testing.T) {
 }
 ```
 
-## 5. 状態変更の検証
+## 6. 状態変更の検証
 
 ```go
 func TestXxxUsecase_StateChange(t *testing.T) {
@@ -193,12 +214,12 @@ func TestXxxUsecase_StateChange(t *testing.T) {
 }
 ```
 
-## 6. context.Context の扱い
+## 7. context.Context の扱い
 
 - テストでは `context.Background()` を使用
 - タイムアウトテストが必要な場合は `context.WithTimeout` を使用
 
-## 7. エラーケースの網羅
+## 8. エラーケースの網羅
 
 以下のエラーケースを必ずテストせよ：
 
@@ -209,13 +230,13 @@ func TestXxxUsecase_StateChange(t *testing.T) {
 | 権限 | テナント分離違反 |
 | 依存 | リポジトリエラー、外部サービスエラー |
 
-## 8. テストファイルの命名規則
+## 9. テストファイルの命名規則
 
 - ファイル名: `usecase_test.go`（同一パッケージ）
 - パッケージ名: 外部パッケージテストの場合は `package xxx_test`
 - 関数名: `TestXxxUsecase_シナリオ`
 
-## 9. テスト構成の整理
+## 10. テスト構成の整理
 
 ```go
 // =============================================================================
@@ -239,7 +260,6 @@ func TestXxxUsecase_StateChange(t *testing.T) {
 
 ## 適用例
 
-このスキルは以下のユースケーステストに適用済み：
+このスキルは以下のユースケーステストパターンを文書化：
 
-- calendar/usecase_test.go（16テスト）
-- attendance/usecase_test.go
+- backend/internal/app/attendance/attendance_usecase_test.go を参照
