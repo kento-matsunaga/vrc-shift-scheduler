@@ -2,6 +2,7 @@ package calendar
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/calendar"
@@ -121,6 +122,7 @@ func (u *GetCalendarUsecase) getEventsWithBusinessDays(ctx context.Context, tena
 	for _, eventID := range eventIDs {
 		evt, err := u.eventRepo.FindByID(ctx, tenantID, eventID)
 		if err != nil {
+			slog.Warn("event not found, skipping", "event_id", eventID.String())
 			continue // Skip if event not found
 		}
 
@@ -244,6 +246,7 @@ func (u *GetCalendarByTokenUsecase) getEventsWithBusinessDays(ctx context.Contex
 	for _, eventID := range eventIDs {
 		evt, err := u.eventRepo.FindByID(ctx, tenantID, eventID)
 		if err != nil {
+			slog.Warn("event not found, skipping", "event_id", eventID.String())
 			continue // Skip if event not found
 		}
 
@@ -325,15 +328,16 @@ func (u *UpdateCalendarUsecase) Execute(ctx context.Context, input UpdateCalenda
 	}
 
 	// Update calendar
-	if err := cal.Update(input.Title, input.Description, eventIDs); err != nil {
+	now := time.Now()
+	if err := cal.Update(input.Title, input.Description, eventIDs, now); err != nil {
 		return nil, err
 	}
 
 	// Handle public/private toggle
 	if input.IsPublic && !cal.IsPublic() {
-		cal.MakePublic()
+		cal.MakePublic(now)
 	} else if !input.IsPublic && cal.IsPublic() {
-		cal.MakePrivate()
+		cal.MakePrivate(now)
 	}
 
 	// Save to repository

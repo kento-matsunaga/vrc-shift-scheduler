@@ -134,23 +134,23 @@ func (c *Calendar) UpdatedAt() time.Time {
 }
 
 // MakePublic makes the calendar publicly accessible
-func (c *Calendar) MakePublic() {
+func (c *Calendar) MakePublic(now time.Time) {
 	if c.publicToken == nil {
 		token := common.NewPublicToken()
 		c.publicToken = &token
 	}
 	c.isPublic = true
-	c.updatedAt = time.Now()
+	c.updatedAt = now
 }
 
 // MakePrivate makes the calendar private
-func (c *Calendar) MakePrivate() {
+func (c *Calendar) MakePrivate(now time.Time) {
 	c.isPublic = false
-	c.updatedAt = time.Now()
+	c.updatedAt = now
 }
 
 // Update updates the calendar's title, description, and event IDs
-func (c *Calendar) Update(title, description string, eventIDs []common.EventID) error {
+func (c *Calendar) Update(title, description string, eventIDs []common.EventID, now time.Time) error {
 	if title == "" {
 		return common.NewValidationError("title is required", nil)
 	}
@@ -161,6 +161,6 @@ func (c *Calendar) Update(title, description string, eventIDs []common.EventID) 
 	c.title = title
 	c.description = description
 	c.eventIDs = eventIDs
-	c.updatedAt = time.Now()
+	c.updatedAt = now
 	return nil
 }

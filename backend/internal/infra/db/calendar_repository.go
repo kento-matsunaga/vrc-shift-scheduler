@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/calendar"
@@ -38,7 +39,11 @@ func (r *CalendarRepository) save(ctx context.Context, cal *calendar.Calendar) e
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer tx.Rollback(ctx)
+	defer func() {
+		if err := tx.Rollback(ctx); err != nil && err != pgx.ErrTxClosed {
+			slog.Error("failed to rollback transaction", "error", err)
+		}
+	}()
 
 	// Upsert calendar
 	var publicToken *string
@@ -151,7 +156,10 @@ func (r *CalendarRepository) FindByTenantID(ctx context.Context, tenantID common
 			return nil, fmt.Errorf("failed to scan calendar row: %w", err)
 		}
 
-		calID, _ := common.ParseCalendarID(calendarIDStr)
+		calID, err := common.ParseCalendarID(calendarIDStr)
+		if err != nil {
+			return nil, fmt.Errorf("invalid calendar ID: %w", err)
+		}
 		eventIDs, err := r.findEventIDs(ctx, calID)
 		if err != nil {
 			return nil, err
@@ -199,7 +207,10 @@ func (r *CalendarRepository) FindByPublicToken(ctx context.Context, token common
 		return nil, fmt.Errorf("failed to find calendar by token: %w", err)
 	}
 
-	calID, _ := common.ParseCalendarID(calendarIDStr)
+	calID, err := common.ParseCalendarID(calendarIDStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid calendar ID: %w", err)
+	}
 	eventIDs, err := r.findEventIDs(ctx, calID)
 	if err != nil {
 		return nil, err
