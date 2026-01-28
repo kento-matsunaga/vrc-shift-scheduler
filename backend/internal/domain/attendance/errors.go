@@ -16,4 +16,7 @@ var (
 
 	// ErrAlreadyDeleted is returned when trying to delete an already deleted collection
 	ErrAlreadyDeleted = common.NewInvariantViolationError("collection is already deleted")
+
+	// ErrDeadlineInPast is returned when trying to set a deadline in the past
+	ErrDeadlineInPast = common.NewInvariantViolationError("deadline is in the past")
 )

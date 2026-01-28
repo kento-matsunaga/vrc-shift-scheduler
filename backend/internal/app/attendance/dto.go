@@ -46,12 +46,32 @@ type CreateCollectionOutput struct {
 	UpdatedAt    time.Time  `json:"updated_at"`
 }
 
+// UpdateCollectionInput represents the input for updating an attendance collection
+type UpdateCollectionInput struct {
+	TenantID     string // from JWT context (管理API)
+	CollectionID string
+	Title        string
+	Description  string
+	Deadline     *time.Time
+}
+
+// UpdateCollectionOutput represents the output for updating an attendance collection
+type UpdateCollectionOutput struct {
+	CollectionID string     `json:"collection_id"`
+	TenantID     string     `json:"tenant_id"`
+	Title        string     `json:"title"`
+	Description  string     `json:"description"`
+	Status       string     `json:"status"`
+	Deadline     *time.Time `json:"deadline,omitempty"`
+	UpdatedAt    time.Time  `json:"updated_at"`
+}
+
 // SubmitResponseInput represents the input for submitting an attendance response
 type SubmitResponseInput struct {
-	PublicToken   string  // from URL path (公開API)
-	MemberID      string  // from request body
-	TargetDateID  string  // from request body - 対象日ID
-	Response      string  // "attending" or "absent" or "undecided"
+	PublicToken   string // from URL path (公開API)
+	MemberID      string // from request body
+	TargetDateID  string // from request body - 対象日ID
+	Response      string // "attending" or "absent" or "undecided"
 	Note          string
 	AvailableFrom *string // 参加可能開始時間 (HH:MM)
 	AvailableTo   *string // 参加可能終了時間 (HH:MM)
@@ -116,9 +136,9 @@ type GetResponsesInput struct {
 type ResponseDTO struct {
 	ResponseID    string    `json:"response_id"`
 	MemberID      string    `json:"member_id"`
-	MemberName    string    `json:"member_name"`              // メンバー表示名
-	TargetDateID  string    `json:"target_date_id"`           // 対象日ID
-	TargetDate    time.Time `json:"target_date"`              // 対象日
+	MemberName    string    `json:"member_name"`    // メンバー表示名
+	TargetDateID  string    `json:"target_date_id"` // 対象日ID
+	TargetDate    time.Time `json:"target_date"`    // 対象日
 	Response      string    `json:"response"`
 	Note          string    `json:"note"`
 	AvailableFrom *string   `json:"available_from,omitempty"` // 参加可能開始時間

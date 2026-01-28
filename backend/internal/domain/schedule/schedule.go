@@ -188,6 +188,44 @@ func (s *DateSchedule) Delete(now time.Time) error {
 	return nil
 }
 
+// Update updates schedule fields following domain rules.
+// now は App層から Clock 経由で渡される（Domain層で time.Now() を呼ばない）
+func (s *DateSchedule) Update(
+	now time.Time,
+	title string,
+	description string,
+	deadline *time.Time,
+	candidates []*CandidateDate,
+) error {
+	if s.deletedAt != nil {
+		return ErrAlreadyDeleted
+	}
+	if s.status != StatusOpen {
+		return ErrScheduleClosed
+	}
+	if deadline != nil && deadline.Before(now) {
+		return ErrDeadlineInPast
+	}
+
+	if title != "" {
+		s.title = title
+	}
+	s.description = description
+	if deadline != nil {
+		s.deadline = deadline
+	}
+	if candidates != nil {
+		s.candidates = candidates
+	}
+	s.updatedAt = now
+
+	if err := s.validate(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // Getters
 
 func (s *DateSchedule) ScheduleID() common.ScheduleID {

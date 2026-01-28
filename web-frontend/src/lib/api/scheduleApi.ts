@@ -1,4 +1,5 @@
 import type { ApiResponse } from '../../types/api';
+import { apiClient } from '../apiClient';
 
 /**
  * 候補日
@@ -19,6 +20,17 @@ export interface CreateScheduleRequest {
   candidates: CandidateDate[];
   deadline?: string; // ISO 8601 format
   group_ids?: string[]; // optional: target member group IDs
+}
+
+/**
+ * 日程調整更新リクエスト
+ */
+export interface UpdateScheduleRequest {
+  title: string;
+  description: string;
+  candidates?: CandidateDate[];
+  deadline?: string; // ISO 8601 format
+  force_delete_candidate_responses?: boolean;
 }
 
 /**
@@ -80,6 +92,20 @@ export async function createSchedule(data: CreateScheduleRequest): Promise<Sched
   }
 
   const result: ApiResponse<Schedule> = await response.json();
+  return result.data;
+}
+
+/**
+ * 日程調整を更新
+ */
+export async function updateSchedule(
+  scheduleId: string,
+  data: UpdateScheduleRequest
+): Promise<Schedule> {
+  const result = await apiClient.put<ApiResponse<Schedule>>(
+    `/api/v1/schedules/${scheduleId}`,
+    data
+  );
   return result.data;
 }
 

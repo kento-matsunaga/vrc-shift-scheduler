@@ -1,20 +1,56 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { listSchedules, createSchedule, type Schedule } from '../lib/api/scheduleApi';
+import {
+  listSchedules,
+  createSchedule,
+  getSchedule,
+  updateSchedule,
+  type Schedule,
+} from '../lib/api/scheduleApi';
+import { ApiClientError } from '../lib/apiClient';
 import { getMemberGroups, type MemberGroup } from '../lib/api/memberGroupApi';
 import { MobileCard, CardHeader, CardField } from '../components/MobileCard';
+import { formatTime, isValidTimeRange, toApiTimeFormat } from '../lib/api/timeUtils';
+
+// 候補日の入力データ型
+interface CandidateDateInput {
+  date: string;       // YYYY-MM-DD形式
+  startTime: string;  // HH:MM形式（任意）
+  endTime: string;    // HH:MM形式（任意）
+}
+
+const emptyCandidateDate = (): CandidateDateInput => ({
+  date: '',
+  startTime: '',
+  endTime: '',
+});
 
 export default function ScheduleList() {
   const navigate = useNavigate();
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
+  const [loadingEdit, setLoadingEdit] = useState(false);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [deadline, setDeadline] = useState('');
-  const [candidateDates, setCandidateDates] = useState<string[]>(['', '', '']);
+  const [candidateDates, setCandidateDates] = useState<CandidateDateInput[]>([
+    emptyCandidateDate(),
+    emptyCandidateDate(),
+    emptyCandidateDate(),
+  ]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [conflictMessage, setConflictMessage] = useState('');
+  const [pendingUpdatePayload, setPendingUpdatePayload] = useState<{
+    scheduleId: string;
+    title: string;
+    description: string;
+    candidates: { date: string; start_time?: string; end_time?: string }[];
+    deadline?: string;
+  } | null>(null);
   const [createdSchedule, setCreatedSchedule] = useState<Schedule | null>(null);
   const [publicUrl, setPublicUrl] = useState('');
   const [copied, setCopied] = useState(false);
@@ -50,7 +86,7 @@ export default function ScheduleList() {
   };
 
   const handleAddDate = () => {
-    setCandidateDates([...candidateDates, '']);
+    setCandidateDates([...candidateDates, emptyCandidateDate()]);
   };
 
   const handleRemoveDate = (index: number) => {
@@ -59,9 +95,9 @@ export default function ScheduleList() {
     }
   };
 
-  const handleDateChange = (index: number, value: string) => {
+  const handleDateChange = (index: number, field: keyof CandidateDateInput, value: string) => {
     const newDates = [...candidateDates];
-    newDates[index] = value;
+    newDates[index] = { ...newDates[index], [field]: value };
     setCandidateDates(newDates);
   };
 
@@ -73,21 +109,84 @@ export default function ScheduleList() {
     );
   };
 
+  const resetForm = () => {
+    setTitle('');
+    setDescription('');
+    setDeadline('');
+    setCandidateDates([emptyCandidateDate(), emptyCandidateDate(), emptyCandidateDate()]);
+    setSelectedGroupIds([]);
+    setIsEditing(false);
+    setEditingScheduleId(null);
+    setConflictMessage('');
+    setPendingUpdatePayload(null);
+  };
+
+  const toInputDate = (isoDate: string) => isoDate.split('T')[0];
+  const toInputDateTime = (isoDate?: string) =>
+    isoDate ? new Date(isoDate).toISOString().slice(0, 16) : '';
+
+  const handleEditClick = async (scheduleId: string) => {
+    setError('');
+    setCreatedSchedule(null);
+    setShowCreateForm(true);
+    setLoadingEdit(true);
+    try {
+      const schedule = await getSchedule(scheduleId);
+      setIsEditing(true);
+      setEditingScheduleId(scheduleId);
+      setTitle(schedule.title);
+      setDescription(schedule.description || '');
+      setDeadline(toInputDateTime(schedule.deadline));
+      const candidates = schedule.candidates ?? [];
+      setCandidateDates(
+        candidates.length > 0
+          ? candidates.map((candidate) => ({
+              date: toInputDate(candidate.date),
+              startTime: formatTime(candidate.start_time),
+              endTime: formatTime(candidate.end_time),
+            }))
+          : [emptyCandidateDate()]
+      );
+    } catch (err) {
+      console.error('Failed to load schedule for edit:', err);
+      setError('日程調整の取得に失敗しました');
+    } finally {
+      setLoadingEdit(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setCreatedSchedule(null);
+    setConflictMessage('');
+    setPendingUpdatePayload(null);
 
     if (!title.trim()) {
       setError('タイトルを入力してください');
       return;
     }
 
-    const validDates = candidateDates.filter((d) => d.trim() !== '');
+    const validDates = candidateDates.filter((d) => d.date.trim() !== '');
     if (validDates.length === 0) {
       setError('候補日を1つ以上入力してください');
       return;
     }
+
+    // 時間バリデーション: 開始時間と終了時間が両方設定されている場合、開始 < 終了
+    for (const candidate of validDates) {
+      if (!isValidTimeRange(candidate.startTime, candidate.endTime)) {
+        setError('開始時間は終了時間より前に設定してください');
+        return;
+      }
+    }
+        
+    const candidatePayload = validDates.map((d) => ({
+        date: new Date(d.date).toISOString(),
+        // 時間データはtimeUtils.tsで定義されたフォーマットで送信
+        start_time: toApiTimeFormat(d.startTime),
+        end_time: toApiTimeFormat(d.endTime),
+    }));
 
     setSubmitting(true);
 
@@ -95,42 +194,90 @@ export default function ScheduleList() {
       // 候補日の数を保存
       setSubmittedCandidatesCount(validDates.length);
 
-      const result = await createSchedule({
+
+
+      const updatePayload = {
         title: title.trim(),
         description: description.trim(),
-        candidates: validDates.map((d) => ({
-          date: new Date(d).toISOString(),
-        })),
+        candidates: candidatePayload,
         deadline: deadline ? new Date(deadline).toISOString() : undefined,
-        group_ids: selectedGroupIds.length > 0 ? selectedGroupIds : undefined,
-      });
+      };
+
+      const result = isEditing && editingScheduleId
+        ? await updateSchedule(editingScheduleId, {
+            ...updatePayload,
+          })
+        : await createSchedule({
+            title: title.trim(),
+            description: description.trim(),
+            candidates: candidatePayload,
+            deadline: deadline ? new Date(deadline).toISOString() : undefined,
+            group_ids: selectedGroupIds.length > 0 ? selectedGroupIds : undefined,
+          });
 
       // 公開URLを生成
       const baseUrl = window.location.origin;
-      const url = `${baseUrl}/p/schedule/${result.public_token}`;
-      setPublicUrl(url);
-      setCreatedSchedule(result);
+      if (!isEditing) {
+        const url = `${baseUrl}/p/schedule/${result.public_token}`;
+        setPublicUrl(url);
+        setCreatedSchedule(result);
+      }
 
       // フォームをクリア
-      setTitle('');
-      setDescription('');
-      setDeadline('');
-      setCandidateDates(['', '', '']);
-      setSelectedGroupIds([]);
+      resetForm();
       setShowCreateForm(false);
 
       // 一覧を再読み込み
       loadSchedules();
     } catch (err) {
-      if (err instanceof Error) {
+      if (err instanceof ApiClientError && err.isConflictError() && editingScheduleId) {
+        const message = err.getUserMessage();
+        setConflictMessage(message);
+        setPendingUpdatePayload({
+          scheduleId: editingScheduleId,
+          title: title.trim(),
+          description: description.trim(),
+          candidates: candidatePayload,
+          deadline: deadline ? new Date(deadline).toISOString() : undefined,
+        });
+      } else if (err instanceof Error) {
         setError(err.message);
       } else {
-        setError('日程調整の作成に失敗しました');
+        setError(isEditing ? '日程調整の更新に失敗しました' : '日程調整の作成に失敗しました');
       }
       console.error('Create schedule error:', err);
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleConfirmForceDelete = async () => {
+    if (!pendingUpdatePayload) {
+      return;
+    }
+    setSubmitting(true);
+    setError('');
+    try {
+      await updateSchedule(pendingUpdatePayload.scheduleId, {
+        title: pendingUpdatePayload.title,
+        description: pendingUpdatePayload.description,
+        candidates: pendingUpdatePayload.candidates,
+        deadline: pendingUpdatePayload.deadline,
+        force_delete_candidate_responses: true,
+      });
+      resetForm();
+      setShowCreateForm(false);
+      loadSchedules();
+    } catch (forceErr) {
+      setError(forceErr instanceof Error ? forceErr.message : '日程調整の更新に失敗しました');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleCancelForceDelete = () => {
+    setConflictMessage('');
+    setPendingUpdatePayload(null);
   };
 
   const handleCopy = async () => {
@@ -175,17 +322,24 @@ export default function ScheduleList() {
           </p>
         </div>
         <button
-          onClick={() => setShowCreateForm(!showCreateForm)}
+          onClick={() => {
+            if (showCreateForm) {
+              resetForm();
+              setShowCreateForm(false);
+            } else {
+              setShowCreateForm(true);
+            }
+          }}
           className="px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent-dark transition-colors font-medium text-sm sm:text-base w-full sm:w-auto"
         >
-          {showCreateForm ? 'キャンセル' : '+ 新規作成'}
+          {showCreateForm ? (isEditing ? '編集をキャンセル' : 'キャンセル') : '+ 新規作成'}
         </button>
       </div>
 
       {showCreateForm && (
         <div className="bg-white rounded-lg shadow p-6 mb-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">
-            新しい日程調整を作成
+            {isEditing ? '日程調整を編集' : '新しい日程調整を作成'}
           </h2>
 
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -199,7 +353,7 @@ export default function ScheduleList() {
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="例：忘年会の日程調整"
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent"
-                disabled={submitting}
+                disabled={submitting || loadingEdit}
               />
             </div>
 
@@ -213,7 +367,7 @@ export default function ScheduleList() {
                 rows={3}
                 placeholder="詳細な説明や注意事項を入力してください"
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent"
-                disabled={submitting}
+                disabled={submitting || loadingEdit}
               />
             </div>
 
@@ -221,26 +375,56 @@ export default function ScheduleList() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 候補日 <span className="text-red-500">*</span>
               </label>
-              <div className="space-y-2">
-                {candidateDates.map((date, index) => (
-                  <div key={index} className="flex gap-2">
-                    <input
-                      type="datetime-local"
-                      value={date}
-                      onChange={(e) => handleDateChange(index, e.target.value)}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent"
-                      disabled={submitting}
-                    />
-                    {candidateDates.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveDate(index)}
-                        className="px-3 py-2 text-red-600 hover:bg-red-50 rounded-md transition"
-                        disabled={submitting}
-                      >
-                        削除
-                      </button>
-                    )}
+              <p className="text-xs text-gray-500 mb-2">
+                時間は任意です。設定すると公開ページで回答者に表示されます。
+              </p>
+              <div className="space-y-3">
+                {candidateDates.map((candidate, index) => (
+                  <div key={index} className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <div className="flex-1">
+                        <label className="block text-xs text-gray-600 mb-1">日付 *</label>
+                        <input
+                          type="date"
+                          value={candidate.date}
+                          onChange={(e) => handleDateChange(index, 'date', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent"
+                          disabled={submitting || loadingEdit}
+                        />
+                      </div>
+                      <div className="w-full sm:w-28">
+                        <label className="block text-xs text-gray-600 mb-1">開始時間</label>
+                        <input
+                          type="time"
+                          value={candidate.startTime}
+                          onChange={(e) => handleDateChange(index, 'startTime', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent"
+                          disabled={submitting || loadingEdit}
+                        />
+                      </div>
+                      <div className="w-full sm:w-28">
+                        <label className="block text-xs text-gray-600 mb-1">終了時間</label>
+                        <input
+                          type="time"
+                          value={candidate.endTime}
+                          onChange={(e) => handleDateChange(index, 'endTime', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent"
+                          disabled={submitting || loadingEdit}
+                        />
+                      </div>
+                      {candidateDates.length > 1 && (
+                        <div className="flex items-end">
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveDate(index)}
+                            className="px-3 py-2 text-red-600 hover:bg-red-100 rounded-md transition text-sm"
+                            disabled={submitting || loadingEdit}
+                          >
+                            削除
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -248,7 +432,7 @@ export default function ScheduleList() {
                 type="button"
                 onClick={handleAddDate}
                 className="mt-2 px-3 py-1 text-sm text-accent hover:bg-accent/10 rounded-md transition"
-                disabled={submitting}
+                disabled={submitting || loadingEdit}
               >
                 + 候補日を追加
               </button>
@@ -263,11 +447,11 @@ export default function ScheduleList() {
                 value={deadline}
                 onChange={(e) => setDeadline(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent"
-                disabled={submitting}
+                disabled={submitting || loadingEdit}
               />
             </div>
 
-            {memberGroups.length > 0 && (
+            {!isEditing && memberGroups.length > 0 && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   対象メンバーグループ（任意）
@@ -281,7 +465,7 @@ export default function ScheduleList() {
                       key={group.group_id}
                       type="button"
                       onClick={() => toggleGroupSelection(group.group_id)}
-                      disabled={submitting}
+                      disabled={submitting || loadingEdit}
                       className={`px-3 py-1.5 rounded-full text-sm font-medium transition ${
                         selectedGroupIds.includes(group.group_id)
                           ? 'bg-accent text-white'
@@ -305,18 +489,41 @@ export default function ScheduleList() {
               </div>
             )}
 
-            {error && (
-              <div className="bg-red-50 border border-red-200 rounded-md p-3">
-                <p className="text-sm text-red-800">{error}</p>
+            {(error || conflictMessage) && (
+              <div className="bg-red-50 border border-red-200 rounded-md p-3 space-y-3">
+                {error && <p className="text-sm text-red-800">{error}</p>}
+                {conflictMessage && (
+                  <div className="space-y-2">
+                    <p className="text-sm text-red-800">{conflictMessage}</p>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <button
+                        type="button"
+                        onClick={handleConfirmForceDelete}
+                        className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition text-sm"
+                        disabled={submitting}
+                      >
+                        はい
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleCancelForceDelete}
+                        className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 transition text-sm"
+                        disabled={submitting}
+                      >
+                        いいえ
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
             <button
               type="submit"
-              disabled={submitting || !title.trim()}
+              disabled={submitting || loadingEdit || !title.trim()}
               className="w-full px-4 py-2 bg-accent text-white rounded-md hover:bg-accent-dark transition disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
-              {submitting ? '作成中...' : '日程調整を作成'}
+              {submitting ? (isEditing ? '更新中...' : '作成中...') : (isEditing ? '日程調整を更新' : '日程調整を作成')}
             </button>
           </form>
         </div>
@@ -403,6 +610,18 @@ export default function ScheduleList() {
                   label="作成日"
                   value={new Date(schedule.created_at).toLocaleDateString('ja-JP')}
                 />
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      handleEditClick(schedule.schedule_id);
+                    }}
+                    className="text-xs text-accent hover:text-accent-dark"
+                  >
+                    編集
+                  </button>
+                </div>
               </div>
             </MobileCard>
           ))
@@ -480,12 +699,20 @@ export default function ScheduleList() {
                       {new Date(schedule.created_at).toLocaleDateString('ja-JP')}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button
-                        onClick={() => navigate(`/schedules/${schedule.schedule_id}`)}
-                        className="text-accent hover:text-accent-dark transition"
-                      >
-                        詳細
-                      </button>
+                      <div className="flex items-center justify-end gap-3">
+                        <button
+                          onClick={() => navigate(`/schedules/${schedule.schedule_id}`)}
+                          className="text-accent hover:text-accent-dark transition"
+                        >
+                          詳細
+                        </button>
+                        <button
+                          onClick={() => handleEditClick(schedule.schedule_id)}
+                          className="text-gray-600 hover:text-gray-800 transition"
+                        >
+                          編集
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))

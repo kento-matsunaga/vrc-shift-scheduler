@@ -204,6 +204,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			appattendance.NewSubmitResponseUsecase(attendanceRepo, txManager, systemClock),
 			appattendance.NewCloseCollectionUsecase(attendanceRepo, systemClock),
 			appattendance.NewDeleteCollectionUsecase(attendanceRepo, systemClock),
+			appattendance.NewUpdateCollectionUsecase(attendanceRepo, systemClock),
 			appattendance.NewGetCollectionUsecase(attendanceRepo),
 			appattendance.NewGetCollectionByTokenUsecase(attendanceRepo),
 			appattendance.NewGetResponsesUsecase(attendanceRepo, memberRepo),
@@ -370,6 +371,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			r.Get("/{collection_id}", attendanceHandler.GetCollection)
 			r.With(permissionChecker.RequirePermission(tenant.PermissionCreateAttendance)).Post("/{collection_id}/close", attendanceHandler.CloseCollection)
 			r.With(permissionChecker.RequirePermission(tenant.PermissionCreateAttendance)).Delete("/{collection_id}", attendanceHandler.DeleteCollection)
+			r.With(permissionChecker.RequirePermission(tenant.PermissionCreateAttendance)).Put("/{collection_id}", attendanceHandler.UpdateCollection)
 			r.Get("/{collection_id}/responses", attendanceHandler.GetResponses)
 		})
 
@@ -381,6 +383,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			appschedule.NewDecideScheduleUsecase(scheduleRepo, systemClock),
 			appschedule.NewCloseScheduleUsecase(scheduleRepo, systemClock),
 			appschedule.NewDeleteScheduleUsecase(scheduleRepo, systemClock),
+			appschedule.NewUpdateScheduleUsecase(scheduleRepo, systemClock),
 			appschedule.NewGetScheduleUsecase(scheduleRepo),
 			appschedule.NewGetScheduleByTokenUsecase(scheduleRepo),
 			appschedule.NewGetResponsesUsecase(scheduleRepo),
@@ -394,6 +397,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			r.With(permissionChecker.RequirePermission(tenant.PermissionCreateSchedule)).Post("/{schedule_id}/decide", scheduleHandler.DecideSchedule)
 			r.With(permissionChecker.RequirePermission(tenant.PermissionCreateSchedule)).Post("/{schedule_id}/close", scheduleHandler.CloseSchedule)
 			r.With(permissionChecker.RequirePermission(tenant.PermissionCreateSchedule)).Delete("/{schedule_id}", scheduleHandler.DeleteSchedule)
+			r.With(permissionChecker.RequirePermission(tenant.PermissionCreateSchedule)).Put("/{schedule_id}", scheduleHandler.UpdateSchedule)
 			r.Get("/{schedule_id}/responses", scheduleHandler.GetResponses)
 		})
 
@@ -577,6 +581,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			appattendance.NewSubmitResponseUsecase(publicAttendanceRepoForHandler, publicTxManager, publicClock),
 			appattendance.NewCloseCollectionUsecase(publicAttendanceRepoForHandler, publicClock),
 			appattendance.NewDeleteCollectionUsecase(publicAttendanceRepoForHandler, publicClock),
+			nil,
 			appattendance.NewGetCollectionUsecase(publicAttendanceRepoForHandler),
 			appattendance.NewGetCollectionByTokenUsecase(publicAttendanceRepoForHandler),
 			appattendance.NewGetResponsesUsecase(publicAttendanceRepoForHandler, publicMemberRepoForAttendance),
@@ -599,6 +604,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			appschedule.NewDecideScheduleUsecase(publicScheduleRepo, publicClock),
 			appschedule.NewCloseScheduleUsecase(publicScheduleRepo, publicClock),
 			appschedule.NewDeleteScheduleUsecase(publicScheduleRepo, publicClock),
+			nil,
 			appschedule.NewGetScheduleUsecase(publicScheduleRepo),
 			appschedule.NewGetScheduleByTokenUsecase(publicScheduleRepo),
 			appschedule.NewGetResponsesUsecase(publicScheduleRepo),

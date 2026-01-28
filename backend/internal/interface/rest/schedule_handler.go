@@ -14,16 +14,17 @@ import (
 )
 
 type ScheduleHandler struct {
-	createScheduleUsecase          *schedule.CreateScheduleUsecase
-	submitResponseUsecase          *schedule.SubmitResponseUsecase
-	decideScheduleUsecase          *schedule.DecideScheduleUsecase
-	closeScheduleUsecase           *schedule.CloseScheduleUsecase
-	deleteScheduleUsecase          *schedule.DeleteScheduleUsecase
-	getScheduleUsecase             *schedule.GetScheduleUsecase
-	getScheduleByTokenUsecase      *schedule.GetScheduleByTokenUsecase
-	getResponsesUsecase            *schedule.GetResponsesUsecase
-	listSchedulesUsecase           *schedule.ListSchedulesUsecase
-	getAllPublicResponsesUsecase   *schedule.GetAllPublicResponsesUsecase
+	createScheduleUsecase        *schedule.CreateScheduleUsecase
+	submitResponseUsecase        *schedule.SubmitResponseUsecase
+	decideScheduleUsecase        *schedule.DecideScheduleUsecase
+	closeScheduleUsecase         *schedule.CloseScheduleUsecase
+	deleteScheduleUsecase        *schedule.DeleteScheduleUsecase
+	updateScheduleUsecase        *schedule.UpdateScheduleUsecase
+	getScheduleUsecase           *schedule.GetScheduleUsecase
+	getScheduleByTokenUsecase    *schedule.GetScheduleByTokenUsecase
+	getResponsesUsecase          *schedule.GetResponsesUsecase
+	listSchedulesUsecase         *schedule.ListSchedulesUsecase
+	getAllPublicResponsesUsecase *schedule.GetAllPublicResponsesUsecase
 }
 
 // NewScheduleHandler creates a new ScheduleHandler with injected usecases
@@ -33,6 +34,7 @@ func NewScheduleHandler(
 	decideScheduleUC *schedule.DecideScheduleUsecase,
 	closeScheduleUC *schedule.CloseScheduleUsecase,
 	deleteScheduleUC *schedule.DeleteScheduleUsecase,
+	updateScheduleUC *schedule.UpdateScheduleUsecase,
 	getScheduleUC *schedule.GetScheduleUsecase,
 	getScheduleByTokenUC *schedule.GetScheduleByTokenUsecase,
 	getResponsesUC *schedule.GetResponsesUsecase,
@@ -40,16 +42,17 @@ func NewScheduleHandler(
 	getAllPublicResponsesUC *schedule.GetAllPublicResponsesUsecase,
 ) *ScheduleHandler {
 	return &ScheduleHandler{
-		createScheduleUsecase:          createScheduleUC,
-		submitResponseUsecase:          submitResponseUC,
-		decideScheduleUsecase:          decideScheduleUC,
-		closeScheduleUsecase:           closeScheduleUC,
-		deleteScheduleUsecase:          deleteScheduleUC,
-		getScheduleUsecase:             getScheduleUC,
-		getScheduleByTokenUsecase:      getScheduleByTokenUC,
-		getResponsesUsecase:            getResponsesUC,
-		listSchedulesUsecase:           listSchedulesUC,
-		getAllPublicResponsesUsecase:   getAllPublicResponsesUC,
+		createScheduleUsecase:        createScheduleUC,
+		submitResponseUsecase:        submitResponseUC,
+		decideScheduleUsecase:        decideScheduleUC,
+		closeScheduleUsecase:         closeScheduleUC,
+		deleteScheduleUsecase:        deleteScheduleUC,
+		updateScheduleUsecase:        updateScheduleUC,
+		getScheduleUsecase:           getScheduleUC,
+		getScheduleByTokenUsecase:    getScheduleByTokenUC,
+		getResponsesUsecase:          getResponsesUC,
+		listSchedulesUsecase:         listSchedulesUC,
+		getAllPublicResponsesUsecase: getAllPublicResponsesUC,
 	}
 }
 
@@ -143,6 +146,25 @@ type CreateScheduleResponse struct {
 	Status      string     `json:"status"`
 	Deadline    *time.Time `json:"deadline"`
 	CreatedAt   time.Time  `json:"created_at"`
+}
+
+type UpdateScheduleRequest struct {
+	Title                         string             `json:"title"`
+	Description                   string             `json:"description"`
+	Deadline                      *time.Time         `json:"deadline"`
+	Candidates                    []CandidateRequest `json:"candidates"`
+	ForceDeleteCandidateResponses bool               `json:"force_delete_candidate_responses"`
+}
+
+type UpdateScheduleResponse struct {
+	ScheduleID  string              `json:"schedule_id"`
+	TenantID    string              `json:"tenant_id"`
+	Title       string              `json:"title"`
+	Description string              `json:"description"`
+	Status      string              `json:"status"`
+	Deadline    *time.Time          `json:"deadline"`
+	Candidates  []CandidateResponse `json:"candidates"`
+	UpdatedAt   time.Time           `json:"updated_at"`
 }
 
 func (h *ScheduleHandler) CreateSchedule(w http.ResponseWriter, r *http.Request) {
@@ -480,6 +502,94 @@ func (h *ScheduleHandler) DeleteSchedule(w http.ResponseWriter, r *http.Request)
 			"updated_at":  output.UpdatedAt,
 		},
 	})
+}
+
+// UpdateSchedule handles PUT /api/v1/schedules/:id
+func (h *ScheduleHandler) UpdateSchedule(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	tenantID, ok := GetTenantID(ctx)
+	if !ok {
+		RespondBadRequest(w, "tenant_id is required")
+		return
+	}
+
+	scheduleID := chi.URLParam(r, "schedule_id")
+	if scheduleID == "" {
+		RespondBadRequest(w, "schedule_id is required")
+		return
+	}
+
+	var req UpdateScheduleRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		RespondBadRequest(w, "invalid request body")
+		return
+	}
+
+	if req.Title != "" && len(req.Title) > 255 {
+		RespondBadRequest(w, "title must be less than 255 characters")
+		return
+	}
+	if req.Candidates != nil && len(req.Candidates) == 0 {
+		RespondBadRequest(w, "at least one candidate is required")
+		return
+	}
+
+	var candidates []schedule.CandidateInput
+	if req.Candidates != nil {
+		candidates = make([]schedule.CandidateInput, len(req.Candidates))
+		for i, c := range req.Candidates {
+			candidates[i] = schedule.CandidateInput{
+				Date:      c.Date,
+				StartTime: c.StartTime,
+				EndTime:   c.EndTime,
+			}
+		}
+	}
+
+	output, err := h.updateScheduleUsecase.Execute(ctx, schedule.UpdateScheduleInput{
+		TenantID:                      tenantID.String(),
+		ScheduleID:                    scheduleID,
+		Title:                         req.Title,
+		Description:                   req.Description,
+		Deadline:                      req.Deadline,
+		Candidates:                    candidates,
+		ForceDeleteCandidateResponses: req.ForceDeleteCandidateResponses,
+	})
+	if err != nil {
+		switch {
+		case errors.Is(err, schedDomain.ErrAlreadyDeleted):
+			RespondConflict(w, "Schedule is already deleted")
+		case errors.Is(err, schedDomain.ErrScheduleClosed):
+			RespondBadRequest(w, err.Error())
+		default:
+			RespondDomainError(w, err)
+		}
+		return
+	}
+
+	responseCandidates := make([]CandidateResponse, len(output.Candidates))
+	for i, c := range output.Candidates {
+		responseCandidates[i] = CandidateResponse{
+			CandidateID: c.CandidateID,
+			Date:        c.Date,
+			StartTime:   c.StartTime,
+			EndTime:     c.EndTime,
+		}
+	}
+
+	resp := UpdateScheduleResponse{
+		ScheduleID:  output.ScheduleID,
+		TenantID:    output.TenantID,
+		Title:       output.Title,
+		Description: output.Description,
+		Status:      output.Status,
+		Deadline:    output.Deadline,
+		Candidates:  responseCandidates,
+		UpdatedAt:   output.UpdatedAt,
+	}
+
+	RespondJSON(w, http.StatusOK, SuccessResponse{Data: resp})
 }
 
 type GetResponsesResponse struct {

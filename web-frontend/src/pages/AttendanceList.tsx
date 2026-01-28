@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import {
   listAttendanceCollections,
   createAttendanceCollection,
+  getAttendanceCollection,
+  updateAttendanceCollection,
   type AttendanceCollection,
 } from '../lib/api/attendanceApi';
 import { getMemberGroups, type MemberGroup } from '../lib/api/memberGroupApi';
@@ -15,6 +17,9 @@ export default function AttendanceList() {
   const navigate = useNavigate();
   const [collections, setCollections] = useState<AttendanceCollection[]>([]);
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingCollectionId, setEditingCollectionId] = useState<string | null>(null);
+  const [loadingEdit, setLoadingEdit] = useState(false);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [deadline, setDeadline] = useState('');
@@ -244,6 +249,48 @@ export default function AttendanceList() {
     );
   };
 
+  const resetForm = () => {
+    setTitle('');
+    setDescription('');
+    setDeadline('');
+    setTargetDates([
+      { date: '', startTime: '', endTime: '' },
+      { date: '', startTime: '', endTime: '' },
+      { date: '', startTime: '', endTime: '' },
+    ]);
+    setSelectedGroupIds([]);
+    setSelectedRoleIds([]);
+    setSelectedEventId('');
+    setAvailableMonths([]);
+    setSelectedMonths([]);
+    setBusinessDaysCache([]);
+    setIsEditing(false);
+    setEditingCollectionId(null);
+  };
+
+  const toInputDateTime = (isoDate?: string) =>
+    isoDate ? new Date(isoDate).toISOString().slice(0, 16) : '';
+
+  const handleEditClick = async (collectionId: string) => {
+    setError('');
+    setCreatedCollection(null);
+    setShowCreateForm(true);
+    setLoadingEdit(true);
+    try {
+      const collection = await getAttendanceCollection(collectionId);
+      setIsEditing(true);
+      setEditingCollectionId(collectionId);
+      setTitle(collection.title);
+      setDescription(collection.description || '');
+      setDeadline(toInputDateTime(collection.deadline));
+    } catch (err) {
+      console.error('Failed to load collection for edit:', err);
+      setError('出欠確認の取得に失敗しました');
+    } finally {
+      setLoadingEdit(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -255,23 +302,25 @@ export default function AttendanceList() {
     }
 
     const validDates = targetDates.filter((d) => d.date.trim() !== '');
-    if (validDates.length === 0) {
+    if (!isEditing && validDates.length === 0) {
       setError('対象日を1つ以上入力してください');
       return;
     }
 
     // 時間のバリデーション
-    for (let i = 0; i < validDates.length; i++) {
-      const d = validDates[i];
-      // 片方だけ入力されている場合
-      if ((d.startTime && !d.endTime) || (!d.startTime && d.endTime)) {
-        setError(`対象日${i + 1}: 開始時間と終了時間は両方入力してください`);
-        return;
-      }
-      // 開始時間 >= 終了時間の場合
-      if (d.startTime && d.endTime && d.startTime >= d.endTime) {
-        setError(`対象日${i + 1}: 開始時間は終了時間より前に設定してください`);
-        return;
+    if (!isEditing) {
+      for (let i = 0; i < validDates.length; i++) {
+        const d = validDates[i];
+        // 片方だけ入力されている場合
+        if ((d.startTime && !d.endTime) || (!d.startTime && d.endTime)) {
+          setError(`対象日${i + 1}: 開始時間と終了時間は両方入力してください`);
+          return;
+        }
+        // 開始時間 >= 終了時間の場合
+        if (d.startTime && d.endTime && d.startTime >= d.endTime) {
+          setError(`対象日${i + 1}: 開始時間は終了時間より前に設定してください`);
+          return;
+        }
       }
     }
 
@@ -282,40 +331,35 @@ export default function AttendanceList() {
 
       // イベントが選択されている場合は target_type: 'event' で target_id にイベントIDを設定
       // これによりシフト調整機能で使用可能になる
-      const result = await createAttendanceCollection({
-        title: title.trim(),
-        description: description.trim(),
-        target_type: selectedEventId ? 'event' : 'business_day',
-        target_id: selectedEventId || undefined,
-        target_dates: validDates.map((d) => ({
-          target_date: new Date(d.date).toISOString(),
-          start_time: d.startTime || undefined,
-          end_time: d.endTime || undefined,
-        })),
-        deadline: deadline ? new Date(deadline).toISOString() : undefined,
-        group_ids: selectedGroupIds.length > 0 ? selectedGroupIds : undefined,
-        role_ids: selectedRoleIds.length > 0 ? selectedRoleIds : undefined,
-      });
+      const result = isEditing && editingCollectionId
+        ? await updateAttendanceCollection(editingCollectionId, {
+            title: title.trim(),
+            description: description.trim(),
+            deadline: deadline ? new Date(deadline).toISOString() : undefined,
+          })
+        : await createAttendanceCollection({
+            title: title.trim(),
+            description: description.trim(),
+            target_type: selectedEventId ? 'event' : 'business_day',
+            target_id: selectedEventId || undefined,
+            target_dates: validDates.map((d) => ({
+              target_date: new Date(d.date).toISOString(),
+              start_time: d.startTime || undefined,
+              end_time: d.endTime || undefined,
+            })),
+            deadline: deadline ? new Date(deadline).toISOString() : undefined,
+            group_ids: selectedGroupIds.length > 0 ? selectedGroupIds : undefined,
+            role_ids: selectedRoleIds.length > 0 ? selectedRoleIds : undefined,
+          });
 
       const baseUrl = window.location.origin;
-      const url = `${baseUrl}/p/attendance/${result.public_token}`;
-      setPublicUrl(url);
-      setCreatedCollection(result);
+      if (!isEditing) {
+        const url = `${baseUrl}/p/attendance/${result.public_token}`;
+        setPublicUrl(url);
+        setCreatedCollection(result);
+      }
 
-      setTitle('');
-      setDescription('');
-      setDeadline('');
-      setTargetDates([
-        { date: '', startTime: '', endTime: '' },
-        { date: '', startTime: '', endTime: '' },
-        { date: '', startTime: '', endTime: '' },
-      ]);
-      setSelectedGroupIds([]);
-      setSelectedEventId('');
-      setAvailableMonths([]);
-      setSelectedMonths([]);
-      setBusinessDaysCache([]);
-      setSelectedRoleIds([]);
+      resetForm();
       setShowCreateForm(false);
 
       loadCollections();
@@ -323,7 +367,7 @@ export default function AttendanceList() {
       if (err instanceof Error) {
         setError(err.message);
       } else {
-        setError('出欠確認の作成に失敗しました');
+        setError(isEditing ? '出欠認の更新に失敗しました' : '出欠確認の作成に失敗しました');
       }
       console.error('Create collection error:', err);
     } finally {
@@ -371,17 +415,24 @@ export default function AttendanceList() {
           </p>
         </div>
         <button
-          onClick={() => setShowCreateForm(!showCreateForm)}
+          onClick={() => {
+            if (showCreateForm) {
+              resetForm();
+              setShowCreateForm(false);
+            } else {
+              setShowCreateForm(true);
+            }
+          }}
           className="px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent-dark transition-colors font-medium text-sm sm:text-base w-full sm:w-auto"
         >
-          {showCreateForm ? 'キャンセル' : '+ 新規作成'}
+          {showCreateForm ? (isEditing ? '編集をキャンセル' : 'キャンセル') : '+ 新規作成'}
         </button>
       </div>
 
       {showCreateForm && (
         <div className="bg-white rounded-lg shadow p-6 mb-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">
-            新しい出欠確認を作成
+            {isEditing ? '出欠確認を編集' : '新しい出欠確認を作成'}
           </h2>
 
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -395,7 +446,7 @@ export default function AttendanceList() {
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="例：12月のシフト出欠確認"
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent"
-                disabled={submitting}
+                disabled={submitting || loadingEdit}
               />
             </div>
 
@@ -409,11 +460,11 @@ export default function AttendanceList() {
                 rows={3}
                 placeholder="詳細な説明や注意事項を入力してください"
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent"
-                disabled={submitting}
+                disabled={submitting || loadingEdit}
               />
             </div>
 
-            {events.length > 0 && (
+            {!isEditing && events.length > 0 && (
               <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   イベントから日程を取り込む
@@ -492,6 +543,7 @@ export default function AttendanceList() {
               </div>
             )}
 
+            {!isEditing && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 対象日 <span className="text-red-500">*</span>
@@ -509,7 +561,7 @@ export default function AttendanceList() {
                           type="button"
                           onClick={() => handleRemoveDate(index)}
                           className="ml-auto px-2 py-1 text-xs text-red-600 hover:bg-red-50 rounded transition"
-                          disabled={submitting}
+                          disabled={submitting || loadingEdit}
                         >
                           削除
                         </button>
@@ -523,7 +575,7 @@ export default function AttendanceList() {
                           value={targetDate.date}
                           onChange={(e) => handleDateChange(index, 'date', e.target.value)}
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent text-sm"
-                          disabled={submitting}
+                          disabled={submitting || loadingEdit}
                         />
                       </div>
                       <div>
@@ -533,7 +585,7 @@ export default function AttendanceList() {
                           value={targetDate.startTime}
                           onChange={(e) => handleDateChange(index, 'startTime', e.target.value)}
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent text-sm"
-                          disabled={submitting}
+                          disabled={submitting || loadingEdit}
                         />
                       </div>
                       <div>
@@ -543,7 +595,7 @@ export default function AttendanceList() {
                           value={targetDate.endTime}
                           onChange={(e) => handleDateChange(index, 'endTime', e.target.value)}
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent text-sm"
-                          disabled={submitting}
+                          disabled={submitting || loadingEdit}
                         />
                       </div>
                     </div>
@@ -554,26 +606,125 @@ export default function AttendanceList() {
                 type="button"
                 onClick={handleAddDate}
                 className="mt-2 px-3 py-1 text-sm text-accent hover:bg-accent/10 rounded-md transition"
-                disabled={submitting}
+                disabled={submitting || loadingEdit}
               >
                 + 対象日を追加
               </button>
             </div>
+            )}
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
                 回答締切（任意）
               </label>
-              <input
-                type="datetime-local"
-                value={deadline}
-                onChange={(e) => setDeadline(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent"
-                disabled={submitting}
-              />
+              {/* クイック選択ボタン */}
+              <div className="flex flex-wrap gap-2 mb-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const today = new Date();
+                    const dateStr = today.toISOString().split('T')[0];
+                    setDeadline(`${dateStr}T23:59`);
+                  }}
+                  className="px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 rounded-md transition"
+                  disabled={submitting || loadingEdit}
+                >
+                  今日中
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const tomorrow = new Date();
+                    tomorrow.setDate(tomorrow.getDate() + 1);
+                    const dateStr = tomorrow.toISOString().split('T')[0];
+                    setDeadline(`${dateStr}T23:59`);
+                  }}
+                  className="px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 rounded-md transition"
+                  disabled={submitting || loadingEdit}
+                >
+                  明日中
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const nextWeek = new Date();
+                    nextWeek.setDate(nextWeek.getDate() + 7);
+                    const dateStr = nextWeek.toISOString().split('T')[0];
+                    setDeadline(`${dateStr}T23:59`);
+                  }}
+                  className="px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 rounded-md transition"
+                  disabled={submitting || loadingEdit}
+                >
+                  1週間後
+                </button>
+                {deadline && (
+                  <button
+                    type="button"
+                    onClick={() => setDeadline('')}
+                    className="px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition"
+                    disabled={submitting || loadingEdit}
+                  >
+                    クリア
+                  </button>
+                )}
+              </div>
+              {/* 日付で指定（その日の23:59まで） */}
+              <div className="mb-2">
+                <label
+                  htmlFor="deadline-date"
+                  className="block text-xs text-gray-500 mb-1"
+                >
+                  日付で指定（その日の23:59まで）
+                </label>
+                <input
+                  id="deadline-date"
+                  type="date"
+                  value={deadline ? deadline.split('T')[0] : ''}
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      setDeadline(`${e.target.value}T23:59`);
+                    } else {
+                      setDeadline('');
+                    }
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent"
+                  disabled={submitting || loadingEdit}
+                />
+              </div>
+              {/* 詳細な日時指定 */}
+              <details className="text-sm">
+                <summary className="text-gray-500 hover:text-gray-700 cursor-pointer">
+                  詳細な日時を指定
+                </summary>
+                <div className="mt-2">
+                  <label htmlFor="deadline-datetime" className="sr-only">
+                    締め切り日時
+                  </label>
+                  <input
+                    id="deadline-datetime"
+                    type="datetime-local"
+                    value={deadline}
+                    onChange={(e) => setDeadline(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent"
+                    disabled={submitting || loadingEdit}
+                  />
+                </div>
+              </details>
+              {/* 現在の設定値を表示 */}
+              {deadline && (
+                <p className="mt-2 text-sm text-accent font-medium">
+                  締切: {new Date(deadline).toLocaleString('ja-JP', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </p>
+              )}
             </div>
 
-            {memberGroups.length > 0 && (
+            {!isEditing && memberGroups.length > 0 && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   対象メンバーグループ（任意）
@@ -587,7 +738,7 @@ export default function AttendanceList() {
                       key={group.group_id}
                       type="button"
                       onClick={() => toggleGroupSelection(group.group_id)}
-                      disabled={submitting}
+                      disabled={submitting || loadingEdit}
                       className={`px-3 py-1.5 rounded-full text-sm font-medium transition ${
                         selectedGroupIds.includes(group.group_id)
                           ? 'bg-accent text-white'
@@ -611,7 +762,7 @@ export default function AttendanceList() {
               </div>
             )}
 
-            {roles.length > 0 && (
+            {!isEditing && roles.length > 0 && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   対象ロール（任意）
@@ -625,7 +776,7 @@ export default function AttendanceList() {
                       key={role.role_id}
                       type="button"
                       onClick={() => toggleRoleSelection(role.role_id)}
-                      disabled={submitting}
+                      disabled={submitting || loadingEdit}
                       className={`px-3 py-1.5 rounded-full text-sm font-medium transition ${
                         selectedRoleIds.includes(role.role_id)
                           ? 'bg-accent text-white'
@@ -657,10 +808,10 @@ export default function AttendanceList() {
 
             <button
               type="submit"
-              disabled={submitting || !title.trim()}
+              disabled={submitting || loadingEdit || !title.trim()}
               className="w-full px-4 py-2 bg-accent text-white rounded-md hover:bg-accent-dark transition disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
-              {submitting ? '作成中...' : '出欠確認を作成'}
+              {submitting ? (isEditing ? '更新中...' : '作成中...') : (isEditing ? '出欠確認を更新' : '出欠確認を作成')}
             </button>
           </form>
         </div>
@@ -747,6 +898,18 @@ export default function AttendanceList() {
                   label="作成日"
                   value={new Date(collection.created_at).toLocaleDateString('ja-JP')}
                 />
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      handleEditClick(collection.collection_id);
+                    }}
+                    className="text-xs text-accent hover:text-accent-dark"
+                  >
+                    編集
+                  </button>
+                </div>
               </div>
             </MobileCard>
           ))
@@ -824,12 +987,20 @@ export default function AttendanceList() {
                       {new Date(collection.created_at).toLocaleDateString('ja-JP')}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button
-                        onClick={() => navigate(`/attendance/${collection.collection_id}`)}
-                        className="text-accent hover:text-accent-dark transition"
-                      >
-                        詳細
-                      </button>
+                      <div className="flex items-center justify-end gap-3">
+                        <button
+                          onClick={() => navigate(`/attendance/${collection.collection_id}`)}
+                          className="text-accent hover:text-accent-dark transition"
+                        >
+                          詳細
+                        </button>
+                        <button
+                          onClick={() => handleEditClick(collection.collection_id)}
+                          className="text-gray-600 hover:text-gray-800 transition"
+                        >
+                          編集
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))

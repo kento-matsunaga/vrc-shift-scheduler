@@ -200,9 +200,9 @@ export class ApiClientError extends Error {
    * ユーザーに表示するメッセージを取得
    */
   getUserMessage(): string {
-    // ERR_INVALID_REQUEST の場合はAPIからの具体的なメッセージを優先表示
+    // ERR_INVALID_REQUEST またはERR_CONFLICT の場合はAPIからの具体的なメッセージを優先表示
     // （日本語メッセージが返されている場合があるため）
-    if (this.errorCode === 'ERR_INVALID_REQUEST' && this.message) {
+    if ( (this.errorCode === 'ERR_INVALID_REQUEST' || this.errorCode === 'ERR_CONFLICT') && this.message) {
       // APIから返されたメッセージが英語の場合のみ汎用メッセージを使う
       const isEnglishOnly = /^[a-zA-Z0-9\s_\-().,:]+$/.test(this.message);
       if (!isEnglishOnly) {

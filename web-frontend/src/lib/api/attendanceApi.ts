@@ -1,4 +1,5 @@
 import type { ApiResponse } from '../../types/api';
+import { apiClient } from '../apiClient';
 
 /**
  * 対象日入力（リクエスト用）
@@ -21,6 +22,15 @@ export interface CreateAttendanceRequest {
   deadline?: string; // ISO 8601 format
   group_ids?: string[]; // optional: target member group IDs
   role_ids?: string[]; // optional: target role IDs
+}
+
+/**
+ * 出欠確認更新リクエスト
+ */
+export interface UpdateAttendanceCollectionRequest {
+  title: string;
+  description: string;
+  deadline?: string; // ISO 8601 format
 }
 
 /**
@@ -127,6 +137,20 @@ export async function createAttendanceCollection(
   }
 
   const result: ApiResponse<AttendanceCollection> = await response.json();
+  return result.data;
+}
+
+/**
+ * 出欠確認を更新
+ */
+export async function updateAttendanceCollection(
+  collectionId: string,
+  data: UpdateAttendanceCollectionRequest
+): Promise<AttendanceCollection> {
+  const result = await apiClient.put<ApiResponse<AttendanceCollection>>(
+    `/api/v1/attendance/collections/${collectionId}`,
+    data
+  );
   return result.data;
 }
 
