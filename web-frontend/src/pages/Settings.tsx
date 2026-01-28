@@ -5,7 +5,7 @@ import type { Tenant, ManagerPermissions } from '../lib/api/tenantApi';
 import type { BillingStatus } from '../lib/api/billingApi';
 import { ApiClientError } from '../lib/apiClient';
 import BulkImport from '../components/BulkImport';
-import { SEO } from '@/components/seo/SEO';
+import { SEO } from '../components/seo';
 
 type SettingsTab = 'general' | 'import';
 

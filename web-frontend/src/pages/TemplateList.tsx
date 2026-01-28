@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { SEO } from '@/components/seo/SEO';
+import { SEO } from '../components/seo';
 import { listTemplates, deleteTemplate } from '../lib/api/templateApi';
 import type { Template, TemplateItem } from '../types/api';
 

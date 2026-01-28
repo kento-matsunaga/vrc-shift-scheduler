@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { SEO } from '@/components/seo/SEO';
+import { SEO } from '../components/seo';
 import { listSchedules, createSchedule, type Schedule } from '../lib/api/scheduleApi';
 import { getMemberGroups, type MemberGroup } from '../lib/api/memberGroupApi';
 import { MobileCard, CardHeader, CardField } from '../components/MobileCard';

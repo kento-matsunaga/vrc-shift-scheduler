@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
-import { SEO } from '@/components/seo/SEO';
+import { SEO } from '../components/seo';
 import {
   getAttendanceCollection,
   getAttendanceResponses,

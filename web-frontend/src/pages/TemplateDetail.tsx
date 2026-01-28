@@ -3,7 +3,7 @@ import { useNavigate, useParams, Link } from 'react-router-dom';
 import { getTemplate, deleteTemplate } from '../lib/api/templateApi';
 import type { Template, TemplateItem } from '../types/api';
 import { ApiClientError } from '../lib/apiClient';
-import { SEO } from '@/components/seo/SEO';
+import { SEO } from '../components/seo';
 
 // インスタンスごとにグループ化した構造
 interface InstanceGroup {

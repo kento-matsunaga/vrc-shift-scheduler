@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
-import { SEO } from '@/components/seo/SEO';
+import { SEO } from '../components/seo';
 
 export default function SubscribeComplete() {
   useDocumentTitle('登録完了');

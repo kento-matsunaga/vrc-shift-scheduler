@@ -12,7 +12,7 @@ import {
 import { getEventDetail } from '../lib/api/eventApi';
 import type { Event } from '../types/api';
 import { ApiClientError } from '../lib/apiClient';
-import { SEO } from '@/components/seo/SEO';
+import { SEO } from '../components/seo';
 
 export default function InstanceList() {
   const { eventId } = useParams<{ eventId: string }>();

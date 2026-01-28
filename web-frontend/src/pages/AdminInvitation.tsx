@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { inviteAdmin } from '../lib/api/invitationApi';
-import { SEO } from '@/components/seo/SEO';
+import { SEO } from '../components/seo';
 
 export default function AdminInvitation() {
   const [email, setEmail] = useState('');

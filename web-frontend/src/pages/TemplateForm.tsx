@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { SEO } from '@/components/seo/SEO';
+import { SEO } from '../components/seo';
 import { getTemplate, createTemplate, updateTemplate } from '../lib/api/templateApi';
 import { listInstances, type Instance } from '../lib/api/instanceApi';
 import type { TemplateItem, CreateTemplateRequest } from '../types/api';
