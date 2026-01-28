@@ -222,3 +222,52 @@ export async function getScheduleResponses(scheduleId: string): Promise<Schedule
   const result = await response.json();
   return result.responses || [];
 }
+
+/**
+ * 出欠確認変換リクエスト
+ */
+export interface ConvertToAttendanceRequest {
+  candidate_ids: string[];
+  title?: string; // 省略時は元のタイトル
+}
+
+/**
+ * 出欠確認変換レスポンス
+ */
+export interface ConvertToAttendanceResponse {
+  collection_id: string;
+  public_token: string;
+  title: string;
+}
+
+/**
+ * 日程調整を出欠確認に変換
+ */
+export async function convertToAttendance(
+  scheduleId: string,
+  data: ConvertToAttendanceRequest
+): Promise<ConvertToAttendanceResponse> {
+  const baseURL = import.meta.env.VITE_API_BASE_URL || '';
+  const token = localStorage.getItem('auth_token');
+
+  if (!token) {
+    throw new Error('認証が必要です。ログインしてください。');
+  }
+
+  const response = await fetch(`${baseURL}/api/v1/schedules/${scheduleId}/convert-to-attendance`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`出欠確認への変換に失敗しました: ${text || response.statusText}`);
+  }
+
+  const result: ApiResponse<ConvertToAttendanceResponse> = await response.json();
+  return result.data;
+}

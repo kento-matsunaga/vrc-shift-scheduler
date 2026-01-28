@@ -447,6 +447,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			appschedule.NewGetResponsesUsecase(scheduleRepo),
 			appschedule.NewListSchedulesUsecase(scheduleRepo),
 			appschedule.NewGetAllPublicResponsesUsecase(scheduleRepo, memberRepo),
+			appschedule.NewConvertToAttendanceUsecase(scheduleRepo, attendanceRepo, memberGroupRepo, txManager, systemClock),
 		)
 		r.Route("/schedules", func(r chi.Router) {
 			r.Get("/", scheduleHandler.ListSchedules)
@@ -456,6 +457,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			r.With(permissionChecker.RequirePermission(tenant.PermissionCreateSchedule)).Post("/{schedule_id}/close", scheduleHandler.CloseSchedule)
 			r.With(permissionChecker.RequirePermission(tenant.PermissionCreateSchedule)).Delete("/{schedule_id}", scheduleHandler.DeleteSchedule)
 			r.Get("/{schedule_id}/responses", scheduleHandler.GetResponses)
+			r.With(permissionChecker.RequirePermission(tenant.PermissionCreateSchedule)).Post("/{schedule_id}/convert-to-attendance", scheduleHandler.ConvertToAttendance)
 		})
 
 		// Invitation API（管理者のみ - マネージャー招待権限が必要）
@@ -714,6 +716,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			appschedule.NewGetResponsesUsecase(publicScheduleRepo),
 			appschedule.NewListSchedulesUsecase(publicScheduleRepo),
 			appschedule.NewGetAllPublicResponsesUsecase(publicScheduleRepo, publicScheduleMemberRepo),
+			nil, // ConvertToAttendance は public API では使用しない
 		)
 		r.Get("/{token}", publicScheduleHandler.GetScheduleByToken)
 		r.Post("/{token}/responses", publicScheduleHandler.SubmitResponse)
