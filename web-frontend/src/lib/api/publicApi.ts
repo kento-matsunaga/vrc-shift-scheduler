@@ -332,10 +332,20 @@ export interface PublicEvent {
   business_days: PublicBusinessDay[];
 }
 
+export interface PublicCalendarEntry {
+  entry_id: string;
+  title: string;
+  date: string;        // YYYY-MM-DD
+  start_time?: string; // HH:MM
+  end_time?: string;   // HH:MM
+  note: string;
+}
+
 export interface PublicCalendar {
   title: string;
   description: string;
   events: PublicEvent[];
+  entries: PublicCalendarEntry[];
 }
 
 /**
