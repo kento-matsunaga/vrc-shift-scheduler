@@ -24,10 +24,12 @@ import TemplateForm from './pages/TemplateForm';
 import TemplateDetail from './pages/TemplateDetail';
 import InstanceList from './pages/InstanceList';
 import Settings from './pages/Settings';
+import CalendarList from './pages/CalendarList';
 // BillingManagement は管理フロントエンド（admin-frontend）に移動しました
 import Layout from './components/Layout';
 import AttendanceResponse from './pages/public/AttendanceResponse';
 import ScheduleResponse from './pages/public/ScheduleResponse';
+import PublicCalendar from './pages/public/PublicCalendar';
 import LicenseClaim from './pages/public/LicenseClaim';
 import PasswordReset from './pages/public/PasswordReset';
 import ForgotPassword from './pages/public/ForgotPassword';
@@ -92,6 +94,7 @@ function App() {
       {/* 公開ページ（認証不要） */}
       <Route path="/p/attendance/:token" element={<AttendanceResponse />} />
       <Route path="/p/schedule/:token" element={<ScheduleResponse />} />
+      <Route path="/p/calendar/:token" element={<PublicCalendar />} />
 
       {/* ライセンス登録（認証不要） */}
       <Route path="/register" element={<LicenseClaim />} />
@@ -129,6 +132,7 @@ function App() {
         <Route path="/schedules/:scheduleId" element={<ScheduleDetail />} />
         <Route path="/admin/invite" element={<AdminInvitation />} />
         <Route path="/settings" element={<Settings />} />
+        <Route path="/calendars" element={<CalendarList />} />
       </Route>
 
       {/* 404 */}

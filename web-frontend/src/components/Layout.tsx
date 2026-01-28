@@ -166,6 +166,9 @@ export default function Layout() {
           <Link to="/schedules" className={linkClass('/schedules')} onClick={handleNavClick}>
             日程調整
           </Link>
+          <Link to="/calendars" className={linkClass('/calendars')} onClick={handleNavClick}>
+            カレンダー
+          </Link>
 
           {(adminRole === 'admin' || adminRole === 'owner') && (
             <Link to="/admin/invite" className={linkClass('/admin/invite')} onClick={handleNavClick}>

@@ -12,6 +12,7 @@ import (
 	appattendance "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/attendance"
 	appaudit "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/audit"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/app/auth"
+	appcalendar "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/calendar"
 	appevent "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/event"
 	appimport "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/import"
 	applicense "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/license"
@@ -533,6 +534,24 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			r.Get("/{id}", tutorialHandler.Get)
 		})
 
+		// Calendar API（カレンダー機能）
+		calendarRepo := db.NewCalendarRepository(dbPool)
+		calendarHandler := NewCalendarHandler(
+			appcalendar.NewCreateCalendarUsecase(calendarRepo, eventRepo),
+			appcalendar.NewGetCalendarUsecase(calendarRepo, eventRepo, businessDayRepo),
+			appcalendar.NewListCalendarsUsecase(calendarRepo),
+			appcalendar.NewUpdateCalendarUsecase(calendarRepo, eventRepo),
+			appcalendar.NewDeleteCalendarUsecase(calendarRepo),
+			appcalendar.NewGetCalendarByTokenUsecase(calendarRepo, eventRepo, businessDayRepo),
+		)
+		r.Route("/calendars", func(r chi.Router) {
+			r.Post("/", calendarHandler.Create)
+			r.Get("/", calendarHandler.List)
+			r.Get("/{id}", calendarHandler.GetByID)
+			r.Put("/{id}", calendarHandler.Update)
+			r.Delete("/{id}", calendarHandler.Delete)
+		})
+
 		// Billing API（課金管理 - Stripeカスタマーポータル、課金状態）
 		stripeSecretKey := os.Getenv("STRIPE_SECRET_KEY")
 		billingPortalReturnURL := os.Getenv("BILLING_PORTAL_RETURN_URL")
@@ -721,6 +740,22 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		r.Get("/{token}", publicScheduleHandler.GetScheduleByToken)
 		r.Post("/{token}/responses", publicScheduleHandler.SubmitResponse)
 		r.Get("/{token}/responses", publicScheduleHandler.GetAllPublicResponses)
+	})
+
+	// 公開カレンダーAPI（認証不要）
+	r.Route("/api/v1/public/calendar", func(r chi.Router) {
+		publicCalendarRepo := db.NewCalendarRepository(dbPool)
+		publicEventRepo := db.NewEventRepository(dbPool)
+		publicBusinessDayRepo := db.NewEventBusinessDayRepository(dbPool)
+		publicCalendarHandler := NewCalendarHandler(
+			nil, // Create not needed for public handler
+			nil, // Get not needed for public handler
+			nil, // List not needed for public handler
+			nil, // Update not needed for public handler
+			nil, // Delete not needed for public handler
+			appcalendar.NewGetCalendarByTokenUsecase(publicCalendarRepo, publicEventRepo, publicBusinessDayRepo),
+		)
+		r.Get("/{token}", publicCalendarHandler.GetByPublicToken)
 	})
 
 	// 公開ページ用メンバー一覧API（認証不要）
