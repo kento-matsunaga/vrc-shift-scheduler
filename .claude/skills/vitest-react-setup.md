@@ -1,3 +1,7 @@
+---
+description: Vite + React プロジェクトに vitest + testing-library を導入するセットアップスキル
+---
+
 # vitest-react-setup
 
 Vite + React プロジェクトに vitest + testing-library を導入するセットアップスキル。
@@ -21,6 +25,7 @@ npm install -D vitest @testing-library/react @testing-library/dom jsdom @vitest/
 プロジェクトルートに以下の内容で作成：
 
 ```typescript
+/// <reference types="vitest" />
 import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 
@@ -38,7 +43,7 @@ export default defineConfig({
 ### 3. src/test/setup.ts の作成
 
 ```typescript
-import '@testing-library/dom'
+import '@testing-library/react'
 ```
 
 ### 4. package.json への scripts 追加（任意）
@@ -46,9 +51,9 @@ import '@testing-library/dom'
 ```json
 {
   "scripts": {
-    "test": "vitest",
-    "test:ui": "vitest --ui",
-    "test:coverage": "vitest --coverage"
+    "test:unit": "vitest",
+    "test:unit:ui": "vitest --ui",
+    "test:unit:coverage": "vitest --coverage"
   }
 }
 ```
@@ -59,6 +64,7 @@ import '@testing-library/dom'
 
 ```tsx
 import { render, screen } from '@testing-library/react'
+import '@testing-library/jest-dom'
 import { describe, it, expect } from 'vitest'
 import { Example } from './Example'
 
@@ -86,5 +92,18 @@ describe('Example', () => {
 | vitest | ^4.0.0 | テストランナー |
 | @testing-library/react | ^16.0.0 | React テストユーティリティ |
 | @testing-library/dom | ^10.0.0 | DOM テストユーティリティ |
-| jsdom | ^26.0.0 | DOM シミュレート |
+| jsdom | ^27.4.0 | DOM シミュレート |
 | @vitest/ui | ^4.0.0 | UI モード（任意） |
+
+## プロジェクトの現状
+
+| ディレクトリ | 状態 | 備考 |
+|--------------|------|------|
+| web-frontend | ✅ 導入済み | vitest + testing-library |
+| admin-frontend | ❌ 未導入 | 本スキルで導入可能 |
+| E2E テスト | ✅ 別途 | Playwright を使用 |
+
+## 関連スキル
+
+- testing.md
+- frontend-patterns.md
