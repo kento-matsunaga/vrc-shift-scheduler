@@ -163,7 +163,7 @@ func (h *CalendarEntryHandler) ListCalendarEntries(w http.ResponseWriter, r *htt
 
 	entries := make([]CalendarEntryResponse, 0, len(outputs))
 	for _, output := range outputs {
-		entries = append(entries, toCalendarEntryResponseFromDTO(&output))
+		entries = append(entries, toCalendarEntryResponse(&output))
 	}
 
 	RespondSuccess(w, map[string]interface{}{
@@ -274,21 +274,6 @@ func (h *CalendarEntryHandler) DeleteCalendarEntry(w http.ResponseWriter, r *htt
 
 // toCalendarEntryResponse converts CalendarEntryDTO to CalendarEntryResponse
 func toCalendarEntryResponse(dto *appcalendar.CalendarEntryDTO) CalendarEntryResponse {
-	return CalendarEntryResponse{
-		EntryID:    dto.EntryID,
-		CalendarID: dto.CalendarID,
-		Title:      dto.Title,
-		Date:       dto.Date,
-		StartTime:  dto.StartTime,
-		EndTime:    dto.EndTime,
-		Note:       dto.Note,
-		CreatedAt:  dto.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
-		UpdatedAt:  dto.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
-	}
-}
-
-// toCalendarEntryResponseFromDTO converts CalendarEntryDTO (value) to CalendarEntryResponse
-func toCalendarEntryResponseFromDTO(dto *appcalendar.CalendarEntryDTO) CalendarEntryResponse {
 	return CalendarEntryResponse{
 		EntryID:    dto.EntryID,
 		CalendarID: dto.CalendarID,
