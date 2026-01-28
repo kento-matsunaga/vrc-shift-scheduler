@@ -67,11 +67,12 @@ type CalendarResponse struct {
 	UpdatedAt   time.Time `json:"updated_at"`
 }
 
-// PublicCalendarResponse represents a public calendar with events
+// PublicCalendarResponse represents a public calendar with events and entries
 type PublicCalendarResponse struct {
-	Title       string                `json:"title"`
-	Description string                `json:"description"`
-	Events      []PublicEventResponse `json:"events"`
+	Title       string                       `json:"title"`
+	Description string                       `json:"description"`
+	Events      []PublicEventResponse        `json:"events"`
+	Entries     []appcalendar.CalendarEntryDTO `json:"entries"`
 }
 
 // PublicEventResponse represents an event in public calendar
@@ -351,6 +352,7 @@ func (h *CalendarHandler) GetByPublicToken(w http.ResponseWriter, r *http.Reques
 		Title:       output.Calendar.Title,
 		Description: output.Calendar.Description,
 		Events:      events,
+		Entries:     output.Entries,
 	})
 }
 

@@ -59,10 +59,11 @@ type CalendarOutput struct {
 	UpdatedAt   time.Time `json:"updated_at"`
 }
 
-// CalendarWithEventsOutput represents a calendar with its events
+// CalendarWithEventsOutput represents a calendar with its events and entries
 type CalendarWithEventsOutput struct {
-	Calendar CalendarOutput  `json:"calendar"`
-	Events   []EventOutput   `json:"events"`
+	Calendar CalendarOutput     `json:"calendar"`
+	Events   []EventOutput      `json:"events"`
+	Entries  []CalendarEntryDTO `json:"entries"`
 }
 
 // EventOutput represents event information for calendar display
