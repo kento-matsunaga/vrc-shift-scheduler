@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { acceptInvitation } from '../lib/api/invitationApi';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
-import { SEO } from '../components/seo/SEO';
+import { SEO } from '../components/seo';
 
 export default function AcceptInvitation() {
   const { token } = useParams<{ token: string }>();

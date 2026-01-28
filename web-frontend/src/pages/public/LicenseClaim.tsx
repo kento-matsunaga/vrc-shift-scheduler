@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { claimLicense } from '../../lib/api/billingApi';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
-import { SEO } from '../../components/seo/SEO';
+import { SEO } from '../../components/seo';
 
 export default function LicenseClaim() {
   const navigate = useNavigate();
