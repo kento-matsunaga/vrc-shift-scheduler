@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { SEO } from '@/components/seo/SEO';
 import {
   getAttendanceCollection,
   getAttendanceResponses,
@@ -388,6 +389,7 @@ export default function ShiftAdjustment() {
 
   return (
     <div className="max-w-7xl mx-auto">
+      <SEO noindex={true} />
       {/* パンくずリスト */}
       <nav className="mb-6 text-sm text-gray-600">
         <Link to="/attendance" className="hover:text-gray-900">

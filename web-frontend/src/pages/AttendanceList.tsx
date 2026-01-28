@@ -12,6 +12,7 @@ import { listRoles, type Role } from '../lib/api/roleApi';
 import { MobileCard, CardHeader, CardField } from '../components/MobileCard';
 import { DateRangePicker, type DateInput } from '../components/DateRangePicker';
 import { isValidTimeRange } from '../lib/timeUtils';
+import { SEO } from '../components/seo';
 
 export default function AttendanceList() {
   const navigate = useNavigate();
@@ -388,6 +389,7 @@ export default function AttendanceList() {
 
   return (
     <div className="max-w-6xl mx-auto">
+      <SEO noindex={true} />
       <div className="mb-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-gray-900">出欠確認</h1>

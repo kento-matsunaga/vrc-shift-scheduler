@@ -113,9 +113,10 @@ export default function Subscribe() {
         description={PAGE_SEO.subscribe.description}
         path={PAGE_SEO.subscribe.path}
         jsonLd={{
+          softwareApplication: true,
           breadcrumbs: [
             { name: 'ホーム', url: SEO_CONFIG.baseUrl },
-            { name: '新規登録' },
+            { name: 'プラン・料金' },
           ],
         }}
       />

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { login } from '../lib/api/authApi';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
+import { SEO } from '../components/seo/SEO';
 
 export default function AdminLogin() {
   const navigate = useNavigate();
@@ -63,8 +64,10 @@ export default function AdminLogin() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col">
-      {/* ヘッダー */}
+    <>
+      <SEO noindex={true} />
+      <div className="min-h-screen bg-gray-100 flex flex-col">
+        {/* ヘッダー */}
       <header className="bg-vrc-dark text-white shadow-soft">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <h1 className="text-xl font-bold">VRC Shift Scheduler</h1>
@@ -160,6 +163,7 @@ export default function AdminLogin() {
           </p>
         </div>
       </footer>
-    </div>
+      </div>
+    </>
   );
 }

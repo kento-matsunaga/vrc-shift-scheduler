@@ -3,6 +3,7 @@ import { useNavigate, useParams, Link } from 'react-router-dom';
 import { getTemplate, deleteTemplate } from '../lib/api/templateApi';
 import type { Template, TemplateItem } from '../types/api';
 import { ApiClientError } from '../lib/apiClient';
+import { SEO } from '@/components/seo/SEO';
 
 // インスタンスごとにグループ化した構造
 interface InstanceGroup {
@@ -126,6 +127,7 @@ export default function TemplateDetail() {
 
   return (
     <div className="max-w-4xl mx-auto p-6">
+      <SEO noindex={true} />
       {/* パンくずリスト */}
       <nav className="mb-6 text-sm text-gray-600">
         <Link to={`/events/${eventId}/templates`} className="hover:text-gray-900">

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
+import { SEO } from '../components/seo';
 import { getBusinessDayDetail, getShiftSlots, createShiftSlot, getAssignments, applyTemplateToBusinessDay } from '../lib/api';
 import { listTemplates } from '../lib/api/templateApi';
 import { listInstances, checkSlotsByInstanceDeletable, deleteSlotsByInstance, type CheckSlotsDeletableResponse } from '../lib/api/instanceApi';
@@ -266,6 +267,7 @@ export default function ShiftSlotList() {
 
   return (
     <div>
+      <SEO noindex={true} />
       {/* パンくずリスト */}
       <nav className="mb-6 text-sm text-gray-600">
         <Link to="/events" className="hover:text-gray-900">

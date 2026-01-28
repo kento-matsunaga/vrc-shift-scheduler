@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { SEO } from '@/components/seo/SEO';
 import { listSchedules, createSchedule, type Schedule } from '../lib/api/scheduleApi';
 import { getMemberGroups, type MemberGroup } from '../lib/api/memberGroupApi';
 import { MobileCard, CardHeader, CardField } from '../components/MobileCard';
@@ -220,6 +221,7 @@ export default function ScheduleList() {
 
   return (
     <div className="max-w-6xl mx-auto">
+      <SEO noindex={true} />
       <div className="mb-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-gray-900">日程調整</h1>

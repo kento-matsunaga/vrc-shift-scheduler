@@ -16,6 +16,7 @@ import { listRoles, type Role } from '../lib/api/roleApi';
 import { ApiClientError } from '../lib/apiClient';
 import { isValidTimeRange } from '../lib/timeUtils';
 import type { Member } from '../types/api';
+import { SEO } from '../components/seo';
 
 // ソートの種類
 type SortKey = 'name' | 'attending_count' | 'date_attending';
@@ -425,6 +426,7 @@ export default function AttendanceDetail() {
 
   return (
     <div className="max-w-7xl mx-auto">
+      <SEO noindex={true} />
       {/* パンくずリスト */}
       <nav className="mb-6 text-sm text-gray-600">
         <Link to="/attendance" className="hover:text-gray-900">
