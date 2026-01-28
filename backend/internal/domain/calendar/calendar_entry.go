@@ -63,8 +63,8 @@ func ReconstructCalendarEntry(
 	note string,
 	createdAt time.Time,
 	updatedAt time.Time,
-) *CalendarEntry {
-	return &CalendarEntry{
+) (*CalendarEntry, error) {
+	entry := &CalendarEntry{
 		entryID:    entryID,
 		calendarID: calendarID,
 		tenantID:   tenantID,
@@ -76,6 +76,12 @@ func ReconstructCalendarEntry(
 		createdAt:  createdAt,
 		updatedAt:  updatedAt,
 	}
+
+	if err := entry.validate(); err != nil {
+		return nil, err
+	}
+
+	return entry, nil
 }
 
 // validate checks invariants

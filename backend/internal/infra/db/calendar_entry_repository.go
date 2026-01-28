@@ -9,6 +9,7 @@ import (
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/calendar"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -70,8 +71,8 @@ func (r *CalendarEntryRepository) FindByID(ctx context.Context, tenantID common.
 		tenantIDStr   string
 		title         string
 		entryDate     time.Time
-		startTime     sql.NullTime
-		endTime       sql.NullTime
+		startTime     pgtype.Time
+		endTime       pgtype.Time
 		note          sql.NullString
 		createdAt     time.Time
 		updatedAt     time.Time
@@ -116,8 +117,8 @@ func (r *CalendarEntryRepository) FindByCalendarID(ctx context.Context, tenantID
 			tenantIDStr   string
 			title         string
 			entryDate     time.Time
-			startTime     sql.NullTime
-			endTime       sql.NullTime
+			startTime     pgtype.Time
+			endTime       pgtype.Time
 			note          sql.NullString
 			createdAt     time.Time
 			updatedAt     time.Time
@@ -165,8 +166,8 @@ func (r *CalendarEntryRepository) scanEntry(
 	tenantIDStr string,
 	title string,
 	entryDate time.Time,
-	startTime sql.NullTime,
-	endTime sql.NullTime,
+	startTime pgtype.Time,
+	endTime pgtype.Time,
 	note sql.NullString,
 	createdAt time.Time,
 	updatedAt time.Time,
@@ -188,10 +189,13 @@ func (r *CalendarEntryRepository) scanEntry(
 
 	var startTimePtr, endTimePtr *time.Time
 	if startTime.Valid {
-		startTimePtr = &startTime.Time
+		// pgtype.Time stores microseconds since midnight
+		t := time.Date(0, 1, 1, 0, 0, 0, 0, time.UTC).Add(time.Duration(startTime.Microseconds) * time.Microsecond)
+		startTimePtr = &t
 	}
 	if endTime.Valid {
-		endTimePtr = &endTime.Time
+		t := time.Date(0, 1, 1, 0, 0, 0, 0, time.UTC).Add(time.Duration(endTime.Microseconds) * time.Microsecond)
+		endTimePtr = &t
 	}
 
 	var noteStr string
@@ -210,5 +214,5 @@ func (r *CalendarEntryRepository) scanEntry(
 		noteStr,
 		createdAt,
 		updatedAt,
-	), nil
+	)
 }
