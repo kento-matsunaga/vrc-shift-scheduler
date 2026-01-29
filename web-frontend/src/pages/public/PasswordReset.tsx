@@ -134,10 +134,11 @@ export default function PasswordReset() {
           </div>
         </header>
 
-        <main className="flex-1 flex items-center justify-center p-4">
-          <div className="bg-white rounded-card shadow-soft max-w-md w-full p-10 border border-gray-200">
-            <div className="text-center">
-              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
+        <main className="flex-1 overflow-auto">
+          <div className="min-h-full flex items-center justify-center p-4">
+            <div className="bg-white rounded-card shadow-soft max-w-md w-full p-10 border border-gray-200">
+              <div className="text-center">
+                <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
                 <svg className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
@@ -154,6 +155,7 @@ export default function PasswordReset() {
               >
                 ログイン画面へ
               </button>
+              </div>
             </div>
           </div>
         </main>
@@ -180,11 +182,12 @@ export default function PasswordReset() {
         </div>
       </header>
 
-      <main className="flex-1 flex items-center justify-center p-4">
-        <div className="bg-white rounded-card shadow-soft max-w-md w-full p-10 border border-gray-200">
-          <div className="text-center mb-8">
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">
-              パスワードリセット
+      <main className="flex-1 overflow-auto">
+        <div className="min-h-full flex items-center justify-center p-4">
+          <div className="bg-white rounded-card shadow-soft max-w-md w-full p-10 border border-gray-200">
+            <div className="text-center mb-8">
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                パスワードリセット
             </h2>
             <p className="text-sm text-gray-500">
               オーナーから許可を受けた後、ライセンスキーで本人確認を行いパスワードをリセットします
@@ -321,6 +324,7 @@ export default function PasswordReset() {
               </button>
             </div>
           </form>
+          </div>
         </div>
       </main>
 

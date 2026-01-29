@@ -108,10 +108,11 @@ export default function LicenseClaim() {
         </header>
 
         {/* メインコンテンツ */}
-        <main className="flex-1 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-md max-w-md w-full p-8">
-            <div className="text-center mb-8">
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">登録完了！</h2>
+        <main className="flex-1 overflow-auto">
+          <div className="min-h-full flex items-center justify-center p-4">
+            <div className="bg-white rounded-lg shadow-md max-w-md w-full p-8">
+              <div className="text-center mb-8">
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">登録完了！</h2>
               <p className="text-sm text-gray-500">
                 アカウントが正常に作成されました。メールアドレスとパスワードでログインできます。
               </p>
@@ -122,6 +123,7 @@ export default function LicenseClaim() {
             >
               ログインへ
             </button>
+            </div>
           </div>
         </main>
 
@@ -150,11 +152,12 @@ export default function LicenseClaim() {
         </header>
 
         {/* メインコンテンツ */}
-        <main className="flex-1 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-md max-w-md w-full p-8">
-            <div className="text-center mb-8">
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                ライセンスキーで登録
+        <main className="flex-1 overflow-auto">
+          <div className="min-h-full flex items-center justify-center p-4">
+            <div className="bg-white rounded-lg shadow-md max-w-md w-full p-8">
+              <div className="text-center mb-8">
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                  ライセンスキーで登録
             </h2>
             <p className="text-sm text-gray-500">
               BOOTHで購入したライセンスキーを入力してアカウントを作成してください
@@ -298,8 +301,9 @@ export default function LicenseClaim() {
               </a>
             </div>
           </form>
-        </div>
-      </main>
+            </div>
+          </div>
+        </main>
 
         {/* フッター */}
         <footer className="bg-white border-t">
