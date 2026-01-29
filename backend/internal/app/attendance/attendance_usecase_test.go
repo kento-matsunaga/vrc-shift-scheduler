@@ -1034,3 +1034,444 @@ func TestAdminUpdateResponseUsecase_Execute_WithOptionalTimes(t *testing.T) {
 		t.Errorf("AvailableTo mismatch: got %v, want '18:00'", result.AvailableTo)
 	}
 }
+
+// =====================================================
+// CreateCollectionUsecase Role Tests (#113)
+// =====================================================
+
+func TestCreateCollectionUsecase_Execute_WithRoleAssignment(t *testing.T) {
+	tenantID := common.NewTenantID()
+	roleID := common.NewRoleID()
+	now := time.Now()
+
+	clock := &MockClock{
+		nowFunc: func() time.Time { return now },
+	}
+
+	repo := &MockAttendanceCollectionRepository{
+		saveFunc: func(ctx context.Context, c *attendance.AttendanceCollection) error {
+			return nil
+		},
+	}
+
+	roleRepo := &MockRoleRepository{
+		findByIDsFunc: func(ctx context.Context, tid common.TenantID, roleIDs []common.RoleID) ([]*role.Role, error) {
+			roles := make([]*role.Role, 0, len(roleIDs))
+			for _, rid := range roleIDs {
+				r, _ := role.ReconstructRole(rid, tid, "Test Role", "", "", 0, now, now, nil)
+				roles = append(roles, r)
+			}
+			return roles, nil
+		},
+	}
+	txManager := &MockTxManager{}
+
+	usecase := appattendance.NewCreateCollectionUsecase(repo, roleRepo, txManager, clock)
+
+	input := appattendance.CreateCollectionInput{
+		TenantID:    tenantID.String(),
+		Title:       "ロール割り当てテスト",
+		Description: "",
+		TargetType:  "event",
+		TargetID:    "",
+		RoleIDs:     []string{roleID.String()},
+	}
+
+	result, err := usecase.Execute(context.Background(), input)
+
+	if err != nil {
+		t.Fatalf("Execute() should succeed with role assignment, got error: %v", err)
+	}
+
+	if result == nil {
+		t.Fatal("Result should not be nil")
+	}
+
+	if result.Title != "ロール割り当てテスト" {
+		t.Errorf("Title mismatch: got %v", result.Title)
+	}
+}
+
+func TestCreateCollectionUsecase_Execute_WithMultipleRoles(t *testing.T) {
+	tenantID := common.NewTenantID()
+	roleID1 := common.NewRoleID()
+	roleID2 := common.NewRoleID()
+	roleID3 := common.NewRoleID()
+	now := time.Now()
+
+	clock := &MockClock{
+		nowFunc: func() time.Time { return now },
+	}
+
+	repo := &MockAttendanceCollectionRepository{
+		saveFunc: func(ctx context.Context, c *attendance.AttendanceCollection) error {
+			return nil
+		},
+	}
+
+	roleRepo := &MockRoleRepository{
+		findByIDsFunc: func(ctx context.Context, tid common.TenantID, roleIDs []common.RoleID) ([]*role.Role, error) {
+			roles := make([]*role.Role, 0, len(roleIDs))
+			for _, rid := range roleIDs {
+				r, _ := role.ReconstructRole(rid, tid, "Test Role", "", "", 0, now, now, nil)
+				roles = append(roles, r)
+			}
+			return roles, nil
+		},
+	}
+	txManager := &MockTxManager{}
+
+	usecase := appattendance.NewCreateCollectionUsecase(repo, roleRepo, txManager, clock)
+
+	input := appattendance.CreateCollectionInput{
+		TenantID:    tenantID.String(),
+		Title:       "複数ロール割り当てテスト",
+		Description: "",
+		TargetType:  "event",
+		TargetID:    "",
+		RoleIDs:     []string{roleID1.String(), roleID2.String(), roleID3.String()},
+	}
+
+	result, err := usecase.Execute(context.Background(), input)
+
+	if err != nil {
+		t.Fatalf("Execute() should succeed with multiple role assignments, got error: %v", err)
+	}
+
+	if result == nil {
+		t.Fatal("Result should not be nil")
+	}
+}
+
+func TestCreateCollectionUsecase_Execute_WithInvalidRoleID(t *testing.T) {
+	tenantID := common.NewTenantID()
+	nonExistentRoleID := common.NewRoleID()
+	now := time.Now()
+
+	clock := &MockClock{
+		nowFunc: func() time.Time { return now },
+	}
+
+	repo := &MockAttendanceCollectionRepository{
+		saveFunc: func(ctx context.Context, c *attendance.AttendanceCollection) error {
+			return nil
+		},
+	}
+
+	roleRepo := &MockRoleRepository{
+		findByIDsFunc: func(ctx context.Context, tid common.TenantID, roleIDs []common.RoleID) ([]*role.Role, error) {
+			return []*role.Role{}, nil
+		},
+	}
+	txManager := &MockTxManager{}
+
+	usecase := appattendance.NewCreateCollectionUsecase(repo, roleRepo, txManager, clock)
+
+	input := appattendance.CreateCollectionInput{
+		TenantID:    tenantID.String(),
+		Title:       "無効なロールIDテスト",
+		Description: "",
+		TargetType:  "event",
+		TargetID:    "",
+		RoleIDs:     []string{nonExistentRoleID.String()},
+	}
+
+	_, err := usecase.Execute(context.Background(), input)
+
+	if err == nil {
+		t.Fatal("Execute() should fail when role ID is invalid/not found")
+	}
+}
+
+func TestCreateCollectionUsecase_Execute_WithBothGroupAndRole(t *testing.T) {
+	tenantID := common.NewTenantID()
+	roleID := common.NewRoleID()
+	groupID := common.NewMemberGroupID()
+	now := time.Now()
+
+	clock := &MockClock{
+		nowFunc: func() time.Time { return now },
+	}
+
+	repo := &MockAttendanceCollectionRepository{
+		saveFunc: func(ctx context.Context, c *attendance.AttendanceCollection) error {
+			return nil
+		},
+	}
+
+	roleRepo := &MockRoleRepository{
+		findByIDsFunc: func(ctx context.Context, tid common.TenantID, roleIDs []common.RoleID) ([]*role.Role, error) {
+			roles := make([]*role.Role, 0, len(roleIDs))
+			for _, rid := range roleIDs {
+				r, _ := role.ReconstructRole(rid, tid, "Test Role", "", "", 0, now, now, nil)
+				roles = append(roles, r)
+			}
+			return roles, nil
+		},
+	}
+	txManager := &MockTxManager{}
+
+	usecase := appattendance.NewCreateCollectionUsecase(repo, roleRepo, txManager, clock)
+
+	input := appattendance.CreateCollectionInput{
+		TenantID:    tenantID.String(),
+		Title:       "グループとロール両方指定テスト",
+		Description: "",
+		TargetType:  "event",
+		TargetID:    "",
+		GroupIDs:    []string{groupID.String()},
+		RoleIDs:     []string{roleID.String()},
+	}
+
+	result, err := usecase.Execute(context.Background(), input)
+
+	if err != nil {
+		t.Fatalf("Execute() should succeed with both group and role, got error: %v", err)
+	}
+
+	if result == nil {
+		t.Fatal("Result should not be nil")
+	}
+}
+
+func TestCreateCollectionUsecase_Execute_WithoutRoleAssignment(t *testing.T) {
+	tenantID := common.NewTenantID()
+	now := time.Now()
+
+	clock := &MockClock{
+		nowFunc: func() time.Time { return now },
+	}
+
+	repo := &MockAttendanceCollectionRepository{
+		saveFunc: func(ctx context.Context, c *attendance.AttendanceCollection) error {
+			return nil
+		},
+	}
+
+	roleRepo := &MockRoleRepository{}
+	txManager := &MockTxManager{}
+
+	usecase := appattendance.NewCreateCollectionUsecase(repo, roleRepo, txManager, clock)
+
+	input := appattendance.CreateCollectionInput{
+		TenantID:    tenantID.String(),
+		Title:       "ロールなし（後方互換性）",
+		Description: "",
+		TargetType:  "event",
+		TargetID:    "",
+	}
+
+	result, err := usecase.Execute(context.Background(), input)
+
+	if err != nil {
+		t.Fatalf("Execute() should succeed without role assignment (backward compatibility), got error: %v", err)
+	}
+
+	if result == nil {
+		t.Fatal("Result should not be nil")
+	}
+}
+
+// =====================================================
+// GetAllPublicResponsesUsecase Tests (#133)
+// =====================================================
+
+func TestGetAllPublicResponsesUsecase_Execute_Success(t *testing.T) {
+	tenantID := common.NewTenantID()
+	memberID := common.NewMemberID()
+	now := time.Now()
+	testCollection := createTestCollection(t, tenantID)
+	targetDateID := common.NewTargetDateID()
+
+	testResponse, err := attendance.NewAttendanceResponse(
+		now,
+		testCollection.CollectionID(),
+		tenantID,
+		memberID,
+		targetDateID,
+		attendance.ResponseTypeAttending,
+		"テストノート",
+		nil,
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("Failed to create test response: %v", err)
+	}
+
+	repo := &MockAttendanceCollectionRepository{
+		findByPublicTokenFunc: func(ctx context.Context, token common.PublicToken) (*attendance.AttendanceCollection, error) {
+			return testCollection, nil
+		},
+		findResponsesByCollectionIDFunc: func(ctx context.Context, collectionID common.CollectionID) ([]*attendance.AttendanceResponse, error) {
+			return []*attendance.AttendanceResponse{testResponse}, nil
+		},
+	}
+
+	memberRepo := &MockMemberRepository{
+		findByTenantIDFunc: func(ctx context.Context, tid common.TenantID) ([]*member.Member, error) {
+			m, _ := member.ReconstructMember(memberID, tid, "テストメンバー", "", "", true, now, now, nil)
+			return []*member.Member{m}, nil
+		},
+	}
+
+	usecase := appattendance.NewGetAllPublicResponsesUsecase(repo, memberRepo)
+
+	input := appattendance.GetAllPublicResponsesInput{
+		PublicToken: testCollection.PublicToken().String(),
+	}
+
+	result, err := usecase.Execute(context.Background(), input)
+
+	if err != nil {
+		t.Fatalf("Execute() should succeed, got error: %v", err)
+	}
+
+	if result == nil {
+		t.Fatal("Result should not be nil")
+	}
+
+	if len(result.Responses) != 1 {
+		t.Errorf("Expected 1 response, got %d", len(result.Responses))
+	}
+
+	if result.Responses[0].MemberName != "テストメンバー" {
+		t.Errorf("MemberName mismatch: got %v, want 'テストメンバー'", result.Responses[0].MemberName)
+	}
+}
+
+func TestGetAllPublicResponsesUsecase_Execute_InvalidToken(t *testing.T) {
+	repo := &MockAttendanceCollectionRepository{}
+	memberRepo := &MockMemberRepository{}
+
+	usecase := appattendance.NewGetAllPublicResponsesUsecase(repo, memberRepo)
+
+	input := appattendance.GetAllPublicResponsesInput{
+		PublicToken: "invalid-token-format",
+	}
+
+	_, err := usecase.Execute(context.Background(), input)
+
+	if err == nil {
+		t.Fatal("Execute() should fail with invalid token format")
+	}
+}
+
+func TestGetAllPublicResponsesUsecase_Execute_NotFoundToken(t *testing.T) {
+	repo := &MockAttendanceCollectionRepository{
+		findByPublicTokenFunc: func(ctx context.Context, token common.PublicToken) (*attendance.AttendanceCollection, error) {
+			return nil, common.NewNotFoundError("AttendanceCollection", token.String())
+		},
+	}
+	memberRepo := &MockMemberRepository{}
+
+	usecase := appattendance.NewGetAllPublicResponsesUsecase(repo, memberRepo)
+
+	validToken := common.NewPublicToken()
+	input := appattendance.GetAllPublicResponsesInput{
+		PublicToken: validToken.String(),
+	}
+
+	_, err := usecase.Execute(context.Background(), input)
+
+	if err == nil {
+		t.Fatal("Execute() should fail when token is not found")
+	}
+}
+
+func TestGetAllPublicResponsesUsecase_Execute_EmptyResponses(t *testing.T) {
+	tenantID := common.NewTenantID()
+	testCollection := createTestCollection(t, tenantID)
+
+	repo := &MockAttendanceCollectionRepository{
+		findByPublicTokenFunc: func(ctx context.Context, token common.PublicToken) (*attendance.AttendanceCollection, error) {
+			return testCollection, nil
+		},
+		findResponsesByCollectionIDFunc: func(ctx context.Context, collectionID common.CollectionID) ([]*attendance.AttendanceResponse, error) {
+			return []*attendance.AttendanceResponse{}, nil
+		},
+	}
+
+	memberRepo := &MockMemberRepository{
+		findByTenantIDFunc: func(ctx context.Context, tid common.TenantID) ([]*member.Member, error) {
+			return []*member.Member{}, nil
+		},
+	}
+
+	usecase := appattendance.NewGetAllPublicResponsesUsecase(repo, memberRepo)
+
+	input := appattendance.GetAllPublicResponsesInput{
+		PublicToken: testCollection.PublicToken().String(),
+	}
+
+	result, err := usecase.Execute(context.Background(), input)
+
+	if err != nil {
+		t.Fatalf("Execute() should succeed even with empty responses, got error: %v", err)
+	}
+
+	if result == nil {
+		t.Fatal("Result should not be nil")
+	}
+
+	if len(result.Responses) != 0 {
+		t.Errorf("Expected 0 responses, got %d", len(result.Responses))
+	}
+}
+
+func TestGetAllPublicResponsesUsecase_Execute_MemberNotFound(t *testing.T) {
+	tenantID := common.NewTenantID()
+	memberID := common.NewMemberID()
+	now := time.Now()
+	testCollection := createTestCollection(t, tenantID)
+	targetDateID := common.NewTargetDateID()
+
+	testResponse, err := attendance.NewAttendanceResponse(
+		now,
+		testCollection.CollectionID(),
+		tenantID,
+		memberID,
+		targetDateID,
+		attendance.ResponseTypeAttending,
+		"",
+		nil,
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("Failed to create test response: %v", err)
+	}
+
+	repo := &MockAttendanceCollectionRepository{
+		findByPublicTokenFunc: func(ctx context.Context, token common.PublicToken) (*attendance.AttendanceCollection, error) {
+			return testCollection, nil
+		},
+		findResponsesByCollectionIDFunc: func(ctx context.Context, collectionID common.CollectionID) ([]*attendance.AttendanceResponse, error) {
+			return []*attendance.AttendanceResponse{testResponse}, nil
+		},
+	}
+
+	memberRepo := &MockMemberRepository{
+		findByTenantIDFunc: func(ctx context.Context, tid common.TenantID) ([]*member.Member, error) {
+			return []*member.Member{}, nil
+		},
+	}
+
+	usecase := appattendance.NewGetAllPublicResponsesUsecase(repo, memberRepo)
+
+	input := appattendance.GetAllPublicResponsesInput{
+		PublicToken: testCollection.PublicToken().String(),
+	}
+
+	result, err := usecase.Execute(context.Background(), input)
+
+	if err != nil {
+		t.Fatalf("Execute() should succeed even when member not found (fallback to ID), got error: %v", err)
+	}
+
+	if result == nil {
+		t.Fatal("Result should not be nil")
+	}
+
+	if result.Responses[0].MemberName != memberID.String() {
+		t.Errorf("MemberName should fallback to MemberID when member not found: got %v, want %v", result.Responses[0].MemberName, memberID.String())
+	}
+}
