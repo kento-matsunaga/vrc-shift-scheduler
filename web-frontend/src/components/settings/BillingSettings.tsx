@@ -13,6 +13,14 @@ export function BillingSettings() {
     loadBillingStatus();
   }, []);
 
+  // エラーメッセージの自動クリア（メモリリーク防止）
+  useEffect(() => {
+    if (error) {
+      const timer = setTimeout(() => setError(''), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [error]);
+
   const loadBillingStatus = async () => {
     try {
       setLoading(true);
