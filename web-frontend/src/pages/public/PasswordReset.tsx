@@ -205,7 +205,7 @@ export default function PasswordReset() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="admin@example.com"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 shadow-inset-input focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg text-base text-gray-900 placeholder-gray-400 shadow-inset-input focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition"
                 disabled={loading}
                 autoFocus
               />
@@ -235,7 +235,7 @@ export default function PasswordReset() {
                 value={licenseKey}
                 onChange={(e) => setLicenseKey(e.target.value)}
                 placeholder="XXXX-XXXX-XXXX-XXXX"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 shadow-inset-input focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition font-mono"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg text-base text-gray-900 placeholder-gray-400 shadow-inset-input focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition font-mono"
                 disabled={loading}
               />
               <p className="mt-1 text-sm text-gray-500">
@@ -253,7 +253,7 @@ export default function PasswordReset() {
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 placeholder="8文字以上"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 shadow-inset-input focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg text-base text-gray-900 placeholder-gray-400 shadow-inset-input focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition"
                 disabled={loading}
               />
               {/* Password strength indicator */}
@@ -285,7 +285,7 @@ export default function PasswordReset() {
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="もう一度入力"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 shadow-inset-input focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg text-base text-gray-900 placeholder-gray-400 shadow-inset-input focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition"
                 disabled={loading}
               />
             </div>
