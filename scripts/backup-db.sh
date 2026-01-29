@@ -15,6 +15,9 @@
 #
 # Cron setup:
 #   0 4 * * * /opt/vrcshift/scripts/backup-db.sh >> /var/log/db-backup.log 2>&1
+#
+# Logrotate setup (to manage log file size):
+#   sudo cp scripts/logrotate.d/db-backup /etc/logrotate.d/db-backup
 
 set -euo pipefail
 
