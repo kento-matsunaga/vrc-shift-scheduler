@@ -145,6 +145,41 @@ func (m *mockBusinessDayRepository) FindRecentByEventID(ctx context.Context, ten
 	return nil, nil
 }
 
+type mockCalendarEntryRepository struct {
+	saveFunc           func(ctx context.Context, entry *calendar.CalendarEntry) error
+	findByIDFunc       func(ctx context.Context, tenantID common.TenantID, entryID common.CalendarEntryID) (*calendar.CalendarEntry, error)
+	findByCalendarIDFunc func(ctx context.Context, tenantID common.TenantID, calendarID common.CalendarID) ([]*calendar.CalendarEntry, error)
+	deleteFunc         func(ctx context.Context, tenantID common.TenantID, entryID common.CalendarEntryID) error
+}
+
+func (m *mockCalendarEntryRepository) Save(ctx context.Context, entry *calendar.CalendarEntry) error {
+	if m.saveFunc != nil {
+		return m.saveFunc(ctx, entry)
+	}
+	return nil
+}
+
+func (m *mockCalendarEntryRepository) FindByID(ctx context.Context, tenantID common.TenantID, entryID common.CalendarEntryID) (*calendar.CalendarEntry, error) {
+	if m.findByIDFunc != nil {
+		return m.findByIDFunc(ctx, tenantID, entryID)
+	}
+	return nil, nil
+}
+
+func (m *mockCalendarEntryRepository) FindByCalendarID(ctx context.Context, tenantID common.TenantID, calendarID common.CalendarID) ([]*calendar.CalendarEntry, error) {
+	if m.findByCalendarIDFunc != nil {
+		return m.findByCalendarIDFunc(ctx, tenantID, calendarID)
+	}
+	return nil, nil
+}
+
+func (m *mockCalendarEntryRepository) Delete(ctx context.Context, tenantID common.TenantID, entryID common.CalendarEntryID) error {
+	if m.deleteFunc != nil {
+		return m.deleteFunc(ctx, tenantID, entryID)
+	}
+	return nil
+}
+
 // =============================================================================
 // Test Helpers
 // =============================================================================
@@ -637,7 +672,9 @@ func TestGetCalendarByTokenUsecase_Success(t *testing.T) {
 		},
 	}
 
-	uc := appcalendar.NewGetCalendarByTokenUsecase(mockCalRepo, mockEventRepo, mockBdRepo)
+	mockEntryRepo := &mockCalendarEntryRepository{}
+
+	uc := appcalendar.NewGetCalendarByTokenUsecase(mockCalRepo, mockEventRepo, mockBdRepo, mockEntryRepo)
 
 	input := appcalendar.GetCalendarByTokenInput{
 		Token: testCalendar.PublicToken().String(),
@@ -674,8 +711,9 @@ func TestGetCalendarByTokenUsecase_ErrorWhenCalendarNotPublic(t *testing.T) {
 
 	mockEventRepo := &mockEventRepository{}
 	mockBdRepo := &mockBusinessDayRepository{}
+	mockEntryRepo := &mockCalendarEntryRepository{}
 
-	uc := appcalendar.NewGetCalendarByTokenUsecase(mockCalRepo, mockEventRepo, mockBdRepo)
+	uc := appcalendar.NewGetCalendarByTokenUsecase(mockCalRepo, mockEventRepo, mockBdRepo, mockEntryRepo)
 
 	// Use a valid UUID token
 	validToken := common.NewPublicToken()
@@ -705,8 +743,9 @@ func TestGetCalendarByTokenUsecase_ErrorWhenTokenNotFound(t *testing.T) {
 
 	mockEventRepo := &mockEventRepository{}
 	mockBdRepo := &mockBusinessDayRepository{}
+	mockEntryRepo := &mockCalendarEntryRepository{}
 
-	uc := appcalendar.NewGetCalendarByTokenUsecase(mockCalRepo, mockEventRepo, mockBdRepo)
+	uc := appcalendar.NewGetCalendarByTokenUsecase(mockCalRepo, mockEventRepo, mockBdRepo, mockEntryRepo)
 
 	validToken := common.NewPublicToken()
 	input := appcalendar.GetCalendarByTokenInput{
@@ -727,8 +766,9 @@ func TestGetCalendarByTokenUsecase_ErrorWhenInvalidToken(t *testing.T) {
 	mockCalRepo := &mockCalendarRepository{}
 	mockEventRepo := &mockEventRepository{}
 	mockBdRepo := &mockBusinessDayRepository{}
+	mockEntryRepo := &mockCalendarEntryRepository{}
 
-	uc := appcalendar.NewGetCalendarByTokenUsecase(mockCalRepo, mockEventRepo, mockBdRepo)
+	uc := appcalendar.NewGetCalendarByTokenUsecase(mockCalRepo, mockEventRepo, mockBdRepo, mockEntryRepo)
 
 	input := appcalendar.GetCalendarByTokenInput{
 		Token: "invalid-token",

@@ -193,6 +193,7 @@ type GetCalendarByTokenUsecase struct {
 	calendarRepo    calendar.Repository
 	eventRepo       event.EventRepository
 	businessDayRepo event.EventBusinessDayRepository
+	entryRepo       calendar.CalendarEntryRepository
 }
 
 // NewGetCalendarByTokenUsecase creates a new GetCalendarByTokenUsecase
@@ -200,11 +201,13 @@ func NewGetCalendarByTokenUsecase(
 	calendarRepo calendar.Repository,
 	eventRepo event.EventRepository,
 	businessDayRepo event.EventBusinessDayRepository,
+	entryRepo calendar.CalendarEntryRepository,
 ) *GetCalendarByTokenUsecase {
 	return &GetCalendarByTokenUsecase{
 		calendarRepo:    calendarRepo,
 		eventRepo:       eventRepo,
 		businessDayRepo: businessDayRepo,
+		entryRepo:       entryRepo,
 	}
 }
 
@@ -233,9 +236,16 @@ func (u *GetCalendarByTokenUsecase) Execute(ctx context.Context, input GetCalend
 		return nil, err
 	}
 
+	// Get calendar entries
+	entries, err := u.entryRepo.FindByCalendarID(ctx, cal.TenantID(), cal.CalendarID())
+	if err != nil {
+		return nil, err
+	}
+
 	return &CalendarWithEventsOutput{
 		Calendar: *toCalendarOutput(cal),
 		Events:   events,
+		Entries:  NewCalendarEntryDTOList(entries),
 	}, nil
 }
 

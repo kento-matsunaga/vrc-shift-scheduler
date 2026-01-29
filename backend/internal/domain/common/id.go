@@ -708,3 +708,35 @@ func ParseCalendarID(s string) (CalendarID, error) {
 	}
 	return CalendarID(s), nil
 }
+
+// CalendarEntryID represents a calendar entry identifier
+type CalendarEntryID string
+
+// NewCalendarEntryIDWithTime creates a new CalendarEntryID using the provided time.
+func NewCalendarEntryIDWithTime(t time.Time) CalendarEntryID {
+	return CalendarEntryID(NewULIDWithTime(t))
+}
+
+// NewCalendarEntryID creates a new CalendarEntryID using the current time.
+// Deprecated: Use NewCalendarEntryIDWithTime for better testability.
+func NewCalendarEntryID() CalendarEntryID {
+	return CalendarEntryID(NewULID())
+}
+
+func (id CalendarEntryID) String() string {
+	return string(id)
+}
+
+func (id CalendarEntryID) Validate() error {
+	if id == "" {
+		return NewValidationError("calendar_entry_id is required", nil)
+	}
+	return ValidateULID(string(id))
+}
+
+func ParseCalendarEntryID(s string) (CalendarEntryID, error) {
+	if err := ValidateULID(s); err != nil {
+		return "", err
+	}
+	return CalendarEntryID(s), nil
+}
