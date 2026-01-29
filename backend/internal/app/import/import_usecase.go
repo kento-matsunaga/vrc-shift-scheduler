@@ -15,6 +15,7 @@ import (
 // MemberRepository defines the interface for member persistence
 type MemberRepository interface {
 	Save(ctx context.Context, member *member.Member) error
+	SaveBatch(ctx context.Context, members []*member.Member) error
 	FindByTenantID(ctx context.Context, tenantID common.TenantID) ([]*member.Member, error)
 	FindByDisplayName(ctx context.Context, tenantID common.TenantID, displayName string) (*member.Member, error)
 }
@@ -142,6 +143,9 @@ func (uc *ImportMembersUsecase) Execute(ctx context.Context, input ImportMembers
 		existingNames[m.DisplayName()] = m
 	}
 
+	// Collect new members for batch insert
+	var newMembers []*member.Member
+
 	// Process each row
 	for _, row := range rows {
 		// Validate row
@@ -192,15 +196,28 @@ func (uc *ImportMembersUsecase) Execute(ctx context.Context, input ImportMembers
 			continue
 		}
 
-		// Save member
-		if err := uc.memberRepo.Save(ctx, newMember); err != nil {
-			job.RecordError(row.RowNumber, fmt.Sprintf("保存エラー: %v", err))
-			continue
-		}
+		// Add to batch for later insert
+		newMembers = append(newMembers, newMember)
 
 		// Add to existing names for duplicate detection within same import
 		existingNames[effectiveDisplayName] = newMember
 		job.RecordSuccess()
+	}
+
+	// Batch insert all new members
+	if len(newMembers) > 0 {
+		if err := uc.memberRepo.SaveBatch(ctx, newMembers); err != nil {
+			_ = job.Fail(time.Now(), fmt.Sprintf("バッチ保存エラー: %v", err))
+			_ = uc.importJobRepo.Update(ctx, job)
+			return &ImportMembersOutput{
+				ImportJobID:  job.ImportJobID(),
+				Status:       job.Status(),
+				TotalRows:    job.TotalRows(),
+				SuccessCount: 0,
+				ErrorCount:   job.ErrorCount() + 1,
+				Errors:       job.ErrorDetails(),
+			}, nil
+		}
 	}
 
 	// Complete job
