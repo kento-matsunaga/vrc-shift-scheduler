@@ -33,11 +33,12 @@ func (m *MockClock) Now() time.Time {
 // =====================================================
 
 type MockAttendanceCollectionRepository struct {
-	saveFunc                 func(ctx context.Context, c *attendance.AttendanceCollection) error
-	findByIDFunc             func(ctx context.Context, tenantID common.TenantID, collectionID common.CollectionID) (*attendance.AttendanceCollection, error)
-	findByPublicTokenFunc    func(ctx context.Context, token common.PublicToken) (*attendance.AttendanceCollection, error)
-	saveTargetDatesFunc      func(ctx context.Context, collectionID common.CollectionID, dates []*attendance.TargetDate) error
-	saveGroupAssignmentsFunc func(ctx context.Context, collectionID common.CollectionID, assignments []*attendance.CollectionGroupAssignment) error
+	saveFunc                        func(ctx context.Context, c *attendance.AttendanceCollection) error
+	findByIDFunc                    func(ctx context.Context, tenantID common.TenantID, collectionID common.CollectionID) (*attendance.AttendanceCollection, error)
+	findByPublicTokenFunc           func(ctx context.Context, token common.PublicToken) (*attendance.AttendanceCollection, error)
+	saveTargetDatesFunc             func(ctx context.Context, collectionID common.CollectionID, dates []*attendance.TargetDate) error
+	saveGroupAssignmentsFunc        func(ctx context.Context, collectionID common.CollectionID, assignments []*attendance.CollectionGroupAssignment) error
+	findResponsesByCollectionIDFunc func(ctx context.Context, collectionID common.CollectionID) ([]*attendance.AttendanceResponse, error)
 }
 
 func (m *MockAttendanceCollectionRepository) Save(ctx context.Context, c *attendance.AttendanceCollection) error {
@@ -91,6 +92,9 @@ func (m *MockAttendanceCollectionRepository) UpsertResponse(ctx context.Context,
 }
 
 func (m *MockAttendanceCollectionRepository) FindResponsesByCollectionID(ctx context.Context, collectionID common.CollectionID) ([]*attendance.AttendanceResponse, error) {
+	if m.findResponsesByCollectionIDFunc != nil {
+		return m.findResponsesByCollectionIDFunc(ctx, collectionID)
+	}
 	return nil, nil
 }
 
@@ -178,8 +182,9 @@ func TestCreateCollectionUsecase_Execute_Success(t *testing.T) {
 	}
 
 	roleRepo := &MockRoleRepository{}
+	txManager := &MockTxManager{}
 
-	usecase := appattendance.NewCreateCollectionUsecase(repo, roleRepo, clock)
+	usecase := appattendance.NewCreateCollectionUsecase(repo, roleRepo, txManager, clock)
 
 	input := appattendance.CreateCollectionInput{
 		TenantID:    tenantID.String(),
@@ -228,8 +233,9 @@ func TestCreateCollectionUsecase_Execute_WithDeadline(t *testing.T) {
 	}
 
 	roleRepo := &MockRoleRepository{}
+	txManager := &MockTxManager{}
 
-	usecase := appattendance.NewCreateCollectionUsecase(repo, roleRepo, clock)
+	usecase := appattendance.NewCreateCollectionUsecase(repo, roleRepo, txManager, clock)
 
 	input := appattendance.CreateCollectionInput{
 		TenantID:    tenantID.String(),
@@ -261,8 +267,9 @@ func TestCreateCollectionUsecase_Execute_ErrorWhenTitleEmpty(t *testing.T) {
 
 	repo := &MockAttendanceCollectionRepository{}
 	roleRepo := &MockRoleRepository{}
+	txManager := &MockTxManager{}
 
-	usecase := appattendance.NewCreateCollectionUsecase(repo, roleRepo, clock)
+	usecase := appattendance.NewCreateCollectionUsecase(repo, roleRepo, txManager, clock)
 
 	input := appattendance.CreateCollectionInput{
 		TenantID:    tenantID.String(),
@@ -289,8 +296,9 @@ func TestCreateCollectionUsecase_Execute_ErrorWhenInvalidTargetType(t *testing.T
 
 	repo := &MockAttendanceCollectionRepository{}
 	roleRepo := &MockRoleRepository{}
+	txManager := &MockTxManager{}
 
-	usecase := appattendance.NewCreateCollectionUsecase(repo, roleRepo, clock)
+	usecase := appattendance.NewCreateCollectionUsecase(repo, roleRepo, txManager, clock)
 
 	input := appattendance.CreateCollectionInput{
 		TenantID:    tenantID.String(),
@@ -321,8 +329,9 @@ func TestCreateCollectionUsecase_Execute_ErrorWhenSaveFails(t *testing.T) {
 		},
 	}
 	roleRepo := &MockRoleRepository{}
+	txManager := &MockTxManager{}
 
-	usecase := appattendance.NewCreateCollectionUsecase(repo, roleRepo, clock)
+	usecase := appattendance.NewCreateCollectionUsecase(repo, roleRepo, txManager, clock)
 
 	input := appattendance.CreateCollectionInput{
 		TenantID:    tenantID.String(),
@@ -348,8 +357,9 @@ func TestCreateCollectionUsecase_Execute_ErrorWhenInvalidTenantID(t *testing.T) 
 
 	repo := &MockAttendanceCollectionRepository{}
 	roleRepo := &MockRoleRepository{}
+	txManager := &MockTxManager{}
 
-	usecase := appattendance.NewCreateCollectionUsecase(repo, roleRepo, clock)
+	usecase := appattendance.NewCreateCollectionUsecase(repo, roleRepo, txManager, clock)
 
 	input := appattendance.CreateCollectionInput{
 		TenantID:    "invalid-tenant-id", // Invalid tenant ID format
@@ -391,8 +401,9 @@ func TestCreateCollectionUsecase_Execute_WithTargetDates(t *testing.T) {
 		},
 	}
 	roleRepo := &MockRoleRepository{}
+	txManager := &MockTxManager{}
 
-	usecase := appattendance.NewCreateCollectionUsecase(repo, roleRepo, clock)
+	usecase := appattendance.NewCreateCollectionUsecase(repo, roleRepo, txManager, clock)
 
 	input := appattendance.CreateCollectionInput{
 		TenantID:    tenantID.String(),
@@ -428,8 +439,9 @@ func TestCreateCollectionUsecase_Execute_BusinessDayTarget(t *testing.T) {
 		},
 	}
 	roleRepo := &MockRoleRepository{}
+	txManager := &MockTxManager{}
 
-	usecase := appattendance.NewCreateCollectionUsecase(repo, roleRepo, clock)
+	usecase := appattendance.NewCreateCollectionUsecase(repo, roleRepo, txManager, clock)
 
 	input := appattendance.CreateCollectionInput{
 		TenantID:    tenantID.String(),
@@ -624,7 +636,8 @@ func (m *MockTxManager) WithTx(ctx context.Context, fn func(context.Context) err
 // =====================================================
 
 type MockMemberRepository struct {
-	findByIDFunc func(ctx context.Context, tenantID common.TenantID, memberID common.MemberID) (*member.Member, error)
+	findByIDFunc       func(ctx context.Context, tenantID common.TenantID, memberID common.MemberID) (*member.Member, error)
+	findByTenantIDFunc func(ctx context.Context, tenantID common.TenantID) ([]*member.Member, error)
 }
 
 func (m *MockMemberRepository) Save(ctx context.Context, mem *member.Member) error {
@@ -640,6 +653,9 @@ func (m *MockMemberRepository) FindByID(ctx context.Context, tenantID common.Ten
 }
 
 func (m *MockMemberRepository) FindByTenantID(ctx context.Context, tenantID common.TenantID) ([]*member.Member, error) {
+	if m.findByTenantIDFunc != nil {
+		return m.findByTenantIDFunc(ctx, tenantID)
+	}
 	return nil, nil
 }
 

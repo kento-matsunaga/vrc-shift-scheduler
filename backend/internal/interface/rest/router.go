@@ -253,7 +253,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		systemClock := &clock.RealClock{}
 		txManager := db.NewPgxTxManager(dbPool)
 		attendanceHandler := NewAttendanceHandler(
-			appattendance.NewCreateCollectionUsecase(attendanceRepo, roleRepo, systemClock),
+			appattendance.NewCreateCollectionUsecase(attendanceRepo, roleRepo, txManager, systemClock),
 			appattendance.NewSubmitResponseUsecase(attendanceRepo, txManager, systemClock),
 			appattendance.NewCloseCollectionUsecase(attendanceRepo, systemClock),
 			appattendance.NewDeleteCollectionUsecase(attendanceRepo, systemClock),
@@ -720,7 +720,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		publicMemberRepoForAttendance := db.NewMemberRepository(dbPool)
 		publicRoleRepoForAttendance := db.NewRoleRepository(dbPool)
 		publicAttendanceHandler := NewAttendanceHandler(
-			appattendance.NewCreateCollectionUsecase(publicAttendanceRepoForHandler, publicRoleRepoForAttendance, publicClock),
+			appattendance.NewCreateCollectionUsecase(publicAttendanceRepoForHandler, publicRoleRepoForAttendance, publicTxManager, publicClock),
 			appattendance.NewSubmitResponseUsecase(publicAttendanceRepoForHandler, publicTxManager, publicClock),
 			appattendance.NewCloseCollectionUsecase(publicAttendanceRepoForHandler, publicClock),
 			appattendance.NewDeleteCollectionUsecase(publicAttendanceRepoForHandler, publicClock),
