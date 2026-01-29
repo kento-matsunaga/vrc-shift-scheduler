@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { changePassword, changeEmail } from '../../lib/api';
 import { ApiClientError } from '../../lib/apiClient';
 
@@ -18,6 +18,35 @@ export function AccountSettings() {
   const [changingEmail, setChangingEmail] = useState(false);
   const [emailError, setEmailError] = useState('');
   const [emailSuccess, setEmailSuccess] = useState('');
+
+  // REV-002: Auto-clear success/error messages with cleanup
+  useEffect(() => {
+    if (passwordSuccess) {
+      const timer = setTimeout(() => setPasswordSuccess(''), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [passwordSuccess]);
+
+  useEffect(() => {
+    if (passwordError) {
+      const timer = setTimeout(() => setPasswordError(''), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [passwordError]);
+
+  useEffect(() => {
+    if (emailSuccess) {
+      const timer = setTimeout(() => setEmailSuccess(''), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [emailSuccess]);
+
+  useEffect(() => {
+    if (emailError) {
+      const timer = setTimeout(() => setEmailError(''), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [emailError]);
 
   // Password change handler
   const handleChangePassword = async (e: React.FormEvent) => {
@@ -145,13 +174,13 @@ export function AccountSettings() {
         </h2>
 
         {passwordError && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+          <div role="alert" className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
             <p className="text-sm text-red-800">{passwordError}</p>
           </div>
         )}
 
         {passwordSuccess && (
-          <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
+          <div role="status" className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
             <p className="text-sm text-green-800">{passwordSuccess}</p>
           </div>
         )}
@@ -223,13 +252,13 @@ export function AccountSettings() {
         </h2>
 
         {emailError && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+          <div role="alert" className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
             <p className="text-sm text-red-800">{emailError}</p>
           </div>
         )}
 
         {emailSuccess && (
-          <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
+          <div role="status" className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
             <p className="text-sm text-green-800">{emailSuccess}</p>
           </div>
         )}
