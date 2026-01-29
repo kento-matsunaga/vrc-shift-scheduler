@@ -16,6 +16,14 @@ export function OrganizationSettings() {
     loadTenant();
   }, []);
 
+  // REV-002: setTimeout メモリリーク修正
+  useEffect(() => {
+    if (success) {
+      const timer = setTimeout(() => setSuccess(''), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [success]);
+
   const loadTenant = async () => {
     try {
       setLoading(true);
@@ -40,6 +48,12 @@ export function OrganizationSettings() {
       return;
     }
 
+    // REV-005: 組織名255文字制限
+    if (tenantName.trim().length > 255) {
+      setError('組織名は255文字以内で入力してください');
+      return;
+    }
+
     setSavingTenant(true);
     setError('');
 
@@ -48,7 +62,6 @@ export function OrganizationSettings() {
       setTenant(updated);
       setEditingTenantName(false);
       setSuccess('組織名を更新しました');
-      setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       if (err instanceof ApiClientError) {
         setError(err.getUserMessage());
@@ -88,13 +101,13 @@ export function OrganizationSettings() {
         </h2>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+          <div role="alert" className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
             <p className="text-sm text-red-800">{error}</p>
           </div>
         )}
 
         {success && (
-          <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
+          <div role="status" className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
             <p className="text-sm text-green-800">{success}</p>
           </div>
         )}
