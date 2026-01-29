@@ -279,6 +279,22 @@ func (r *ShiftAssignmentRepository) HasConfirmedByMemberAndBusinessDayID(ctx con
 	return exists, nil
 }
 
+// FindByBusinessDayID finds all shift assignments for a business day
+func (r *ShiftAssignmentRepository) FindByBusinessDayID(ctx context.Context, tenantID common.TenantID, businessDayID string) ([]*shift.ShiftAssignment, error) {
+	query := `
+		SELECT
+			sa.assignment_id, sa.tenant_id, sa.plan_id, sa.slot_id, sa.member_id,
+			sa.assignment_status, sa.assignment_method, sa.is_outside_preference,
+			sa.assigned_at, sa.cancelled_at, sa.created_at, sa.updated_at, sa.deleted_at
+		FROM shift_assignments sa
+		INNER JOIN shift_slots ss ON sa.slot_id = ss.slot_id AND ss.deleted_at IS NULL
+		WHERE sa.tenant_id = $1 AND ss.business_day_id = $2 AND sa.deleted_at IS NULL
+		ORDER BY ss.start_time ASC, sa.assigned_at ASC
+	`
+
+	return r.queryShiftAssignments(ctx, query, tenantID.String(), businessDayID)
+}
+
 // queryShiftAssignments executes a query and returns a list of shift assignments
 func (r *ShiftAssignmentRepository) queryShiftAssignments(ctx context.Context, query string, args ...interface{}) ([]*shift.ShiftAssignment, error) {
 	rows, err := r.db.Query(ctx, query, args...)
