@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"time"
 
 	appAuth "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/auth"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/auth"
@@ -145,7 +144,6 @@ func (h *PasswordResetHandler) CheckPasswordResetStatus(w http.ResponseWriter, r
 	if h.rateLimiter != nil {
 		clientIP := getClientIP(r)
 		if !h.rateLimiter.Allow(clientIP) {
-			time.Sleep(1 * time.Second) // Delay to slow down attackers
 			RespondError(w, http.StatusTooManyRequests, "ERR_RATE_LIMITED",
 				"リクエストが多すぎます。しばらくしてから再度お試しください。", nil)
 			return
@@ -201,7 +199,6 @@ func (h *PasswordResetHandler) ResetPassword(w http.ResponseWriter, r *http.Requ
 	if h.rateLimiter != nil {
 		clientIP := getClientIP(r)
 		if !h.rateLimiter.Allow(clientIP) {
-			time.Sleep(1 * time.Second) // Delay to slow down attackers
 			RespondError(w, http.StatusTooManyRequests, "ERR_RATE_LIMITED",
 				"リクエストが多すぎます。しばらくしてから再度お試しください。", nil)
 			return
@@ -287,7 +284,6 @@ func (h *PasswordResetHandler) ForgotPassword(w http.ResponseWriter, r *http.Req
 	if h.rateLimiter != nil {
 		clientIP := getClientIP(r)
 		if !h.rateLimiter.Allow(clientIP) {
-			time.Sleep(1 * time.Second) // Delay to slow down attackers
 			RespondError(w, http.StatusTooManyRequests, "ERR_RATE_LIMITED",
 				"リクエストが多すぎます。しばらくしてから再度お試しください。", nil)
 			return
@@ -342,7 +338,6 @@ func (h *PasswordResetHandler) ResetPasswordWithToken(w http.ResponseWriter, r *
 	if h.rateLimiter != nil {
 		clientIP := getClientIP(r)
 		if !h.rateLimiter.Allow(clientIP) {
-			time.Sleep(1 * time.Second) // Delay to slow down attackers
 			RespondError(w, http.StatusTooManyRequests, "ERR_RATE_LIMITED",
 				"リクエストが多すぎます。しばらくしてから再度お試しください。", nil)
 			return
