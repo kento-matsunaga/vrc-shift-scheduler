@@ -119,7 +119,7 @@ body {
 /* iOS Safari 100vh問題対策 */
 @supports (min-height: 100dvh) {
   .min-h-screen {
-    min-height: 100dvh !important;
+    min-height: 100dvh;
   }
 }
 
