@@ -133,6 +133,7 @@ function App() {
         <Route path="/schedules/:scheduleId" element={<ScheduleDetail />} />
         <Route path="/admin/invite" element={<AdminInvitation />} />
         <Route path="/settings" element={<Settings />} />
+        <Route path="/settings/:section" element={<Settings />} />
         <Route path="/calendars" element={<CalendarList />} />
         <Route path="/calendars/:calendarId" element={<CalendarDetail />} />
       </Route>
