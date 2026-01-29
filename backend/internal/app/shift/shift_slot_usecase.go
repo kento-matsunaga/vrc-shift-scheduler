@@ -64,7 +64,7 @@ func (uc *CreateShiftSlotUsecase) Execute(ctx context.Context, input CreateShift
 
 		// インスタンスが同じイベントに属しているか確認
 		if instance.EventID() != businessDay.EventID() {
-			return nil, common.NewValidationError("シフトテンプレートは営業日と同じイベントに属している必要があります", nil)
+			return nil, common.NewValidationError("instance does not belong to the same event as the business day", nil)
 		}
 	}
 
@@ -234,7 +234,7 @@ func (uc *DeleteShiftSlotUsecase) Execute(ctx context.Context, input DeleteShift
 	}
 
 	if assignedCount > 0 {
-		return common.NewConflictError("割り当てが存在するシフト枠は削除できません")
+		return common.NewConflictError("cannot delete shift slot with existing assignments")
 	}
 
 	// ソフトデリート
@@ -313,7 +313,7 @@ func (uc *DeleteSlotsByInstanceUsecase) CheckDeletable(ctx context.Context, inpu
 			CanDelete:      false,
 			SlotCount:      len(slots),
 			AssignedSlots:  assignedSlots,
-			BlockingReason: "担当が割り振られているシフト枠があるため削除できません",
+			BlockingReason: "cannot delete: some shift slots have assignments",
 		}, nil
 	}
 

@@ -54,7 +54,7 @@ func (uc *CreateInstanceUsecase) Execute(ctx context.Context, input CreateInstan
 		return nil, err
 	}
 	if existing != nil {
-		return nil, common.NewValidationError("同じ名前のシフトテンプレートが既に存在します", nil)
+		return nil, common.NewValidationError("instance with the same name already exists", nil)
 	}
 
 	// Instance エンティティの作成
@@ -161,7 +161,7 @@ func (uc *UpdateInstanceUsecase) Execute(ctx context.Context, input UpdateInstan
 			return nil, err
 		}
 		if existing != nil && existing.InstanceID() != instance.InstanceID() {
-			return nil, common.NewValidationError("同じ名前のシフトテンプレートが既に存在します", nil)
+			return nil, common.NewValidationError("instance with the same name already exists", nil)
 		}
 
 		if err := instance.UpdateName(*input.Name); err != nil {
@@ -257,7 +257,7 @@ func (uc *DeleteInstanceUsecase) CheckDeletable(ctx context.Context, input Delet
 			CanDelete:      false,
 			SlotCount:      len(slots),
 			AssignedSlots:  assignedSlots,
-			BlockingReason: "担当が割り振られているシフト枠があるため削除できません",
+			BlockingReason: "cannot delete: some shift slots have assignments",
 		}, nil
 	}
 
