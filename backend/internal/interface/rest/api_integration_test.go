@@ -716,7 +716,7 @@ func TestPasswordResetFlow_AllowAndReset(t *testing.T) {
 			Token string `json:"token"`
 		} `json:"data"`
 	}
-	json.NewDecoder(loginW.Body).Decode(&loginResponse)
+	if err := json.NewDecoder(loginW.Body).Decode(&loginResponse); err != nil { t.Fatalf("Failed to decode login response: %v", err) }
 
 	// パスワードリセット許可のリクエスト
 	allowBody := map[string]string{
@@ -765,7 +765,7 @@ func TestPasswordResetFlow_InvalidAdmin(t *testing.T) {
 			Token string `json:"token"`
 		} `json:"data"`
 	}
-	json.NewDecoder(loginW.Body).Decode(&loginResponse)
+	if err := json.NewDecoder(loginW.Body).Decode(&loginResponse); err != nil { t.Fatalf("Failed to decode login response: %v", err) }
 
 	// 存在しない管理者IDでリセット許可を試みる
 	nonExistentID := common.NewAdminID()
@@ -812,7 +812,7 @@ func TestLogin_ULIDFieldsValidation(t *testing.T) {
 			TenantID string `json:"tenant_id"`
 		} `json:"data"`
 	}
-	json.NewDecoder(w.Body).Decode(&response)
+	if err := json.NewDecoder(w.Body).Decode(&response); err != nil { t.Fatalf("Failed to decode login response: %v", err) }
 
 	// ULID形式の検証
 	assertULIDFormat(t, "AdminID", response.Data.AdminID)
