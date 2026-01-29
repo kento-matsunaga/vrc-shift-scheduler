@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"time"
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
@@ -83,8 +84,13 @@ func (uc *ImportMembersUsecase) Execute(ctx context.Context, input ImportMembers
 	reader := bytes.NewReader(input.FileData)
 	rows, err := uc.csvParser.ParseMembersCSV(reader)
 	if err != nil {
-		_ = job.Fail(time.Now(), fmt.Sprintf("CSVパースエラー: %v", err))
-		_ = uc.importJobRepo.Update(ctx, job)
+		failErr := job.Fail(time.Now(), fmt.Sprintf("CSVパースエラー（ファイル: %s）: %v", input.FileName, err))
+		if failErr != nil {
+			log.Printf("[import] job.Fail error: %v (job_id=%s)", failErr, job.ImportJobID())
+		}
+		if updateErr := uc.importJobRepo.Update(ctx, job); updateErr != nil {
+			log.Printf("[import] importJobRepo.Update error: %v (job_id=%s, status=failed)", updateErr, job.ImportJobID())
+		}
 		return &ImportMembersOutput{
 			ImportJobID:  job.ImportJobID(),
 			Status:       job.Status(),
@@ -98,8 +104,13 @@ func (uc *ImportMembersUsecase) Execute(ctx context.Context, input ImportMembers
 	// Check row limit (max 10000 rows)
 	const maxRows = 10000
 	if len(rows) > maxRows {
-		_ = job.Fail(time.Now(), fmt.Sprintf("行数が上限を超えています: %d行 (上限: %d行)", len(rows), maxRows))
-		_ = uc.importJobRepo.Update(ctx, job)
+		failErr := job.Fail(time.Now(), fmt.Sprintf("行数が上限を超えています（ファイル: %s）: %d行 (上限: %d行)", input.FileName, len(rows), maxRows))
+		if failErr != nil {
+			log.Printf("[import] job.Fail error: %v (job_id=%s)", failErr, job.ImportJobID())
+		}
+		if updateErr := uc.importJobRepo.Update(ctx, job); updateErr != nil {
+			log.Printf("[import] importJobRepo.Update error: %v (job_id=%s, status=failed)", updateErr, job.ImportJobID())
+		}
 		return &ImportMembersOutput{
 			ImportJobID:  job.ImportJobID(),
 			Status:       job.Status(),
@@ -121,8 +132,13 @@ func (uc *ImportMembersUsecase) Execute(ctx context.Context, input ImportMembers
 	// Get existing members for duplicate check
 	existingMembers, err := uc.memberRepo.FindByTenantID(ctx, input.TenantID)
 	if err != nil {
-		_ = job.Fail(time.Now(), fmt.Sprintf("既存メンバー取得エラー: %v", err))
-		_ = uc.importJobRepo.Update(ctx, job)
+		failErr := job.Fail(time.Now(), fmt.Sprintf("既存メンバー取得エラー（ファイル: %s）: データベースからメンバー一覧を取得できませんでした - %v", input.FileName, err))
+		if failErr != nil {
+			log.Printf("[import] job.Fail error: %v (job_id=%s)", failErr, job.ImportJobID())
+		}
+		if updateErr := uc.importJobRepo.Update(ctx, job); updateErr != nil {
+			log.Printf("[import] importJobRepo.Update error: %v (job_id=%s, status=failed)", updateErr, job.ImportJobID())
+		}
 		return &ImportMembersOutput{
 			ImportJobID:  job.ImportJobID(),
 			Status:       job.Status(),
@@ -209,6 +225,13 @@ func (uc *ImportMembersUsecase) Execute(ctx context.Context, input ImportMembers
 	}
 	if err := uc.importJobRepo.Update(ctx, job); err != nil {
 		return nil, fmt.Errorf("failed to update import job: %w", err)
+	}
+
+	// Log partial success information for monitoring
+	skippedCount := job.ProcessedRows() - job.SuccessCount() - job.ErrorCount()
+	if job.ErrorCount() > 0 {
+		log.Printf("[import] partial success (job_id=%s, file=%s): total=%d, success=%d, errors=%d, skipped=%d",
+			job.ImportJobID(), input.FileName, job.TotalRows(), job.SuccessCount(), job.ErrorCount(), skippedCount)
 	}
 
 	return &ImportMembersOutput{
