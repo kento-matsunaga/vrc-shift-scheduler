@@ -29,6 +29,14 @@ export function EventsSettings() {
     loadEvents();
   }, []);
 
+  // 成功メッセージの自動クリア（クリーンアップ付き）
+  useEffect(() => {
+    if (success) {
+      const timer = setTimeout(() => setSuccess(''), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [success]);
+
   const loadEvents = async () => {
     try {
       setLoading(true);
@@ -72,7 +80,6 @@ export function EventsSettings() {
       setDeleteTarget(null);
       setConfirmText('');
       setSuccess(`「${deleteTarget.event_name}」を削除しました`);
-      setTimeout(() => setSuccess(''), 5000);
     } catch (err) {
       if (err instanceof ApiClientError) {
         setError(err.getUserMessage());
