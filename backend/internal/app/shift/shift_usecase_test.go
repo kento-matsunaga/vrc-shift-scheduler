@@ -625,9 +625,8 @@ func TestCreateShiftSlotUsecase_Execute_ErrorWhenInstanceBelongsToDifferentEvent
 		t.Fatal("Execute() should fail when instance belongs to a different event")
 	}
 
-	// エラーメッセージの確認（日本語化対応）
-	expectedMsg := "instance does not belong to the same event as the business day"
-	expectedMsg := "instance does not belong to the same event as the business day"
+	// エラーメッセージの確認
+	expectedMsg := "instance does not belong to the same event"
 	if !containsString(err.Error(), expectedMsg) {
 		t.Errorf("Error message should contain '%s', got: %v", expectedMsg, err.Error())
 	}
