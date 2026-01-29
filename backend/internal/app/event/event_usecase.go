@@ -8,6 +8,12 @@ import (
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/event"
 )
 
+// 営業日生成の定数
+const (
+	DefaultBusinessDayMonths = 2  // デフォルトの生成期間（月）
+	MaxBusinessDayMonths     = 24 // 最大の生成期間（月）
+)
+
 // CreateEventInput represents the input for creating an event
 type CreateEventInput struct {
 	TenantID            common.TenantID
@@ -354,12 +360,12 @@ func (uc *GenerateBusinessDaysUsecase) generateBusinessDays(ctx context.Context,
 		return 0, common.NewValidationError("recurrence fields are incomplete", nil)
 	}
 
-	// months のバリデーション（デフォルト2、最大24）
+	// months のバリデーション
 	if months <= 0 {
-		months = 2
+		months = DefaultBusinessDayMonths
 	}
-	if months > 24 {
-		months = 24
+	if months > MaxBusinessDayMonths {
+		months = MaxBusinessDayMonths
 	}
 
 	now := time.Now()

@@ -447,10 +447,10 @@ func (h *EventHandler) GenerateBusinessDays(w http.ResponseWriter, r *http.Reque
 	// months のバリデーション
 	months := req.Months
 	if months <= 0 {
-		months = 2 // デフォルト値
+		months = appevent.DefaultBusinessDayMonths
 	}
-	if months > 24 {
-		months = 24 // 最大値
+	if months > appevent.MaxBusinessDayMonths {
+		months = appevent.MaxBusinessDayMonths
 	}
 
 	// Usecaseの実行
