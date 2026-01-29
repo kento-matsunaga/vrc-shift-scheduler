@@ -256,12 +256,18 @@ func TestTenantIsolation_MemberList(t *testing.T) {
 	// テナントAに2人のメンバーを作成
 	memberA1, _ := member.NewMember(now, tenantA, "Member A1", "discord_a1", "a1@example.com")
 	memberA2, _ := member.NewMember(now, tenantA, "Member A2", "discord_a2", "a2@example.com")
-	repo.Save(ctx, memberA1)
-	repo.Save(ctx, memberA2)
+	if err := repo.Save(ctx, memberA1); err != nil {
+		t.Fatalf("Failed to save member A1: %v", err)
+	}
+	if err := repo.Save(ctx, memberA2); err != nil {
+		t.Fatalf("Failed to save member A2: %v", err)
+	}
 
 	// テナントBに1人のメンバーを作成
 	memberB1, _ := member.NewMember(now, tenantB, "Member B1", "discord_b1", "b1@example.com")
-	repo.Save(ctx, memberB1)
+	if err := repo.Save(ctx, memberB1); err != nil {
+		t.Fatalf("Failed to save member B1: %v", err)
+	}
 
 	// テナントAのメンバー一覧を取得
 	membersA, err := repo.FindByTenantID(ctx, tenantA)
