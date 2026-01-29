@@ -14,6 +14,21 @@ export function PermissionsSettings() {
     loadPermissions();
   }, []);
 
+  // REV-002: setTimeout メモリリーク修正
+  useEffect(() => {
+    if (success) {
+      const timer = setTimeout(() => setSuccess(''), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [success]);
+
+  useEffect(() => {
+    if (error) {
+      const timer = setTimeout(() => setError(''), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [error]);
+
   const loadPermissions = async () => {
     try {
       setLoading(true);
@@ -48,7 +63,6 @@ export function PermissionsSettings() {
       const updated = await updateManagerPermissions(permissions);
       setPermissions(updated);
       setSuccess('マネージャー権限を保存しました');
-      setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       if (err instanceof ApiClientError) {
         setError(err.getUserMessage());
@@ -98,13 +112,13 @@ export function PermissionsSettings() {
         </div>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+          <div role="alert" className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
             <p className="text-sm text-red-800">{error}</p>
           </div>
         )}
 
         {success && (
-          <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
+          <div role="status" className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
             <p className="text-sm text-green-800">{success}</p>
           </div>
         )}
