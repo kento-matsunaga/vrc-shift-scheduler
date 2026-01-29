@@ -130,14 +130,14 @@ func (r *ShiftSlotTemplateRepository) FindByID(ctx context.Context, tenantID com
 	`
 
 	var (
-		templateIDStr   string
-		tenantIDStr     string
-		eventIDStr      string
-		templateName    string
-		description     string
-		createdAt       time.Time
-		updatedAt       time.Time
-		deletedAt       sql.NullTime
+		templateIDStr string
+		tenantIDStr   string
+		eventIDStr    string
+		templateName  string
+		description   string
+		createdAt     time.Time
+		updatedAt     time.Time
+		deletedAt     sql.NullTime
 	)
 
 	err := r.db.QueryRow(ctx, templateQuery, tenantID.String(), templateID.String()).Scan(
@@ -307,7 +307,7 @@ func (r *ShiftSlotTemplateRepository) findItemsByTemplateID(ctx context.Context,
 			created_at, updated_at
 		FROM shift_slot_template_items
 		WHERE template_id = $1
-		ORDER BY start_time ASC, priority DESC
+		ORDER BY start_time ASC, priority ASC
 	`
 
 	rows, err := r.db.Query(ctx, itemQuery, templateID.String())

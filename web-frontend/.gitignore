@@ -22,3 +22,19 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+
+# Images - ソースファイル（最終版のみコミット）
+*.psd
+*.ai
+*.sketch
+*.fig
+
+# 一時ファイル
+*.tmp
+*~

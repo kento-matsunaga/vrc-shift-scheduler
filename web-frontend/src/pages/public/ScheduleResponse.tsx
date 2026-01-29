@@ -13,11 +13,16 @@ import {
 } from '../../lib/api/publicApi';
 import SearchableSelect from '../../components/SearchableSelect';
 import ScheduleResponseTable from '../../components/ScheduleResponseTable';
+import { formatTimeRange } from '../../lib/timeUtils';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
+import { SEO } from '../../components/seo';
 
 export default function ScheduleResponse() {
   const { token } = useParams<{ token: string }>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  useDocumentTitle('日程調整回答');
   const [schedule, setSchedule] = useState<DateSchedule | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
 
@@ -170,10 +175,7 @@ export default function ScheduleResponse() {
     });
   };
 
-  const formatTime = (timeStr?: string) => {
-    if (!timeStr) return '';
-    return timeStr.substring(0, 5); // HH:MM形式
-  };
+  // formatTime関数は共通ユーティリティ（lib/timeUtils.ts）に移行済み
 
   if (loading) {
     return (
@@ -236,6 +238,7 @@ export default function ScheduleResponse() {
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
+      <SEO noindex={true} />
       <div className="max-w-3xl mx-auto">
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
           <h1 className="text-2xl font-bold text-gray-900 mb-2">
@@ -324,7 +327,7 @@ export default function ScheduleResponse() {
                           </p>
                           {(candidate.start_time || candidate.end_time) && (
                             <p className="text-sm text-gray-600">
-                              {formatTime(candidate.start_time)} 〜 {formatTime(candidate.end_time)}
+                              {formatTimeRange(candidate.start_time, candidate.end_time)}
                             </p>
                           )}
                         </div>

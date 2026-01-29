@@ -80,6 +80,16 @@ func TestNewTenant_ErrorWhenTimezoneEmpty(t *testing.T) {
 	}
 }
 
+func TestNewTenant_ErrorWhenTimezoneInvalid(t *testing.T) {
+	now := time.Now()
+
+	_, err := tenant.NewTenant(now, "Test Organization", "Invalid/Timezone")
+
+	if err == nil {
+		t.Fatal("NewTenant() should fail when timezone is invalid IANA format")
+	}
+}
+
 func TestTenant_UpdateTenantName_Success(t *testing.T) {
 	now := time.Now()
 	ten, _ := tenant.NewTenant(now, "Original Name", "Asia/Tokyo")
@@ -184,9 +194,11 @@ func TestTenant_StatusTransitions(t *testing.T) {
 		t.Errorf("Initial status should be active: got %v", ten.Status())
 	}
 
-	// Set to grace
+	// Set to grace (valid: active -> grace)
 	graceUntil := now.Add(7 * 24 * time.Hour) // 7 days grace period
-	ten.SetStatusGrace(now, graceUntil)
+	if err := ten.SetStatusGrace(now, graceUntil); err != nil {
+		t.Errorf("SetStatusGrace should succeed: %v", err)
+	}
 
 	if ten.Status() != tenant.TenantStatusGrace {
 		t.Errorf("Status should be grace: got %v", ten.Status())
@@ -201,8 +213,10 @@ func TestTenant_StatusTransitions(t *testing.T) {
 		t.Error("Tenant should not be active in grace period")
 	}
 
-	// Set to suspended
-	ten.SetStatusSuspended(now)
+	// Set to suspended (valid: grace -> suspended)
+	if err := ten.SetStatusSuspended(now); err != nil {
+		t.Errorf("SetStatusSuspended should succeed: %v", err)
+	}
 
 	if ten.Status() != tenant.TenantStatusSuspended {
 		t.Errorf("Status should be suspended: got %v", ten.Status())
@@ -214,8 +228,10 @@ func TestTenant_StatusTransitions(t *testing.T) {
 		t.Error("GraceUntil should be nil when suspended")
 	}
 
-	// Set back to active
-	ten.SetStatusActive(now)
+	// Set back to active (valid: suspended -> active)
+	if err := ten.SetStatusActive(now); err != nil {
+		t.Errorf("SetStatusActive should succeed: %v", err)
+	}
 
 	if ten.Status() != tenant.TenantStatusActive {
 		t.Errorf("Status should be active: got %v", ten.Status())
@@ -237,8 +253,8 @@ func TestTenant_CanWriteCanRead(t *testing.T) {
 		t.Error("Active tenant should be able to read")
 	}
 
-	// Grace - can read, cannot write
-	ten.SetStatusGrace(now, now.Add(7*24*time.Hour))
+	// Grace - can read, cannot write (valid: active -> grace)
+	_ = ten.SetStatusGrace(now, now.Add(7*24*time.Hour))
 	if ten.CanWrite() {
 		t.Error("Grace tenant should not be able to write")
 	}
@@ -246,8 +262,8 @@ func TestTenant_CanWriteCanRead(t *testing.T) {
 		t.Error("Grace tenant should be able to read")
 	}
 
-	// Suspended - can read, cannot write
-	ten.SetStatusSuspended(now)
+	// Suspended - can read, cannot write (valid: grace -> suspended)
+	_ = ten.SetStatusSuspended(now)
 	if ten.CanWrite() {
 		t.Error("Suspended tenant should not be able to write")
 	}
@@ -255,8 +271,8 @@ func TestTenant_CanWriteCanRead(t *testing.T) {
 		t.Error("Suspended tenant should be able to read")
 	}
 
-	// Deleted - cannot read or write
-	ten.SetStatusActive(now)
+	// Deleted - cannot read or write (valid: suspended -> active, then delete)
+	_ = ten.SetStatusActive(now)
 	ten.Delete(now)
 	if ten.CanWrite() {
 		t.Error("Deleted tenant should not be able to write")
@@ -274,6 +290,7 @@ func TestTenantStatus_IsValid(t *testing.T) {
 		{tenant.TenantStatusActive, true},
 		{tenant.TenantStatusGrace, true},
 		{tenant.TenantStatusSuspended, true},
+		{tenant.TenantStatusPendingPayment, true},
 		{tenant.TenantStatus("invalid"), false},
 		{tenant.TenantStatus(""), false},
 	}
@@ -298,10 +315,12 @@ func TestReconstructTenant_Success(t *testing.T) {
 		"Asia/Tokyo",
 		true,
 		tenant.TenantStatusActive,
-		nil,
+		nil, // graceUntil
+		nil, // pendingExpiresAt
+		nil, // pendingStripeSessionID
 		now,
 		now,
-		nil,
+		nil, // deletedAt
 	)
 
 	if err != nil {
@@ -311,4 +330,169 @@ func TestReconstructTenant_Success(t *testing.T) {
 	if ten.TenantName() != "Reconstructed Org" {
 		t.Errorf("TenantName mismatch: got %v, want 'Reconstructed Org'", ten.TenantName())
 	}
+}
+
+func TestTenant_PendingPaymentStatus(t *testing.T) {
+	now := time.Now()
+	expiresAt := now.Add(30 * time.Minute)
+
+	// NewTenantPendingPaymentのテスト
+	ten, err := tenant.NewTenantPendingPayment(now, "Test Organization", "Asia/Tokyo", "cs_test_xxx", expiresAt)
+
+	if err != nil {
+		t.Fatalf("NewTenantPendingPayment() should succeed, got error: %v", err)
+	}
+
+	if ten.Status() != tenant.TenantStatusPendingPayment {
+		t.Errorf("Status should be pending_payment: got %v", ten.Status())
+	}
+
+	if !ten.IsPendingPayment() {
+		t.Error("IsPendingPayment() should return true")
+	}
+
+	if ten.PendingStripeSessionID() == nil || *ten.PendingStripeSessionID() != "cs_test_xxx" {
+		t.Error("PendingStripeSessionID should be set")
+	}
+
+	if ten.PendingExpiresAt() == nil {
+		t.Error("PendingExpiresAt should be set")
+	}
+
+	if ten.IsActive() {
+		t.Error("Pending payment tenant should not be active")
+	}
+
+	// SetStatusActiveでpendingフィールドがクリアされることを確認 (valid: pending_payment -> active)
+	if err := ten.SetStatusActive(now); err != nil {
+		t.Errorf("SetStatusActive should succeed: %v", err)
+	}
+
+	if ten.PendingStripeSessionID() != nil {
+		t.Error("PendingStripeSessionID should be cleared after SetStatusActive")
+	}
+
+	if ten.PendingExpiresAt() != nil {
+		t.Error("PendingExpiresAt should be cleared after SetStatusActive")
+	}
+}
+
+func TestCalculateGraceUntil(t *testing.T) {
+	// Test that grace period is exactly 14 days
+	periodEnd := time.Date(2026, 1, 31, 0, 0, 0, 0, time.UTC)
+	graceUntil := tenant.CalculateGraceUntil(periodEnd)
+
+	expected := time.Date(2026, 2, 14, 0, 0, 0, 0, time.UTC)
+	if !graceUntil.Equal(expected) {
+		t.Errorf("CalculateGraceUntil() = %v, want %v", graceUntil, expected)
+	}
+}
+
+func TestTransitionToGraceAfterSubscriptionEnd(t *testing.T) {
+	now := time.Now()
+	periodEnd := time.Date(2026, 1, 31, 0, 0, 0, 0, time.UTC)
+
+	ten, _ := tenant.NewTenant(now, "Test Organization", "Asia/Tokyo")
+	if err := ten.TransitionToGraceAfterSubscriptionEnd(now, periodEnd); err != nil {
+		t.Errorf("TransitionToGraceAfterSubscriptionEnd should succeed: %v", err)
+	}
+
+	if ten.Status() != tenant.TenantStatusGrace {
+		t.Errorf("Status should be grace: got %v", ten.Status())
+	}
+
+	if ten.GraceUntil() == nil {
+		t.Fatal("GraceUntil should be set")
+	}
+
+	expected := time.Date(2026, 2, 14, 0, 0, 0, 0, time.UTC)
+	if !ten.GraceUntil().Equal(expected) {
+		t.Errorf("GraceUntil() = %v, want %v", ten.GraceUntil(), expected)
+	}
+
+	if ten.IsActive() {
+		t.Error("Tenant should not be active after transitioning to grace")
+	}
+}
+
+func TestTenantStatus_CanTransitionTo(t *testing.T) {
+	tests := []struct {
+		name     string
+		from     tenant.TenantStatus
+		to       tenant.TenantStatus
+		expected bool
+	}{
+		// Valid transitions from pending_payment
+		{"pending_payment -> active", tenant.TenantStatusPendingPayment, tenant.TenantStatusActive, true},
+		{"pending_payment -> suspended", tenant.TenantStatusPendingPayment, tenant.TenantStatusSuspended, true},
+		{"pending_payment -> grace (invalid)", tenant.TenantStatusPendingPayment, tenant.TenantStatusGrace, false},
+
+		// Valid transitions from active
+		{"active -> grace", tenant.TenantStatusActive, tenant.TenantStatusGrace, true},
+		{"active -> suspended", tenant.TenantStatusActive, tenant.TenantStatusSuspended, true},
+		{"active -> pending_payment (invalid)", tenant.TenantStatusActive, tenant.TenantStatusPendingPayment, false},
+
+		// Valid transitions from grace
+		{"grace -> active", tenant.TenantStatusGrace, tenant.TenantStatusActive, true},
+		{"grace -> suspended", tenant.TenantStatusGrace, tenant.TenantStatusSuspended, true},
+		{"grace -> pending_payment (invalid)", tenant.TenantStatusGrace, tenant.TenantStatusPendingPayment, false},
+
+		// Valid transitions from suspended
+		{"suspended -> pending_payment", tenant.TenantStatusSuspended, tenant.TenantStatusPendingPayment, true},
+		{"suspended -> active", tenant.TenantStatusSuspended, tenant.TenantStatusActive, true},
+		{"suspended -> grace (invalid)", tenant.TenantStatusSuspended, tenant.TenantStatusGrace, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.from.CanTransitionTo(tt.to)
+			if result != tt.expected {
+				t.Errorf("CanTransitionTo(%s -> %s) = %v, want %v",
+					tt.from, tt.to, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestTenant_SetStatus_InvalidTransitions(t *testing.T) {
+	now := time.Now()
+
+	// Test: active -> pending_payment (invalid)
+	t.Run("active -> pending_payment should fail", func(t *testing.T) {
+		ten, _ := tenant.NewTenant(now, "Test Organization", "Asia/Tokyo")
+		err := ten.SetStatusPendingPayment(now, "cs_test_xxx", now.Add(30*time.Minute))
+		if err == nil {
+			t.Error("SetStatusPendingPayment should fail for active -> pending_payment")
+		}
+	})
+
+	// Test: grace -> pending_payment (invalid)
+	t.Run("grace -> pending_payment should fail", func(t *testing.T) {
+		ten, _ := tenant.NewTenant(now, "Test Organization", "Asia/Tokyo")
+		_ = ten.SetStatusGrace(now, now.Add(7*24*time.Hour))
+		err := ten.SetStatusPendingPayment(now, "cs_test_xxx", now.Add(30*time.Minute))
+		if err == nil {
+			t.Error("SetStatusPendingPayment should fail for grace -> pending_payment")
+		}
+	})
+
+	// Test: pending_payment -> grace (invalid)
+	t.Run("pending_payment -> grace should fail", func(t *testing.T) {
+		ten, _ := tenant.NewTenantPendingPayment(now, "Test Organization", "Asia/Tokyo", "cs_test_xxx", now.Add(30*time.Minute))
+		err := ten.SetStatusGrace(now, now.Add(7*24*time.Hour))
+		if err == nil {
+			t.Error("SetStatusGrace should fail for pending_payment -> grace")
+		}
+	})
+
+	// Test: suspended -> grace (invalid)
+	t.Run("suspended -> grace should fail", func(t *testing.T) {
+		ten, _ := tenant.NewTenant(now, "Test Organization", "Asia/Tokyo")
+		_ = ten.SetStatusGrace(now, now.Add(7*24*time.Hour))
+		_ = ten.SetStatusSuspended(now)
+		err := ten.SetStatusGrace(now, now.Add(7*24*time.Hour))
+		if err == nil {
+			t.Error("SetStatusGrace should fail for suspended -> grace")
+		}
+	})
 }

@@ -94,20 +94,20 @@ func (r *EventBusinessDayRepository) FindByID(ctx context.Context, tenantID comm
 	`
 
 	var (
-		businessDayIDStr    string
-		tenantIDStr         string
-		eventIDStr          string
-		targetDate          time.Time
-		startTime           pgtype.Time
-		endTime             pgtype.Time
-		occurrenceTypeStr   string
-		recurringPatternID  sql.NullString
-		isActive            bool
-		validFrom           sql.NullTime
-		validTo             sql.NullTime
-		createdAt           time.Time
-		updatedAt           time.Time
-		deletedAt           sql.NullTime
+		businessDayIDStr   string
+		tenantIDStr        string
+		eventIDStr         string
+		targetDate         time.Time
+		startTime          pgtype.Time
+		endTime            pgtype.Time
+		occurrenceTypeStr  string
+		recurringPatternID sql.NullString
+		isActive           bool
+		validFrom          sql.NullTime
+		validTo            sql.NullTime
+		createdAt          time.Time
+		updatedAt          time.Time
+		deletedAt          sql.NullTime
 	)
 
 	err := r.db.QueryRow(ctx, query, tenantID.String(), businessDayID.String()).Scan(
@@ -412,4 +412,3 @@ func (r *EventBusinessDayRepository) scanToBusinessDay(
 		deletedAtPtr,
 	)
 }
-

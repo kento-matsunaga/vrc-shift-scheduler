@@ -212,6 +212,14 @@ export async function closeAttendanceCollection(collectionId: string): Promise<v
 }
 
 /**
+ * 出欠確認を削除
+ * 成功時: 204 No Content（レスポンスボディなし）
+ */
+export async function deleteAttendanceCollection(collectionId: string): Promise<void> {
+  await apiClient.delete(`/api/v1/attendance/collections/${collectionId}`);
+}
+
+/**
  * 出欠回答一覧を取得
  */
 export async function getAttendanceResponses(
@@ -242,4 +250,66 @@ export async function getAttendanceResponses(
   const result: ApiResponse<{ collection_id: string; responses: AttendanceResponse[] }> =
     await response.json();
   return result.data.responses;
+}
+
+/**
+ * 出欠回答更新リクエスト（管理者用）
+ */
+export interface UpdateAttendanceResponseRequest {
+  member_id: string;
+  target_date_id: string;
+  response: 'attending' | 'absent' | 'undecided';
+  note?: string;
+  available_from?: string; // HH:MM format
+  available_to?: string;   // HH:MM format
+}
+
+/**
+ * 出欠回答更新レスポンス（管理者用）
+ */
+export interface UpdateAttendanceResponseResult {
+  response_id: string;
+  collection_id: string;
+  member_id: string;
+  target_date_id: string;
+  response: 'attending' | 'absent' | 'undecided';
+  note: string;
+  available_from?: string;
+  available_to?: string;
+  responded_at: string;
+}
+
+/**
+ * 出欠回答を更新（管理者用・締め切り後も可能）
+ */
+export async function updateAttendanceResponse(
+  collectionId: string,
+  data: UpdateAttendanceResponseRequest
+): Promise<UpdateAttendanceResponseResult> {
+  const baseURL = import.meta.env.VITE_API_BASE_URL || '';
+  const token = localStorage.getItem('auth_token');
+
+  if (!token) {
+    throw new Error('認証が必要です。ログインしてください。');
+  }
+
+  const response = await fetch(
+    `${baseURL}/api/v1/attendance/collections/${collectionId}/responses`,
+    {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    }
+  );
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`出欠回答の更新に失敗しました: ${text || response.statusText}`);
+  }
+
+  const result: ApiResponse<UpdateAttendanceResponseResult> = await response.json();
+  return result.data;
 }

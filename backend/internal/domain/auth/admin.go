@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"strings"
 	"time"
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
@@ -190,10 +191,30 @@ func (a *Admin) UpdateEmail(now time.Time, email string) error {
 	if len(email) > 255 {
 		return common.NewValidationError("email must be less than 255 characters", nil)
 	}
+	if !isValidEmailFormat(email) {
+		return common.NewValidationError("invalid email format", nil)
+	}
 
 	a.email = email
 	a.updatedAt = now
 	return nil
+}
+
+// isValidEmailFormat performs basic email format validation
+func isValidEmailFormat(email string) bool {
+	// 長さチェック
+	if len(email) < 3 || len(email) > 320 {
+		return false
+	}
+	// @の位置チェック
+	atIndex := strings.LastIndex(email, "@")
+	if atIndex < 1 || atIndex >= len(email)-1 {
+		return false
+	}
+	// ドメイン部分に.が含まれているかチェック
+	domain := email[atIndex+1:]
+	dotIndex := strings.LastIndex(domain, ".")
+	return dotIndex > 0 && dotIndex < len(domain)-1
 }
 
 // UpdatePasswordHash updates the password hash

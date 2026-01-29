@@ -42,15 +42,21 @@ func ParseSlotID(s string) (SlotID, error) {
 // ShiftSlot represents a shift slot entity (独立したエンティティ)
 // EventBusinessDay に属するが、EventBusinessDay集約には含まれない
 // Instance に紐づく（instanceID で参照、移行期間中は instanceName も保持）
+//
+// 表示順序のビジネスルール:
+//   - priority が小さいほど優先的に表示される（昇順ソート）
+//   - 同じ priority の場合は登録順（created_at 昇順）で表示
+//   - 既存データとの互換性のため priority=0 を許容
+//   - 新規作成時のデフォルト priority は 1（ユースケース層で設定）
 type ShiftSlot struct {
 	slotID        SlotID
 	tenantID      common.TenantID
 	businessDayID event.BusinessDayID
 	instanceID    *InstanceID // インスタンスへの参照（FK）- nullable for migration
 	slotName      string
-	instanceName  string      // Deprecated: 移行完了後に削除予定。instanceID を使用してください。
-	startTime     time.Time   // TIME型として扱う（HH:MM:SS）
-	endTime       time.Time   // TIME型として扱う（HH:MM:SS）
+	instanceName  string    // Deprecated: 移行完了後に削除予定。instanceID を使用してください。
+	startTime     time.Time // TIME型として扱う（HH:MM:SS）
+	endTime       time.Time // TIME型として扱う（HH:MM:SS）
 	requiredCount int
 	priority      int
 	createdAt     time.Time
@@ -59,10 +65,12 @@ type ShiftSlot struct {
 }
 
 // NewShiftSlot creates a new ShiftSlot entity
+// instanceID is optional - pass nil if not linking to an instance
 func NewShiftSlot(
 	now time.Time,
 	tenantID common.TenantID,
 	businessDayID event.BusinessDayID,
+	instanceID *InstanceID,
 	slotName string,
 	instanceName string,
 	startTime time.Time,
@@ -74,6 +82,7 @@ func NewShiftSlot(
 		slotID:        NewSlotIDWithTime(now),
 		tenantID:      tenantID,
 		businessDayID: businessDayID,
+		instanceID:    instanceID,
 		slotName:      slotName,
 		instanceName:  instanceName,
 		startTime:     truncateToTime(startTime),
@@ -155,9 +164,19 @@ func (s *ShiftSlot) validate() error {
 		return common.NewValidationError("required_count must be at least 1", nil)
 	}
 
+	// Priority の範囲チェック（0以上、小さいほど優先）
+	// 注: 既存データとの互換性のため0を許容。新規作成時はデフォルト1が設定される
+	if s.priority < 0 {
+		return common.NewValidationError("priority must be at least 0", nil)
+	}
+
 	// 時刻の前後関係チェック（深夜営業対応）
 	// start_time < end_time OR end_time < start_time のどちらかを満たす必要がある
 	// （深夜営業の場合、end_time が start_time より前になる）
+	// ただし、同じ時刻は不正とする
+	if s.startTime.Equal(s.endTime) {
+		return common.NewValidationError("start_time and end_time must be different", nil)
+	}
 
 	return nil
 }
@@ -254,15 +273,26 @@ func (s *ShiftSlot) UpdateRequiredCount(requiredCount int) error {
 	return nil
 }
 
-// UpdatePriority updates the priority
-func (s *ShiftSlot) UpdatePriority(priority int) {
+// UpdatePriority updates the priority (must be at least 0)
+func (s *ShiftSlot) UpdatePriority(priority int) error {
+	if priority < 0 {
+		return common.NewValidationError("priority must be at least 0", nil)
+	}
+
 	s.priority = priority
 	s.updatedAt = time.Now()
+	return nil
 }
 
 // SetInstanceID sets the instance ID (for data migration)
 func (s *ShiftSlot) SetInstanceID(instanceID InstanceID) {
 	s.instanceID = &instanceID
+	s.updatedAt = time.Now()
+}
+
+// ClearInstanceID clears the instance ID (used when deleting an instance)
+func (s *ShiftSlot) ClearInstanceID() {
+	s.instanceID = nil
 	s.updatedAt = time.Now()
 }
 
@@ -274,8 +304,9 @@ func (s *ShiftSlot) Delete() {
 }
 
 // IsOvernight returns true if the shift crosses midnight
+// 注: 同じ時刻（21:00-21:00）は深夜営業とみなさない（バリデーションで弾かれるべき）
 func (s *ShiftSlot) IsOvernight() bool {
-	return s.endTime.Before(s.startTime) || s.endTime.Equal(s.startTime)
+	return s.endTime.Before(s.startTime)
 }
 
 // StartTimeString returns the start time as HH:MM string
@@ -287,4 +318,3 @@ func (s *ShiftSlot) StartTimeString() string {
 func (s *ShiftSlot) EndTimeString() string {
 	return s.endTime.Format("15:04")
 }
-

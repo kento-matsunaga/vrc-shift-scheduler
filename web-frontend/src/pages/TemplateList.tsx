@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { SEO } from '../components/seo';
 import { listTemplates, deleteTemplate } from '../lib/api/templateApi';
 import type { Template, TemplateItem } from '../types/api';
 
@@ -94,6 +95,7 @@ const TemplateList = () => {
 
   return (
     <div className="p-6">
+      <SEO noindex={true} />
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">シフトテンプレート管理</h1>

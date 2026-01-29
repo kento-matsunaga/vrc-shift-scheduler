@@ -12,6 +12,9 @@ import { getEvents, getEventBusinessDays, type BusinessDay } from '../lib/api/ev
 import type { Event } from '../types/api';
 import { listRoles, type Role } from '../lib/api/roleApi';
 import { MobileCard, CardHeader, CardField } from '../components/MobileCard';
+import { DateRangePicker, type DateInput } from '../components/DateRangePicker';
+import { isValidTimeRange } from '../lib/timeUtils';
+import { SEO } from '../components/seo';
 
 export default function AttendanceList() {
   const navigate = useNavigate();
@@ -233,6 +236,29 @@ export default function AttendanceList() {
     setTargetDates(newDates);
   };
 
+  // DateRangePickerからの一括追加
+  const handleAddDatesFromPicker = (dates: DateInput[]) => {
+    // 既存の空でない日付を保持
+    const existingDates = targetDates.filter((d) => d.date.trim() !== '');
+    const existingDateStrings = existingDates.map((d) => d.date);
+
+    // 重複を除いて新しい日付を追加
+    const newDates = dates.filter((d) => !existingDateStrings.includes(d.date));
+
+    // マージして日付順にソート
+    const mergedDates = [...existingDates, ...newDates].sort((a, b) =>
+      a.date.localeCompare(b.date)
+    );
+
+    // 日付がない場合は空欄を追加
+    setTargetDates(mergedDates.length > 0 ? mergedDates : [{ date: '', startTime: '', endTime: '' }]);
+  };
+
+  // 既存の日付リスト（重複チェック用）
+  const existingDateStrings = targetDates
+    .filter((d) => d.date.trim() !== '')
+    .map((d) => d.date);
+
   const toggleGroupSelection = (groupId: string) => {
     setSelectedGroupIds((prev) =>
       prev.includes(groupId)
@@ -308,19 +334,18 @@ export default function AttendanceList() {
     }
 
     // 時間のバリデーション
-    if (!isEditing) {
-      for (let i = 0; i < validDates.length; i++) {
-        const d = validDates[i];
-        // 片方だけ入力されている場合
-        if ((d.startTime && !d.endTime) || (!d.startTime && d.endTime)) {
-          setError(`対象日${i + 1}: 開始時間と終了時間は両方入力してください`);
-          return;
-        }
-        // 開始時間 >= 終了時間の場合
-        if (d.startTime && d.endTime && d.startTime >= d.endTime) {
-          setError(`対象日${i + 1}: 開始時間は終了時間より前に設定してください`);
-          return;
-        }
+
+    for (let i = 0; i < validDates.length; i++) {
+      const d = validDates[i];
+      // 片方だけ入力されている場合
+      if ((d.startTime && !d.endTime) || (!d.startTime && d.endTime)) {
+        setError(`対象日${i + 1}: 開始時間と終了時間は両方入力してください`);
+        return;
+      }
+      // 開始時間と終了時間が同じ場合は無効（深夜営業パターンは許可）
+      if (!isValidTimeRange(d.startTime, d.endTime)) {
+        setError(`対象日${i + 1}: 開始時間と終了時間を異なる時間に設定してください`);
+        return;
       }
     }
 
@@ -407,6 +432,7 @@ export default function AttendanceList() {
 
   return (
     <div className="max-w-6xl mx-auto">
+      <SEO noindex={true} />
       <div className="mb-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-gray-900">出欠確認</h1>
@@ -548,9 +574,20 @@ export default function AttendanceList() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 対象日 <span className="text-red-500">*</span>
               </label>
-              <p className="text-xs text-gray-500 mb-2">
+              <p className="text-xs text-gray-500 mb-3">
                 開始・終了時間は任意です。設定すると回答ページに表示されます。
               </p>
+
+              {/* 期間から一括追加 */}
+              <div className="mb-4">
+                <DateRangePicker
+                  onAddDates={handleAddDatesFromPicker}
+                  existingDates={existingDateStrings}
+                  disabled={submitting}
+                />
+              </div>
+
+              {/* 個別の対象日入力 */}
               <div className="space-y-3">
                 {targetDates.map((targetDate, index) => (
                   <div key={index} className="p-3 border border-gray-200 rounded-lg bg-gray-50">
@@ -628,6 +665,7 @@ export default function AttendanceList() {
                   }}
                   className="px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 rounded-md transition"
                   disabled={submitting || loadingEdit}
+
                 >
                   今日中
                 </button>
@@ -641,6 +679,7 @@ export default function AttendanceList() {
                   }}
                   className="px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 rounded-md transition"
                   disabled={submitting || loadingEdit}
+
                 >
                   明日中
                 </button>

@@ -9,15 +9,15 @@ import (
 // Role represents a role entity (aggregate root)
 // ロールはメンバーに付与される役割・属性を表す
 type Role struct {
-	roleID      common.RoleID
-	tenantID    common.TenantID
-	name        string
-	description string
-	color       string // UI表示用の色コード（例: #FF5733）
-	displayOrder int   // 表示順序
-	createdAt   time.Time
-	updatedAt   time.Time
-	deletedAt   *time.Time
+	roleID       common.RoleID
+	tenantID     common.TenantID
+	name         string
+	description  string
+	color        string // UI表示用の色コード（例: #FF5733）
+	displayOrder int    // 表示順序
+	createdAt    time.Time
+	updatedAt    time.Time
+	deletedAt    *time.Time
 }
 
 // NewRole creates a new Role entity

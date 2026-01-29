@@ -52,11 +52,11 @@ type CreateEventRequest struct {
 	EventName           string  `json:"event_name"`
 	EventType           string  `json:"event_type"`
 	Description         string  `json:"description"`
-	RecurrenceType      string  `json:"recurrence_type,omitempty"`       // "none", "weekly", "biweekly"
-	RecurrenceStartDate *string `json:"recurrence_start_date,omitempty"` // YYYY-MM-DD
-	RecurrenceDayOfWeek *int    `json:"recurrence_day_of_week,omitempty"`// 0-6
-	DefaultStartTime    *string `json:"default_start_time,omitempty"`    // HH:MM:SS
-	DefaultEndTime      *string `json:"default_end_time,omitempty"`      // HH:MM:SS
+	RecurrenceType      string  `json:"recurrence_type,omitempty"`        // "none", "weekly", "biweekly"
+	RecurrenceStartDate *string `json:"recurrence_start_date,omitempty"`  // YYYY-MM-DD
+	RecurrenceDayOfWeek *int    `json:"recurrence_day_of_week,omitempty"` // 0-6
+	DefaultStartTime    *string `json:"default_start_time,omitempty"`     // HH:MM:SS
+	DefaultEndTime      *string `json:"default_end_time,omitempty"`       // HH:MM:SS
 }
 
 // UpdateEventRequest represents the request body for updating an event
@@ -579,4 +579,3 @@ func (h *EventHandler) UpdateGroupAssignments(w http.ResponseWriter, r *http.Req
 		RoleGroupIDs:   output.RoleGroupIDs,
 	})
 }
-

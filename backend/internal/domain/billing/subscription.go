@@ -1,6 +1,7 @@
 package billing
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
@@ -61,7 +62,77 @@ func (s SubscriptionStatus) IsValid() bool {
 	return false
 }
 
-// Subscription represents a Stripe subscription
+// validSubscriptionTransitions defines the allowed state transitions for a subscription.
+// This encapsulates the business rules for subscription lifecycle based on Stripe events:
+//
+//	incomplete → active (payment succeeded)
+//	incomplete → canceled (payment failed / expired)
+//	trialing → active (trial ended, payment succeeded)
+//	trialing → past_due (trial ended, payment failed)
+//	trialing → canceled (trial canceled)
+//	active → past_due (payment failed)
+//	active → canceled (subscription canceled)
+//	active → unpaid (payment failed after retries)
+//	past_due → active (payment succeeded)
+//	past_due → canceled (subscription canceled)
+//	past_due → unpaid (max retries reached)
+//	unpaid → active (payment succeeded)
+//	unpaid → canceled (subscription canceled)
+var validSubscriptionTransitions = map[SubscriptionStatus][]SubscriptionStatus{
+	SubscriptionStatusIncomplete: {SubscriptionStatusActive, SubscriptionStatusCanceled},
+	SubscriptionStatusTrialing:   {SubscriptionStatusActive, SubscriptionStatusPastDue, SubscriptionStatusCanceled},
+	SubscriptionStatusActive:     {SubscriptionStatusPastDue, SubscriptionStatusCanceled, SubscriptionStatusUnpaid},
+	SubscriptionStatusPastDue:    {SubscriptionStatusActive, SubscriptionStatusCanceled, SubscriptionStatusUnpaid},
+	SubscriptionStatusUnpaid:     {SubscriptionStatusActive, SubscriptionStatusCanceled},
+	SubscriptionStatusCanceled:   {}, // Terminal state - no transitions allowed
+}
+
+// CanTransitionTo checks if the status can transition to the new status.
+// Returns true if the transition is valid according to the business rules.
+// Note: Same status transitions (e.g., active -> active) are allowed as they
+// represent valid operations like subscription renewals where the status doesn't change.
+func (s SubscriptionStatus) CanTransitionTo(newStatus SubscriptionStatus) bool {
+	// Same status is always allowed (no-op but valid for renewals, etc.)
+	if s == newStatus {
+		return true
+	}
+	allowed, ok := validSubscriptionTransitions[s]
+	if !ok {
+		return false
+	}
+	for _, status := range allowed {
+		if status == newStatus {
+			return true
+		}
+	}
+	return false
+}
+
+// Subscription represents a Stripe subscription.
+//
+// # Aggregate Relationship with Tenant
+//
+// Subscription is an independent aggregate from Tenant, but they are closely related:
+//
+//   - Subscription holds TenantID as a foreign key reference
+//   - Both are aggregate roots with their own identity (SubscriptionID, TenantID)
+//   - Subscription lifecycle events affect Tenant state:
+//   - checkout.session.completed: Tenant -> active
+//   - invoice.payment_failed: Tenant -> grace (after retries exhausted)
+//   - customer.subscription.deleted: Tenant -> grace -> suspended
+//
+// # Design Rationale
+//
+// This design (separate aggregates with coordinated updates via Webhook handler)
+// is chosen over embedding Subscription in Tenant because:
+//
+//  1. Stripe is the source of truth for subscription data
+//  2. Webhook events are the primary mechanism for state synchronization
+//  3. Keeping them separate allows cleaner domain boundaries
+//  4. Transaction boundaries are clear: Webhook handler coordinates both updates
+//
+// The tradeoff is that consistency between Subscription and Tenant state
+// depends on correct Webhook processing. See stripe_webhook_usecase.go for details.
 type Subscription struct {
 	subscriptionID       SubscriptionID
 	tenantID             common.TenantID
@@ -69,6 +140,8 @@ type Subscription struct {
 	stripeSubscriptionID string
 	status               SubscriptionStatus
 	currentPeriodEnd     *time.Time
+	cancelAtPeriodEnd    bool       // キャンセル予約中かどうか
+	cancelAt             *time.Time // キャンセル予定日時
 	createdAt            time.Time
 	updatedAt            time.Time
 }
@@ -108,6 +181,8 @@ func ReconstructSubscription(
 	stripeSubscriptionID string,
 	status SubscriptionStatus,
 	currentPeriodEnd *time.Time,
+	cancelAtPeriodEnd bool,
+	cancelAt *time.Time,
 	createdAt time.Time,
 	updatedAt time.Time,
 ) (*Subscription, error) {
@@ -118,6 +193,8 @@ func ReconstructSubscription(
 		stripeSubscriptionID: stripeSubscriptionID,
 		status:               status,
 		currentPeriodEnd:     currentPeriodEnd,
+		cancelAtPeriodEnd:    cancelAtPeriodEnd,
+		cancelAt:             cancelAt,
 		createdAt:            createdAt,
 		updatedAt:            updatedAt,
 	}
@@ -181,9 +258,32 @@ func (s *Subscription) IsActive() bool {
 	return s.status == SubscriptionStatusActive || s.status == SubscriptionStatusTrialing
 }
 
-// UpdateStatus updates the subscription status
-func (s *Subscription) UpdateStatus(now time.Time, status SubscriptionStatus, currentPeriodEnd *time.Time) {
+// UpdateStatus updates the subscription status.
+// Returns an error if the transition is not allowed from the current status.
+func (s *Subscription) UpdateStatus(now time.Time, status SubscriptionStatus, currentPeriodEnd *time.Time) error {
+	if !s.status.CanTransitionTo(status) {
+		return common.NewValidationError(
+			fmt.Sprintf("invalid subscription status transition from %s to %s", s.status, status), nil)
+	}
 	s.status = status
 	s.currentPeriodEnd = currentPeriodEnd
+	s.updatedAt = now
+	return nil
+}
+
+// CancelAtPeriodEnd returns whether the subscription is scheduled to cancel at period end
+func (s *Subscription) CancelAtPeriodEnd() bool {
+	return s.cancelAtPeriodEnd
+}
+
+// CancelAt returns the scheduled cancellation time
+func (s *Subscription) CancelAt() *time.Time {
+	return s.cancelAt
+}
+
+// SetCancelAtPeriodEnd updates the cancellation schedule
+func (s *Subscription) SetCancelAtPeriodEnd(now time.Time, cancelAtPeriodEnd bool, cancelAt *time.Time) {
+	s.cancelAtPeriodEnd = cancelAtPeriodEnd
+	s.cancelAt = cancelAt
 	s.updatedAt = now
 }

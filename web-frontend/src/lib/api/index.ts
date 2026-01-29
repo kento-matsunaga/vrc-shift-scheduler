@@ -41,3 +41,6 @@ export * from './adminApi';
 // Billing API
 export * from './billingApi';
 
+// Calendar API
+export * from './calendarApi';
+

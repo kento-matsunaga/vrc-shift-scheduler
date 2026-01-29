@@ -2,14 +2,17 @@ package rest
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 
 	appannouncement "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/announcement"
 	appattendance "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/attendance"
 	appaudit "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/audit"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/app/auth"
+	appcalendar "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/calendar"
 	appevent "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/event"
 	appimport "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/import"
 	applicense "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/license"
@@ -20,17 +23,51 @@ import (
 	approlegroup "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/role_group"
 	appschedule "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/schedule"
 	appshift "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/shift"
+	appsystem "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/system"
 	apptenant "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/tenant"
 	apptutorial "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/tutorial"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/services"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/tenant"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/clock"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/db"
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/email"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/security"
+	infrastripe "github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/stripe"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+// initEmailService creates an email service based on environment configuration
+// If Resend is configured, it returns ResendEmailService; otherwise MockEmailService
+func initEmailService() services.EmailService {
+	baseURL := os.Getenv("INVITATION_BASE_URL")
+	if baseURL == "" {
+		baseURL = "https://vrcshift.com"
+	}
+
+	// Check if Resend is configured
+	apiKey := os.Getenv("RESEND_API_KEY")
+	fromEmail := os.Getenv("RESEND_FROM_EMAIL")
+	if apiKey == "" || fromEmail == "" {
+		slog.Info("Resend not configured, using mock email service")
+		return email.NewMockEmailService(baseURL)
+	}
+
+	// Validate API key format
+	if len(apiKey) < 3 || apiKey[:3] != "re_" {
+		slog.Warn("RESEND_API_KEY does not start with 're_', may be invalid")
+	}
+
+	// Validate email format (basic check)
+	if !strings.Contains(fromEmail, "@") || !strings.Contains(fromEmail, ".") {
+		slog.Warn("RESEND_FROM_EMAIL appears to be invalid", "from_email", fromEmail)
+	}
+
+	slog.Info("Resend configured", "from_email", fromEmail)
+	return email.NewResendEmailService(apiKey, fromEmail, baseURL)
+}
 
 // NewRouter creates a new HTTP router with all routes configured
 func NewRouter(dbPool *pgxpool.Pool) http.Handler {
@@ -59,8 +96,10 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 	// InvitationHandler dependencies
 	invitationRepo := db.NewInvitationRepository(dbPool)
 	invitationClock := &clock.RealClock{}
+	invitationTenantRepo := db.NewTenantRepository(dbPool)
+	invitationEmailService := initEmailService()
 	invitationHandler := NewInvitationHandler(
-		auth.NewInviteAdminUsecase(adminRepo, invitationRepo, invitationClock),
+		auth.NewInviteAdminUsecase(adminRepo, invitationRepo, invitationTenantRepo, invitationEmailService, invitationClock),
 		auth.NewAcceptInvitationUsecase(adminRepo, invitationRepo, passwordHasher, invitationClock),
 	)
 
@@ -71,17 +110,24 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 	passwordResetClock := &clock.RealClock{}
 	licenseKeyRepo := db.NewLicenseKeyRepository(dbPool)
 	billingAuditLogRepo := db.NewBillingAuditLogRepository(dbPool)
+	passwordResetTokenRepo := db.NewPasswordResetTokenRepository(dbPool)
+	passwordResetTxManager := db.NewPgxTxManager(dbPool)
 	checkPasswordResetStatusUsecase := auth.NewCheckPasswordResetStatusUsecase(adminRepo, passwordResetClock)
 	verifyAndResetPasswordUsecase := auth.NewVerifyAndResetPasswordUsecase(adminRepo, licenseKeyRepo, passwordHasher, passwordResetClock, billingAuditLogRepo)
+	requestPasswordResetUsecase := auth.NewRequestPasswordResetUsecase(adminRepo, passwordResetTokenRepo, invitationEmailService, passwordResetClock)
+	resetPasswordWithTokenUsecase := auth.NewResetPasswordWithTokenUsecase(adminRepo, passwordResetTokenRepo, passwordHasher, passwordResetClock, passwordResetTxManager)
 	passwordResetRateLimiter := DefaultPasswordResetRateLimiter()
 
 	// 認証不要ルート
 	r.Route("/api/v1/auth", func(r chi.Router) {
 		r.Post("/login", authHandler.Login)
 		// Password reset public endpoints (with rate limiting)
-		passwordResetHandler := NewPasswordResetHandler(nil, checkPasswordResetStatusUsecase, verifyAndResetPasswordUsecase, passwordResetRateLimiter)
+		passwordResetHandler := NewPasswordResetHandler(nil, checkPasswordResetStatusUsecase, verifyAndResetPasswordUsecase, requestPasswordResetUsecase, resetPasswordWithTokenUsecase, passwordResetRateLimiter)
 		r.Get("/password-reset-status", passwordResetHandler.CheckPasswordResetStatus)
 		r.Post("/reset-password", passwordResetHandler.ResetPassword)
+		// New email-based password reset endpoints
+		r.Post("/forgot-password", passwordResetHandler.ForgotPassword)
+		r.Post("/reset-password-with-token", passwordResetHandler.ResetPasswordWithToken)
 	})
 
 	// Billing guard dependencies
@@ -96,6 +142,8 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 	r.Route("/api/v1", func(r chi.Router) {
 		// 認証ミドルウェアを適用（JWT優先、X-Tenant-IDフォールバック）
 		r.Use(Auth(jwtManager))
+		// テナントステータスチェック（suspended状態はアクセス拒否）
+		r.Use(TenantStatusMiddleware(tenantRepo))
 		// 課金状態に基づくアクセス制御
 		r.Use(BillingGuard(billingGuardDeps))
 
@@ -134,12 +182,14 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		)
 
 		// InstanceHandler dependencies
+		assignmentRepo := db.NewShiftAssignmentRepository(dbPool)
+		instanceTxManager := db.NewPgxTxManager(dbPool)
 		instanceHandler := NewInstanceHandler(
 			appshift.NewCreateInstanceUsecase(instanceRepo, eventRepo),
 			appshift.NewListInstancesUsecase(instanceRepo),
 			appshift.NewGetInstanceUsecase(instanceRepo),
 			appshift.NewUpdateInstanceUsecase(instanceRepo),
-			appshift.NewDeleteInstanceUsecase(instanceRepo),
+			appshift.NewDeleteInstanceUsecase(instanceTxManager, instanceRepo, slotRepo, assignmentRepo),
 		)
 
 		// RoleHandler dependencies (needed by MemberHandler too)
@@ -170,12 +220,14 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			approle.NewDeleteRoleUsecase(roleRepo),
 		)
 
-		// ShiftSlotHandler dependencies (reusing slotRepo, businessDayRepo)
-		assignmentRepo := db.NewShiftAssignmentRepository(dbPool)
+		// ShiftSlotHandler dependencies (reusing slotRepo, businessDayRepo, instanceRepo, assignmentRepo)
+		slotTxManager := db.NewPgxTxManager(dbPool)
 		shiftSlotHandler := NewShiftSlotHandler(
-			appshift.NewCreateShiftSlotUsecase(slotRepo, businessDayRepo),
+			appshift.NewCreateShiftSlotUsecase(slotRepo, businessDayRepo, instanceRepo),
 			appshift.NewListShiftSlotsUsecase(slotRepo, assignmentRepo),
 			appshift.NewGetShiftSlotUsecase(slotRepo, assignmentRepo),
+			appshift.NewDeleteShiftSlotUsecase(slotRepo, assignmentRepo),
+			appshift.NewDeleteSlotsByInstanceUsecase(slotTxManager, slotRepo, assignmentRepo),
 		)
 
 		// ShiftTemplateHandler dependencies (reusing templateRepo, slotRepo, businessDayRepo)
@@ -211,6 +263,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			appattendance.NewListCollectionsUsecase(attendanceRepo),
 			appattendance.NewGetMemberResponsesUsecase(attendanceRepo),
 			appattendance.NewGetAllPublicResponsesUsecase(attendanceRepo, memberRepo),
+			appattendance.NewAdminUpdateResponseUsecase(attendanceRepo, memberRepo, txManager, systemClock),
 		)
 
 		// ActualAttendanceHandler dependencies (reusing memberRepo, businessDayRepo, assignmentRepo)
@@ -225,11 +278,12 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		// AdminHandler dependencies (reusing adminRepo and passwordHasher from auth setup)
 		adminHandler := NewAdminHandler(
 			auth.NewChangePasswordUsecase(adminRepo, passwordHasher),
+			auth.NewChangeEmailUsecase(adminRepo, passwordHasher),
 		)
 
 		// PasswordResetHandler dependencies (authenticated endpoint - no rate limiting needed)
 		allowPasswordResetUsecase := auth.NewAllowPasswordResetUsecase(adminRepo, systemClock)
-		authPasswordResetHandler := NewPasswordResetHandler(allowPasswordResetUsecase, nil, nil, nil)
+		authPasswordResetHandler := NewPasswordResetHandler(allowPasswordResetUsecase, nil, nil, nil, nil, nil)
 
 		// Event API
 		r.Route("/events", func(r chi.Router) {
@@ -269,6 +323,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		r.Route("/instances", func(r chi.Router) {
 			r.Get("/{instance_id}", instanceHandler.GetInstance)
 			r.With(permissionChecker.RequirePermission(tenant.PermissionEditEvent)).Put("/{instance_id}", instanceHandler.UpdateInstance)
+			r.Get("/{instance_id}/deletable", instanceHandler.CheckInstanceDeletable)
 			r.With(permissionChecker.RequirePermission(tenant.PermissionEditEvent)).Delete("/{instance_id}", instanceHandler.DeleteInstance)
 		})
 
@@ -279,6 +334,10 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			// BusinessDay配下のShiftSlot
 			r.With(permissionChecker.RequirePermission(tenant.PermissionEditShift)).Post("/{business_day_id}/shift-slots", shiftSlotHandler.CreateShiftSlot)
 			r.Get("/{business_day_id}/shift-slots", shiftSlotHandler.GetShiftSlots)
+
+			// BusinessDay配下のインスタンス別シフト枠一括削除
+			r.Get("/{business_day_id}/instances/{instance_id}/slots/deletable", shiftSlotHandler.CheckSlotsByInstanceDeletable)
+			r.With(permissionChecker.RequirePermission(tenant.PermissionEditShift)).Delete("/{business_day_id}/instances/{instance_id}/slots", shiftSlotHandler.DeleteSlotsByInstance)
 
 			// BusinessDayからShiftTemplateを作成
 			r.With(permissionChecker.RequirePermission(tenant.PermissionEditEvent)).Post("/{business_day_id}/save-as-template", shiftTemplateHandler.SaveBusinessDayAsTemplate)
@@ -354,6 +413,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		// ShiftSlot API
 		r.Route("/shift-slots", func(r chi.Router) {
 			r.Get("/{slot_id}", shiftSlotHandler.GetShiftSlotDetail)
+			r.With(permissionChecker.RequirePermission(tenant.PermissionEditShift)).Delete("/{slot_id}", shiftSlotHandler.DeleteShiftSlot)
 		})
 
 		// ShiftAssignment API
@@ -373,6 +433,8 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			r.With(permissionChecker.RequirePermission(tenant.PermissionCreateAttendance)).Delete("/{collection_id}", attendanceHandler.DeleteCollection)
 			r.With(permissionChecker.RequirePermission(tenant.PermissionCreateAttendance)).Put("/{collection_id}", attendanceHandler.UpdateCollection)
 			r.Get("/{collection_id}/responses", attendanceHandler.GetResponses)
+			// 管理者による出欠回答の更新（締め切り後も可能）
+			r.With(permissionChecker.RequirePermission(tenant.PermissionEditMember)).Put("/{collection_id}/responses", attendanceHandler.AdminUpdateResponse)
 		})
 
 		// Schedule API（管理用）
@@ -389,6 +451,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			appschedule.NewGetResponsesUsecase(scheduleRepo),
 			appschedule.NewListSchedulesUsecase(scheduleRepo),
 			appschedule.NewGetAllPublicResponsesUsecase(scheduleRepo, memberRepo),
+			appschedule.NewConvertToAttendanceUsecase(scheduleRepo, attendanceRepo, memberGroupRepo, txManager, systemClock),
 		)
 		r.Route("/schedules", func(r chi.Router) {
 			r.Get("/", scheduleHandler.ListSchedules)
@@ -399,6 +462,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			r.With(permissionChecker.RequirePermission(tenant.PermissionCreateSchedule)).Delete("/{schedule_id}", scheduleHandler.DeleteSchedule)
 			r.With(permissionChecker.RequirePermission(tenant.PermissionCreateSchedule)).Put("/{schedule_id}", scheduleHandler.UpdateSchedule)
 			r.Get("/{schedule_id}/responses", scheduleHandler.GetResponses)
+			r.With(permissionChecker.RequirePermission(tenant.PermissionCreateSchedule)).Post("/{schedule_id}/convert-to-attendance", scheduleHandler.ConvertToAttendance)
 		})
 
 		// Invitation API（管理者のみ - マネージャー招待権限が必要）
@@ -412,9 +476,10 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			r.Put("/me", tenantHandler.UpdateCurrentTenant)
 		})
 
-		// Admin API (テナント管理者のパスワード変更、PWリセット許可)
+		// Admin API (テナント管理者のパスワード変更、メールアドレス変更、PWリセット許可)
 		r.Route("/admins", func(r chi.Router) {
 			r.Post("/me/change-password", adminHandler.ChangePassword)
+			r.Post("/me/change-email", adminHandler.ChangeEmail)
 			// PWリセット許可（Ownerのみ実行可能 - Usecase内でチェック）
 			r.Post("/{admin_id}/allow-password-reset", authPasswordResetHandler.AllowPasswordReset)
 		})
@@ -472,6 +537,60 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			r.Get("/", tutorialHandler.List)
 			r.Get("/{id}", tutorialHandler.Get)
 		})
+
+		// Calendar API（カレンダー機能）
+		calendarRepo := db.NewCalendarRepository(dbPool)
+		calendarHandler := NewCalendarHandler(
+			appcalendar.NewCreateCalendarUsecase(calendarRepo, eventRepo),
+			appcalendar.NewGetCalendarUsecase(calendarRepo, eventRepo, businessDayRepo),
+			appcalendar.NewListCalendarsUsecase(calendarRepo),
+			appcalendar.NewUpdateCalendarUsecase(calendarRepo, eventRepo),
+			appcalendar.NewDeleteCalendarUsecase(calendarRepo),
+			appcalendar.NewGetCalendarByTokenUsecase(calendarRepo, eventRepo, businessDayRepo),
+		)
+		r.Route("/calendars", func(r chi.Router) {
+			r.Post("/", calendarHandler.Create)
+			r.Get("/", calendarHandler.List)
+			r.Get("/{id}", calendarHandler.GetByID)
+			r.Put("/{id}", calendarHandler.Update)
+			r.Delete("/{id}", calendarHandler.Delete)
+		})
+
+		// Billing API（課金管理 - Stripeカスタマーポータル、課金状態）
+		stripeSecretKey := os.Getenv("STRIPE_SECRET_KEY")
+		billingPortalReturnURL := os.Getenv("BILLING_PORTAL_RETURN_URL")
+		if billingPortalReturnURL == "" {
+			billingPortalReturnURL = "https://vrcshift.com/admin/settings"
+		}
+
+		billingSubscriptionRepo := db.NewSubscriptionRepository(dbPool)
+		billingStatusUsecase := apppayment.NewBillingStatusUsecase(
+			billingSubscriptionRepo,
+			entitlementRepo,
+		)
+
+		var billingHandler *BillingHandler
+		if stripeSecretKey != "" {
+			billingStripeClient := infrastripe.NewClient(stripeSecretKey)
+			billingPaymentGateway := infrastripe.NewStripePaymentGateway(billingStripeClient)
+			billingPortalUsecase := apppayment.NewBillingPortalUsecase(
+				billingSubscriptionRepo,
+				billingPaymentGateway,
+				billingPortalReturnURL,
+			)
+			billingHandler = NewBillingHandler(billingPortalUsecase, billingStatusUsecase)
+		} else {
+			billingHandler = NewBillingHandler(nil, billingStatusUsecase)
+		}
+
+		r.Route("/billing", func(r chi.Router) {
+			// 課金状態取得
+			r.Get("/status", billingHandler.GetStatus)
+			// カスタマーポータルセッション作成（カード変更、解約など）- Stripe設定時のみ
+			if stripeSecretKey != "" {
+				r.Post("/portal", billingHandler.CreatePortalSession)
+			}
+		})
 	})
 
 	// ============================================================
@@ -487,6 +606,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		// Initialize dependencies for admin billing
 		txManager := db.NewPgxTxManager(dbPool)
 		licenseKeyRepo := db.NewLicenseKeyRepository(dbPool)
+		subscriptionRepo := db.NewSubscriptionRepository(dbPool)
 		billingAuditLogRepo := db.NewBillingAuditLogRepository(dbPool)
 
 		adminLicenseKeyUsecase := applicense.NewAdminLicenseKeyUsecase(
@@ -499,6 +619,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			tenantRepo,
 			adminRepo,
 			entitlementRepo,
+			subscriptionRepo,
 			billingAuditLogRepo,
 		)
 		adminAuditLogUsecase := appaudit.NewAdminAuditLogUsecase(
@@ -565,6 +686,15 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			r.Put("/{id}", adminTutorialHandler.Update)
 			r.Delete("/{id}", adminTutorialHandler.Delete)
 		})
+
+		// Admin System Settings (Release Status Toggle)
+		adminSystemSettingRepo := db.NewSystemSettingRepository(dbPool)
+		adminSystemUsecase := appsystem.NewUsecase(adminSystemSettingRepo)
+		adminSystemHandler := NewSystemHandler(adminSystemUsecase)
+		r.Route("/system", func(r chi.Router) {
+			r.Get("/release-status", adminSystemHandler.GetReleaseStatusAdmin)
+			r.Put("/release-status", adminSystemHandler.UpdateReleaseStatus)
+		})
 	})
 
 	// Public API（認証不要）
@@ -588,6 +718,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			appattendance.NewListCollectionsUsecase(publicAttendanceRepoForHandler),
 			appattendance.NewGetMemberResponsesUsecase(publicAttendanceRepoForHandler),
 			appattendance.NewGetAllPublicResponsesUsecase(publicAttendanceRepoForHandler, publicMemberRepoForAttendance),
+			nil, // AdminUpdateResponseUsecase は公開APIでは使用しない
 		)
 		r.Get("/{token}", publicAttendanceHandler.GetCollectionByToken)
 		r.Post("/{token}/responses", publicAttendanceHandler.SubmitResponse)
@@ -610,10 +741,27 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			appschedule.NewGetResponsesUsecase(publicScheduleRepo),
 			appschedule.NewListSchedulesUsecase(publicScheduleRepo),
 			appschedule.NewGetAllPublicResponsesUsecase(publicScheduleRepo, publicScheduleMemberRepo),
+			nil, // ConvertToAttendance は public API では使用しない
 		)
 		r.Get("/{token}", publicScheduleHandler.GetScheduleByToken)
 		r.Post("/{token}/responses", publicScheduleHandler.SubmitResponse)
 		r.Get("/{token}/responses", publicScheduleHandler.GetAllPublicResponses)
+	})
+
+	// 公開カレンダーAPI（認証不要）
+	r.Route("/api/v1/public/calendar", func(r chi.Router) {
+		publicCalendarRepo := db.NewCalendarRepository(dbPool)
+		publicEventRepo := db.NewEventRepository(dbPool)
+		publicBusinessDayRepo := db.NewEventBusinessDayRepository(dbPool)
+		publicCalendarHandler := NewCalendarHandler(
+			nil, // Create not needed for public handler
+			nil, // Get not needed for public handler
+			nil, // List not needed for public handler
+			nil, // Update not needed for public handler
+			nil, // Delete not needed for public handler
+			appcalendar.NewGetCalendarByTokenUsecase(publicCalendarRepo, publicEventRepo, publicBusinessDayRepo),
+		)
+		r.Get("/{token}", publicCalendarHandler.GetByPublicToken)
 	})
 
 	// 公開ページ用メンバー一覧API（認証不要）
@@ -744,6 +892,78 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		r.Post("/claim", licenseClaimHandler.Claim)
 	})
 
+	// Subscribe API（Stripe Checkout経由での新規登録、認証不要、レート制限あり）
+	r.Route("/api/v1/public/subscribe", func(r chi.Router) {
+		// Initialize dependencies for subscribe
+		txManager := db.NewPgxTxManager(dbPool)
+		subscribeRateLimiter := DefaultClaimRateLimiter() // 同じレート制限を使用
+
+		// Stripe client configuration from environment
+		stripeSecretKey := os.Getenv("STRIPE_SECRET_KEY")
+		stripePriceID := os.Getenv("STRIPE_PRICE_SUB_200")
+		successURL := os.Getenv("STRIPE_SUCCESS_URL")
+		cancelURL := os.Getenv("STRIPE_CANCEL_URL")
+
+		// Default URLs if not configured
+		if successURL == "" {
+			successURL = "https://vrcshift.com/subscribe/complete"
+		}
+		if cancelURL == "" {
+			cancelURL = "https://vrcshift.com/subscribe/cancel"
+		}
+
+		// Only register route if Stripe is configured
+		if stripeSecretKey != "" && stripePriceID != "" {
+			stripeClient := infrastripe.NewClient(stripeSecretKey)
+			paymentGateway := infrastripe.NewStripePaymentGateway(stripeClient)
+			subscribeClock := &clock.RealClock{}
+
+			// Read checkout session expiration from environment variable
+			// Valid range: 30-1440 minutes (Stripe API constraint)
+			checkoutExpireMinutes := 0 // 0 means use default (24 hours)
+			if envExpire := os.Getenv("CHECKOUT_SESSION_EXPIRE_MINUTES"); envExpire != "" {
+				if minutes, err := strconv.Atoi(envExpire); err == nil {
+					if minutes >= services.MinCheckoutExpireMinutes && minutes <= services.MaxCheckoutExpireMinutes {
+						checkoutExpireMinutes = minutes
+						slog.Info("Checkout session expiration configured from environment", "minutes", minutes)
+					} else {
+						slog.Warn("CHECKOUT_SESSION_EXPIRE_MINUTES out of valid range, using default",
+							"value", minutes,
+							"validRange", "30-1440")
+					}
+				} else {
+					slog.Warn("Invalid CHECKOUT_SESSION_EXPIRE_MINUTES format, using default", "value", envExpire)
+				}
+			}
+
+			subscribeUsecase := apppayment.NewSubscribeUsecase(
+				txManager,
+				tenantRepo,
+				adminRepo,
+				passwordHasher,
+				paymentGateway,
+				subscribeClock,
+				successURL,
+				cancelURL,
+				stripePriceID,
+				checkoutExpireMinutes,
+			)
+			subscribeHandler := NewSubscribeHandler(subscribeUsecase, subscribeRateLimiter)
+
+			r.Post("/", subscribeHandler.Subscribe)
+		}
+	})
+
+	// System Settings Public API（認証不要）
+	// リリース状態などのシステム設定を公開
+	r.Route("/api/v1/public/system", func(r chi.Router) {
+		systemSettingRepo := db.NewSystemSettingRepository(dbPool)
+		systemUsecase := appsystem.NewUsecase(systemSettingRepo)
+		systemHandler := NewSystemHandler(systemUsecase)
+
+		r.Get("/release-status", systemHandler.GetReleaseStatus)
+	})
+
 	// Stripe Webhook API（認証不要、署名検証のみ）
 	r.Route("/api/v1/stripe", func(r chi.Router) {
 		// Initialize dependencies for Stripe webhook
@@ -752,6 +972,21 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		webhookEventRepo := db.NewWebhookEventRepository(dbPool)
 		billingAuditLogRepo := db.NewBillingAuditLogRepository(dbPool)
 
+		// Read grace period from environment variable (default: 14 days, max: 90 days)
+		const maxGracePeriodDays = 90
+		gracePeriodDays := tenant.DefaultGracePeriodDays
+		if envGracePeriod := os.Getenv("GRACE_PERIOD_DAYS"); envGracePeriod != "" {
+			if days, err := strconv.Atoi(envGracePeriod); err == nil && days > 0 && days <= maxGracePeriodDays {
+				gracePeriodDays = days
+				slog.Info("Grace period configured from environment", "days", days)
+			} else {
+				slog.Warn("Invalid GRACE_PERIOD_DAYS value, using default",
+					"value", envGracePeriod,
+					"default", tenant.DefaultGracePeriodDays,
+					"validRange", "1-90")
+			}
+		}
+
 		stripeWebhookUsecase := apppayment.NewStripeWebhookUsecase(
 			txManager,
 			tenantRepo,
@@ -759,6 +994,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			entitlementRepo,
 			webhookEventRepo,
 			billingAuditLogRepo,
+			gracePeriodDays,
 		)
 		stripeWebhookHandler := NewStripeWebhookHandler(stripeWebhookUsecase)
 

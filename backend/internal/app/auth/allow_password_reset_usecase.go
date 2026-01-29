@@ -18,11 +18,11 @@ type AllowPasswordResetInput struct {
 
 // AllowPasswordResetOutput represents the output for allowing password reset
 type AllowPasswordResetOutput struct {
-	TargetAdminID   string `json:"target_admin_id"`
-	TargetEmail     string `json:"target_email"`
-	AllowedAt       string `json:"allowed_at"`
-	ExpiresAt       string `json:"expires_at"`
-	AllowedByName   string `json:"allowed_by_name"`
+	TargetAdminID string `json:"target_admin_id"`
+	TargetEmail   string `json:"target_email"`
+	AllowedAt     string `json:"allowed_at"`
+	ExpiresAt     string `json:"expires_at"`
+	AllowedByName string `json:"allowed_by_name"`
 }
 
 // AllowPasswordResetUsecase handles the password reset allowance use case

@@ -48,6 +48,9 @@ export default function Layout() {
             <Link to="/audit-logs" className={linkClass('/audit-logs')}>
               監査ログ
             </Link>
+            <Link to="/system" className={linkClass('/system')}>
+              システム設定
+            </Link>
           </div>
         </div>
       </nav>

@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import Landing from './pages/Landing';
+import Terms from './pages/Terms';
+import Privacy from './pages/Privacy';
 import AdminLogin from './pages/AdminLogin';
 import AdminInvitation from './pages/AdminInvitation';
 import AcceptInvitation from './pages/AcceptInvitation';
@@ -21,12 +24,19 @@ import TemplateForm from './pages/TemplateForm';
 import TemplateDetail from './pages/TemplateDetail';
 import InstanceList from './pages/InstanceList';
 import Settings from './pages/Settings';
+import CalendarList from './pages/CalendarList';
 // BillingManagement は管理フロントエンド（admin-frontend）に移動しました
 import Layout from './components/Layout';
 import AttendanceResponse from './pages/public/AttendanceResponse';
 import ScheduleResponse from './pages/public/ScheduleResponse';
+import PublicCalendar from './pages/public/PublicCalendar';
 import LicenseClaim from './pages/public/LicenseClaim';
 import PasswordReset from './pages/public/PasswordReset';
+import ForgotPassword from './pages/public/ForgotPassword';
+import ResetPasswordWithToken from './pages/public/ResetPasswordWithToken';
+import Subscribe from './pages/Subscribe';
+import SubscribeComplete from './pages/SubscribeComplete';
+import SubscribeCancel from './pages/SubscribeCancel';
 
 /**
  * ログイン状態をチェック
@@ -69,6 +79,11 @@ function App() {
 
   return (
     <Routes>
+      {/* ランディングページ（認証不要） */}
+      <Route path="/" element={<Landing />} />
+      <Route path="/terms" element={<Terms />} />
+      <Route path="/privacy" element={<Privacy />} />
+
       {/* 管理者ログイン（ログイン済みの場合は /events へリダイレクト） */}
       <Route path="/admin/login" element={isLoggedIn ? <Navigate to="/events" replace /> : <AdminLogin />} />
       <Route path="/login" element={<Navigate to="/admin/login" replace />} />
@@ -79,36 +94,45 @@ function App() {
       {/* 公開ページ（認証不要） */}
       <Route path="/p/attendance/:token" element={<AttendanceResponse />} />
       <Route path="/p/schedule/:token" element={<ScheduleResponse />} />
+      <Route path="/p/calendar/:token" element={<PublicCalendar />} />
 
       {/* ライセンス登録（認証不要） */}
       <Route path="/register" element={<LicenseClaim />} />
 
       {/* パスワードリセット（認証不要） */}
       <Route path="/reset-password" element={<PasswordReset />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password/:token" element={<ResetPasswordWithToken />} />
 
-      {/* ログイン必須の画面 */}
-      <Route path="/" element={isLoggedIn ? <Layout /> : <Navigate to="/admin/login" replace />}>
-        <Route index element={<Navigate to="/events" replace />} />
-        <Route path="events" element={<EventList />} />
-        <Route path="events/:eventId/business-days" element={<BusinessDayList />} />
-        <Route path="events/:eventId/templates" element={<TemplateList />} />
-        <Route path="events/:eventId/templates/new" element={<TemplateForm />} />
-        <Route path="events/:eventId/templates/:templateId" element={<TemplateDetail />} />
-        <Route path="events/:eventId/templates/:templateId/edit" element={<TemplateForm />} />
-        <Route path="events/:eventId/instances" element={<InstanceList />} />
-        <Route path="business-days/:businessDayId/shift-slots" element={<ShiftSlotList />} />
-        <Route path="shift-slots/:slotId/assign" element={<AssignShift />} />
-        <Route path="members" element={<Members />} />
-        <Route path="roles" element={<RoleList />} />
-        <Route path="role-groups" element={<RoleGroupList />} />
-        <Route path="groups" element={<MemberGroupList />} />
-        <Route path="attendance" element={<AttendanceList />} />
-        <Route path="attendance/:collectionId" element={<AttendanceDetail />} />
-        <Route path="attendance/:collectionId/shift-adjustment" element={<ShiftAdjustment />} />
-        <Route path="schedules" element={<ScheduleList />} />
-        <Route path="schedules/:scheduleId" element={<ScheduleDetail />} />
-        <Route path="admin/invite" element={<AdminInvitation />} />
-        <Route path="settings" element={<Settings />} />
+      {/* Stripe サブスク登録（認証不要） */}
+      <Route path="/subscribe" element={<Subscribe />} />
+      <Route path="/subscribe/complete" element={<SubscribeComplete />} />
+      <Route path="/subscribe/cancel" element={<SubscribeCancel />} />
+
+      {/* ログイン必須の画面（Layoutでラップ） */}
+      <Route element={isLoggedIn ? <Layout /> : <Navigate to="/admin/login" replace />}>
+        <Route path="/admin" element={<Navigate to="/events" replace />} />
+        <Route path="/events" element={<EventList />} />
+        <Route path="/events/:eventId/business-days" element={<BusinessDayList />} />
+        <Route path="/events/:eventId/templates" element={<TemplateList />} />
+        <Route path="/events/:eventId/templates/new" element={<TemplateForm />} />
+        <Route path="/events/:eventId/templates/:templateId" element={<TemplateDetail />} />
+        <Route path="/events/:eventId/templates/:templateId/edit" element={<TemplateForm />} />
+        <Route path="/events/:eventId/instances" element={<InstanceList />} />
+        <Route path="/business-days/:businessDayId/shift-slots" element={<ShiftSlotList />} />
+        <Route path="/shift-slots/:slotId/assign" element={<AssignShift />} />
+        <Route path="/members" element={<Members />} />
+        <Route path="/roles" element={<RoleList />} />
+        <Route path="/role-groups" element={<RoleGroupList />} />
+        <Route path="/groups" element={<MemberGroupList />} />
+        <Route path="/attendance" element={<AttendanceList />} />
+        <Route path="/attendance/:collectionId" element={<AttendanceDetail />} />
+        <Route path="/attendance/:collectionId/shift-adjustment" element={<ShiftAdjustment />} />
+        <Route path="/schedules" element={<ScheduleList />} />
+        <Route path="/schedules/:scheduleId" element={<ScheduleDetail />} />
+        <Route path="/admin/invite" element={<AdminInvitation />} />
+        <Route path="/settings" element={<Settings />} />
+        <Route path="/calendars" element={<CalendarList />} />
       </Route>
 
       {/* 404 */}

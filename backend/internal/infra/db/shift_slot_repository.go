@@ -138,10 +138,40 @@ func (r *ShiftSlotRepository) FindByBusinessDayID(ctx context.Context, tenantID 
 			required_count, priority, created_at, updated_at, deleted_at
 		FROM shift_slots
 		WHERE tenant_id = $1 AND business_day_id = $2 AND deleted_at IS NULL
-		ORDER BY start_time ASC, priority DESC
+		ORDER BY priority ASC, created_at ASC
 	`
 
 	return r.queryShiftSlots(ctx, query, tenantID.String(), businessDayID.String())
+}
+
+// FindByInstanceID finds all shift slots for an instance
+func (r *ShiftSlotRepository) FindByInstanceID(ctx context.Context, tenantID common.TenantID, instanceID shift.InstanceID) ([]*shift.ShiftSlot, error) {
+	query := `
+		SELECT
+			slot_id, tenant_id, business_day_id, instance_id,
+			slot_name, instance_name, start_time, end_time,
+			required_count, priority, created_at, updated_at, deleted_at
+		FROM shift_slots
+		WHERE tenant_id = $1 AND instance_id = $2 AND deleted_at IS NULL
+		ORDER BY priority ASC, created_at ASC
+	`
+
+	return r.queryShiftSlots(ctx, query, tenantID.String(), instanceID.String())
+}
+
+// FindByBusinessDayIDAndInstanceID finds all shift slots for a business day and instance
+func (r *ShiftSlotRepository) FindByBusinessDayIDAndInstanceID(ctx context.Context, tenantID common.TenantID, businessDayID event.BusinessDayID, instanceID shift.InstanceID) ([]*shift.ShiftSlot, error) {
+	query := `
+		SELECT
+			slot_id, tenant_id, business_day_id, instance_id,
+			slot_name, instance_name, start_time, end_time,
+			required_count, priority, created_at, updated_at, deleted_at
+		FROM shift_slots
+		WHERE tenant_id = $1 AND business_day_id = $2 AND instance_id = $3 AND deleted_at IS NULL
+		ORDER BY priority ASC, created_at ASC
+	`
+
+	return r.queryShiftSlots(ctx, query, tenantID.String(), businessDayID.String(), instanceID.String())
 }
 
 // Delete deletes a shift slot (physical delete)
@@ -264,4 +294,3 @@ func (r *ShiftSlotRepository) scanToShiftSlot(
 		deletedAtPtr,
 	)
 }
-

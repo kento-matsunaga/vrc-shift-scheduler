@@ -21,21 +21,21 @@ type MemberRepository interface {
 
 // ImportMembersInput represents the input for importing members
 type ImportMembersInput struct {
-	TenantID  common.TenantID
-	AdminID   common.AdminID
-	FileName  string
-	FileData  []byte
-	Options   importjob.ImportOptions
+	TenantID common.TenantID
+	AdminID  common.AdminID
+	FileName string
+	FileData []byte
+	Options  importjob.ImportOptions
 }
 
 // ImportMembersOutput represents the output of member import
 type ImportMembersOutput struct {
-	ImportJobID common.ImportJobID
-	Status      importjob.ImportStatus
-	TotalRows   int
+	ImportJobID  common.ImportJobID
+	Status       importjob.ImportStatus
+	TotalRows    int
 	SuccessCount int
-	ErrorCount  int
-	Errors      []importjob.ErrorDetail
+	ErrorCount   int
+	Errors       []importjob.ErrorDetail
 }
 
 // ImportMembersUsecase handles the member import use case

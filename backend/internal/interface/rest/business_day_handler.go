@@ -36,11 +36,11 @@ func NewBusinessDayHandler(
 
 // CreateBusinessDayRequest represents the request body for creating a business day
 type CreateBusinessDayRequest struct {
-	TargetDate     string  `json:"target_date"`      // YYYY-MM-DD
-	StartTime      string  `json:"start_time"`       // HH:MM
-	EndTime        string  `json:"end_time"`         // HH:MM
-	OccurrenceType string  `json:"occurrence_type"`  // recurring or special
-	TemplateID     *string `json:"template_id"`      // optional: テンプレートからシフト枠を作成
+	TargetDate     string  `json:"target_date"`     // YYYY-MM-DD
+	StartTime      string  `json:"start_time"`      // HH:MM
+	EndTime        string  `json:"end_time"`        // HH:MM
+	OccurrenceType string  `json:"occurrence_type"` // recurring or special
+	TemplateID     *string `json:"template_id"`     // optional: テンプレートからシフト枠を作成
 }
 
 // BusinessDayResponse represents a business day in API responses
@@ -48,9 +48,9 @@ type BusinessDayResponse struct {
 	BusinessDayID  string `json:"business_day_id"`
 	TenantID       string `json:"tenant_id"`
 	EventID        string `json:"event_id"`
-	TargetDate     string `json:"target_date"`      // YYYY-MM-DD
-	StartTime      string `json:"start_time"`       // HH:MM:SS
-	EndTime        string `json:"end_time"`         // HH:MM:SS
+	TargetDate     string `json:"target_date"` // YYYY-MM-DD
+	StartTime      string `json:"start_time"`  // HH:MM:SS
+	EndTime        string `json:"end_time"`    // HH:MM:SS
 	OccurrenceType string `json:"occurrence_type"`
 	IsActive       bool   `json:"is_active"`
 	CreatedAt      string `json:"created_at"`
@@ -342,4 +342,3 @@ func (h *BusinessDayHandler) ApplyTemplate(w http.ResponseWriter, r *http.Reques
 		"items_count":     itemsCount,
 	})
 }
-

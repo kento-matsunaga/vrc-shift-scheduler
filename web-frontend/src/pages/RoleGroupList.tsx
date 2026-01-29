@@ -9,6 +9,7 @@ import {
 } from '../lib/api/roleGroupApi';
 import { listRoles, type Role } from '../lib/api/roleApi';
 import { ApiClientError } from '../lib/apiClient';
+import { SEO } from '../components/seo';
 
 // プリセットカラーパレット
 const PRESET_COLORS = {
@@ -124,6 +125,7 @@ export default function RoleGroupList() {
 
   return (
     <div>
+      <SEO noindex={true} />
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
         <div>
           <h2 className="text-xl sm:text-2xl font-bold text-gray-900">ロールグループ管理</h2>

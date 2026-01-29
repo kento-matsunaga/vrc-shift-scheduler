@@ -564,4 +564,3 @@ func (h *MemberHandler) BulkUpdateRoles(w http.ResponseWriter, r *http.Request) 
 	// レスポンス
 	writeSuccess(w, http.StatusOK, output)
 }
-

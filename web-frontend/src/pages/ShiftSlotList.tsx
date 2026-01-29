@@ -1,11 +1,15 @@
 import { useState, useEffect } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
+import { SEO } from '../components/seo';
 import { getBusinessDayDetail, getShiftSlots, createShiftSlot, getAssignments, applyTemplateToBusinessDay } from '../lib/api';
 import { listTemplates } from '../lib/api/templateApi';
-import { listInstances } from '../lib/api/instanceApi';
+import { listInstances, checkSlotsByInstanceDeletable, deleteSlotsByInstance, type CheckSlotsDeletableResponse } from '../lib/api/instanceApi';
+import { deleteShiftSlot } from '../lib/api/shiftSlotApi';
 import type { BusinessDay, ShiftSlot, ShiftAssignment, Template } from '../types/api';
 import type { Instance } from '../lib/api/instanceApi';
 import { ApiClientError } from '../lib/apiClient';
+import type { InstanceData } from '../lib/shiftTextExport';
+import ShiftTextPreviewModal from '../components/ShiftTextPreviewModal';
 
 interface InstanceWithSlots {
   instance: Instance | null; // null for slots without instance
@@ -24,6 +28,13 @@ export default function ShiftSlotList() {
   const [error, setError] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [deleteSlotTarget, setDeleteSlotTarget] = useState<ShiftSlot | null>(null);
+  const [deleteInstanceTarget, setDeleteInstanceTarget] = useState<Instance | null>(null);
+  const [instanceDeletableInfo, setInstanceDeletableInfo] = useState<CheckSlotsDeletableResponse | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+  const [checkingDeletable, setCheckingDeletable] = useState(false);
 
   useEffect(() => {
     if (businessDayId) {
@@ -106,6 +117,79 @@ export default function ShiftSlotList() {
     });
   };
 
+  // シフト枠を削除
+  const handleDeleteSlot = async (slot: ShiftSlot) => {
+    setDeleting(true);
+    setDeleteError('');
+    try {
+      await deleteShiftSlot(slot.slot_id);
+      setDeleteSlotTarget(null);
+      loadData();
+    } catch (err) {
+      if (err instanceof ApiClientError) {
+        setDeleteError(err.getUserMessage());
+      } else {
+        setDeleteError('シフト枠の削除に失敗しました');
+      }
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  // インスタンスに紐づくシフト枠を一括削除
+  const handleDeleteInstanceSlots = async (instance: Instance) => {
+    if (!businessDayId) return;
+    setDeleting(true);
+    setDeleteError('');
+    try {
+      await deleteSlotsByInstance(businessDayId, instance.instance_id);
+      setDeleteInstanceTarget(null);
+      setInstanceDeletableInfo(null);
+      loadData();
+    } catch (err) {
+      if (err instanceof ApiClientError) {
+        setDeleteError(err.getUserMessage());
+      } else {
+        setDeleteError('シフト枠の削除に失敗しました');
+      }
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  // シフト枠削除モーダルを開く（APIで削除可否を確認）
+  const openDeleteInstanceSlotsModal = async (instance: Instance) => {
+    if (!businessDayId) return;
+    setDeleteInstanceTarget(instance);
+    setInstanceDeletableInfo(null);
+    setDeleteError('');
+    setCheckingDeletable(true);
+    try {
+      const result = await checkSlotsByInstanceDeletable(businessDayId, instance.instance_id);
+      setInstanceDeletableInfo(result);
+    } catch (err) {
+      if (err instanceof ApiClientError) {
+        setDeleteError(err.getUserMessage());
+      } else {
+        setDeleteError('削除可否の確認に失敗しました');
+      }
+    } finally {
+      setCheckingDeletable(false);
+    }
+  };
+
+  // 削除モーダルを閉じる
+  const closeDeleteSlotModal = () => {
+    setDeleteSlotTarget(null);
+    setDeleteError('');
+  };
+
+  const closeDeleteInstanceModal = () => {
+    setDeleteInstanceTarget(null);
+    setInstanceDeletableInfo(null);
+    setDeleteError('');
+  };
+
   // シフト枠をインスタンスごとにグループ化
   const groupSlotsByInstance = (): InstanceWithSlots[] => {
     const instanceMap = new Map<string, Instance>();
@@ -133,7 +217,33 @@ export default function ShiftSlotList() {
       return a.instance.display_order - b.instance.display_order;
     });
 
+    // 各インスタンス内のスロットをpriority昇順でソート（小さいほど優先）
+    // 同じpriorityの場合は登録順（created_at昇順）を優先
+    // バックエンドでもソート済みだが、フロントエンドでも一貫性を保証
+    result.forEach((group) => {
+      group.slots.sort((a, b) => {
+        if (a.priority !== b.priority) {
+          return a.priority - b.priority;
+        }
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      });
+    });
+
     return result;
+  };
+
+  // プレビューモーダル用のインスタンスデータを生成
+  const getInstanceDataForPreview = (): InstanceData[] => {
+    const groups = groupSlotsByInstance();
+    return groups.map((group) => ({
+      instanceName: group.instance?.name || '未分類',
+      slots: group.slots.map((slot) => ({
+        slotName: slot.slot_name,
+        assignments: (slotAssignments[slot.slot_id] || []).map((a) => ({
+          memberName: a.member_display_name || a.member_id,
+        })),
+      })),
+    }));
   };
 
   if (loading) {
@@ -157,6 +267,7 @@ export default function ShiftSlotList() {
 
   return (
     <div>
+      <SEO noindex={true} />
       {/* パンくずリスト */}
       <nav className="mb-6 text-sm text-gray-600">
         <Link to="/events" className="hover:text-gray-900">
@@ -186,7 +297,28 @@ export default function ShiftSlotList() {
             {businessDay.start_time.slice(0, 5)} 〜 {businessDay.end_time.slice(0, 5)}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
+          {/* インスタンス表プレビューボタン */}
+          <button
+            onClick={() => setShowPreviewModal(true)}
+            disabled={shiftSlots.length === 0}
+            className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <svg
+              className="w-5 h-5 mr-2"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+              />
+            </svg>
+            インスタンス表を出力
+          </button>
           <button
             onClick={() => setShowTemplateModal(true)}
             className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg flex items-center"
@@ -239,11 +371,11 @@ export default function ShiftSlotList() {
             return (
               <div key={instanceId} className="card p-0 overflow-hidden">
                 {/* インスタンスヘッダー（クリックで開閉） */}
-                <button
-                  onClick={() => toggleInstance(instanceId)}
-                  className="w-full px-6 py-4 flex items-center justify-between bg-gray-50 hover:bg-gray-100 transition-colors"
-                >
-                  <div className="flex items-center gap-3">
+                <div className="w-full px-6 py-4 flex items-center justify-between bg-gray-50">
+                  <button
+                    onClick={() => toggleInstance(instanceId)}
+                    className="flex items-center gap-3 flex-1 text-left hover:bg-gray-100 -mx-2 px-2 py-1 rounded transition-colors"
+                  >
                     <svg
                       className={`w-5 h-5 text-gray-500 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
                       fill="none"
@@ -252,13 +384,13 @@ export default function ShiftSlotList() {
                     >
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                     </svg>
-                    <div className="text-left">
+                    <div>
                       <h3 className="text-lg font-bold text-gray-900">{instanceName}</h3>
                       <p className="text-sm text-gray-500">
                         {group.slots.length}個の役職
                       </p>
                     </div>
-                  </div>
+                  </button>
                   <div className="flex items-center gap-3">
                     <span
                       className={`px-3 py-1 text-sm font-semibold rounded-full ${
@@ -269,8 +401,20 @@ export default function ShiftSlotList() {
                     >
                       {totalAssigned} / {totalRequired} 人
                     </span>
+                    {/* シフト枠一括削除ボタン（未分類でなければ表示） */}
+                    {group.instance && (
+                      <button
+                        onClick={() => openDeleteInstanceSlotsModal(group.instance!)}
+                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                        title="このインスタンスの役職を一括削除"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    )}
                   </div>
-                </button>
+                </div>
 
                 {/* シフト枠リスト（展開時のみ表示） */}
                 {isExpanded && (
@@ -314,12 +458,28 @@ export default function ShiftSlotList() {
                                 </div>
                               )}
                             </div>
-                            <button
-                              onClick={() => navigate(`/shift-slots/${slot.slot_id}/assign`)}
-                              className="btn-primary ml-4 text-sm"
-                            >
-                              {(slot.assigned_count || 0) >= slot.required_count ? '編集' : '割り当て'}
-                            </button>
+                            <div className="flex items-center gap-2 ml-4">
+                              <button
+                                onClick={() => navigate(`/shift-slots/${slot.slot_id}/assign`)}
+                                className="btn-primary text-sm"
+                              >
+                                {(slot.assigned_count || 0) >= slot.required_count ? '編集' : '割り当て'}
+                              </button>
+                              <button
+                                onClick={() => setDeleteSlotTarget(slot)}
+                                disabled={assignments.length > 0}
+                                className={`p-2 rounded transition-colors ${
+                                  assignments.length > 0
+                                    ? 'text-gray-300 cursor-not-allowed'
+                                    : 'text-gray-400 hover:text-red-600 hover:bg-red-50'
+                                }`}
+                                title={assignments.length > 0 ? '担当が割り当て済みのため削除できません' : 'シフト枠を削除'}
+                              >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </button>
+                            </div>
                           </div>
                         </div>
                       );
@@ -354,6 +514,37 @@ export default function ShiftSlotList() {
           }}
         />
       )}
+
+      {/* インスタンス表プレビューモーダル */}
+      <ShiftTextPreviewModal
+        isOpen={showPreviewModal}
+        onClose={() => setShowPreviewModal(false)}
+        instanceData={getInstanceDataForPreview()}
+      />
+
+      {/* シフト枠削除確認モーダル */}
+      {deleteSlotTarget && (
+        <DeleteSlotConfirmModal
+          slot={deleteSlotTarget}
+          onClose={closeDeleteSlotModal}
+          onConfirm={() => handleDeleteSlot(deleteSlotTarget)}
+          deleting={deleting}
+          error={deleteError}
+        />
+      )}
+
+      {/* シフト枠一括削除確認モーダル */}
+      {deleteInstanceTarget && (
+        <DeleteInstanceSlotsConfirmModal
+          instance={deleteInstanceTarget}
+          deletableInfo={instanceDeletableInfo}
+          checkingDeletable={checkingDeletable}
+          onClose={closeDeleteInstanceModal}
+          onConfirm={() => handleDeleteInstanceSlots(deleteInstanceTarget)}
+          deleting={deleting}
+          error={deleteError}
+        />
+      )}
     </div>
   );
 }
@@ -376,6 +567,7 @@ function CreateShiftSlotModal({
   const [startTime, setStartTime] = useState('21:30');
   const [endTime, setEndTime] = useState('23:00');
   const [requiredCount, setRequiredCount] = useState(1);
+  const [priority, setPriority] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -412,15 +604,25 @@ function CreateShiftSlotModal({
       return;
     }
 
+    if (priority < 1) {
+      setError('表示順は1以上で入力してください');
+      return;
+    }
+
     setLoading(true);
 
     try {
+      // 既存インスタンスが選択されている場合は instance_id を送信
+      const instanceId = selectedInstanceId && selectedInstanceId !== '__new__' ? selectedInstanceId : undefined;
+
       await createShiftSlot(businessDayId, {
         slot_name: slotName.trim(),
+        instance_id: instanceId,
         instance_name: finalInstanceName,
         start_time: startTime,
         end_time: endTime,
         required_count: requiredCount,
+        priority: priority,
       });
       onSuccess();
     } catch (err) {
@@ -524,19 +726,36 @@ function CreateShiftSlotModal({
             </div>
           </div>
 
-          <div className="mb-4">
-            <label htmlFor="requiredCount" className="label">
-              必要人数 <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="number"
-              id="requiredCount"
-              value={requiredCount}
-              onChange={(e) => setRequiredCount(parseInt(e.target.value, 10))}
-              min="1"
-              className="input-field"
-              disabled={loading}
-            />
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <div>
+              <label htmlFor="requiredCount" className="label">
+                必要人数 <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="number"
+                id="requiredCount"
+                value={requiredCount}
+                onChange={(e) => setRequiredCount(parseInt(e.target.value, 10))}
+                min="1"
+                className="input-field"
+                disabled={loading}
+              />
+            </div>
+            <div>
+              <label htmlFor="priority" className="label">
+                表示順 <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="number"
+                id="priority"
+                value={priority}
+                onChange={(e) => setPriority(parseInt(e.target.value, 10))}
+                min="1"
+                className="input-field"
+                disabled={loading}
+              />
+              <p className="text-xs text-gray-500 mt-1">小さいほど上に表示</p>
+            </div>
           </div>
 
           {error && (
@@ -724,6 +943,168 @@ function ApplyTemplateModal({
             </div>
           </form>
         )}
+      </div>
+    </div>
+  );
+}
+
+// シフト枠削除確認モーダル
+function DeleteSlotConfirmModal({
+  slot,
+  onClose,
+  onConfirm,
+  deleting,
+  error,
+}: {
+  slot: ShiftSlot;
+  onClose: () => void;
+  onConfirm: () => void;
+  deleting: boolean;
+  error: string;
+}) {
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-lg max-w-md w-full p-6">
+        <h3 className="text-xl font-bold text-gray-900 mb-4">シフト枠を削除</h3>
+        <p className="text-gray-600 mb-4">
+          以下のシフト枠を削除しますか？この操作は取り消せません。
+        </p>
+        <div className="bg-gray-50 rounded-lg p-4 mb-4">
+          <p className="font-semibold text-gray-900">{slot.slot_name}</p>
+          <p className="text-sm text-gray-600 mt-1">
+            {slot.instance_name} / {slot.start_time.slice(0, 5)} 〜 {slot.end_time.slice(0, 5)}
+          </p>
+        </div>
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+            <p className="text-sm text-red-800">{error}</p>
+          </div>
+        )}
+        <div className="flex space-x-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 btn-secondary"
+            disabled={deleting}
+          >
+            キャンセル
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors disabled:opacity-50"
+            disabled={deleting}
+          >
+            {deleting ? '削除中...' : '削除する'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// シフト枠一括削除確認モーダル
+function DeleteInstanceSlotsConfirmModal({
+  instance,
+  deletableInfo,
+  checkingDeletable,
+  onClose,
+  onConfirm,
+  deleting,
+  error,
+}: {
+  instance: Instance;
+  deletableInfo: CheckSlotsDeletableResponse | null;
+  checkingDeletable: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  deleting: boolean;
+  error: string;
+}) {
+  const canDelete = deletableInfo?.can_delete ?? false;
+  const slotCount = deletableInfo?.slot_count ?? 0;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-lg max-w-md w-full p-6">
+        <h3 className="text-xl font-bold text-gray-900 mb-4">役職を一括削除</h3>
+
+        {checkingDeletable ? (
+          <div className="text-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent mx-auto"></div>
+            <p className="mt-4 text-gray-600">確認中...</p>
+          </div>
+        ) : deletableInfo === null ? (
+          // API呼び出しエラー時
+          <>
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+                <p className="text-sm text-red-800">{error}</p>
+              </div>
+            )}
+          </>
+        ) : slotCount === 0 ? (
+          // この営業日にはシフト枠がない場合
+          <>
+            <p className="text-gray-600 mb-4">
+              この営業日には「{instance.name}」に紐づく役職がありません。
+            </p>
+          </>
+        ) : canDelete ? (
+          <>
+            <p className="text-gray-600 mb-4">
+              この営業日の「{instance.name}」に紐づく<span className="text-red-600 font-semibold">{slotCount}個の役職</span>を削除しますか？<br />
+              <span className="text-sm text-gray-500">（インスタンス自体は削除されません）</span>
+            </p>
+            <div className="bg-gray-50 rounded-lg p-4 mb-4">
+              <p className="font-semibold text-gray-900">{instance.name}</p>
+              <p className="text-sm text-gray-600 mt-1">
+                {slotCount}個の役職を削除
+              </p>
+            </div>
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+                <p className="text-sm text-red-800">{error}</p>
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            <p className="text-gray-600 mb-4">
+              この営業日の役職は削除できません。
+            </p>
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+              <p className="text-red-800 font-semibold mb-2">
+                {deletableInfo.blocking_reason || '担当が割り振られている役職があるため削除できません'}
+              </p>
+              <p className="text-sm text-red-700">
+                {deletableInfo.assigned_slots}個の役職に担当が割り当てられています。
+                先に担当を解除してください。
+              </p>
+            </div>
+          </>
+        )}
+
+        <div className="flex space-x-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 btn-secondary"
+            disabled={deleting || checkingDeletable}
+          >
+            {canDelete && slotCount > 0 ? 'キャンセル' : '閉じる'}
+          </button>
+          {canDelete && slotCount > 0 && !checkingDeletable && (
+            <button
+              type="button"
+              onClick={onConfirm}
+              className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors disabled:opacity-50"
+              disabled={deleting}
+            >
+              {deleting ? '削除中...' : '削除する'}
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

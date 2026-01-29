@@ -152,8 +152,8 @@ func TestKatakanaToHiragana(t *testing.T) {
 		{"カタカナ", "かたかな"},
 		{"ラット", "らっと"},
 		{"モヤシ", "もやし"},
-		{"ひらがな", "ひらがな"}, // Already hiragana
-		{"ABC123", "ABC123"},    // Non-Japanese
+		{"ひらがな", "ひらがな"},     // Already hiragana
+		{"ABC123", "ABC123"}, // Non-Japanese
 		{"", ""},
 	}
 
@@ -176,7 +176,7 @@ func TestFullWidthToHalfWidth(t *testing.T) {
 		{"ＡＢＣＤ", "ABCD"},
 		{"ａｂｃｄ", "abcd"},
 		{"abc123", "abc123"}, // Already half-width
-		{"あいうえお", "あいうえお"}, // Non-alphanumeric
+		{"あいうえお", "あいうえお"},   // Non-alphanumeric
 		{"", ""},
 	}
 

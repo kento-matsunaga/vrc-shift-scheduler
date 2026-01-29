@@ -173,3 +173,18 @@ type DeleteScheduleOutput struct {
 	DeletedAt  *time.Time `json:"deleted_at,omitempty"`
 	UpdatedAt  time.Time  `json:"updated_at"`
 }
+
+// ConvertToAttendanceInput represents the input for converting a schedule to attendance
+type ConvertToAttendanceInput struct {
+	TenantID     string   // from JWT context (管理API)
+	ScheduleID   string   // from URL path
+	CandidateIDs []string // 変換対象の候補日ID
+	Title        string   // 出欠確認のタイトル（空の場合は元のタイトルを使用）
+}
+
+// ConvertToAttendanceOutput represents the output for converting a schedule to attendance
+type ConvertToAttendanceOutput struct {
+	CollectionID string `json:"collection_id"`
+	PublicToken  string `json:"public_token"`
+	Title        string `json:"title"`
+}

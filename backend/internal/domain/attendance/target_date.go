@@ -8,13 +8,13 @@ import (
 
 // TargetDate は出欠確認の対象日エンティティ
 type TargetDate struct {
-	targetDateID  common.TargetDateID
-	collectionID  common.CollectionID
-	targetDate    time.Time // 日付部分のみ使用
-	startTime     *string   // 開始時間（HH:MM形式、任意）
-	endTime       *string   // 終了時間（HH:MM形式、任意）
-	displayOrder  int
-	createdAt     time.Time
+	targetDateID common.TargetDateID
+	collectionID common.CollectionID
+	targetDate   time.Time // 日付部分のみ使用
+	startTime    *string   // 開始時間（HH:MM形式、任意）
+	endTime      *string   // 終了時間（HH:MM形式、任意）
+	displayOrder int
+	createdAt    time.Time
 }
 
 // NewTargetDate creates a new TargetDate entity
@@ -90,10 +90,10 @@ func (td *TargetDate) validate() error {
 		}
 	}
 
-	// 開始時間と終了時間の論理チェック
+	// 開始時間と終了時間の論理チェック（深夜営業対応: 同じ時刻のみ無効）
 	if td.startTime != nil && td.endTime != nil {
-		if *td.startTime >= *td.endTime {
-			return common.NewValidationError("start_time must be before end_time", nil)
+		if *td.startTime == *td.endTime {
+			return common.NewValidationError("start_time and end_time must be different", nil)
 		}
 	}
 

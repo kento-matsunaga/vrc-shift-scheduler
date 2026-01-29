@@ -45,20 +45,20 @@ func (t RecurrenceType) Validate() error {
 // Event represents an event entity (aggregate root)
 // イベントはVRChatイベントの定義を表す集約ルート
 type Event struct {
-	eventID               common.EventID
-	tenantID              common.TenantID
-	eventName             string
-	eventType             EventType
-	description           string
-	isActive              bool
-	recurrenceType        RecurrenceType
-	recurrenceStartDate   *time.Time // DATE型として扱う
-	recurrenceDayOfWeek   *int       // 0-6: 日曜日=0, 土曜日=6
-	defaultStartTime      *time.Time // TIME型として扱う
-	defaultEndTime        *time.Time // TIME型として扱う
-	createdAt             time.Time
-	updatedAt             time.Time
-	deletedAt             *time.Time
+	eventID             common.EventID
+	tenantID            common.TenantID
+	eventName           string
+	eventType           EventType
+	description         string
+	isActive            bool
+	recurrenceType      RecurrenceType
+	recurrenceStartDate *time.Time // DATE型として扱う
+	recurrenceDayOfWeek *int       // 0-6: 日曜日=0, 土曜日=6
+	defaultStartTime    *time.Time // TIME型として扱う
+	defaultEndTime      *time.Time // TIME型として扱う
+	createdAt           time.Time
+	updatedAt           time.Time
+	deletedAt           *time.Time
 }
 
 // NewEvent creates a new Event entity
@@ -278,4 +278,3 @@ func (e *Event) Delete() {
 	e.deletedAt = &now
 	e.updatedAt = now
 }
-

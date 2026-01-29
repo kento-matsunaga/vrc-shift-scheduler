@@ -28,9 +28,9 @@ func NewGetAttendanceRateUsecase(
 // MemberAttendanceRate represents attendance rate for a member
 type MemberAttendanceRate struct {
 	MemberID       string  `json:"member_id"`
-	TotalResponses int     `json:"total_responses"`   // 総回答数
-	AttendingCount int     `json:"attending_count"`   // 参加回答数
-	AttendanceRate float64 `json:"attendance_rate"`   // 出席率（0-100）
+	TotalResponses int     `json:"total_responses"` // 総回答数
+	AttendingCount int     `json:"attending_count"` // 参加回答数
+	AttendanceRate float64 `json:"attendance_rate"` // 出席率（0-100）
 }
 
 // GetAttendanceRatesInput represents the input for getting attendance rates

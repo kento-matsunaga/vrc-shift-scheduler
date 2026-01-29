@@ -120,7 +120,7 @@ export async function revokeLicenseKey(keyId: string): Promise<void> {
 export interface TenantListItem {
   tenant_id: string;
   tenant_name: string;
-  status: 'active' | 'grace' | 'suspended';
+  status: 'active' | 'grace' | 'suspended' | 'pending_payment';
   grace_until: string | null;
   created_at: string;
 }
@@ -128,11 +128,24 @@ export interface TenantListItem {
 export interface TenantDetail {
   tenant_id: string;
   tenant_name: string;
-  status: 'active' | 'grace' | 'suspended';
+  status: 'active' | 'grace' | 'suspended' | 'pending_payment';
   grace_until: string | null;
   created_at: string;
   entitlements: Entitlement[];
+  subscription: Subscription | null;
   admins: Admin[];
+}
+
+export interface Subscription {
+  subscription_id: string;
+  stripe_customer_id: string;
+  stripe_subscription_id: string;
+  status: 'active' | 'past_due' | 'canceled' | 'unpaid' | 'incomplete' | 'trialing';
+  current_period_end: string | null;
+  cancel_at_period_end: boolean;
+  cancel_at: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Entitlement {
@@ -360,4 +373,22 @@ export async function updateTutorial(
 
 export async function deleteTutorial(id: string): Promise<void> {
   await request('DELETE', `/tutorials/${id}`);
+}
+
+// ============================================================
+// システム設定 API
+// ============================================================
+
+export interface ReleaseStatus {
+  released: boolean;
+}
+
+export async function getReleaseStatus(): Promise<ApiResponse<ReleaseStatus>> {
+  return request('GET', '/system/release-status');
+}
+
+export async function updateReleaseStatus(
+  released: boolean
+): Promise<ApiResponse<ReleaseStatus>> {
+  return request('PUT', '/system/release-status', { released });
 }

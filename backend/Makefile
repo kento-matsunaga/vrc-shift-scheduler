@@ -86,6 +86,25 @@ batch-grace-expiry-dry:
 batch-webhook-cleanup-dry:
 	go run ./cmd/batch/main.go -task=webhook-cleanup -dry-run
 
+## Run batch job: clean up expired pending payment tenants
+.PHONY: batch-pending-cleanup
+batch-pending-cleanup:
+	go run ./cmd/batch/main.go -task=pending-cleanup
+
+## Run batch job (dry run): clean up expired pending payment tenants
+.PHONY: batch-pending-cleanup-dry
+batch-pending-cleanup-dry:
+	go run ./cmd/batch/main.go -task=pending-cleanup -dry-run
+
+## Run all batch jobs (dry run) - useful for testing
+.PHONY: batch-all-dry
+batch-all-dry:
+	@echo "=== Grace Expiry Check (dry run) ===" && go run ./cmd/batch/main.go -task=grace-expiry -dry-run
+	@echo ""
+	@echo "=== Webhook Cleanup (dry run) ===" && go run ./cmd/batch/main.go -task=webhook-cleanup -dry-run
+	@echo ""
+	@echo "=== Pending Payment Cleanup (dry run) ===" && go run ./cmd/batch/main.go -task=pending-cleanup -dry-run
+
 # ============================================================
 # Testing
 # ============================================================

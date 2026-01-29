@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
-import { getEvents, deleteEvent, getCurrentTenant, updateTenant, changePassword, getManagerPermissions, updateManagerPermissions } from '../lib/api';
+import { getEvents, deleteEvent, getCurrentTenant, updateTenant, changePassword, changeEmail, getManagerPermissions, updateManagerPermissions, createBillingPortalSession, getBillingStatus } from '../lib/api';
 import type { Event } from '../types/api';
 import type { Tenant, ManagerPermissions } from '../lib/api/tenantApi';
+import type { BillingStatus } from '../lib/api/billingApi';
 import { ApiClientError } from '../lib/apiClient';
 import BulkImport from '../components/BulkImport';
+import { SEO } from '../components/seo';
 
 type SettingsTab = 'general' | 'import';
 
@@ -25,6 +27,14 @@ export default function Settings() {
   const [passwordError, setPasswordError] = useState('');
   const [passwordSuccess, setPasswordSuccess] = useState('');
 
+  // Email change state
+  const [emailCurrentPassword, setEmailCurrentPassword] = useState('');
+  const [newEmail, setNewEmail] = useState('');
+  const [confirmNewEmail, setConfirmNewEmail] = useState('');
+  const [changingEmail, setChangingEmail] = useState(false);
+  const [emailError, setEmailError] = useState('');
+  const [emailSuccess, setEmailSuccess] = useState('');
+
   // Events state
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
@@ -41,6 +51,11 @@ export default function Settings() {
   const [permissionsSuccess, setPermissionsSuccess] = useState('');
   const isOwner = localStorage.getItem('admin_role') === 'owner';
 
+  // Billing portal state
+  const [openingPortal, setOpeningPortal] = useState(false);
+  const [billingError, setBillingError] = useState('');
+  const [billingStatus, setBillingStatus] = useState<BillingStatus | null>(null);
+
   useEffect(() => {
     loadData();
   }, []);
@@ -56,7 +71,7 @@ export default function Settings() {
       setTenantName(tenantData.tenant_name);
       setEvents(eventsData.events || []);
 
-      // マネージャー権限は別途取得（失敗しても他のデータ表示に影響しない）
+      // マネージャー権限と課金状態は別途取得（失敗しても他のデータ表示に影響しない）
       if (isOwner) {
         try {
           const permissionsData = await getManagerPermissions();
@@ -69,6 +84,15 @@ export default function Settings() {
           } else {
             setPermissionsError('マネージャー権限の読み込みに失敗しました');
           }
+        }
+
+        // 課金状態の取得
+        try {
+          const status = await getBillingStatus();
+          setBillingStatus(status);
+        } catch (billingErr) {
+          console.error('Failed to load billing status:', billingErr);
+          // 課金状態の取得失敗は無視（表示されないだけ）
         }
       }
     } catch (err) {
@@ -172,6 +196,64 @@ export default function Settings() {
     }
   };
 
+  // Email change handlers
+  const handleChangeEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setEmailError('');
+    setEmailSuccess('');
+
+    // Validation
+    if (!emailCurrentPassword) {
+      setEmailError('現在のパスワードを入力してください');
+      return;
+    }
+    if (!newEmail) {
+      setEmailError('新しいメールアドレスを入力してください');
+      return;
+    }
+    if (!confirmNewEmail) {
+      setEmailError('確認用メールアドレスを入力してください');
+      return;
+    }
+    if (newEmail !== confirmNewEmail) {
+      setEmailError('新しいメールアドレスと確認用メールアドレスが一致しません');
+      return;
+    }
+    if (newEmail.length > 255) {
+      setEmailError('メールアドレスは255文字以内で入力してください');
+      return;
+    }
+
+    setChangingEmail(true);
+
+    try {
+      await changeEmail({
+        current_password: emailCurrentPassword,
+        new_email: newEmail,
+        confirm_new_email: confirmNewEmail,
+      });
+      setEmailSuccess('メールアドレスを変更しました。次回ログイン時から新しいメールアドレスをご使用ください。');
+      setEmailCurrentPassword('');
+      setNewEmail('');
+      setConfirmNewEmail('');
+    } catch (err) {
+      if (err instanceof ApiClientError) {
+        if (err.message.includes('incorrect') || err.message.includes('Unauthorized')) {
+          setEmailError('現在のパスワードが正しくありません');
+        } else if (err.message.includes('already') || err.message.includes('Conflict')) {
+          setEmailError('このメールアドレスは既に使用されています');
+        } else {
+          setEmailError(err.getUserMessage());
+        }
+      } else {
+        setEmailError('メールアドレスの変更に失敗しました');
+      }
+      console.error('Failed to change email:', err);
+    } finally {
+      setChangingEmail(false);
+    }
+  };
+
   // Event deletion handlers
   const handleDeleteClick = (event: Event) => {
     setDeleteTarget(event);
@@ -243,6 +325,26 @@ export default function Settings() {
     }
   };
 
+  // Billing portal handler
+  const handleOpenBillingPortal = async () => {
+    setOpeningPortal(true);
+    setBillingError('');
+
+    try {
+      const result = await createBillingPortalSession();
+      // Stripeのポータルページに遷移
+      window.location.href = result.portal_url;
+    } catch (err) {
+      if (err instanceof ApiClientError) {
+        setBillingError(err.getUserMessage());
+      } else {
+        setBillingError('課金管理ページを開けませんでした');
+      }
+      console.error('Failed to open billing portal:', err);
+      setOpeningPortal(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="text-center py-12">
@@ -254,6 +356,7 @@ export default function Settings() {
 
   return (
     <div className="max-w-4xl mx-auto">
+      <SEO noindex={true} />
       <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-6">設定</h2>
 
       {/* Tab Navigation */}
@@ -447,6 +550,175 @@ export default function Settings() {
           </button>
         </form>
       </div>
+
+      {/* メールアドレス変更セクション */}
+      <div className="card mb-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+          </svg>
+          メールアドレス変更
+        </h3>
+
+        {emailError && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+            <p className="text-sm text-red-800">{emailError}</p>
+          </div>
+        )}
+
+        {emailSuccess && (
+          <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
+            <p className="text-sm text-green-800">{emailSuccess}</p>
+          </div>
+        )}
+
+        <form onSubmit={handleChangeEmail} className="space-y-4">
+          <div>
+            <label htmlFor="emailCurrentPassword" className="block text-sm font-medium text-gray-700 mb-1">
+              現在のパスワード
+            </label>
+            <input
+              type="password"
+              id="emailCurrentPassword"
+              value={emailCurrentPassword}
+              onChange={(e) => setEmailCurrentPassword(e.target.value)}
+              className="input-field"
+              disabled={changingEmail}
+              autoComplete="current-password"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="newEmail" className="block text-sm font-medium text-gray-700 mb-1">
+              新しいメールアドレス
+            </label>
+            <input
+              type="email"
+              id="newEmail"
+              value={newEmail}
+              onChange={(e) => setNewEmail(e.target.value)}
+              className="input-field"
+              disabled={changingEmail}
+              autoComplete="email"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="confirmNewEmail" className="block text-sm font-medium text-gray-700 mb-1">
+              新しいメールアドレス（確認）
+            </label>
+            <input
+              type="email"
+              id="confirmNewEmail"
+              value={confirmNewEmail}
+              onChange={(e) => setConfirmNewEmail(e.target.value)}
+              className="input-field"
+              disabled={changingEmail}
+              autoComplete="email"
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={changingEmail || !emailCurrentPassword || !newEmail || !confirmNewEmail}
+            className="btn-primary"
+          >
+            {changingEmail ? 'メールアドレス変更中...' : 'メールアドレスを変更'}
+          </button>
+        </form>
+      </div>
+
+      {/* 課金管理セクション（オーナーのみ表示） */}
+      {isOwner && (
+        <div className="card mb-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+            </svg>
+            課金管理
+          </h3>
+
+          {/* 現在のプラン表示 */}
+          {billingStatus && (
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-500">現在のプラン</p>
+                  <p className="text-lg font-semibold text-gray-900">{billingStatus.plan_name}</p>
+                </div>
+                <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                  billingStatus.status === 'active'
+                    ? 'bg-green-100 text-green-800'
+                    : billingStatus.status === 'canceled'
+                    ? 'bg-gray-100 text-gray-800'
+                    : 'bg-yellow-100 text-yellow-800'
+                }`}>
+                  {billingStatus.status === 'active' ? '有効' :
+                   billingStatus.status === 'canceled' ? 'キャンセル済み' :
+                   billingStatus.status}
+                </span>
+              </div>
+              {billingStatus.plan_type === 'subscription' && billingStatus.current_period_end && (
+                <p className="text-sm text-gray-500 mt-2">
+                  次回更新日: {billingStatus.current_period_end}
+                </p>
+              )}
+              {billingStatus.plan_type === 'lifetime' && (
+                <p className="text-sm text-gray-500 mt-2">
+                  買い切りプランのため、更新は不要です
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* サブスクリプションの場合のみポータルボタンを表示 */}
+          {billingStatus?.plan_type === 'subscription' && (
+            <>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                <div className="flex items-start gap-3">
+                  <svg className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <div>
+                    <p className="text-sm text-blue-800">
+                      Stripeの課金管理ページでは、お支払い方法の変更、請求履歴の確認、サブスクリプションの解約などが行えます。
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {billingError && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+                  <p className="text-sm text-red-800">{billingError}</p>
+                </div>
+              )}
+
+              <button
+                onClick={handleOpenBillingPortal}
+                disabled={openingPortal}
+                className="btn-primary flex items-center gap-2"
+              >
+                {openingPortal ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    読み込み中...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                    課金管理ページを開く
+                  </>
+                )}
+              </button>
+            </>
+          )}
+        </div>
+      )}
 
       {/* マネージャー権限設定セクション（オーナーのみ表示） */}
       {isOwner && (permissions || permissionsError) && (

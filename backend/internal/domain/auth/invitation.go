@@ -25,11 +25,11 @@ func (id InvitationID) Validate() error {
 // Invitation は管理者招待を表す集約ルート
 type Invitation struct {
 	invitationID     InvitationID
-	tenantID         common.TenantID    // 招待者のテナントに自動紐付け
+	tenantID         common.TenantID // 招待者のテナントに自動紐付け
 	email            string
 	role             Role
 	token            string
-	createdByAdminID common.AdminID     // 招待者（必須）
+	createdByAdminID common.AdminID // 招待者（必須）
 	expiresAt        time.Time
 	acceptedAt       *time.Time
 	createdAt        time.Time

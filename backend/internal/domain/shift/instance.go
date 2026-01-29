@@ -1,6 +1,7 @@
 package shift
 
 import (
+	"regexp"
 	"time"
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
@@ -24,15 +25,34 @@ func (id InstanceID) String() string {
 	return string(id)
 }
 
+// instanceIDPattern は26文字の英数字（大文字）を許可
+// 既存データがULID形式ではなく、26文字の英数字形式で保存されているため、
+// 後方互換性のために両方の形式を許可する
+var instanceIDPattern = regexp.MustCompile(`^[0-9A-Z]{26}$`)
+
+// validateInstanceIDFormat はinstance_idのフォーマットを検証する
+// ULIDまたは26文字の大文字英数字を許可（後方互換性のため）
+func validateInstanceIDFormat(s string) error {
+	// まずULIDとして検証を試みる
+	if err := common.ValidateULID(s); err == nil {
+		return nil
+	}
+	// ULIDでない場合、26文字の英数字（大文字）であれば許可
+	if !instanceIDPattern.MatchString(s) {
+		return common.NewValidationError("invalid instance_id format: must be 26 uppercase alphanumeric characters", nil)
+	}
+	return nil
+}
+
 func (id InstanceID) Validate() error {
 	if id == "" {
 		return common.NewValidationError("instance_id is required", nil)
 	}
-	return common.ValidateULID(string(id))
+	return validateInstanceIDFormat(string(id))
 }
 
 func ParseInstanceID(s string) (InstanceID, error) {
-	if err := common.ValidateULID(s); err != nil {
+	if err := validateInstanceIDFormat(s); err != nil {
 		return "", err
 	}
 	return InstanceID(s), nil

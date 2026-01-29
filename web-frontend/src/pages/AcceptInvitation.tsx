@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { acceptInvitation } from '../lib/api/invitationApi';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
+import { SEO } from '../components/seo';
 
 export default function AcceptInvitation() {
   const { token } = useParams<{ token: string }>();
@@ -10,6 +12,8 @@ export default function AcceptInvitation() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
+
+  useDocumentTitle('招待を承諾');
 
   useEffect(() => {
     if (!token) {
@@ -77,9 +81,11 @@ export default function AcceptInvitation() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col">
-      {/* ヘッダー */}
-      <header className="bg-vrc-dark text-white shadow">
+    <>
+      <SEO noindex={true} />
+      <div className="min-h-screen bg-gray-100 flex flex-col">
+        {/* ヘッダー */}
+        <header className="bg-vrc-dark text-white shadow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <h1 className="text-xl font-bold">VRC Shift Scheduler</h1>
         </div>
@@ -188,6 +194,7 @@ export default function AcceptInvitation() {
           </p>
         </div>
       </footer>
-    </div>
+      </div>
+    </>
   );
 }

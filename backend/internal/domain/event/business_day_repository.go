@@ -44,4 +44,3 @@ type EventBusinessDayRepository interface {
 	// Used for actual attendance calculation filtered by event
 	FindRecentByEventID(ctx context.Context, tenantID common.TenantID, eventID common.EventID, limit int, includeFuture bool) ([]*EventBusinessDay, error)
 }
-

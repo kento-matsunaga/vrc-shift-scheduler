@@ -1,22 +1,33 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+
+import { SEO } from '../components/seo';
+import { DateRangePicker, type DateInput } from '../components/DateRangePicker';
+import { MobileCard, CardField, CardHeader } from '../components/MobileCard';
+
 import {
-  listSchedules,
   createSchedule,
   getSchedule,
+  listSchedules,
   updateSchedule,
   type Schedule,
 } from '../lib/api/scheduleApi';
-import { ApiClientError } from '../lib/apiClient';
 import { getMemberGroups, type MemberGroup } from '../lib/api/memberGroupApi';
-import { MobileCard, CardHeader, CardField } from '../components/MobileCard';
-import { formatTime, isValidTimeRange, toApiTimeFormat } from '../lib/api/timeUtils';
+import { ApiClientError } from '../lib/apiClient';
+import { isValidTimeRange, toApiTimeFormat } from '../lib/timeUtils';
+
+// APIから返ってくる time を input[type="time"] 向けに HH:MM にする（"HH:MM:SS" や ISO を想定）
+const formatTime = (t?: string | null) => {
+  if (!t) return '';
+  const m = String(t).match(/^(\d{2}:\d{2})/);
+  return m ? m[1] : '';
+};
 
 // 候補日の入力データ型
 interface CandidateDateInput {
-  date: string;       // YYYY-MM-DD形式
-  startTime: string;  // HH:MM形式（任意）
-  endTime: string;    // HH:MM形式（任意）
+  date: string; // YYYY-MM-DD形式
+  startTime: string; // HH:MM形式（任意）
+  endTime: string; // HH:MM形式（任意）
 }
 
 const emptyCandidateDate = (): CandidateDateInput => ({
@@ -27,11 +38,14 @@ const emptyCandidateDate = (): CandidateDateInput => ({
 
 export default function ScheduleList() {
   const navigate = useNavigate();
+
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [showCreateForm, setShowCreateForm] = useState(false);
+
   const [isEditing, setIsEditing] = useState(false);
   const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
   const [loadingEdit, setLoadingEdit] = useState(false);
+
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [deadline, setDeadline] = useState('');
@@ -40,8 +54,10 @@ export default function ScheduleList() {
     emptyCandidateDate(),
     emptyCandidateDate(),
   ]);
+
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+
   const [error, setError] = useState('');
   const [conflictMessage, setConflictMessage] = useState('');
   const [pendingUpdatePayload, setPendingUpdatePayload] = useState<{
@@ -51,16 +67,19 @@ export default function ScheduleList() {
     candidates: { date: string; start_time?: string; end_time?: string }[];
     deadline?: string;
   } | null>(null);
+
   const [createdSchedule, setCreatedSchedule] = useState<Schedule | null>(null);
   const [publicUrl, setPublicUrl] = useState('');
   const [copied, setCopied] = useState(false);
   const [submittedCandidatesCount, setSubmittedCandidatesCount] = useState(0);
+
   const [memberGroups, setMemberGroups] = useState<MemberGroup[]>([]);
   const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
 
   useEffect(() => {
     loadSchedules();
     loadMemberGroups();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadMemberGroups = async () => {
@@ -103,9 +122,7 @@ export default function ScheduleList() {
 
   const toggleGroupSelection = (groupId: string) => {
     setSelectedGroupIds((prev) =>
-      prev.includes(groupId)
-        ? prev.filter((id) => id !== groupId)
-        : [...prev, groupId]
+      prev.includes(groupId) ? prev.filter((id) => id !== groupId) : [...prev, groupId],
     );
   };
 
@@ -125,18 +142,42 @@ export default function ScheduleList() {
   const toInputDateTime = (isoDate?: string) =>
     isoDate ? new Date(isoDate).toISOString().slice(0, 16) : '';
 
+  // DateRangePickerからの一括追加
+  const handleAddDatesFromPicker = (dates: DateInput[]) => {
+    // 既存の空でない日付を保持
+    const existingDates = candidateDates.filter((d) => d.date.trim() !== '');
+    const existingDateStringsLocal = existingDates.map((d) => d.date);
+
+    // 重複を除いて新しい日付を追加
+    const newDates = dates.filter((d) => !existingDateStringsLocal.includes(d.date));
+
+    // マージして日付順にソート
+    const mergedDates = [...existingDates, ...newDates].sort((a, b) => a.date.localeCompare(b.date));
+
+    // 日付がない場合は空欄を追加
+    setCandidateDates(mergedDates.length > 0 ? mergedDates : [emptyCandidateDate()]);
+  };
+
+  // 既存の日付リスト（重複チェック用）
+  const existingDateStrings = candidateDates
+    .filter((d) => d.date.trim() !== '')
+    .map((d) => d.date);
+
   const handleEditClick = async (scheduleId: string) => {
     setError('');
     setCreatedSchedule(null);
     setShowCreateForm(true);
     setLoadingEdit(true);
+
     try {
       const schedule = await getSchedule(scheduleId);
       setIsEditing(true);
       setEditingScheduleId(scheduleId);
+
       setTitle(schedule.title);
       setDescription(schedule.description || '');
       setDeadline(toInputDateTime(schedule.deadline));
+
       const candidates = schedule.candidates ?? [];
       setCandidateDates(
         candidates.length > 0
@@ -145,7 +186,7 @@ export default function ScheduleList() {
               startTime: formatTime(candidate.start_time),
               endTime: formatTime(candidate.end_time),
             }))
-          : [emptyCandidateDate()]
+          : [emptyCandidateDate()],
       );
     } catch (err) {
       console.error('Failed to load schedule for edit:', err);
@@ -157,6 +198,7 @@ export default function ScheduleList() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
     setError('');
     setCreatedSchedule(null);
     setConflictMessage('');
@@ -173,49 +215,39 @@ export default function ScheduleList() {
       return;
     }
 
-    // 時間バリデーション: 開始時間と終了時間が両方設定されている場合、開始 < 終了
+    // 時間バリデーション
     for (const candidate of validDates) {
       if (!isValidTimeRange(candidate.startTime, candidate.endTime)) {
         setError('開始時間は終了時間より前に設定してください');
         return;
       }
     }
-        
+
     const candidatePayload = validDates.map((d) => ({
-        date: new Date(d.date).toISOString(),
-        // 時間データはtimeUtils.tsで定義されたフォーマットで送信
-        start_time: toApiTimeFormat(d.startTime),
-        end_time: toApiTimeFormat(d.endTime),
+      date: new Date(d.date).toISOString(),
+      start_time: toApiTimeFormat(d.startTime),
+      end_time: toApiTimeFormat(d.endTime),
     }));
 
     setSubmitting(true);
 
     try {
-      // 候補日の数を保存
       setSubmittedCandidatesCount(validDates.length);
-
-
-
-      const updatePayload = {
+      const basePayload = {
         title: title.trim(),
         description: description.trim(),
         candidates: candidatePayload,
         deadline: deadline ? new Date(deadline).toISOString() : undefined,
       };
 
-      const result = isEditing && editingScheduleId
-        ? await updateSchedule(editingScheduleId, {
-            ...updatePayload,
-          })
-        : await createSchedule({
-            title: title.trim(),
-            description: description.trim(),
-            candidates: candidatePayload,
-            deadline: deadline ? new Date(deadline).toISOString() : undefined,
-            group_ids: selectedGroupIds.length > 0 ? selectedGroupIds : undefined,
-          });
+      const result =
+        isEditing && editingScheduleId
+          ? await updateSchedule(editingScheduleId, basePayload)
+          : await createSchedule({
+              ...basePayload,
+              group_ids: selectedGroupIds.length > 0 ? selectedGroupIds : undefined,
+            });
 
-      // 公開URLを生成
       const baseUrl = window.location.origin;
       if (!isEditing) {
         const url = `${baseUrl}/p/schedule/${result.public_token}`;
@@ -223,11 +255,9 @@ export default function ScheduleList() {
         setCreatedSchedule(result);
       }
 
-      // フォームをクリア
       resetForm();
       setShowCreateForm(false);
 
-      // 一覧を再読み込み
       loadSchedules();
     } catch (err) {
       if (err instanceof ApiClientError && err.isConflictError() && editingScheduleId) {
@@ -252,11 +282,11 @@ export default function ScheduleList() {
   };
 
   const handleConfirmForceDelete = async () => {
-    if (!pendingUpdatePayload) {
-      return;
-    }
+    if (!pendingUpdatePayload) return;
+
     setSubmitting(true);
     setError('');
+
     try {
       await updateSchedule(pendingUpdatePayload.scheduleId, {
         title: pendingUpdatePayload.title,
@@ -265,6 +295,7 @@ export default function ScheduleList() {
         deadline: pendingUpdatePayload.deadline,
         force_delete_candidate_responses: true,
       });
+
       resetForm();
       setShowCreateForm(false);
       loadSchedules();
@@ -293,13 +324,29 @@ export default function ScheduleList() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'open':
-        return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">受付中</span>;
+        return (
+          <span className="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+            受付中
+          </span>
+        );
       case 'decided':
-        return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-accent/10 text-accent-dark">決定済み</span>;
+        return (
+          <span className="px-2 py-1 text-xs font-semibold rounded-full bg-accent/10 text-accent-dark">
+            決定済み
+          </span>
+        );
       case 'closed':
-        return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">締切済み</span>;
+        return (
+          <span className="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">
+            締切済み
+          </span>
+        );
       default:
-        return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">{status}</span>;
+        return (
+          <span className="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">
+            {status}
+          </span>
+        );
     }
   };
 
@@ -314,6 +361,8 @@ export default function ScheduleList() {
 
   return (
     <div className="max-w-6xl mx-auto">
+      <SEO noindex={true} />
+
       <div className="mb-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-gray-900">日程調整</h1>
@@ -321,6 +370,7 @@ export default function ScheduleList() {
             複数の候補日から、メンバーが参加可能な日程を回答してもらいましょう
           </p>
         </div>
+
         <button
           onClick={() => {
             if (showCreateForm) {
@@ -358,9 +408,7 @@ export default function ScheduleList() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                説明
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">説明</label>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
@@ -375,9 +423,21 @@ export default function ScheduleList() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 候補日 <span className="text-red-500">*</span>
               </label>
-              <p className="text-xs text-gray-500 mb-2">
+
+              <p className="text-xs text-gray-500 mb-3">
                 時間は任意です。設定すると公開ページで回答者に表示されます。
               </p>
+
+              {/* 期間から一括追加 */}
+              <div className="mb-4">
+                <DateRangePicker
+                  onAddDates={handleAddDatesFromPicker}
+                  existingDates={existingDateStrings}
+                  disabled={submitting || loadingEdit}
+                />
+              </div>
+
+              {/* 個別の候補日入力 */}
               <div className="space-y-3">
                 {candidateDates.map((candidate, index) => (
                   <div key={index} className="p-3 bg-gray-50 rounded-lg border border-gray-200">
@@ -392,6 +452,7 @@ export default function ScheduleList() {
                           disabled={submitting || loadingEdit}
                         />
                       </div>
+
                       <div className="w-full sm:w-28">
                         <label className="block text-xs text-gray-600 mb-1">開始時間</label>
                         <input
@@ -402,6 +463,7 @@ export default function ScheduleList() {
                           disabled={submitting || loadingEdit}
                         />
                       </div>
+
                       <div className="w-full sm:w-28">
                         <label className="block text-xs text-gray-600 mb-1">終了時間</label>
                         <input
@@ -412,6 +474,7 @@ export default function ScheduleList() {
                           disabled={submitting || loadingEdit}
                         />
                       </div>
+
                       {candidateDates.length > 1 && (
                         <div className="flex items-end">
                           <button
@@ -428,6 +491,7 @@ export default function ScheduleList() {
                   </div>
                 ))}
               </div>
+
               <button
                 type="button"
                 onClick={handleAddDate}
@@ -439,9 +503,7 @@ export default function ScheduleList() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                回答締切（任意）
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">回答締切（任意）</label>
               <input
                 type="datetime-local"
                 value={deadline}
@@ -459,6 +521,7 @@ export default function ScheduleList() {
                 <p className="text-xs text-gray-500 mb-2">
                   選択すると、そのグループに属するメンバーのみが回答可能になります
                 </p>
+
                 <div className="flex flex-wrap gap-2">
                   {memberGroups.map((group) => (
                     <button
@@ -481,10 +544,9 @@ export default function ScheduleList() {
                     </button>
                   ))}
                 </div>
+
                 {selectedGroupIds.length > 0 && (
-                  <p className="mt-2 text-xs text-accent">
-                    {selectedGroupIds.length}個のグループを選択中
-                  </p>
+                  <p className="mt-2 text-xs text-accent">{selectedGroupIds.length}個のグループを選択中</p>
                 )}
               </div>
             )}
@@ -492,9 +554,11 @@ export default function ScheduleList() {
             {(error || conflictMessage) && (
               <div className="bg-red-50 border border-red-200 rounded-md p-3 space-y-3">
                 {error && <p className="text-sm text-red-800">{error}</p>}
+
                 {conflictMessage && (
                   <div className="space-y-2">
                     <p className="text-sm text-red-800">{conflictMessage}</p>
+
                     <div className="flex flex-col sm:flex-row gap-2">
                       <button
                         type="button"
@@ -523,7 +587,7 @@ export default function ScheduleList() {
               disabled={submitting || loadingEdit || !title.trim()}
               className="w-full px-4 py-2 bg-accent text-white rounded-md hover:bg-accent-dark transition disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
-              {submitting ? (isEditing ? '更新中...' : '作成中...') : (isEditing ? '日程調整を更新' : '日程調整を作成')}
+              {submitting ? (isEditing ? '更新中...' : '作成中...') : isEditing ? '日程調整を更新' : '日程調整を作成'}
             </button>
           </form>
         </div>
@@ -533,13 +597,10 @@ export default function ScheduleList() {
         <div className="bg-green-50 border border-green-200 rounded-lg p-6 mb-6">
           <div className="flex items-start">
             <div className="text-green-500 text-2xl mr-3">✓</div>
+
             <div className="flex-1">
-              <h3 className="text-lg font-semibold text-green-900 mb-2">
-                日程調整を作成しました
-              </h3>
-              <p className="text-sm text-green-800 mb-4">
-                以下のURLをメンバーに送信してください
-              </p>
+              <h3 className="text-lg font-semibold text-green-900 mb-2">日程調整を作成しました</h3>
+              <p className="text-sm text-green-800 mb-4">以下のURLをメンバーに送信してください</p>
 
               <div className="bg-white rounded-md p-3 mb-3 border border-green-300">
                 <p className="text-xs text-gray-600 mb-1">公開URL:</p>
@@ -553,6 +614,7 @@ export default function ScheduleList() {
                 >
                   {copied ? '✓ コピーしました' : 'URLをコピー'}
                 </button>
+
                 <a
                   href={publicUrl}
                   target="_blank"
@@ -657,6 +719,7 @@ export default function ScheduleList() {
                 </th>
               </tr>
             </thead>
+
             <tbody className="bg-white divide-y divide-gray-200">
               {schedules.length === 0 ? (
                 <tr>
@@ -671,19 +734,23 @@ export default function ScheduleList() {
                       <div>
                         <div className="text-sm font-medium text-gray-900">{schedule.title}</div>
                         {schedule.description && (
-                          <div className="text-sm text-gray-500 truncate max-w-md">{schedule.description}</div>
+                          <div className="text-sm text-gray-500 truncate max-w-md">
+                            {schedule.description}
+                          </div>
                         )}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {getStatusBadge(schedule.status)}
-                    </td>
+
+                    <td className="px-6 py-4 whitespace-nowrap">{getStatusBadge(schedule.status)}</td>
+
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {schedule.candidate_count || 0}件
                     </td>
+
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {schedule.response_count || 0}人
                     </td>
+
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {schedule.deadline
                         ? new Date(schedule.deadline).toLocaleString('ja-JP', {
@@ -695,9 +762,11 @@ export default function ScheduleList() {
                           })
                         : '-'}
                     </td>
+
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {new Date(schedule.created_at).toLocaleDateString('ja-JP')}
                     </td>
+
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex items-center justify-end gap-3">
                         <button

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { SEO } from '../components/seo';
 import { getEventDetail, getBusinessDays, createBusinessDay, getMembers } from '../lib/api';
 import { listSchedules, getSchedule, getScheduleResponses, type Schedule, type ScheduleResponse } from '../lib/api/scheduleApi';
 import { listTemplates } from '../lib/api/templateApi';
@@ -121,6 +122,7 @@ export default function BusinessDayList() {
 
   return (
     <div>
+      <SEO noindex={true} />
       {/* パンくずリスト */}
       <nav className="mb-6 text-sm text-gray-600">
         <Link to="/events" className="hover:text-gray-900">

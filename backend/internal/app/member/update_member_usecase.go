@@ -20,7 +20,7 @@ func NewUpdateMemberUsecase(memberRepo member.MemberRepository, memberRoleRepo m
 }
 
 type UpdateMemberInput struct {
-	TenantID      string   // from JWT context
+	TenantID      string // from JWT context
 	MemberID      string
 	DisplayName   string
 	DiscordUserID string

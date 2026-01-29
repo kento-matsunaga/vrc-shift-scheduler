@@ -2,7 +2,7 @@ package rest
 
 import (
 	"encoding/json"
-	"log"
+	"log/slog"
 	"net/http"
 
 	appshift "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/shift"
@@ -125,7 +125,11 @@ func (h *InstanceHandler) CreateInstance(w http.ResponseWriter, r *http.Request)
 
 	newInstance, err := h.createInstanceUC.Execute(ctx, input)
 	if err != nil {
-		log.Printf("CreateInstance error: %+v", err)
+		slog.Error("CreateInstance failed",
+			"error", err,
+			"tenant_id", tenantID.String(),
+			"event_id", eventID.String(),
+		)
 		RespondDomainError(w, err)
 		return
 	}
@@ -264,13 +268,70 @@ func (h *InstanceHandler) UpdateInstance(w http.ResponseWriter, r *http.Request)
 
 	updatedInstance, err := h.updateInstanceUC.Execute(ctx, input)
 	if err != nil {
-		log.Printf("UpdateInstance error: %+v", err)
+		slog.Error("UpdateInstance failed",
+			"error", err,
+			"tenant_id", tenantID.String(),
+			"instance_id", instanceID.String(),
+		)
 		RespondDomainError(w, err)
 		return
 	}
 
 	// レスポンス
 	writeSuccess(w, http.StatusOK, toInstanceResponse(updatedInstance))
+}
+
+// CheckInstanceDeletableResponse represents the response for checking if an instance can be deleted
+type CheckInstanceDeletableResponse struct {
+	CanDelete      bool   `json:"can_delete"`
+	SlotCount      int    `json:"slot_count"`
+	AssignedSlots  int    `json:"assigned_slots"`
+	BlockingReason string `json:"blocking_reason,omitempty"`
+}
+
+// CheckInstanceDeletable handles GET /api/v1/instances/:instance_id/deletable
+func (h *InstanceHandler) CheckInstanceDeletable(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// テナントIDの取得
+	tenantID, ok := getTenantIDFromContext(ctx)
+	if !ok {
+		writeError(w, http.StatusForbidden, "ERR_FORBIDDEN", "Tenant ID is required", nil)
+		return
+	}
+
+	// instance_id の取得
+	instanceIDStr := chi.URLParam(r, "instance_id")
+	if instanceIDStr == "" {
+		writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "instance_id is required", nil)
+		return
+	}
+
+	instanceID, err := shift.ParseInstanceID(instanceIDStr)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "Invalid instance_id format", nil)
+		return
+	}
+
+	// Usecaseの実行
+	input := appshift.DeleteInstanceInput{
+		TenantID:   tenantID,
+		InstanceID: instanceID,
+	}
+
+	result, err := h.deleteInstanceUC.CheckDeletable(ctx, input)
+	if err != nil {
+		RespondDomainError(w, err)
+		return
+	}
+
+	// レスポンス
+	writeSuccess(w, http.StatusOK, CheckInstanceDeletableResponse{
+		CanDelete:      result.CanDelete,
+		SlotCount:      result.SlotCount,
+		AssignedSlots:  result.AssignedSlots,
+		BlockingReason: result.BlockingReason,
+	})
 }
 
 // DeleteInstance handles DELETE /api/v1/instances/:instance_id
@@ -304,13 +365,14 @@ func (h *InstanceHandler) DeleteInstance(w http.ResponseWriter, r *http.Request)
 	}
 
 	if err := h.deleteInstanceUC.Execute(ctx, input); err != nil {
-		log.Printf("DeleteInstance error: %+v", err)
+		slog.Error("DeleteInstance failed",
+			"error", err,
+			"tenant_id", tenantID.String(),
+			"instance_id", instanceID.String(),
+		)
 		RespondDomainError(w, err)
 		return
 	}
 
-	// レスポンス
-	writeSuccess(w, http.StatusOK, map[string]string{
-		"message": "Instance deleted successfully",
-	})
+	w.WriteHeader(http.StatusNoContent)
 }

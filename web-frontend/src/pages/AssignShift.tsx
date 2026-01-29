@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
+import { SEO } from '../components/seo';
 import { getShiftSlotDetail, getMembers, confirmAssignment, getRecentAttendance, getActualAttendance, getBusinessDayDetail, getAssignments, cancelAssignment } from '../lib/api';
 import { listRoles, type Role } from '../lib/api/roleApi';
 import { getMemberGroups, type MemberGroup } from '../lib/api/memberGroupApi';
@@ -338,6 +339,7 @@ export default function AssignShift() {
 
   return (
     <div className="max-w-2xl mx-auto">
+      <SEO noindex={true} />
       {/* パンくずリスト */}
       <nav className="mb-6 text-sm text-gray-600">
         <Link to="/events" className="hover:text-gray-900">

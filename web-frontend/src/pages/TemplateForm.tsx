@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { SEO } from '../components/seo';
 import { getTemplate, createTemplate, updateTemplate } from '../lib/api/templateApi';
 import { listInstances, type Instance } from '../lib/api/instanceApi';
 import type { TemplateItem, CreateTemplateRequest } from '../types/api';
@@ -313,6 +314,7 @@ export default function TemplateForm() {
 
   return (
     <div className="max-w-4xl mx-auto p-6">
+      <SEO noindex={true} />
       <div className="mb-6">
         <h2 className="text-2xl font-bold text-gray-900">
           {isEditMode ? 'テンプレートを編集' : '新規テンプレート作成'}

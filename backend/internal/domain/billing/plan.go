@@ -24,13 +24,14 @@ func (pt PlanType) IsValid() bool {
 
 // Plan represents a subscription/purchase plan
 type Plan struct {
-	planCode     string
-	planType     PlanType
-	displayName  string
-	priceJPY     *int
-	featuresJSON string
-	createdAt    time.Time
-	updatedAt    time.Time
+	planCode      string
+	planType      PlanType
+	displayName   string
+	priceJPY      *int
+	stripePriceID *string
+	featuresJSON  string
+	createdAt     time.Time
+	updatedAt     time.Time
 }
 
 // ReconstructPlan reconstructs a Plan entity from persistence
@@ -39,18 +40,20 @@ func ReconstructPlan(
 	planType PlanType,
 	displayName string,
 	priceJPY *int,
+	stripePriceID *string,
 	featuresJSON string,
 	createdAt time.Time,
 	updatedAt time.Time,
 ) *Plan {
 	return &Plan{
-		planCode:     planCode,
-		planType:     planType,
-		displayName:  displayName,
-		priceJPY:     priceJPY,
-		featuresJSON: featuresJSON,
-		createdAt:    createdAt,
-		updatedAt:    updatedAt,
+		planCode:      planCode,
+		planType:      planType,
+		displayName:   displayName,
+		priceJPY:      priceJPY,
+		stripePriceID: stripePriceID,
+		featuresJSON:  featuresJSON,
+		createdAt:     createdAt,
+		updatedAt:     updatedAt,
 	}
 }
 
@@ -70,6 +73,10 @@ func (p *Plan) DisplayName() string {
 
 func (p *Plan) PriceJPY() *int {
 	return p.priceJPY
+}
+
+func (p *Plan) StripePriceID() *string {
+	return p.stripePriceID
 }
 
 func (p *Plan) FeaturesJSON() string {

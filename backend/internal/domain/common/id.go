@@ -644,3 +644,67 @@ func ParseImportLogID(s string) (ImportLogID, error) {
 	}
 	return ImportLogID(s), nil
 }
+
+// PasswordResetTokenID represents a password reset token identifier
+type PasswordResetTokenID string
+
+// NewPasswordResetTokenIDWithTime creates a new PasswordResetTokenID using the provided time.
+func NewPasswordResetTokenIDWithTime(t time.Time) PasswordResetTokenID {
+	return PasswordResetTokenID(NewULIDWithTime(t))
+}
+
+// NewPasswordResetTokenID creates a new PasswordResetTokenID using the current time.
+// Deprecated: Use NewPasswordResetTokenIDWithTime for better testability.
+func NewPasswordResetTokenID() PasswordResetTokenID {
+	return PasswordResetTokenID(NewULID())
+}
+
+func (id PasswordResetTokenID) String() string {
+	return string(id)
+}
+
+func (id PasswordResetTokenID) Validate() error {
+	if id == "" {
+		return NewValidationError("password_reset_token_id is required", nil)
+	}
+	return ValidateULID(string(id))
+}
+
+func ParsePasswordResetTokenID(s string) (PasswordResetTokenID, error) {
+	if err := ValidateULID(s); err != nil {
+		return "", err
+	}
+	return PasswordResetTokenID(s), nil
+}
+
+// CalendarID represents a calendar identifier
+type CalendarID string
+
+// NewCalendarIDWithTime creates a new CalendarID using the provided time.
+func NewCalendarIDWithTime(t time.Time) CalendarID {
+	return CalendarID(NewULIDWithTime(t))
+}
+
+// NewCalendarID creates a new CalendarID using the current time.
+// Deprecated: Use NewCalendarIDWithTime for better testability.
+func NewCalendarID() CalendarID {
+	return CalendarID(NewULID())
+}
+
+func (id CalendarID) String() string {
+	return string(id)
+}
+
+func (id CalendarID) Validate() error {
+	if id == "" {
+		return NewValidationError("calendar_id is required", nil)
+	}
+	return ValidateULID(string(id))
+}
+
+func ParseCalendarID(s string) (CalendarID, error) {
+	if err := ValidateULID(s); err != nil {
+		return "", err
+	}
+	return CalendarID(s), nil
+}

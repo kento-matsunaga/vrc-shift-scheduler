@@ -39,4 +39,3 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 	response := HealthResponse{Status: "ok"}
 	_ = json.NewEncoder(w).Encode(response)
 }
-

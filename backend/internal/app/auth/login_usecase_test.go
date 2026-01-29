@@ -16,9 +16,10 @@ import (
 
 // MockAdminRepository is a mock implementation of auth.AdminRepository
 type MockAdminRepository struct {
-	findByEmailGlobalFunc  func(ctx context.Context, email string) (*auth.Admin, error)
-	findByIDWithTenantFunc func(ctx context.Context, tenantID common.TenantID, adminID common.AdminID) (*auth.Admin, error)
-	saveFunc               func(ctx context.Context, admin *auth.Admin) error
+	findByEmailGlobalFunc   func(ctx context.Context, email string) (*auth.Admin, error)
+	findByIDWithTenantFunc  func(ctx context.Context, tenantID common.TenantID, adminID common.AdminID) (*auth.Admin, error)
+	saveFunc                func(ctx context.Context, admin *auth.Admin) error
+	existsByEmailGlobalFunc func(ctx context.Context, email string) (bool, error)
 }
 
 func (m *MockAdminRepository) FindByEmailGlobal(ctx context.Context, email string) (*auth.Admin, error) {
@@ -60,6 +61,13 @@ func (m *MockAdminRepository) Delete(ctx context.Context, tenantID common.Tenant
 }
 func (m *MockAdminRepository) ExistsByEmail(ctx context.Context, tenantID common.TenantID, email string) (bool, error) {
 	return false, errors.New("not implemented")
+}
+
+func (m *MockAdminRepository) ExistsByEmailGlobal(ctx context.Context, email string) (bool, error) {
+	if m.existsByEmailGlobalFunc != nil {
+		return m.existsByEmailGlobalFunc(ctx, email)
+	}
+	return false, nil
 }
 
 // MockPasswordHasher is a mock implementation of services.PasswordHasher

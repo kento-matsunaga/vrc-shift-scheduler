@@ -689,7 +689,7 @@ func TestDeleteScheduleUsecase_Execute_NotFound(t *testing.T) {
 func TestDeleteScheduleUsecase_Execute_AlreadyDeleted(t *testing.T) {
 	tenantID := common.NewTenantID()
 	testSchedule := createTestSchedule(t, tenantID)
-	
+
 	// Delete the schedule first
 	now := time.Now()
 	_ = testSchedule.Delete(now)

@@ -31,7 +31,7 @@ func (m *MockTxManager) WithTx(ctx context.Context, fn func(context.Context) err
 
 // MockTenantRepository is a mock implementation of tenant.TenantRepository
 type MockTenantRepository struct {
-	saveFunc    func(ctx context.Context, t *tenant.Tenant) error
+	saveFunc     func(ctx context.Context, t *tenant.Tenant) error
 	findByIDFunc func(ctx context.Context, tenantID common.TenantID) (*tenant.Tenant, error)
 }
 
@@ -46,6 +46,10 @@ func (m *MockTenantRepository) FindByID(ctx context.Context, tenantID common.Ten
 	if m.findByIDFunc != nil {
 		return m.findByIDFunc(ctx, tenantID)
 	}
+	return nil, errors.New("not implemented")
+}
+
+func (m *MockTenantRepository) FindByPendingStripeSessionID(ctx context.Context, sessionID string) (*tenant.Tenant, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -98,6 +102,9 @@ func (m *MockAdminRepository) Delete(ctx context.Context, tenantID common.Tenant
 	return errors.New("not implemented")
 }
 func (m *MockAdminRepository) ExistsByEmail(ctx context.Context, tenantID common.TenantID, email string) (bool, error) {
+	return false, errors.New("not implemented")
+}
+func (m *MockAdminRepository) ExistsByEmailGlobal(ctx context.Context, email string) (bool, error) {
 	return false, errors.New("not implemented")
 }
 

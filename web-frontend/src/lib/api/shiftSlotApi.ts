@@ -8,6 +8,7 @@ export async function createShiftSlot(
   businessDayId: string,
   data: {
     slot_name: string;
+    instance_id?: string; // optional - existing instance ID
     instance_name: string;
     start_time: string; // HH:MM
     end_time: string; // HH:MM

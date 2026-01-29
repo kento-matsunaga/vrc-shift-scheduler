@@ -25,6 +25,7 @@ type AttendanceHandler struct {
 	listCollectionsUsecase       *attendance.ListCollectionsUsecase
 	getMemberResponsesUsecase    *attendance.GetMemberResponsesUsecase
 	getAllPublicResponsesUsecase *attendance.GetAllPublicResponsesUsecase
+	adminUpdateResponseUsecase   *attendance.AdminUpdateResponseUsecase
 }
 
 // NewAttendanceHandler creates a new AttendanceHandler with injected usecases
@@ -40,6 +41,7 @@ func NewAttendanceHandler(
 	listCollectionsUC *attendance.ListCollectionsUsecase,
 	getMemberResponsesUC *attendance.GetMemberResponsesUsecase,
 	getAllPublicResponsesUC *attendance.GetAllPublicResponsesUsecase,
+	adminUpdateResponseUC *attendance.AdminUpdateResponseUsecase,
 ) *AttendanceHandler {
 	return &AttendanceHandler{
 		createCollectionUsecase:      createCollectionUC,
@@ -53,6 +55,7 @@ func NewAttendanceHandler(
 		listCollectionsUsecase:       listCollectionsUC,
 		getMemberResponsesUsecase:    getMemberResponsesUC,
 		getAllPublicResponsesUsecase: getAllPublicResponsesUC,
+		adminUpdateResponseUsecase:   adminUpdateResponseUC,
 	}
 }
 
@@ -792,6 +795,107 @@ func (h *AttendanceHandler) GetAllPublicResponses(w http.ResponseWriter, r *http
 	RespondJSON(w, http.StatusOK, SuccessResponse{
 		Data: map[string]interface{}{
 			"responses": responses,
+		},
+	})
+}
+
+// AdminUpdateResponseRequest represents the request body for admin updating an attendance response
+type AdminUpdateResponseRequest struct {
+	MemberID      string  `json:"member_id"`
+	TargetDateID  string  `json:"target_date_id"`
+	Response      string  `json:"response"` // "attending" or "absent" or "undecided"
+	Note          string  `json:"note"`
+	AvailableFrom *string `json:"available_from,omitempty"` // 参加可能開始時間 (HH:MM)
+	AvailableTo   *string `json:"available_to,omitempty"`   // 参加可能終了時間 (HH:MM)
+}
+
+// AdminUpdateResponseResponse represents the response for admin updating an attendance response
+type AdminUpdateResponseResponse struct {
+	ResponseID    string    `json:"response_id"`
+	CollectionID  string    `json:"collection_id"`
+	MemberID      string    `json:"member_id"`
+	TargetDateID  string    `json:"target_date_id"`
+	Response      string    `json:"response"`
+	Note          string    `json:"note"`
+	AvailableFrom *string   `json:"available_from,omitempty"`
+	AvailableTo   *string   `json:"available_to,omitempty"`
+	RespondedAt   time.Time `json:"responded_at"`
+}
+
+// AdminUpdateResponse handles PUT /api/v1/attendance/collections/:collection_id/responses
+// 管理API（認証必要、締め切り後も編集可能）
+func (h *AttendanceHandler) AdminUpdateResponse(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// TenantIDの取得（JWTから）
+	tenantID, ok := GetTenantID(ctx)
+	if !ok {
+		RespondBadRequest(w, "tenant_id is required")
+		return
+	}
+
+	// URLパラメータからcollection_idを取得
+	collectionID := chi.URLParam(r, "collection_id")
+	if collectionID == "" {
+		RespondBadRequest(w, "collection_id is required")
+		return
+	}
+
+	// リクエストボディのパース
+	var req AdminUpdateResponseRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		RespondBadRequest(w, "Invalid request body")
+		return
+	}
+
+	// バリデーション
+	if req.MemberID == "" {
+		RespondBadRequest(w, "メンバーを選択してください")
+		return
+	}
+	if req.TargetDateID == "" {
+		RespondBadRequest(w, "対象日を選択してください")
+		return
+	}
+	if req.Response == "" {
+		RespondBadRequest(w, "回答を選択してください")
+		return
+	}
+
+	// Usecase呼び出し
+	output, err := h.adminUpdateResponseUsecase.Execute(ctx, attendance.AdminUpdateResponseInput{
+		TenantID:      tenantID.String(),
+		CollectionID:  collectionID,
+		MemberID:      req.MemberID,
+		TargetDateID:  req.TargetDateID,
+		Response:      req.Response,
+		Note:          req.Note,
+		AvailableFrom: req.AvailableFrom,
+		AvailableTo:   req.AvailableTo,
+	})
+	if err != nil {
+		// エラーハンドリング
+		switch {
+		case errors.Is(err, attendance.ErrCollectionNotFound):
+			RespondNotFound(w, "出欠確認が見つかりません")
+		default:
+			RespondDomainError(w, err)
+		}
+		return
+	}
+
+	// レスポンス
+	RespondJSON(w, http.StatusOK, SuccessResponse{
+		Data: AdminUpdateResponseResponse{
+			ResponseID:    output.ResponseID,
+			CollectionID:  output.CollectionID,
+			MemberID:      output.MemberID,
+			TargetDateID:  output.TargetDateID,
+			Response:      output.Response,
+			Note:          output.Note,
+			AvailableFrom: output.AvailableFrom,
+			AvailableTo:   output.AvailableTo,
+			RespondedAt:   output.RespondedAt,
 		},
 	})
 }
