@@ -287,7 +287,7 @@ export default function CalendarList() {
       {/* プレビューモーダル */}
       {previewCalendar && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[calc(100dvh-2rem)] overflow-hidden flex flex-col">
             <div className="flex items-center justify-between p-4 border-b">
               <h3 className="text-xl font-bold text-gray-900">
                 {previewCalendar.title} - プレビュー
@@ -394,7 +394,7 @@ function CalendarFormModal({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-lg max-w-md w-full p-6 max-h-[calc(100dvh-2rem)] overflow-y-auto">
         <h3 className="text-xl font-bold text-gray-900 mb-4">
           {isEditing ? 'カレンダーを編集' : '新しいカレンダーを作成'}
         </h3>

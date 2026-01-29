@@ -9,7 +9,7 @@ export default function SubscribeComplete() {
     <>
       <SEO noindex={true} />
       <div
-        className="min-h-screen text-white flex items-center justify-center"
+        className="min-h-[100dvh] text-white flex items-center justify-center pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]"
       style={{
         background: 'linear-gradient(180deg, #0a0a0f 0%, #0f0f1a 50%, #0a0a0f 100%)',
         fontFamily: '"Noto Sans JP", "Inter", system-ui, sans-serif',
