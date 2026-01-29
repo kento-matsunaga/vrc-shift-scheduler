@@ -105,7 +105,10 @@ export default function ResponseTable({ targetDates, responses }: ResponseTableP
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full border-collapse text-sm">
+      <table className="w-full border-collapse text-sm" aria-label="出欠回答一覧">
+        <caption className="sr-only">
+          メンバーごとの出欠回答を日付別に表示しています。○は参加、△は未定、×は不参加を表します。
+        </caption>
         <thead>
           <tr className="bg-gray-100">
             <th className="border border-gray-300 px-3 py-2 text-left font-medium text-gray-700 sticky left-0 bg-gray-100 z-10">

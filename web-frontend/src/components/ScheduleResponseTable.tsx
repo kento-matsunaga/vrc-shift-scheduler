@@ -112,7 +112,10 @@ export default function ScheduleResponseTable({ candidates, responses }: Schedul
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full border-collapse text-sm">
+      <table className="w-full border-collapse text-sm" aria-label="日程調整回答一覧">
+        <caption className="sr-only">
+          メンバーごとの日程調整回答を候補日別に表示しています。○は参加可能、△は微妙、×は参加不可を表します。
+        </caption>
         <thead>
           <tr className="bg-gray-100">
             <th className="border border-gray-300 px-3 py-2 text-left font-medium text-gray-700 sticky left-0 bg-gray-100 z-10">
