@@ -1,8 +1,20 @@
 import { useState, useEffect } from 'react';
-import { AlertTriangle, Trash2 } from 'lucide-react';
 import { getEvents, deleteEvent } from '../../lib/api';
 import type { Event } from '../../types/api';
 import { ApiClientError } from '../../lib/apiClient';
+
+// SVG Icons
+const AlertTriangleIcon = ({ className }: { className?: string }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+  </svg>
+);
+
+const TrashIcon = ({ className }: { className?: string }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+  </svg>
+);
 
 export function EventsSettings() {
   const [events, setEvents] = useState<Event[]>([]);
@@ -86,7 +98,7 @@ export function EventsSettings() {
       {/* 危険操作エリア */}
       <div className="bg-white rounded-lg shadow p-6 border-l-4 border-red-500">
         <h2 className="text-lg font-semibold flex items-center gap-2 mb-4 text-red-600">
-          <AlertTriangle className="w-5 h-5" />
+          <AlertTriangleIcon className="w-5 h-5" />
           危険な操作
         </h2>
 
@@ -97,7 +109,7 @@ export function EventsSettings() {
         {/* 警告メッセージ */}
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4">
           <div className="flex items-start gap-3">
-            <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+            <AlertTriangleIcon className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
             <div>
               <p className="text-sm font-medium text-amber-800">注意</p>
               <p className="text-sm text-amber-700 mt-1">
@@ -140,7 +152,7 @@ export function EventsSettings() {
                   onClick={() => handleDeleteClick(event)}
                   className="flex items-center gap-2 px-3 py-1.5 text-sm text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <TrashIcon className="w-4 h-4" />
                   削除
                 </button>
               </div>
@@ -155,7 +167,7 @@ export function EventsSettings() {
           <div className="bg-white rounded-lg max-w-md w-full p-6">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
-                <AlertTriangle className="w-6 h-6 text-red-600" />
+                <AlertTriangleIcon className="w-6 h-6 text-red-600" />
               </div>
               <h3 className="text-xl font-bold text-gray-900">イベントの削除</h3>
             </div>
