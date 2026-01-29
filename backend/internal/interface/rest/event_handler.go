@@ -435,9 +435,14 @@ func (h *EventHandler) GenerateBusinessDays(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// リクエストボディのパース（オプショナル）
+	// リクエストボディのパース（オプショナル - 空ボディも許可）
 	var req GenerateBusinessDaysRequest
-	_ = json.NewDecoder(r.Body).Decode(&req) // エラーは無視（空ボディも許可）
+	if r.Body != nil && r.Body != http.NoBody {
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil && err.Error() != "EOF" {
+			RespondBadRequest(w, "Invalid request body")
+			return
+		}
+	}
 
 	// months のバリデーション
 	months := req.Months
