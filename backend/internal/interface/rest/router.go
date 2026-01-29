@@ -179,6 +179,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			appevent.NewListBusinessDaysUsecase(businessDayRepo),
 			appevent.NewGetBusinessDayUsecase(businessDayRepo),
 			appevent.NewApplyTemplateUsecase(businessDayRepo, templateRepo, slotRepo, instanceRepo),
+			appevent.NewDeleteBusinessDayUsecase(businessDayRepo),
 		)
 
 		// InstanceHandler dependencies
@@ -329,6 +330,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		// BusinessDay API
 		r.Route("/business-days", func(r chi.Router) {
 			r.Get("/{business_day_id}", businessDayHandler.GetBusinessDay)
+			r.With(permissionChecker.RequirePermission(tenant.PermissionEditEvent)).Delete("/{business_day_id}", businessDayHandler.DeleteBusinessDay)
 
 			// BusinessDay配下のShiftSlot
 			r.With(permissionChecker.RequirePermission(tenant.PermissionEditShift)).Post("/{business_day_id}/shift-slots", shiftSlotHandler.CreateShiftSlot)

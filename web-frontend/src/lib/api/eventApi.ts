@@ -64,12 +64,14 @@ export async function deleteEvent(eventId: string): Promise<void> {
 
 /**
  * 営業日を自動生成（定期イベント用）
- * 今月〜来月末までの営業日を生成する
+ * 指定された月数分の営業日を生成する
+ * @param eventId イベントID
+ * @param months 何ヶ月先まで生成するか（デフォルト: 2）
  */
-export async function generateBusinessDays(eventId: string): Promise<GenerateBusinessDaysResponse> {
+export async function generateBusinessDays(eventId: string, months: number = 2): Promise<GenerateBusinessDaysResponse> {
   const res = await apiClient.post<ApiResponse<GenerateBusinessDaysResponse>>(
     `/api/v1/events/${eventId}/generate-business-days`,
-    {}
+    { months }
   );
   return res.data;
 }

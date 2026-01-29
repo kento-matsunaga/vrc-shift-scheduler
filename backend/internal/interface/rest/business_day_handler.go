@@ -17,6 +17,7 @@ type BusinessDayHandler struct {
 	listBusinessDaysUC  *appevent.ListBusinessDaysUsecase
 	getBusinessDayUC    *appevent.GetBusinessDayUsecase
 	applyTemplateUC     *appevent.ApplyTemplateUsecase
+	deleteBusinessDayUC *appevent.DeleteBusinessDayUsecase
 }
 
 // NewBusinessDayHandler creates a new BusinessDayHandler with injected usecases
@@ -25,12 +26,14 @@ func NewBusinessDayHandler(
 	listBusinessDaysUC *appevent.ListBusinessDaysUsecase,
 	getBusinessDayUC *appevent.GetBusinessDayUsecase,
 	applyTemplateUC *appevent.ApplyTemplateUsecase,
+	deleteBusinessDayUC *appevent.DeleteBusinessDayUsecase,
 ) *BusinessDayHandler {
 	return &BusinessDayHandler{
 		createBusinessDayUC: createBusinessDayUC,
 		listBusinessDaysUC:  listBusinessDaysUC,
 		getBusinessDayUC:    getBusinessDayUC,
 		applyTemplateUC:     applyTemplateUC,
+		deleteBusinessDayUC: deleteBusinessDayUC,
 	}
 }
 
@@ -341,4 +344,43 @@ func (h *BusinessDayHandler) ApplyTemplate(w http.ResponseWriter, r *http.Reques
 		"template_id":     templateID.String(),
 		"items_count":     itemsCount,
 	})
+}
+
+// DeleteBusinessDay handles DELETE /api/v1/business-days/:business_day_id
+func (h *BusinessDayHandler) DeleteBusinessDay(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// テナントIDの取得
+	tenantID, ok := GetTenantID(ctx)
+	if !ok {
+		RespondBadRequest(w, "tenant_id is required")
+		return
+	}
+
+	// BusinessDayIDの取得
+	businessDayIDStr := chi.URLParam(r, "business_day_id")
+	if businessDayIDStr == "" {
+		RespondBadRequest(w, "business_day_id is required")
+		return
+	}
+
+	businessDayID := event.BusinessDayID(businessDayIDStr)
+	if err := businessDayID.Validate(); err != nil {
+		RespondBadRequest(w, "Invalid business_day_id format")
+		return
+	}
+
+	// Usecaseの実行
+	input := appevent.DeleteBusinessDayInput{
+		TenantID:      tenantID,
+		BusinessDayID: businessDayID,
+	}
+
+	if err := h.deleteBusinessDayUC.Execute(ctx, input); err != nil {
+		RespondDomainError(w, err)
+		return
+	}
+
+	// 成功レスポンス（204 No Content）
+	w.WriteHeader(http.StatusNoContent)
 }

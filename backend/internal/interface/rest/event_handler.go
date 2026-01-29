@@ -406,6 +406,11 @@ type GenerateBusinessDaysResponse struct {
 	Event          EventResponse `json:"event"`
 }
 
+// GenerateBusinessDaysRequest represents the request body for generating business days
+type GenerateBusinessDaysRequest struct {
+	Months int `json:"months"` // 何ヶ月先まで生成するか（デフォルト2、最大24）
+}
+
 // GenerateBusinessDays handles POST /api/v1/events/:event_id/generate-business-days
 func (h *EventHandler) GenerateBusinessDays(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -430,10 +435,29 @@ func (h *EventHandler) GenerateBusinessDays(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	// リクエストボディのパース（オプショナル - 空ボディも許可）
+	var req GenerateBusinessDaysRequest
+	if r.Body != nil && r.Body != http.NoBody {
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil && err.Error() != "EOF" {
+			RespondBadRequest(w, "Invalid request body")
+			return
+		}
+	}
+
+	// months のバリデーション
+	months := req.Months
+	if months <= 0 {
+		months = appevent.DefaultBusinessDayMonths
+	}
+	if months > appevent.MaxBusinessDayMonths {
+		months = appevent.MaxBusinessDayMonths
+	}
+
 	// Usecaseの実行
 	input := appevent.GenerateBusinessDaysInput{
 		TenantID: tenantID,
 		EventID:  eventID,
+		Months:   months,
 	}
 
 	output, err := h.generateBusinessDaysUC.Execute(ctx, input)
