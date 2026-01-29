@@ -64,7 +64,7 @@ func (uc *CreateShiftSlotUsecase) Execute(ctx context.Context, input CreateShift
 
 		// インスタンスが同じイベントに属しているか確認
 		if instance.EventID() != businessDay.EventID() {
-			return nil, common.NewValidationError("シフトテンプレートは営業日と同じイベントに属している必要があります", nil)
+			return nil, common.NewValidationError("instance does not belong to the same event as the business day", nil)
 		}
 	}
 

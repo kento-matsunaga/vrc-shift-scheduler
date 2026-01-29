@@ -124,7 +124,7 @@ func RateLimitMiddleware(rl *RateLimiter) func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			clientIP := getClientIP(r)
 			if !rl.Allow(clientIP) {
-				time.Sleep(1 * time.Second) // Delay to slow down attackers
+				// Return immediately to prevent goroutine resource exhaustion during DoS
 				RespondError(w, http.StatusTooManyRequests, "ERR_RATE_LIMITED",
 					"リクエストが多すぎます。しばらくしてから再度お試しください。", nil)
 				return
