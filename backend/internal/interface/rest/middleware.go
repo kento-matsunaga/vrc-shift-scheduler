@@ -2,7 +2,7 @@ package rest
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -10,6 +10,7 @@ import (
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/tenant"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/infra/security"
+	"github.com/go-chi/chi/v5/middleware"
 )
 
 // ContextKey is a custom type for context keys
@@ -28,7 +29,8 @@ const (
 	ContextKeyAllowedMemberIDs ContextKey = "allowed_member_ids"
 )
 
-// Logger is a middleware that logs HTTP requests
+// Logger is a middleware that logs HTTP requests with structured logging
+// Includes context information: request_id, tenant_id, admin_id/member_id
 func Logger(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
@@ -39,13 +41,36 @@ func Logger(next http.Handler) http.Handler {
 		next.ServeHTTP(wrapped, r)
 
 		duration := time.Since(start)
-		log.Printf(
-			"%s %s %d %s",
-			r.Method,
-			r.URL.Path,
-			wrapped.statusCode,
-			duration,
-		)
+
+		// Build log attributes with context information
+		attrs := []any{
+			slog.String("method", r.Method),
+			slog.String("path", r.URL.Path),
+			slog.Int("status", wrapped.statusCode),
+			slog.Duration("duration", duration),
+		}
+
+		// Add request_id from chi middleware if available
+		if reqID := middleware.GetReqID(r.Context()); reqID != "" {
+			attrs = append(attrs, slog.String("request_id", reqID))
+		}
+
+		// Add tenant_id from context if available
+		if tenantID, ok := GetTenantID(r.Context()); ok {
+			attrs = append(attrs, slog.String("tenant_id", tenantID.String()))
+		}
+
+		// Add admin_id from context if available (JWT auth)
+		if adminID, ok := GetAdminID(r.Context()); ok {
+			attrs = append(attrs, slog.String("admin_id", adminID.String()))
+		}
+
+		// Add member_id from context if available (legacy auth)
+		if memberID, ok := GetMemberID(r.Context()); ok {
+			attrs = append(attrs, slog.String("member_id", memberID.String()))
+		}
+
+		slog.Info("HTTP request", attrs...)
 	})
 }
 
@@ -169,12 +194,40 @@ func Auth(tokenVerifier security.TokenVerifier) func(http.Handler) http.Handler 
 	}
 }
 
-// Recover is a middleware that recovers from panics
+// Recover is a middleware that recovers from panics with structured logging
+// Includes context information: request_id, tenant_id, admin_id/member_id
 func Recover(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if err := recover(); err != nil {
-				log.Printf("PANIC: %v", err)
+				// Build log attributes with context information
+				attrs := []any{
+					slog.Any("panic", err),
+					slog.String("method", r.Method),
+					slog.String("path", r.URL.Path),
+				}
+
+				// Add request_id from chi middleware if available
+				if reqID := middleware.GetReqID(r.Context()); reqID != "" {
+					attrs = append(attrs, slog.String("request_id", reqID))
+				}
+
+				// Add tenant_id from context if available
+				if tenantID, ok := GetTenantID(r.Context()); ok {
+					attrs = append(attrs, slog.String("tenant_id", tenantID.String()))
+				}
+
+				// Add admin_id from context if available (JWT auth)
+				if adminID, ok := GetAdminID(r.Context()); ok {
+					attrs = append(attrs, slog.String("admin_id", adminID.String()))
+				}
+
+				// Add member_id from context if available (legacy auth)
+				if memberID, ok := GetMemberID(r.Context()); ok {
+					attrs = append(attrs, slog.String("member_id", memberID.String()))
+				}
+
+				slog.Error("PANIC recovered", attrs...)
 				RespondInternalError(w)
 			}
 		}()
@@ -225,7 +278,14 @@ func TenantStatusMiddleware(tenantRepo tenant.TenantRepository) func(http.Handle
 			t, err := tenantRepo.FindByID(r.Context(), tenantID)
 			if err != nil {
 				// テナント取得失敗時は後続の処理に任せる
-				log.Printf("[TenantStatusMiddleware] Failed to find tenant %s: %v", tenantID, err)
+				attrs := []any{
+					slog.String("tenant_id", tenantID.String()),
+					slog.Any("error", err),
+				}
+				if reqID := middleware.GetReqID(r.Context()); reqID != "" {
+					attrs = append(attrs, slog.String("request_id", reqID))
+				}
+				slog.Warn("TenantStatusMiddleware: Failed to find tenant", attrs...)
 				next.ServeHTTP(w, r)
 				return
 			}
