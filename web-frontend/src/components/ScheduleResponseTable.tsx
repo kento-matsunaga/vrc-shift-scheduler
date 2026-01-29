@@ -8,6 +8,23 @@ interface ScheduleResponseTableProps {
 
 type AvailabilityType = 'available' | 'unavailable' | 'maybe';
 
+// 型ガード関数
+function isValidAvailabilityType(value: unknown): value is AvailabilityType {
+  return value === 'available' || value === 'unavailable' || value === 'maybe';
+}
+
+function isValidPublicScheduleResponse(obj: unknown): obj is PublicScheduleResponse {
+  if (typeof obj !== 'object' || obj === null) return false;
+  const r = obj as Record<string, unknown>;
+  return (
+    typeof r.member_id === 'string' &&
+    typeof r.member_name === 'string' &&
+    typeof r.candidate_id === 'string' &&
+    isValidAvailabilityType(r.availability) &&
+    typeof r.note === 'string'
+  );
+}
+
 interface MemberResponseMap {
   memberName: string;
   memberId: string;
@@ -15,11 +32,17 @@ interface MemberResponseMap {
 }
 
 export default function ScheduleResponseTable({ candidates, responses }: ScheduleResponseTableProps) {
+  // 型安全なレスポンスのみをフィルタリング
+  const validResponses = useMemo(() =>
+    responses.filter(isValidPublicScheduleResponse),
+    [responses]
+  );
+
   // メンバーごとに回答をグループ化
   const memberResponses = useMemo(() => {
     const memberMap = new Map<string, MemberResponseMap>();
 
-    responses.forEach((r) => {
+    validResponses.forEach((r) => {
       if (!memberMap.has(r.member_id)) {
         memberMap.set(r.member_id, {
           memberName: r.member_name,
@@ -39,7 +62,7 @@ export default function ScheduleResponseTable({ candidates, responses }: Schedul
     return Array.from(memberMap.values()).sort((a, b) =>
       a.memberName.localeCompare(b.memberName, 'ja')
     );
-  }, [responses]);
+  }, [validResponses]);
 
   // 候補日ごとの参加数を計算
   const candidateSummary = useMemo(() => {
@@ -49,14 +72,14 @@ export default function ScheduleResponseTable({ candidates, responses }: Schedul
       summary[c.candidate_id] = { available: 0, unavailable: 0, maybe: 0 };
     });
 
-    responses.forEach((r) => {
+    validResponses.forEach((r) => {
       if (summary[r.candidate_id]) {
         summary[r.candidate_id][r.availability]++;
       }
     });
 
     return summary;
-  }, [candidates, responses]);
+  }, [candidates, validResponses]);
 
   const getAvailabilityIcon = (availability: AvailabilityType | undefined) => {
     switch (availability) {

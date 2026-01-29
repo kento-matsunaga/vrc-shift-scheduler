@@ -8,6 +8,23 @@ interface ResponseTableProps {
 
 type ResponseType = 'attending' | 'absent' | 'undecided';
 
+// 型ガード関数
+function isValidResponseType(value: unknown): value is ResponseType {
+  return value === 'attending' || value === 'absent' || value === 'undecided';
+}
+
+function isValidPublicAttendanceResponse(obj: unknown): obj is PublicAttendanceResponse {
+  if (typeof obj !== 'object' || obj === null) return false;
+  const r = obj as Record<string, unknown>;
+  return (
+    typeof r.member_id === 'string' &&
+    typeof r.member_name === 'string' &&
+    typeof r.target_date_id === 'string' &&
+    isValidResponseType(r.response) &&
+    typeof r.note === 'string'
+  );
+}
+
 interface MemberResponseMap {
   memberName: string;
   memberId: string;
@@ -15,11 +32,17 @@ interface MemberResponseMap {
 }
 
 export default function ResponseTable({ targetDates, responses }: ResponseTableProps) {
+  // 型安全なレスポンスのみをフィルタリング
+  const validResponses = useMemo(() =>
+    responses.filter(isValidPublicAttendanceResponse),
+    [responses]
+  );
+
   // メンバーごとに回答をグループ化
   const memberResponses = useMemo(() => {
     const memberMap = new Map<string, MemberResponseMap>();
 
-    responses.forEach((r) => {
+    validResponses.forEach((r) => {
       if (!memberMap.has(r.member_id)) {
         memberMap.set(r.member_id, {
           memberName: r.member_name,
@@ -41,7 +64,7 @@ export default function ResponseTable({ targetDates, responses }: ResponseTableP
     return Array.from(memberMap.values()).sort((a, b) =>
       a.memberName.localeCompare(b.memberName, 'ja')
     );
-  }, [responses]);
+  }, [validResponses]);
 
   // 日付ごとの参加数を計算
   const dateSummary = useMemo(() => {
@@ -51,14 +74,14 @@ export default function ResponseTable({ targetDates, responses }: ResponseTableP
       summary[td.target_date_id] = { attending: 0, absent: 0, undecided: 0 };
     });
 
-    responses.forEach((r) => {
+    validResponses.forEach((r) => {
       if (summary[r.target_date_id]) {
         summary[r.target_date_id][r.response]++;
       }
     });
 
     return summary;
-  }, [targetDates, responses]);
+  }, [targetDates, validResponses]);
 
   const getResponseIcon = (response: ResponseType | undefined) => {
     switch (response) {
