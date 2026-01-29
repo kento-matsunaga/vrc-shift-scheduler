@@ -334,38 +334,38 @@ export default function ScheduleResponse() {
                       </div>
 
                       <div className="space-y-2">
-                        <label className="flex items-center">
+                        <label className="flex items-center min-h-[44px]">
                           <input
                             type="radio"
                             name={`candidate-${candidate.candidate_id}`}
                             value="available"
                             checked={responses[candidate.candidate_id]?.availability === 'available'}
                             onChange={() => updateResponse(candidate.candidate_id, 'available')}
-                            className="mr-2"
+                            className="mr-2 w-5 h-5"
                             disabled={schedule?.status !== 'open'}
                           />
                           <span className="text-sm text-green-700">⭕ 参加できる</span>
                         </label>
-                        <label className="flex items-center">
+                        <label className="flex items-center min-h-[44px]">
                           <input
                             type="radio"
                             name={`candidate-${candidate.candidate_id}`}
                             value="unavailable"
                             checked={responses[candidate.candidate_id]?.availability === 'unavailable'}
                             onChange={() => updateResponse(candidate.candidate_id, 'unavailable')}
-                            className="mr-2"
+                            className="mr-2 w-5 h-5"
                             disabled={schedule?.status !== 'open'}
                           />
                           <span className="text-sm text-red-700">❌ 参加できない</span>
                         </label>
-                        <label className="flex items-center">
+                        <label className="flex items-center min-h-[44px]">
                           <input
                             type="radio"
                             name={`candidate-${candidate.candidate_id}`}
                             value="maybe"
                             checked={responses[candidate.candidate_id]?.availability === 'maybe'}
                             onChange={() => updateResponse(candidate.candidate_id, 'maybe')}
-                            className="mr-2"
+                            className="mr-2 w-5 h-5"
                             disabled={schedule?.status !== 'open'}
                           />
                           <span className="text-sm text-gray-700">△ 未定・要相談</span>
@@ -384,7 +384,7 @@ export default function ScheduleResponse() {
                               e.target.value
                             )
                           }
-                          className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-accent"
+                          className="w-full px-2 py-1 text-base border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-accent"
                           disabled={schedule?.status !== 'open'}
                         />
                       </div>

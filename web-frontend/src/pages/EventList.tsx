@@ -441,7 +441,7 @@ function CreateEventModal({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-lg max-w-md w-full p-6 max-h-[calc(100dvh-2rem)] overflow-y-auto">
         <h3 className="text-xl font-bold text-gray-900 mb-4">新しいイベントを作成</h3>
 
         <form onSubmit={handleSubmit}>
@@ -700,7 +700,7 @@ function EventGroupModal({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-lg max-w-lg w-full p-6 max-h-[calc(100dvh-2rem)] overflow-y-auto">
         <h3 className="text-xl font-bold text-gray-900 mb-2">グループ設定</h3>
         <p className="text-sm text-gray-600 mb-4">
           「{event.event_name}」に参加可能なグループを設定します

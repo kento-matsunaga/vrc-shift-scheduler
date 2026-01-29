@@ -321,7 +321,7 @@ export default function ScheduleDetail() {
               <p className="text-gray-600 mb-4">{schedule.description}</p>
             )}
           </div>
-          <div className="flex gap-2 items-center">
+          <div className="flex flex-wrap gap-2 items-center">
             {getStatusBadge(schedule.status)}
             <button
               onClick={handleOpenConvertModal}
@@ -457,7 +457,99 @@ export default function ScheduleDetail() {
             </div>
           </div>
         </div>
-        <div className="overflow-x-auto">
+        {/* モバイル用カードビュー */}
+        <div className="md:hidden">
+          {sortedMembers.length === 0 ? (
+            <div className="p-6 text-center text-gray-500">
+              メンバーがいません
+            </div>
+          ) : (
+            <div className="divide-y divide-gray-100">
+              {sortedMembers.map((member) => {
+                const memberResponses = responseMap.get(member.member_id);
+                const availableCount = candidates.filter(
+                  (c) => memberResponses?.get(c.candidate_id) === 'available'
+                ).length;
+                const maybeCount = candidates.filter(
+                  (c) => memberResponses?.get(c.candidate_id) === 'maybe'
+                ).length;
+
+                return (
+                  <div key={member.member_id} className="p-4">
+                    <div className="flex justify-between items-start mb-3">
+                      <span className="font-medium text-gray-900">{member.display_name}</span>
+                      <div className="flex gap-2 text-sm">
+                        <span className="text-green-600">○{availableCount}</span>
+                        <span className="text-yellow-600">△{maybeCount}</span>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {candidates.map((candidate) => {
+                        const availability = memberResponses?.get(candidate.candidate_id);
+                        let bgColor = 'bg-gray-100 text-gray-400';
+                        let symbol = '-';
+
+                        if (availability === 'available') {
+                          bgColor = 'bg-green-100 text-green-800';
+                          symbol = '○';
+                        } else if (availability === 'maybe') {
+                          bgColor = 'bg-yellow-100 text-yellow-800';
+                          symbol = '△';
+                        } else if (availability === 'unavailable') {
+                          bgColor = 'bg-red-100 text-red-800';
+                          symbol = '×';
+                        }
+
+                        return (
+                          <div
+                            key={candidate.candidate_id}
+                            className={`px-2 py-1 rounded text-xs ${bgColor}`}
+                          >
+                            <span className="font-medium">{symbol}</span>
+                            <span className="ml-1 text-gray-600">
+                              {new Date(candidate.date).toLocaleDateString('ja-JP', {
+                                month: 'numeric',
+                                day: 'numeric',
+                              })}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {/* モバイル用集計 */}
+          <div className="p-4 bg-gray-50 border-t border-gray-200">
+            <h4 className="text-sm font-medium text-gray-700 mb-3">日程別集計</h4>
+            <div className="grid grid-cols-2 gap-2">
+              {candidates.map((candidate) => {
+                const stats = candidateStats.find((s) => s.candidateId === candidate.candidate_id);
+                return (
+                  <div key={candidate.candidate_id} className="bg-white p-3 rounded-lg border border-gray-200">
+                    <div className="text-sm font-medium text-gray-900 mb-1">
+                      {new Date(candidate.date).toLocaleDateString('ja-JP', {
+                        month: 'numeric',
+                        day: 'numeric',
+                        weekday: 'short',
+                      })}
+                    </div>
+                    <div className="flex gap-2 text-xs">
+                      <span className="text-green-600">○{stats?.availableCount || 0}</span>
+                      <span className="text-yellow-600">△{stats?.maybeCount || 0}</span>
+                      <span className="text-red-600">×{stats?.unavailableCount || 0}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* デスクトップ用テーブル */}
+        <div className="hidden md:block overflow-x-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>

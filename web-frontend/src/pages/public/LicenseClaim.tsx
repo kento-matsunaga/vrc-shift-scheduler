@@ -108,10 +108,11 @@ export default function LicenseClaim() {
         </header>
 
         {/* メインコンテンツ */}
-        <main className="flex-1 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-md max-w-md w-full p-8">
-            <div className="text-center mb-8">
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">登録完了！</h2>
+        <main className="flex-1 overflow-auto">
+          <div className="min-h-full flex items-center justify-center p-4">
+            <div className="bg-white rounded-lg shadow-md max-w-md w-full p-8">
+              <div className="text-center mb-8">
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">登録完了！</h2>
               <p className="text-sm text-gray-500">
                 アカウントが正常に作成されました。メールアドレスとパスワードでログインできます。
               </p>
@@ -122,6 +123,7 @@ export default function LicenseClaim() {
             >
               ログインへ
             </button>
+            </div>
           </div>
         </main>
 
@@ -150,11 +152,12 @@ export default function LicenseClaim() {
         </header>
 
         {/* メインコンテンツ */}
-        <main className="flex-1 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-md max-w-md w-full p-8">
-            <div className="text-center mb-8">
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                ライセンスキーで登録
+        <main className="flex-1 overflow-auto">
+          <div className="min-h-full flex items-center justify-center p-4">
+            <div className="bg-white rounded-lg shadow-md max-w-md w-full p-8">
+              <div className="text-center mb-8">
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                  ライセンスキーで登録
             </h2>
             <p className="text-sm text-gray-500">
               BOOTHで購入したライセンスキーを入力してアカウントを作成してください
@@ -174,7 +177,7 @@ export default function LicenseClaim() {
                 value={formData.license_key}
                 onChange={handleLicenseKeyChange}
                 placeholder="XXXX-XXXX-XXXX-XXXX"
-                className="w-full px-4 py-3 border border-gray-300 rounded-md text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition font-mono"
+                className="w-full px-4 py-3 border border-gray-300 rounded-md text-base text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition font-mono"
                 disabled={isLoading}
               />
             </div>
@@ -191,7 +194,7 @@ export default function LicenseClaim() {
                 value={formData.tenant_name}
                 onChange={handleChange}
                 placeholder="VRCイベント名"
-                className="w-full px-4 py-3 border border-gray-300 rounded-md text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition"
+                className="w-full px-4 py-3 border border-gray-300 rounded-md text-base text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition"
                 disabled={isLoading}
               />
             </div>
@@ -208,7 +211,7 @@ export default function LicenseClaim() {
                 value={formData.display_name}
                 onChange={handleChange}
                 placeholder="管理者"
-                className="w-full px-4 py-3 border border-gray-300 rounded-md text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition"
+                className="w-full px-4 py-3 border border-gray-300 rounded-md text-base text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition"
                 disabled={isLoading}
               />
             </div>
@@ -226,7 +229,7 @@ export default function LicenseClaim() {
                 value={formData.email}
                 onChange={handleChange}
                 placeholder="admin@example.com"
-                className="w-full px-4 py-3 border border-gray-300 rounded-md text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition"
+                className="w-full px-4 py-3 border border-gray-300 rounded-md text-base text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition"
                 disabled={isLoading}
               />
             </div>
@@ -244,7 +247,7 @@ export default function LicenseClaim() {
                 value={formData.password}
                 onChange={handleChange}
                 placeholder="••••••••"
-                className="w-full px-4 py-3 border border-gray-300 rounded-md text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition"
+                className="w-full px-4 py-3 border border-gray-300 rounded-md text-base text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition"
                 disabled={isLoading}
               />
               <p className="mt-1 text-xs text-gray-500">8文字以上、大文字・小文字・数字を含む</p>
@@ -263,7 +266,7 @@ export default function LicenseClaim() {
                 value={formData.confirmPassword}
                 onChange={handleChange}
                 placeholder="••••••••"
-                className="w-full px-4 py-3 border border-gray-300 rounded-md text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition"
+                className="w-full px-4 py-3 border border-gray-300 rounded-md text-base text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition"
                 disabled={isLoading}
               />
             </div>
@@ -298,8 +301,9 @@ export default function LicenseClaim() {
               </a>
             </div>
           </form>
-        </div>
-      </main>
+            </div>
+          </div>
+        </main>
 
         {/* フッター */}
         <footer className="bg-white border-t">

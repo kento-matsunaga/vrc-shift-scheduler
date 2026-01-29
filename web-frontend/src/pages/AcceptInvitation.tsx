@@ -83,7 +83,7 @@ export default function AcceptInvitation() {
   return (
     <>
       <SEO noindex={true} />
-      <div className="min-h-screen bg-gray-100 flex flex-col">
+      <div className="min-h-[100dvh] bg-gray-100 flex flex-col pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
         {/* ヘッダー */}
         <header className="bg-vrc-dark text-white shadow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
