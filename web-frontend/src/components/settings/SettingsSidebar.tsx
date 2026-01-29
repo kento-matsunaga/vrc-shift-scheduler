@@ -1,13 +1,5 @@
 import { NavLink } from 'react-router-dom';
-
-interface MenuItem {
-  id: string;
-  label: string;
-  path: string;
-  icon: React.ReactNode;
-  ownerOnly?: boolean;
-  danger?: boolean;
-}
+import { menuItems } from './settingsConfig';
 
 // Building icon
 const BuildingIcon = () => (
@@ -51,16 +43,18 @@ const UploadIcon = () => (
   </svg>
 );
 
-const menuItems: MenuItem[] = [
-  { id: 'organization', label: '組織情報', path: '/settings/organization', icon: <BuildingIcon /> },
-  { id: 'account', label: 'アカウント', path: '/settings/account', icon: <UserIcon /> },
-  { id: 'billing', label: '課金管理', path: '/settings/billing', icon: <CreditCardIcon />, ownerOnly: true },
-  { id: 'permissions', label: '権限設定', path: '/settings/permissions', icon: <ShieldIcon />, ownerOnly: true },
-  { id: 'events', label: 'イベント管理', path: '/settings/events', icon: <AlertTriangleIcon />, danger: true },
-  { id: 'import', label: 'データ取込', path: '/settings/import', icon: <UploadIcon /> },
-];
+const icons: Record<string, React.ReactNode> = {
+  organization: <BuildingIcon />,
+  account: <UserIcon />,
+  billing: <CreditCardIcon />,
+  permissions: <ShieldIcon />,
+  events: <AlertTriangleIcon />,
+  import: <UploadIcon />,
+};
 
 export function SettingsSidebar() {
+  // NOTE: This is UI-level check only. Backend APIs enforce authorization.
+  // Billing and Permissions endpoints require owner role validation server-side.
   const isOwner = localStorage.getItem('admin_role') === 'owner';
 
   return (
@@ -86,7 +80,7 @@ export function SettingsSidebar() {
                   }`
                 }
               >
-                {item.icon}
+                {icons[item.id]}
                 {item.label}
               </NavLink>
             </li>
