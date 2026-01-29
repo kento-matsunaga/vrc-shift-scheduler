@@ -173,8 +173,8 @@ export default function LicenseKeys() {
       {isLoading ? (
         <div className="text-center py-8">読み込み中...</div>
       ) : (
-        <div className="bg-white shadow overflow-hidden rounded-lg">
-          <div className="overflow-x-auto">
+        <div className="bg-white shadow rounded-lg">
+          <div className="overflow-x-auto rounded-lg">
             <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
