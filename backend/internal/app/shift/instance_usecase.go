@@ -54,7 +54,7 @@ func (uc *CreateInstanceUsecase) Execute(ctx context.Context, input CreateInstan
 		return nil, err
 	}
 	if existing != nil {
-		return nil, common.NewValidationError("instance with the same name already exists", nil)
+		return nil, common.NewValidationError("同じ名前のシフトテンプレートが既に存在します", nil)
 	}
 
 	// Instance エンティティの作成
@@ -161,7 +161,7 @@ func (uc *UpdateInstanceUsecase) Execute(ctx context.Context, input UpdateInstan
 			return nil, err
 		}
 		if existing != nil && existing.InstanceID() != instance.InstanceID() {
-			return nil, common.NewValidationError("instance with the same name already exists", nil)
+			return nil, common.NewValidationError("同じ名前のシフトテンプレートが既に存在します", nil)
 		}
 
 		if err := instance.UpdateName(*input.Name); err != nil {

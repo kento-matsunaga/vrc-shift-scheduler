@@ -48,7 +48,7 @@ func (u *SubmitResponseUsecase) Execute(ctx context.Context, input SubmitRespons
 	// 3. Parse TargetDateID
 	targetDateID, err := common.ParseTargetDateID(input.TargetDateID)
 	if err != nil {
-		return nil, common.NewValidationError("invalid target_date_id", err)
+		return nil, common.NewValidationError("対象日IDが無効です", err)
 	}
 
 	// 4. Parse ResponseType
