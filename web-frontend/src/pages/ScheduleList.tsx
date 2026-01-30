@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { SEO } from '../components/seo';
@@ -76,22 +76,16 @@ export default function ScheduleList() {
   const [memberGroups, setMemberGroups] = useState<MemberGroup[]>([]);
   const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
 
-  useEffect(() => {
-    loadSchedules();
-    loadMemberGroups();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const loadMemberGroups = async () => {
+  const loadMemberGroups = useCallback(async () => {
     try {
       const data = await getMemberGroups();
       setMemberGroups(data.groups || []);
     } catch (err) {
       console.error('Failed to load member groups:', err);
     }
-  };
+  }, []);
 
-  const loadSchedules = async () => {
+  const loadSchedules = useCallback(async () => {
     try {
       setLoading(true);
       const data = await listSchedules();
@@ -102,7 +96,12 @@ export default function ScheduleList() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadSchedules();
+    loadMemberGroups();
+  }, [loadSchedules, loadMemberGroups]);
 
   const handleAddDate = () => {
     setCandidateDates([...candidateDates, emptyCandidateDate()]);
@@ -158,10 +157,13 @@ export default function ScheduleList() {
     setCandidateDates(mergedDates.length > 0 ? mergedDates : [emptyCandidateDate()]);
   };
 
-  // 既存の日付リスト（重複チェック用）
-  const existingDateStrings = candidateDates
-    .filter((d) => d.date.trim() !== '')
-    .map((d) => d.date);
+  // 既存の日付リスト（重複チェック用）- useMemoでメモ化
+  const existingDateStrings = useMemo(() =>
+    candidateDates
+      .filter((d) => d.date.trim() !== '')
+      .map((d) => d.date),
+    [candidateDates]
+  );
 
   const handleEditClick = async (scheduleId: string) => {
     setError('');
@@ -482,6 +484,7 @@ export default function ScheduleList() {
                             onClick={() => handleRemoveDate(index)}
                             className="px-3 py-2 text-red-600 hover:bg-red-100 rounded-md transition text-sm"
                             disabled={submitting || loadingEdit}
+                            aria-label={`候補日${index + 1}を削除`}
                           >
                             削除
                           </button>

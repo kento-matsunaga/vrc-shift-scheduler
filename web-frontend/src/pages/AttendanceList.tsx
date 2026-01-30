@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   listAttendanceCollections,
@@ -254,10 +254,13 @@ export default function AttendanceList() {
     setTargetDates(mergedDates.length > 0 ? mergedDates : [{ date: '', startTime: '', endTime: '' }]);
   };
 
-  // 既存の日付リスト（重複チェック用）
-  const existingDateStrings = targetDates
-    .filter((d) => d.date.trim() !== '')
-    .map((d) => d.date);
+  // 既存の日付リスト（重複チェック用）- useMemoでメモ化
+  const existingDateStrings = useMemo(() =>
+    targetDates
+      .filter((d) => d.date.trim() !== '')
+      .map((d) => d.date),
+    [targetDates]
+  );
 
   const toggleGroupSelection = (groupId: string) => {
     setSelectedGroupIds((prev) =>
@@ -599,6 +602,7 @@ export default function AttendanceList() {
                           onClick={() => handleRemoveDate(index)}
                           className="ml-auto px-2 py-1 text-xs text-red-600 hover:bg-red-50 rounded transition"
                           disabled={submitting || loadingEdit}
+                          aria-label={`日程${index + 1}を削除`}
                         >
                           削除
                         </button>
