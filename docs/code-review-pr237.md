@@ -580,5 +580,350 @@ useEffect(() => {
 
 ---
 
+## 3. 修正内容の解説
+
+このセクションでは、レビューで発見された各問題に対してどのような修正が行われたか、その背景と理由を詳しく解説します。
+
+### 3.1 Backend 修正
+
+#### 3.1.1 エラーラッピングの追加
+
+**対象ファイル**:
+- `backend/internal/app/attendance/update_collection_usecase.go`
+- `backend/internal/app/schedule/update_schedule_usecase.go`
+
+**修正の背景**:
+
+Go言語では、エラーが発生した際に「どこで」「なぜ」エラーが起きたかを追跡するために、エラーをラップ（wrap）することが推奨されています。
+
+```go
+// ❌ 悪い例：エラーをそのまま返す
+if err != nil {
+    return nil, err
+}
+
+// ✅ 良い例：コンテキスト情報を付けてラップ
+if err != nil {
+    return nil, fmt.Errorf("tenant ID のパースに失敗: %w", err)
+}
+```
+
+**なぜ `%w` を使うのか**:
+
+Go 1.13 以降、`fmt.Errorf` で `%w` を使うと、元のエラーを「ラップ」できます。これにより：
+
+1. **エラーチェーンの追跡**: `errors.Unwrap()` で元のエラーを取得可能
+2. **型による判定**: `errors.Is()` や `errors.As()` でエラーの種類を判定可能
+3. **スタックトレースの改善**: どの処理で失敗したかが明確
+
+```go
+// 呼び出し側でのエラーチェック例
+if errors.Is(err, common.ErrNotFound) {
+    // NotFound エラーとして処理
+}
+```
+
+#### 3.1.2 関数名の修正
+
+**対象ファイル**: `backend/internal/app/schedule/update_schedule_usecase.go`
+
+**修正内容**:
+```go
+// 修正前
+func (u *UpdateScheduleUsecase) hasResponsesForCandidates(...) (*schedule.CandidateDate, error)
+
+// 修正後
+func (u *UpdateScheduleUsecase) findCandidateWithExistingResponses(...) (*schedule.CandidateDate, error)
+```
+
+**命名規則の重要性**:
+
+関数名はコードの「ドキュメント」です。適切な命名により：
+
+| プレフィックス | 期待される戻り値 | 例 |
+|---------------|-----------------|-----|
+| `is`, `has`, `can` | `bool` | `isValid()`, `hasPermission()` |
+| `get`, `find`, `fetch` | オブジェクト | `getUser()`, `findById()` |
+| `create`, `new` | 新規オブジェクト | `createOrder()`, `newInstance()` |
+| `update`, `set` | なし or 更新後オブジェクト | `updateProfile()` |
+| `delete`, `remove` | なし or `bool` | `deleteItem()` |
+
+#### 3.1.3 エラー型の統一
+
+**対象ファイル**: `backend/internal/domain/schedule/errors.go`
+
+**修正内容**:
+```go
+// 修正前：型がバラバラ
+var (
+    ErrScheduleClosed = errors.New("schedule is closed")           // 標準errors
+    ErrAlreadyDeleted = common.NewInvariantViolationError("...")   // カスタム型
+)
+
+// 修正後：カスタム型に統一
+var (
+    ErrScheduleClosed = common.NewInvariantViolationError("schedule is closed")
+    ErrAlreadyDeleted = common.NewInvariantViolationError("schedule is already deleted")
+)
+```
+
+**なぜカスタムエラー型を使うのか**:
+
+DDDにおいて、ドメイン層のエラーは**ビジネスルール違反**を表します。カスタム型を使うことで：
+
+1. **HTTP ステータスコードへの変換が容易**:
+   - `InvariantViolationError` → 400 Bad Request
+   - `NotFoundError` → 404 Not Found
+   - 標準 `error` → 500 Internal Server Error
+
+2. **エラーの発生源が明確**:
+   - ドメインエラー vs インフラエラー vs アプリケーションエラー
+
+### 3.2 Frontend 修正
+
+#### 3.2.1 apiClient への統一
+
+**対象ファイル**:
+- `web-frontend/src/lib/api/attendanceApi.ts`
+- `web-frontend/src/lib/api/scheduleApi.ts`
+
+**修正前の問題点**:
+
+```typescript
+// ❌ 直接 fetch を使う場合：毎回ボイラープレートが必要
+export async function listAttendanceCollections(...) {
+    const session = await getSession();
+    if (!session?.access_token) {
+        throw new Error('認証が必要です');
+    }
+    const response = await fetch(url, {
+        headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+        },
+    });
+    if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return response.json();
+}
+
+// ✅ apiClient を使う場合：シンプル
+export async function listAttendanceCollections(...) {
+    return apiClient.get<AttendanceCollection[]>(url);
+}
+```
+
+**統一による恩恵**:
+
+| 観点 | 修正前 | 修正後 |
+|------|--------|--------|
+| 認証処理 | 各関数で重複 | apiClient で一元管理 |
+| エラーハンドリング | バラバラ | 統一された `ApiClientError` |
+| コード行数 | 約15行/関数 | 約1行/関数 |
+| 保守性 | 低（変更箇所が多い） | 高（変更は1箇所） |
+
+#### 3.2.2 useMemo によるパフォーマンス最適化
+
+**対象ファイル**:
+- `web-frontend/src/pages/AttendanceList.tsx`
+- `web-frontend/src/pages/ScheduleList.tsx`
+
+**修正内容**:
+
+```tsx
+// ❌ 修正前：毎レンダリングで再計算
+const existingDateStrings = targetDates
+  .filter((d) => d.date.trim() !== '')
+  .map((d) => d.date);
+
+// ✅ 修正後：依存配列が変わった時のみ再計算
+const existingDateStrings = useMemo(() =>
+  targetDates
+    .filter((d) => d.date.trim() !== '')
+    .map((d) => d.date),
+  [targetDates]
+);
+```
+
+**useMemo を使うべき場面**:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  useMemo の判断フローチャート                            │
+├─────────────────────────────────────────────────────────┤
+│                                                         │
+│  計算コストは高い？                                      │
+│       │                                                 │
+│       ├── Yes → useMemo を検討                         │
+│       │                                                 │
+│       └── No  → useMemo 不要                           │
+│                （過剰な最適化は複雑性を増す）            │
+│                                                         │
+│  「計算コストが高い」の目安：                            │
+│   - 配列の filter/map/reduce（要素数が多い場合）        │
+│   - オブジェクトの深い走査                              │
+│   - 正規表現のコンパイル                                │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
+```
+
+#### 3.2.3 useCallback による関数の安定化
+
+**対象ファイル**: `web-frontend/src/pages/ScheduleList.tsx`
+
+**修正内容**:
+
+```tsx
+// ❌ 修正前：eslint-disable でルールを無効化
+useEffect(() => {
+  loadSchedules();
+  loadMemberGroups();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, []);
+
+// ✅ 修正後：useCallback で関数を安定化
+const loadSchedules = useCallback(async () => {
+  // ...
+}, []);
+
+const loadMemberGroups = useCallback(async () => {
+  // ...
+}, []);
+
+useEffect(() => {
+  loadSchedules();
+  loadMemberGroups();
+}, [loadSchedules, loadMemberGroups]);
+```
+
+**eslint-disable を避けるべき理由**:
+
+1. **将来のバグを隠蔽**: 依存配列の問題が検出されなくなる
+2. **リントの意味がなくなる**: 静的解析の恩恵を放棄
+3. **コードレビューでの信頼低下**: 「なぜ無効化したのか」の説明が必要
+
+#### 3.2.4 アクセシビリティの向上
+
+**対象ファイル**: 両ページコンポーネント
+
+**修正内容**:
+
+```tsx
+// ❌ 修正前：aria-label なし
+<button onClick={() => handleRemoveDate(index)}>
+  削除
+</button>
+
+// ✅ 修正後：aria-label あり
+<button
+  onClick={() => handleRemoveDate(index)}
+  aria-label={`日程${index + 1}を削除`}
+>
+  削除
+</button>
+```
+
+**アクセシビリティが重要な理由**:
+
+1. **スクリーンリーダーユーザー**: 視覚障害者がボタンの目的を理解できる
+2. **WCAG 準拠**: Web Content Accessibility Guidelines への対応
+3. **SEO への好影響**: 検索エンジンもアクセシビリティを評価
+4. **法的要件**: 一部の国・地域ではアクセシビリティ対応が法的に必要
+
+---
+
+## 4. まとめ
+
+### 4.1 この PR から学べること
+
+#### 設計パターン
+
+| パターン | 適用例 | 学習ポイント |
+|---------|--------|-------------|
+| **DDD レイヤードアーキテクチャ** | 全体構成 | 責務の分離、テスタビリティ向上 |
+| **リポジトリパターン** | `schedule_repository.go` | データアクセスの抽象化 |
+| **DTO パターン** | `dto.go` | 層間のデータ受け渡し |
+| **不変条件の保護** | `schedule.go` の validate() | ドメインオブジェクトの整合性保証 |
+
+#### コーディングベストプラクティス
+
+| 言語/FW | プラクティス | 具体例 |
+|---------|-------------|--------|
+| **Go** | エラーラッピング | `fmt.Errorf("context: %w", err)` |
+| **Go** | カスタムエラー型 | `common.NewInvariantViolationError()` |
+| **Go** | 命名規則 | `find*`, `has*`, `is*` の使い分け |
+| **React** | `useMemo` | 計算コストの高い処理のキャッシュ |
+| **React** | `useCallback` | 関数の参照安定化 |
+| **React** | アクセシビリティ | `aria-label` の適切な設定 |
+
+### 4.2 よくある間違いと対策
+
+| よくある間違い | 対策 |
+|---------------|------|
+| エラーをそのまま return | `fmt.Errorf("コンテキスト: %w", err)` でラップ |
+| 関数名と戻り値の不一致 | 命名規則に従う（has→bool, find→object） |
+| エラー型の混在 | プロジェクト内で統一されたエラー型を使用 |
+| fetch の直接使用 | apiClient などの共通クライアントを使用 |
+| eslint-disable の多用 | 根本原因を解決（useCallback 等） |
+| useMemo の不使用 | 計算コストが高い処理には useMemo |
+| aria-label の欠如 | インタラクティブ要素には必ず追加 |
+
+### 4.3 参考資料
+
+#### DDD・アーキテクチャ
+
+- [Domain-Driven Design Reference（公式）](https://www.domainlanguage.com/ddd/reference/)
+- [Clean Architecture（Uncle Bob）](https://blog.cleancoder.com/uncle-bob/2012/08/13/the-clean-architecture.html)
+- [Implementing Domain-Driven Design（書籍）](https://www.amazon.co.jp/dp/B00BCLEBN8)
+
+#### Go 言語
+
+- [Effective Go（公式）](https://go.dev/doc/effective_go)
+- [Go Code Review Comments](https://github.com/golang/go/wiki/CodeReviewComments)
+- [Standard Go Project Layout](https://github.com/golang-standards/project-layout)
+- [Go Error Handling（公式 Blog）](https://go.dev/blog/go1.13-errors)
+
+#### React / TypeScript
+
+- [React 公式ドキュメント](https://react.dev/)
+- [TypeScript Handbook](https://www.typescriptlang.org/docs/handbook/)
+- [React Hooks API Reference](https://react.dev/reference/react)
+- [useMemo 公式ドキュメント](https://react.dev/reference/react/useMemo)
+
+#### アクセシビリティ
+
+- [WCAG 2.1 Guidelines](https://www.w3.org/TR/WCAG21/)
+- [WAI-ARIA Authoring Practices](https://www.w3.org/WAI/ARIA/apg/)
+- [A11y Project](https://www.a11yproject.com/)
+
+#### プロジェクト内のルール
+
+このプロジェクトでは以下のルールファイルを参照してください：
+
+| ファイル | 内容 |
+|---------|------|
+| `.claude/rules/ddd-patterns.md` | DDD パターンの適用ルール |
+| `.claude/rules/go-coding-style.md` | Go コーディング規約 |
+| `.claude/rules/testing.md` | テストの書き方 |
+| `.claude/rules/security.md` | セキュリティガイドライン |
+
+### 4.4 次のステップ
+
+この PR のレビューを通じて学んだことを活かすために：
+
+1. **実際にコードを読む**: 修正前後のコードを GitHub で確認
+2. **類似のコードを探す**: プロジェクト内で同じパターンが使われている箇所を探索
+3. **小さな改善を試す**: 学んだベストプラクティスを他の箇所に適用
+4. **チームで共有**: 学んだことをチームメンバーと共有
+
+---
+
 *この解説書は PR #237 のコードレビュー結果に基づいて作成されました。*
-*足軽1-4号によるレビュー結果を足軽5号が解説書としてまとめました。*
+
+**作成者**:
+- 前半（1-2章）: 足軽5号
+- 後半（3-4章）: 足軽6号
+- レビュー実施: 足軽1-4号
+
+**作成日**: 2026-01-30
