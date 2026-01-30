@@ -23,17 +23,17 @@ func NewUpdateScheduleUsecase(repo schedule.DateScheduleRepository, clk services
 func (u *UpdateScheduleUsecase) Execute(ctx context.Context, input UpdateScheduleInput) (*UpdateScheduleOutput, error) {
 	tenantID, err := common.ParseTenantID(input.TenantID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("tenant ID のパースに失敗: %w", err)
 	}
 
 	scheduleID, err := common.ParseScheduleID(input.ScheduleID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("schedule ID のパースに失敗: %w", err)
 	}
 
 	sch, err := u.repo.FindByID(ctx, tenantID, scheduleID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("日程調整の取得に失敗: %w", err)
 	}
 
 	now := u.clock.Now()
@@ -47,15 +47,15 @@ func (u *UpdateScheduleUsecase) Execute(ctx context.Context, input UpdateSchedul
 
 		removedCandidates, err := findRemovedCandidates(sch.Candidates(), input.Candidates)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("削除対象候補日の特定に失敗: %w", err)
 		}
 		if len(removedCandidates) > 0 {
-			hasResponses, err := u.hasResponsesForCandidates(ctx, scheduleID, removedCandidates)
+			candidateWithResponse, err := u.findCandidateWithExistingResponses(ctx, scheduleID, removedCandidates)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("既存回答の確認に失敗: %w", err)
 			}
-			if hasResponses != nil && !input.ForceDeleteCandidateResponses {
-				return nil, common.NewConflictError(candidateRemovalMessage(hasResponses))
+			if candidateWithResponse != nil && !input.ForceDeleteCandidateResponses {
+				return nil, common.NewConflictError(candidateRemovalMessage(candidateWithResponse))
 			}
 		}
 
@@ -73,7 +73,7 @@ func (u *UpdateScheduleUsecase) Execute(ctx context.Context, input UpdateSchedul
 					existing.CreatedAt(),
 				)
 				if err != nil {
-					return nil, err
+				return nil, fmt.Errorf("候補日の再構築に失敗: %w", err)
 				}
 				candidates = append(candidates, updatedCandidate)
 				continue
@@ -81,18 +81,18 @@ func (u *UpdateScheduleUsecase) Execute(ctx context.Context, input UpdateSchedul
 
 			candidate, err := schedule.NewCandidateDate(now, scheduleID, c.Date, c.StartTime, c.EndTime, i)
 			if err != nil {
-				return nil, err
+			return nil, fmt.Errorf("候補日の作成に失敗: %w", err)
 			}
 			candidates = append(candidates, candidate)
 		}
 	}
 
 	if err := sch.Update(now, input.Title, input.Description, input.Deadline, candidates); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("日程調整の更新に失敗: %w", err)
 	}
 
 	if err := u.repo.Save(ctx, sch); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("日程調整の保存に失敗: %w", err)
 	}
 	log.Printf("[AUDIT] UpdateSchedule: tenant=%s schedule=%s", sch.TenantID().String(), sch.ScheduleID().String())
 
@@ -118,14 +118,14 @@ func (u *UpdateScheduleUsecase) Execute(ctx context.Context, input UpdateSchedul
 	}, nil
 }
 
-func (u *UpdateScheduleUsecase) hasResponsesForCandidates(
+func (u *UpdateScheduleUsecase) findCandidateWithExistingResponses(
 	ctx context.Context,
 	scheduleID common.ScheduleID,
 	candidates []*schedule.CandidateDate,
 ) (*schedule.CandidateDate, error) {
 	responses, err := u.repo.FindResponsesByScheduleID(ctx, scheduleID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("回答の取得に失敗: %w", err)
 	}
 
 	responseCandidateIDs := make(map[string]struct{}, len(responses))
