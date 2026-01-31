@@ -590,7 +590,6 @@ export default function AttendanceList() {
               </div>
             )}
 
-            {!isEditing && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 対象日 <span className="text-red-500">*</span>
@@ -670,7 +669,6 @@ export default function AttendanceList() {
                 + 対象日を追加
               </button>
             </div>
-            )}
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
