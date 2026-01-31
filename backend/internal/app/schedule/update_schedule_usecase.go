@@ -73,7 +73,7 @@ func (u *UpdateScheduleUsecase) Execute(ctx context.Context, input UpdateSchedul
 					existing.CreatedAt(),
 				)
 				if err != nil {
-				return nil, fmt.Errorf("候補日の再構築に失敗: %w", err)
+					return nil, fmt.Errorf("候補日の再構築に失敗: %w", err)
 				}
 				candidates = append(candidates, updatedCandidate)
 				continue
@@ -81,7 +81,7 @@ func (u *UpdateScheduleUsecase) Execute(ctx context.Context, input UpdateSchedul
 
 			candidate, err := schedule.NewCandidateDate(now, scheduleID, c.Date, c.StartTime, c.EndTime, i)
 			if err != nil {
-			return nil, fmt.Errorf("候補日の作成に失敗: %w", err)
+				return nil, fmt.Errorf("候補日の作成に失敗: %w", err)
 			}
 			candidates = append(candidates, candidate)
 		}
