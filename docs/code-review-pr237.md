@@ -558,6 +558,8 @@ useEffect(() => {
 
 ## 修正実施状況サマリー
 
+### コードレビュー指摘事項
+
 | # | 問題 | 状況 |
 |---|------|------|
 | 1 | エラーラップ（出欠確認） | 修正済み |
@@ -572,6 +574,215 @@ useEffect(() => {
 | 10 | eslint-disable削除 | 修正済み |
 | 11 | aria-label追加 | 修正済み |
 | 12 | コンポーネント分離 | 別PRで対応 |
+
+### コンフリクト解消時に発生したバグ（致命的）
+
+PR #237 のマージ時にコンフリクト解消で以下の致命的なバグが発生しました。これらは追加で修正されました。
+
+| # | 深刻度 | ファイル | 問題 | 状況 |
+|---|--------|---------|------|------|
+| 13 | **致命的** | `schedule_handler.go` | `updateScheduleUsecase` フィールド未代入（405エラーの原因） | 修正済み |
+| 14 | **重大** | `AttendanceList.tsx` | 編集時に `target_dates`, `group_ids`, `role_ids` が復元されない | 修正済み |
+| 15 | 中 | `ScheduleList.tsx` | ローカル `formatTime` 関数の重複定義 | 修正済み |
+| 16 | 低 | `lib/api/timeUtils.ts` | `lib/timeUtils.ts` との重複ファイル | 削除済み |
+| 17 | 低 | `ScheduleList.tsx` | 時刻バリデーションのエラーメッセージ不一致 | 修正済み |
+
+---
+
+## 追加修正の詳細（コンフリクト解消時のバグ）
+
+### 問題13: updateScheduleUsecase フィールド未代入（致命的）
+
+**ファイル**: `backend/internal/interface/rest/schedule_handler.go`
+**深刻度**: 致命的（機能が完全に動作しない）
+
+#### 何が起きていたか
+
+日程調整の更新API（PUT `/api/v1/schedules/{id}`）を呼び出すと、405 Method Not Allowed エラーが発生していました。
+
+#### 原因
+
+`ScheduleHandler` 構造体には `updateScheduleUsecase` フィールドが定義されていましたが、コンストラクタ `NewScheduleHandler` でフィールドへの代入が漏れていました。
+
+```go
+// 構造体には定義されている
+type ScheduleHandler struct {
+    createScheduleUsecase        *schedule.CreateScheduleUsecase
+    listSchedulesUsecase         *schedule.ListSchedulesUsecase
+    deleteScheduleUsecase        *schedule.DeleteScheduleUsecase
+    updateScheduleUsecase        *schedule.UpdateScheduleUsecase  // ← 定義はある
+    getScheduleUsecase           *schedule.GetScheduleUsecase
+    // ...
+}
+
+// しかしコンストラクタで代入されていなかった
+func NewScheduleHandler(...) *ScheduleHandler {
+    return &ScheduleHandler{
+        createScheduleUsecase:        createScheduleUC,
+        listSchedulesUsecase:         listSchedulesUC,
+        deleteScheduleUsecase:        deleteScheduleUC,
+        // updateScheduleUsecase:     ← この行が欠落していた！
+        getScheduleUsecase:           getScheduleUC,
+        // ...
+    }
+}
+```
+
+#### なぜ405エラーになったか
+
+Go言語では、nil のインターフェースに対してメソッドを呼び出すと panic が発生します。しかし、この場合は chi ルーターが「ハンドラーが正しく登録されていない」と判断し、405 エラーを返していた可能性があります。
+
+#### 修正内容
+
+コンストラクタに `updateScheduleUsecase` の代入を追加しました：
+
+```go
+return &ScheduleHandler{
+    createScheduleUsecase:        createScheduleUC,
+    listSchedulesUsecase:         listSchedulesUC,
+    deleteScheduleUsecase:        deleteScheduleUC,
+    updateScheduleUsecase:        updateScheduleUC,  // ← 追加
+    getScheduleUsecase:           getScheduleUC,
+    // ...
+}
+```
+
+#### 学習ポイント
+
+- Go の構造体フィールドを追加したら、コンストラクタでの代入も必ず確認する
+- nil ポインタ参照は実行時エラーになるため、静的解析では検出しにくい
+- コンフリクト解消時は特に注意深く差分を確認する
+
+---
+
+### 問題14: 編集時に対象日・グループ・ロールが復元されない（重大）
+
+**ファイル**: `web-frontend/src/pages/AttendanceList.tsx`
+**深刻度**: 重大（編集機能が実質的に使用不可）
+
+#### 何が起きていたか
+
+出欠確認の「編集」ボタンをクリックしても、既存の対象日（`target_dates`）、グループ（`group_ids`）、ロール（`role_ids`）がフォームに表示されませんでした。
+
+#### 原因
+
+`handleEditClick` 関数で、タイトル・説明・締切は復元されていましたが、対象日・グループ・ロールの復元処理が欠落していました。
+
+```tsx
+// 修正前
+const handleEditClick = async (collectionId: string) => {
+  try {
+    const collection = await getAttendanceCollection(collectionId);
+    setIsEditing(true);
+    setEditingCollectionId(collectionId);
+    setTitle(collection.title);
+    setDescription(collection.description || '');
+    setDeadline(toInputDateTime(collection.deadline));
+    // ← target_dates, group_ids, role_ids の復元がない！
+  } catch (err) {
+    // ...
+  }
+};
+```
+
+#### 修正内容
+
+対象日・グループ・ロールの復元処理を追加しました：
+
+```tsx
+const handleEditClick = async (collectionId: string) => {
+  try {
+    const collection = await getAttendanceCollection(collectionId);
+    setIsEditing(true);
+    setEditingCollectionId(collectionId);
+    setTitle(collection.title);
+    setDescription(collection.description || '');
+    setDeadline(toInputDateTime(collection.deadline));
+
+    // 対象日を復元
+    const dates = collection.target_dates || [];
+    if (dates.length > 0) {
+      setTargetDates(
+        dates.map((td) => ({
+          date: td.target_date.split('T')[0],
+          startTime: formatTimeToHHMM(td.start_time || ''),
+          endTime: formatTimeToHHMM(td.end_time || ''),
+        }))
+      );
+    }
+
+    // グループ・ロールIDを復元
+    setSelectedGroupIds(collection.group_ids || []);
+    setSelectedRoleIds(collection.role_ids || []);
+  } catch (err) {
+    // ...
+  }
+};
+```
+
+#### 学習ポイント
+
+- 編集機能を実装する際は、すべての編集可能フィールドが復元されることを確認する
+- コンフリクト解消時に新しく追加されたコードが失われていないか確認する
+- 編集機能のテストでは「既存データが正しく表示されるか」も検証する
+
+---
+
+### 問題15: formatTime 関数の重複定義
+
+**ファイル**: `web-frontend/src/pages/ScheduleList.tsx`
+**深刻度**: 中
+
+#### 何が起きていたか
+
+`ScheduleList.tsx` 内にローカルの `formatTime` 関数が定義されていましたが、`lib/timeUtils.ts` にも同じ関数が存在していました。
+
+#### 修正内容
+
+ローカル関数を削除し、`timeUtils` からインポートするように変更しました：
+
+```tsx
+// 修正前
+import { isValidTimeRange, toApiTimeFormat } from '../lib/timeUtils';
+const formatTime = (t?: string | null) => { ... };  // ローカル定義
+
+// 修正後
+import { isValidTimeRange, toApiTimeFormat, formatTime } from '../lib/timeUtils';
+```
+
+---
+
+### 問題16: timeUtils.ts の重複ファイル
+
+**ファイル**: `web-frontend/src/lib/api/timeUtils.ts`
+**深刻度**: 低
+
+#### 何が起きていたか
+
+`lib/timeUtils.ts` と `lib/api/timeUtils.ts` の2つのファイルが存在し、一部の関数が重複していました。
+
+#### 修正内容
+
+`lib/api/timeUtils.ts` を削除し、`lib/timeUtils.ts` に統一しました。
+
+---
+
+### 問題17: 時刻バリデーションのエラーメッセージ不一致
+
+**ファイル**: `web-frontend/src/pages/ScheduleList.tsx`
+**深刻度**: 低
+
+#### 何が起きていたか
+
+開始時刻と終了時刻が同じ場合のエラーメッセージが、実際のバリデーションロジックと一致していませんでした。
+
+```tsx
+// 修正前
+setError('開始時間は終了時間より前に設定してください');
+
+// 修正後（実際のバリデーションに合わせた）
+setError('開始時間と終了時間を同じにすることはできません');
+```
 
 ---
 
