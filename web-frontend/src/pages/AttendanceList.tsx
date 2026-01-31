@@ -312,6 +312,24 @@ export default function AttendanceList() {
       setTitle(collection.title);
       setDescription(collection.description || '');
       setDeadline(toInputDateTime(collection.deadline));
+
+      // 対象日を復元
+      const dates = collection.target_dates || [];
+      if (dates.length > 0) {
+        setTargetDates(
+          dates.map((td) => ({
+            date: td.target_date.split('T')[0], // ISO 8601 → YYYY-MM-DD
+            startTime: formatTimeToHHMM(td.start_time || ''),
+            endTime: formatTimeToHHMM(td.end_time || ''),
+          }))
+        );
+      } else {
+        setTargetDates([{ date: '', startTime: '', endTime: '' }]);
+      }
+
+      // グループ/ロールIDを復元（表示用）
+      setSelectedGroupIds(collection.group_ids || []);
+      setSelectedRoleIds(collection.role_ids || []);
     } catch (err) {
       console.error('Failed to load collection for edit:', err);
       setError('出欠確認の取得に失敗しました');

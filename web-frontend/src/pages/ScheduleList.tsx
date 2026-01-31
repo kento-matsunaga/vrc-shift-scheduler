@@ -14,14 +14,7 @@ import {
 } from '../lib/api/scheduleApi';
 import { getMemberGroups, type MemberGroup } from '../lib/api/memberGroupApi';
 import { ApiClientError } from '../lib/apiClient';
-import { isValidTimeRange, toApiTimeFormat } from '../lib/timeUtils';
-
-// APIから返ってくる time を input[type="time"] 向けに HH:MM にする（"HH:MM:SS" や ISO を想定）
-const formatTime = (t?: string | null) => {
-  if (!t) return '';
-  const m = String(t).match(/^(\d{2}:\d{2})/);
-  return m ? m[1] : '';
-};
+import { isValidTimeRange, toApiTimeFormat, formatTime } from '../lib/timeUtils';
 
 // 候補日の入力データ型
 interface CandidateDateInput {
@@ -217,10 +210,10 @@ export default function ScheduleList() {
       return;
     }
 
-    // 時間バリデーション
+    // 時間バリデーション（同じ時刻は無効）
     for (const candidate of validDates) {
       if (!isValidTimeRange(candidate.startTime, candidate.endTime)) {
-        setError('開始時間は終了時間より前に設定してください');
+        setError('開始時間と終了時間を同じにすることはできません');
         return;
       }
     }

@@ -44,12 +44,12 @@ func NewScheduleHandler(
 	convertToAttendanceUC *schedule.ConvertToAttendanceUsecase,
 ) *ScheduleHandler {
 	return &ScheduleHandler{
-
 		createScheduleUsecase:        createScheduleUC,
 		submitResponseUsecase:        submitResponseUC,
 		decideScheduleUsecase:        decideScheduleUC,
 		closeScheduleUsecase:         closeScheduleUC,
 		deleteScheduleUsecase:        deleteScheduleUC,
+		updateScheduleUsecase:        updateScheduleUC,
 		getScheduleUsecase:           getScheduleUC,
 		getScheduleByTokenUsecase:    getScheduleByTokenUC,
 		getResponsesUsecase:          getResponsesUC,
