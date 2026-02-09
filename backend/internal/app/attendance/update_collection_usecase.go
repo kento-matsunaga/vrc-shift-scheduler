@@ -61,7 +61,7 @@ func (u *UpdateCollectionUsecase) Execute(ctx context.Context, input UpdateColle
 				if tdInput.TargetDateID != "" {
 					existingTD, ok := existingMap[tdInput.TargetDateID]
 					if !ok {
-						return common.NewValidationError("invalid target_date_id included", nil)
+						return common.NewValidationError("無効な対象日IDが含まれています", nil)
 					}
 					if err := existingTD.UpdateFields(tdInput.TargetDate, tdInput.StartTime, tdInput.EndTime, i); err != nil {
 						return fmt.Errorf("対象日の更新に失敗: %w", err)
