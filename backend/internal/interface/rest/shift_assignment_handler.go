@@ -194,6 +194,7 @@ func (h *ShiftAssignmentHandler) GetAssignments(w http.ResponseWriter, r *http.R
 	// Parse query parameters
 	memberIDStr := r.URL.Query().Get("member_id")
 	slotIDStr := r.URL.Query().Get("slot_id")
+	businessDayIDStr := r.URL.Query().Get("business_day_id")
 	statusStr := r.URL.Query().Get("assignment_status")
 	startDateStr := r.URL.Query().Get("start_date")
 	endDateStr := r.URL.Query().Get("end_date")
@@ -239,8 +240,10 @@ func (h *ShiftAssignmentHandler) GetAssignments(w http.ResponseWriter, r *http.R
 			return
 		}
 		input.SlotID = &slotID
+	} else if businessDayIDStr != "" {
+		input.BusinessDayID = &businessDayIDStr
 	} else {
-		writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "member_id or slot_id is required", nil)
+		writeError(w, http.StatusBadRequest, "ERR_INVALID_REQUEST", "member_id, slot_id, or business_day_id is required", nil)
 		return
 	}
 

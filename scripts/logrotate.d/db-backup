@@ -1,0 +1,12 @@
+# Logrotate configuration for VRC Shift Scheduler database backup logs
+# Install: sudo cp scripts/logrotate.d/db-backup /etc/logrotate.d/db-backup
+
+/var/log/db-backup.log {
+    daily
+    rotate 30
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 644 root root
+}

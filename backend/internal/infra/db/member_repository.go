@@ -57,6 +57,54 @@ func (r *MemberRepository) Save(ctx context.Context, m *member.Member) error {
 	return nil
 }
 
+// SaveBatch saves multiple members in a single batch operation
+func (r *MemberRepository) SaveBatch(ctx context.Context, members []*member.Member) error {
+	if len(members) == 0 {
+		return nil
+	}
+
+	query := `
+		INSERT INTO members (
+			member_id, tenant_id, display_name, discord_user_id, email,
+			is_active, created_at, updated_at, deleted_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		ON CONFLICT (member_id) DO UPDATE SET
+			display_name = EXCLUDED.display_name,
+			discord_user_id = EXCLUDED.discord_user_id,
+			email = EXCLUDED.email,
+			is_active = EXCLUDED.is_active,
+			updated_at = EXCLUDED.updated_at,
+			deleted_at = EXCLUDED.deleted_at
+	`
+
+	batch := &pgx.Batch{}
+	for _, m := range members {
+		batch.Queue(query,
+			m.MemberID().String(),
+			m.TenantID().String(),
+			m.DisplayName(),
+			nullString(m.DiscordUserID()),
+			nullString(m.Email()),
+			m.IsActive(),
+			m.CreatedAt(),
+			m.UpdatedAt(),
+			m.DeletedAt(),
+		)
+	}
+
+	results := r.db.SendBatch(ctx, batch)
+	defer results.Close()
+
+	for i := 0; i < len(members); i++ {
+		_, err := results.Exec()
+		if err != nil {
+			return fmt.Errorf("failed to save member at index %d: %w", i, err)
+		}
+	}
+
+	return nil
+}
+
 // FindByID finds a member by ID within a tenant
 func (r *MemberRepository) FindByID(ctx context.Context, tenantID common.TenantID, memberID common.MemberID) (*member.Member, error) {
 	query := `

@@ -234,7 +234,7 @@ func (uc *DeleteShiftSlotUsecase) Execute(ctx context.Context, input DeleteShift
 	}
 
 	if assignedCount > 0 {
-		return common.NewConflictError("cannot delete shift slot with existing assignments")
+		return common.NewConflictError("割り当てが存在するシフト枠は削除できません")
 	}
 
 	// ソフトデリート

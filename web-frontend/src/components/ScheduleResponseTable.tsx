@@ -1,186 +1,54 @@
-import { useMemo } from 'react';
 import type { ScheduleCandidate, PublicScheduleResponse } from '../lib/api/publicApi';
+import BaseResponseTable, { type DateItem, type ResponseItem, type ResponseTypeConfig } from './BaseResponseTable';
 
 interface ScheduleResponseTableProps {
   candidates: ScheduleCandidate[];
   responses: PublicScheduleResponse[];
 }
 
-type AvailabilityType = 'available' | 'unavailable' | 'maybe';
+// 日程調整用の回答タイプ設定
+const scheduleResponseTypes: ResponseTypeConfig[] = [
+  { value: 'available', label: '参加可能', icon: '○', iconColor: 'text-green-600', bgColor: 'bg-green-50' },
+  { value: 'maybe', label: '微妙', icon: '△', iconColor: 'text-yellow-600', bgColor: 'bg-yellow-50' },
+  { value: 'unavailable', label: '参加不可', icon: '×', iconColor: 'text-red-600', bgColor: 'bg-red-50' },
+];
 
-interface MemberResponseMap {
-  memberName: string;
-  memberId: string;
-  responses: Record<string, { availability: AvailabilityType; note: string }>;
-}
+// ISO 形式の時間を HH:MM に変換
+const formatTimeDisplay = (timeStr: string | undefined): string => {
+  if (!timeStr) return '';
+  const date = new Date(timeStr);
+  return date.toLocaleTimeString('ja-JP', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
 
 export default function ScheduleResponseTable({ candidates, responses }: ScheduleResponseTableProps) {
-  // メンバーごとに回答をグループ化
-  const memberResponses = useMemo(() => {
-    const memberMap = new Map<string, MemberResponseMap>();
+  // ScheduleCandidate を DateItem に変換
+  const dateItems: DateItem[] = candidates.map((c) => ({
+    id: c.candidate_id,
+    date: c.date,
+    startTime: c.start_time,
+    endTime: c.end_time,
+  }));
 
-    responses.forEach((r) => {
-      if (!memberMap.has(r.member_id)) {
-        memberMap.set(r.member_id, {
-          memberName: r.member_name,
-          memberId: r.member_id,
-          responses: {},
-        });
-      }
-
-      const member = memberMap.get(r.member_id)!;
-      member.responses[r.candidate_id] = {
-        availability: r.availability,
-        note: r.note,
-      };
-    });
-
-    // メンバー名でソート
-    return Array.from(memberMap.values()).sort((a, b) =>
-      a.memberName.localeCompare(b.memberName, 'ja')
-    );
-  }, [responses]);
-
-  // 候補日ごとの参加数を計算
-  const candidateSummary = useMemo(() => {
-    const summary: Record<string, { available: number; unavailable: number; maybe: number }> = {};
-
-    candidates.forEach((c) => {
-      summary[c.candidate_id] = { available: 0, unavailable: 0, maybe: 0 };
-    });
-
-    responses.forEach((r) => {
-      if (summary[r.candidate_id]) {
-        summary[r.candidate_id][r.availability]++;
-      }
-    });
-
-    return summary;
-  }, [candidates, responses]);
-
-  const getAvailabilityIcon = (availability: AvailabilityType | undefined) => {
-    switch (availability) {
-      case 'available':
-        return <span className="text-green-600 font-bold text-lg">○</span>;
-      case 'unavailable':
-        return <span className="text-red-600 font-bold text-lg">×</span>;
-      case 'maybe':
-        return <span className="text-yellow-600 font-bold text-lg">△</span>;
-      default:
-        return <span className="text-gray-400">-</span>;
-    }
-  };
-
-  const getAvailabilityBgColor = (availability: AvailabilityType | undefined) => {
-    switch (availability) {
-      case 'available':
-        return 'bg-green-50';
-      case 'unavailable':
-        return 'bg-red-50';
-      case 'maybe':
-        return 'bg-yellow-50';
-      default:
-        return 'bg-gray-50';
-    }
-  };
-
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('ja-JP', {
-      month: 'numeric',
-      day: 'numeric',
-      weekday: 'short',
-    });
-  };
-
-  const formatTime = (timeStr: string | undefined) => {
-    if (!timeStr) return '';
-    const date = new Date(timeStr);
-    return date.toLocaleTimeString('ja-JP', {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
-  if (memberResponses.length === 0) {
-    return (
-      <div className="bg-gray-50 rounded-lg p-6 text-center">
-        <p className="text-gray-500">まだ回答がありません</p>
-      </div>
-    );
-  }
+  // PublicScheduleResponse を ResponseItem に変換
+  const responseItems: ResponseItem[] = responses.map((r) => ({
+    memberId: r.member_id,
+    memberName: r.member_name,
+    dateItemId: r.candidate_id,
+    responseValue: r.availability,
+    note: r.note,
+  }));
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full border-collapse text-sm">
-        <thead>
-          <tr className="bg-gray-100">
-            <th className="border border-gray-300 px-3 py-2 text-left font-medium text-gray-700 sticky left-0 bg-gray-100 z-10">
-              名前
-            </th>
-            {candidates.map((c) => (
-              <th
-                key={c.candidate_id}
-                className="border border-gray-300 px-3 py-2 text-center font-medium text-gray-700 min-w-[80px]"
-              >
-                <div>{formatDate(c.date)}</div>
-                {(c.start_time || c.end_time) && (
-                  <div className="text-xs text-gray-500 font-normal">
-                    {formatTime(c.start_time) || ''}〜{formatTime(c.end_time) || ''}
-                  </div>
-                )}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {memberResponses.map((member) => (
-            <tr key={member.memberId} className="hover:bg-gray-50">
-              <td className="border border-gray-300 px-3 py-2 font-medium text-gray-900 sticky left-0 bg-white z-10">
-                {member.memberName}
-              </td>
-              {candidates.map((c) => {
-                const resp = member.responses[c.candidate_id];
-                return (
-                  <td
-                    key={c.candidate_id}
-                    className={`border border-gray-300 px-3 py-2 text-center ${getAvailabilityBgColor(resp?.availability)}`}
-                    title={resp?.note || undefined}
-                  >
-                    {getAvailabilityIcon(resp?.availability)}
-                  </td>
-                );
-              })}
-            </tr>
-          ))}
-          {/* 集計行 */}
-          <tr className="bg-gray-100 font-medium">
-            <td className="border border-gray-300 px-3 py-2 text-gray-700 sticky left-0 bg-gray-100 z-10">
-              集計
-            </td>
-            {candidates.map((c) => {
-              const summary = candidateSummary[c.candidate_id];
-              return (
-                <td
-                  key={c.candidate_id}
-                  className="border border-gray-300 px-3 py-2 text-center"
-                >
-                  <div className="flex justify-center gap-2 text-xs">
-                    <span className="text-green-600">○{summary?.available || 0}</span>
-                    <span className="text-yellow-600">△{summary?.maybe || 0}</span>
-                    <span className="text-red-600">×{summary?.unavailable || 0}</span>
-                  </div>
-                </td>
-              );
-            })}
-          </tr>
-        </tbody>
-      </table>
-      <div className="mt-3 flex gap-4 text-sm text-gray-600">
-        <span><span className="text-green-600 font-bold">○</span> 参加可能</span>
-        <span><span className="text-yellow-600 font-bold">△</span> 微妙</span>
-        <span><span className="text-red-600 font-bold">×</span> 参加不可</span>
-      </div>
-    </div>
+    <BaseResponseTable
+      dateItems={dateItems}
+      responses={responseItems}
+      responseTypes={scheduleResponseTypes}
+      ariaLabel="日程調整回答一覧"
+      captionText="メンバーごとの日程調整回答を候補日別に表示しています。○は参加可能、△は微妙、×は参加不可を表します。"
+      formatTimeDisplay={formatTimeDisplay}
+    />
   );
 }

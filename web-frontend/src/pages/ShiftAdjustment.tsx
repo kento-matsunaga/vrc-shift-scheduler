@@ -197,19 +197,18 @@ export default function ShiftAdjustment() {
           const slotsData = await getShiftSlots(matchingBD.business_day_id);
           const shiftSlots = slotsData.shift_slots || [];
 
-          // Load assignments for each slot
-          const slotsWithAssignments: SlotWithAssignments[] = await Promise.all(
-            shiftSlots.map(async (slot) => {
-              const assignmentsData = await getAssignments({
-                slot_id: slot.slot_id,
-                assignment_status: 'confirmed',
-              });
-              return {
-                slot,
-                assignments: assignmentsData.assignments || [],
-              };
-            })
-          );
+          // Load assignments for the business day in a single API call (N+1 fix)
+          const assignmentsData = await getAssignments({
+            business_day_id: matchingBD.business_day_id,
+            assignment_status: 'confirmed',
+          });
+          const allAssignments = assignmentsData.assignments || [];
+
+          // Map assignments to slots by slot_id
+          const slotsWithAssignments: SlotWithAssignments[] = shiftSlots.map((slot) => ({
+            slot,
+            assignments: allAssignments.filter((a) => a.slot_id === slot.slot_id),
+          }));
 
           setSlots(slotsWithAssignments);
         } catch (err) {
