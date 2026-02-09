@@ -46,6 +46,14 @@ type CreateCollectionOutput struct {
 	UpdatedAt    time.Time  `json:"updated_at"`
 }
 
+// UpdateTargetDateInput represents input for a target date when updating a collection
+type UpdateTargetDateInput struct {
+	TargetDateID string    // 既存対象日のID（空文字列の場合は新規作成）
+	TargetDate   time.Time
+	StartTime    *string // 開始時間（HH:MM形式、任意）
+	EndTime      *string // 終了時間（HH:MM形式、任意）
+}
+
 // UpdateCollectionInput represents the input for updating an attendance collection
 type UpdateCollectionInput struct {
 	TenantID     string // from JWT context (管理API)
@@ -53,6 +61,7 @@ type UpdateCollectionInput struct {
 	Title        string
 	Description  string
 	Deadline     *time.Time
+	TargetDates  []UpdateTargetDateInput // nil の場合は対象日を更新しない
 }
 
 // UpdateCollectionOutput represents the output for updating an attendance collection

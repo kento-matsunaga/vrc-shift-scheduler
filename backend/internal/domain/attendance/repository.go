@@ -35,8 +35,13 @@ type AttendanceCollectionRepository interface {
 	// tenant_id でスコープすることでクロステナントアクセスを防止
 	FindResponsesByCollectionIDAndMemberID(ctx context.Context, tenantID common.TenantID, collectionID common.CollectionID, memberID common.MemberID) ([]*AttendanceResponse, error)
 
-	// SaveTargetDates は対象日を保存する
+	// SaveTargetDates は対象日を保存する（全置換: DELETE ALL + INSERT ALL）
 	SaveTargetDates(ctx context.Context, collectionID common.CollectionID, targetDates []*TargetDate) error
+
+	// ReplaceTargetDates は対象日を差分更新する（既存IDの回答を保持）
+	// targetDates 内の既存IDは UPDATE、新規IDは INSERT、
+	// targetDates に含まれない既存IDは DELETE（CASCADE で回答も削除）
+	ReplaceTargetDates(ctx context.Context, collectionID common.CollectionID, targetDates []*TargetDate) error
 
 	// FindTargetDatesByCollectionID は collection の対象日一覧を取得する
 	FindTargetDatesByCollectionID(ctx context.Context, collectionID common.CollectionID) ([]*TargetDate, error)

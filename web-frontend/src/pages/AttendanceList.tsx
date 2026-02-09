@@ -26,7 +26,7 @@ export default function AttendanceList() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [deadline, setDeadline] = useState('');
-  const [targetDates, setTargetDates] = useState<{ date: string; startTime: string; endTime: string }[]>([
+  const [targetDates, setTargetDates] = useState<{ targetDateId?: string; date: string; startTime: string; endTime: string }[]>([
     { date: '', startTime: '', endTime: '' },
     { date: '', startTime: '', endTime: '' },
     { date: '', startTime: '', endTime: '' },
@@ -313,11 +313,12 @@ export default function AttendanceList() {
       setDescription(collection.description || '');
       setDeadline(toInputDateTime(collection.deadline));
 
-      // 対象日を復元
+      // 対象日を復元（target_date_id を保持して差分更新に使用）
       const dates = collection.target_dates || [];
       if (dates.length > 0) {
         setTargetDates(
           dates.map((td) => ({
+            targetDateId: td.target_date_id,
             date: td.target_date.split('T')[0], // ISO 8601 → YYYY-MM-DD
             startTime: formatTimeToHHMM(td.start_time || ''),
             endTime: formatTimeToHHMM(td.end_time || ''),
@@ -382,6 +383,12 @@ export default function AttendanceList() {
             title: title.trim(),
             description: description.trim(),
             deadline: deadline ? new Date(deadline).toISOString() : undefined,
+            target_dates: validDates.map((d) => ({
+              target_date_id: d.targetDateId || undefined,
+              target_date: new Date(d.date).toISOString(),
+              start_time: d.startTime || undefined,
+              end_time: d.endTime || undefined,
+            })),
           })
         : await createAttendanceCollection({
             title: title.trim(),

@@ -808,6 +808,119 @@ func (r *AttendanceRepository) FindTargetDatesByCollectionID(ctx context.Context
 	return targetDates, nil
 }
 
+// ReplaceTargetDates は対象日を差分更新する（永続化ロジック）
+// targetDates に含まれるIDがDBに存在すれば UPDATE、存在しなければ INSERT、
+// targetDates に含まれないDBのIDは DELETE（CASCADE で回答も削除）
+func (r *AttendanceRepository) ReplaceTargetDates(ctx context.Context, collectionID common.CollectionID, targetDates []*attendance.TargetDate) error {
+	executor := GetTx(ctx, r.pool)
+
+	// 全IDを収集し、既存/新規を判定するために現在のDBの状態を取得
+	incomingIDs := make([]string, 0, len(targetDates))
+	for _, td := range targetDates {
+		incomingIDs = append(incomingIDs, td.TargetDateID().String())
+	}
+
+	// 既存IDを取得して判定用マップを作成
+	existingQuery := `SELECT target_date_id FROM attendance_target_dates WHERE collection_id = $1`
+	rows, err := executor.Query(ctx, existingQuery, collectionID.String())
+	if err != nil {
+		return fmt.Errorf("failed to query existing target date IDs: %w", err)
+	}
+	defer rows.Close()
+
+	existingIDs := make(map[string]bool)
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return fmt.Errorf("failed to scan target date ID: %w", err)
+		}
+		existingIDs[id] = true
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("rows iteration error: %w", err)
+	}
+
+	// incomingIDs にない既存IDを削除（CASCADE で回答も削除）
+	if len(incomingIDs) > 0 {
+		deleteQuery := `DELETE FROM attendance_target_dates WHERE collection_id = $1 AND target_date_id != ALL($2)`
+		_, err = executor.Exec(ctx, deleteQuery, collectionID.String(), incomingIDs)
+		if err != nil {
+			return fmt.Errorf("failed to delete removed target dates: %w", err)
+		}
+	} else {
+		deleteQuery := `DELETE FROM attendance_target_dates WHERE collection_id = $1`
+		_, err = executor.Exec(ctx, deleteQuery, collectionID.String())
+		if err != nil {
+			return fmt.Errorf("failed to delete all target dates: %w", err)
+		}
+	}
+
+	// 既存IDは UPDATE、新規IDは INSERT
+	var newDates []*attendance.TargetDate
+	for _, td := range targetDates {
+		tdID := td.TargetDateID().String()
+		if existingIDs[tdID] {
+			// 既存 → UPDATE
+			updateQuery := `
+				UPDATE attendance_target_dates
+				SET target_date = $1, start_time = $2, end_time = $3, display_order = $4
+				WHERE target_date_id = $5 AND collection_id = $6
+			`
+			_, err := executor.Exec(ctx, updateQuery,
+				td.TargetDateValue(),
+				td.StartTime(),
+				td.EndTime(),
+				td.DisplayOrder(),
+				tdID,
+				collectionID.String(),
+			)
+			if err != nil {
+				return fmt.Errorf("failed to update target date %s: %w", tdID, err)
+			}
+		} else {
+			// 新規 → あとで一括INSERT
+			newDates = append(newDates, td)
+		}
+	}
+
+	// 新規対象日を一括 INSERT
+	if len(newDates) == 0 {
+		return nil
+	}
+
+	const numCols = 7
+	valueStrings := make([]string, 0, len(newDates))
+	args := make([]interface{}, 0, len(newDates)*numCols)
+
+	for i, td := range newDates {
+		base := i * numCols
+		valueStrings = append(valueStrings, fmt.Sprintf("($%d, $%d, $%d, $%d, $%d, $%d, $%d)",
+			base+1, base+2, base+3, base+4, base+5, base+6, base+7))
+		args = append(args,
+			td.TargetDateID().String(),
+			td.CollectionID().String(),
+			td.TargetDateValue(),
+			td.StartTime(),
+			td.EndTime(),
+			td.DisplayOrder(),
+			td.CreatedAt(),
+		)
+	}
+
+	insertQuery := fmt.Sprintf(`
+		INSERT INTO attendance_target_dates (
+			target_date_id, collection_id, target_date, start_time, end_time, display_order, created_at
+		) VALUES %s
+	`, strings.Join(valueStrings, ", "))
+
+	_, err = executor.Exec(ctx, insertQuery, args...)
+	if err != nil {
+		return fmt.Errorf("failed to insert new target dates: %w", err)
+	}
+
+	return nil
+}
+
 // SaveGroupAssignments saves group assignments for a collection (deletes existing ones first)
 // Uses multi-row INSERT for atomicity and performance
 func (r *AttendanceRepository) SaveGroupAssignments(ctx context.Context, collectionID common.CollectionID, assignments []*attendance.CollectionGroupAssignment) error {

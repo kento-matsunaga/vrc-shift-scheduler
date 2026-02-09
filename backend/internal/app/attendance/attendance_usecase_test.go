@@ -122,6 +122,10 @@ func (m *MockAttendanceCollectionRepository) FindResponsesByCollectionIDAndMembe
 	return nil, nil
 }
 
+func (m *MockAttendanceCollectionRepository) ReplaceTargetDates(ctx context.Context, collectionID common.CollectionID, targetDates []*attendance.TargetDate) error {
+	return nil
+}
+
 // =====================================================
 // Mock Role Repository
 // =====================================================

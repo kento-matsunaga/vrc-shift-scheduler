@@ -147,11 +147,20 @@ type ResponsesListResponse struct {
 	Responses    []ResponseDTO `json:"responses"`
 }
 
+// UpdateTargetDateRequest represents a target date in an update request
+type UpdateTargetDateRequest struct {
+	TargetDateID string  `json:"target_date_id,omitempty"` // 既存対象日のID（空で新規作成）
+	TargetDate   string  `json:"target_date"`              // ISO 8601 形式
+	StartTime    *string `json:"start_time"`               // HH:MM 形式（オプション）
+	EndTime      *string `json:"end_time"`                 // HH:MM 形式（オプション）
+}
+
 // UpdateCollectionRequest represents the request body for updating an attendance collection
 type UpdateCollectionRequest struct {
-	Title       string     `json:"title"`
-	Description string     `json:"description"`
-	Deadline    *time.Time `json:"deadline"` // optional
+	Title       string                    `json:"title"`
+	Description string                    `json:"description"`
+	Deadline    *time.Time                `json:"deadline"`                  // optional
+	TargetDates *[]UpdateTargetDateRequest `json:"target_dates,omitempty"` // nil=対象日更新なし
 }
 
 // UpdateCollectionResponse represents an attendance collection update response
@@ -418,12 +427,32 @@ func (h *AttendanceHandler) UpdateCollection(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	// Parse target dates if provided
+	var targetDates []attendance.UpdateTargetDateInput
+	if req.TargetDates != nil {
+		targetDates = make([]attendance.UpdateTargetDateInput, 0, len(*req.TargetDates))
+		for _, tdReq := range *req.TargetDates {
+			parsedDate, err := time.Parse(time.RFC3339, tdReq.TargetDate)
+			if err != nil {
+				RespondBadRequest(w, "対象日の形式が正しくありません: "+tdReq.TargetDate)
+				return
+			}
+			targetDates = append(targetDates, attendance.UpdateTargetDateInput{
+				TargetDateID: tdReq.TargetDateID,
+				TargetDate:   parsedDate,
+				StartTime:    tdReq.StartTime,
+				EndTime:      tdReq.EndTime,
+			})
+		}
+	}
+
 	output, err := h.updateCollectionUsecase.Execute(ctx, attendance.UpdateCollectionInput{
 		TenantID:     tenantID.String(),
 		CollectionID: collectionID,
 		Title:        req.Title,
 		Description:  req.Description,
 		Deadline:     req.Deadline,
+		TargetDates:  targetDates,
 	})
 	if err != nil {
 		switch {
