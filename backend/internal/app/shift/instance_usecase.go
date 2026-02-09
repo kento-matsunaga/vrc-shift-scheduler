@@ -257,7 +257,7 @@ func (uc *DeleteInstanceUsecase) CheckDeletable(ctx context.Context, input Delet
 			CanDelete:      false,
 			SlotCount:      len(slots),
 			AssignedSlots:  assignedSlots,
-			BlockingReason: "担当が割り振られているシフト枠があるため削除できません",
+			BlockingReason: "cannot delete: some shift slots have assignments",
 		}, nil
 	}
 
