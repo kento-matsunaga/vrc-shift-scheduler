@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"net/http"
 	"sync"
 	"time"
 )
@@ -103,4 +104,32 @@ func DefaultClaimRateLimiter() *RateLimiter {
 // 5 requests per minute per IP - prevents brute force attacks on license keys
 func DefaultPasswordResetRateLimiter() *RateLimiter {
 	return NewRateLimiter(5, time.Minute)
+}
+
+// PublicAPIReadRateLimiter creates a rate limiter for public API read endpoints
+// 60 requests per minute per IP - for viewing attendance/schedule data
+func PublicAPIReadRateLimiter() *RateLimiter {
+	return NewRateLimiter(60, time.Minute)
+}
+
+// PublicAPIWriteRateLimiter creates a rate limiter for public API write endpoints
+// 10 requests per minute per IP - for submitting responses (more restrictive)
+func PublicAPIWriteRateLimiter() *RateLimiter {
+	return NewRateLimiter(10, time.Minute)
+}
+
+// RateLimitMiddleware creates a chi middleware that applies rate limiting
+func RateLimitMiddleware(rl *RateLimiter) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			clientIP := getClientIP(r)
+			if !rl.Allow(clientIP) {
+				// Return immediately to prevent goroutine resource exhaustion during DoS
+				RespondError(w, http.StatusTooManyRequests, "ERR_RATE_LIMITED",
+					"リクエストが多すぎます。しばらくしてから再度お試しください。", nil)
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
 }

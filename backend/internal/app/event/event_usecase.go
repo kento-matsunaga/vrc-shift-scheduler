@@ -49,7 +49,7 @@ func (uc *CreateEventUsecase) Execute(ctx context.Context, input CreateEventInpu
 		return nil, err
 	}
 	if exists {
-		return nil, common.NewConflictError("Event with this name already exists")
+		return nil, common.NewConflictError("同じ名前のイベントが既に存在します")
 	}
 
 	// イベントの作成
@@ -93,7 +93,7 @@ func (uc *CreateEventUsecase) generateBusinessDays(ctx context.Context, e *event
 
 	if e.RecurrenceStartDate() == nil || e.RecurrenceDayOfWeek() == nil ||
 		e.DefaultStartTime() == nil || e.DefaultEndTime() == nil {
-		return common.NewValidationError("recurrence fields are incomplete", nil)
+		return common.NewValidationError("定期開催設定が不完全です", nil)
 	}
 
 	now := time.Now()
@@ -256,7 +256,7 @@ func (uc *GenerateBusinessDaysUsecase) Execute(ctx context.Context, input Genera
 
 	// 定期設定がない場合はエラー
 	if !e.HasRecurrence() {
-		return nil, common.NewValidationError("Event does not have recurrence settings", nil)
+		return nil, common.NewValidationError("イベントに定期開催設定がありません", nil)
 	}
 
 	// 営業日を生成
@@ -357,7 +357,7 @@ func (uc *GenerateBusinessDaysUsecase) generateBusinessDays(ctx context.Context,
 
 	if e.RecurrenceStartDate() == nil || e.RecurrenceDayOfWeek() == nil ||
 		e.DefaultStartTime() == nil || e.DefaultEndTime() == nil {
-		return 0, common.NewValidationError("recurrence fields are incomplete", nil)
+		return 0, common.NewValidationError("定期開催設定が不完全です", nil)
 	}
 
 	// months のバリデーション

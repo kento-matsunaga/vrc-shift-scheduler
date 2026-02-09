@@ -45,4 +45,8 @@ type ShiftAssignmentRepository interface {
 	// HasConfirmedByMemberAndBusinessDayID checks if a confirmed assignment exists for the given member and business day
 	// Used for actual attendance calculation
 	HasConfirmedByMemberAndBusinessDayID(ctx context.Context, tenantID common.TenantID, memberID common.MemberID, businessDayID string) (bool, error)
+
+	// FindByBusinessDayID finds all shift assignments for a business day
+	// Used for bulk fetching assignments to avoid N+1 problem
+	FindByBusinessDayID(ctx context.Context, tenantID common.TenantID, businessDayID string) ([]*ShiftAssignment, error)
 }

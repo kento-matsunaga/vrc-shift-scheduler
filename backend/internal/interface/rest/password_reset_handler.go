@@ -144,6 +144,7 @@ func (h *PasswordResetHandler) CheckPasswordResetStatus(w http.ResponseWriter, r
 	if h.rateLimiter != nil {
 		clientIP := getClientIP(r)
 		if !h.rateLimiter.Allow(clientIP) {
+			// Return immediately to prevent goroutine resource exhaustion during DoS
 			RespondError(w, http.StatusTooManyRequests, "ERR_RATE_LIMITED",
 				"リクエストが多すぎます。しばらくしてから再度お試しください。", nil)
 			return
@@ -199,6 +200,7 @@ func (h *PasswordResetHandler) ResetPassword(w http.ResponseWriter, r *http.Requ
 	if h.rateLimiter != nil {
 		clientIP := getClientIP(r)
 		if !h.rateLimiter.Allow(clientIP) {
+			// Return immediately to prevent goroutine resource exhaustion during DoS
 			RespondError(w, http.StatusTooManyRequests, "ERR_RATE_LIMITED",
 				"リクエストが多すぎます。しばらくしてから再度お試しください。", nil)
 			return
@@ -284,6 +286,7 @@ func (h *PasswordResetHandler) ForgotPassword(w http.ResponseWriter, r *http.Req
 	if h.rateLimiter != nil {
 		clientIP := getClientIP(r)
 		if !h.rateLimiter.Allow(clientIP) {
+			// Return immediately to prevent goroutine resource exhaustion during DoS
 			RespondError(w, http.StatusTooManyRequests, "ERR_RATE_LIMITED",
 				"リクエストが多すぎます。しばらくしてから再度お試しください。", nil)
 			return
@@ -338,6 +341,7 @@ func (h *PasswordResetHandler) ResetPasswordWithToken(w http.ResponseWriter, r *
 	if h.rateLimiter != nil {
 		clientIP := getClientIP(r)
 		if !h.rateLimiter.Allow(clientIP) {
+			// Return immediately to prevent goroutine resource exhaustion during DoS
 			RespondError(w, http.StatusTooManyRequests, "ERR_RATE_LIMITED",
 				"リクエストが多すぎます。しばらくしてから再度お試しください。", nil)
 			return

@@ -224,51 +224,26 @@ func (r *AnnouncementReadRepository) MarkAsRead(ctx context.Context, announcemen
 }
 
 func (r *AnnouncementReadRepository) MarkAllAsRead(ctx context.Context, adminID common.AdminID, tenantID common.TenantID) error {
-	// まず未読のお知らせIDを取得
-	selectQuery := `
-		SELECT a.id
+	// INSERT ... SELECT で一括挿入（N+1問題を解消）
+	query := `
+		INSERT INTO announcement_reads (id, announcement_id, admin_id, read_at)
+		SELECT
+			SUBSTRING(UPPER(REPLACE(gen_random_uuid()::text, '-', '')), 1, 26),
+			a.id,
+			$1,
+			NOW()
 		FROM announcements a
 		WHERE a.deleted_at IS NULL
-		  AND a.published_at <= NOW()
-		  AND (a.tenant_id IS NULL OR a.tenant_id = $1)
-		  AND NOT EXISTS (
-			SELECT 1 FROM announcement_reads ar
-			WHERE ar.announcement_id = a.id AND ar.admin_id = $2
-		  )
-	`
-
-	rows, err := r.pool.Query(ctx, selectQuery, tenantID.String(), adminID.String())
-	if err != nil {
-		return err
-	}
-	defer rows.Close()
-
-	// 各お知らせに対して個別にULIDを生成して挿入
-	insertQuery := `
-		INSERT INTO announcement_reads (id, announcement_id, admin_id, read_at)
-		VALUES ($1, $2, $3, $4)
+			AND a.published_at <= NOW()
+			AND (a.tenant_id IS NULL OR a.tenant_id = $2)
+			AND NOT EXISTS (
+				SELECT 1 FROM announcement_reads ar
+				WHERE ar.announcement_id = a.id AND ar.admin_id = $1
+			)
 		ON CONFLICT (announcement_id, admin_id) DO NOTHING
 	`
-
-	now := time.Now()
-	for rows.Next() {
-		var announcementID string
-		if err := rows.Scan(&announcementID); err != nil {
-			return err
-		}
-
-		_, err := r.pool.Exec(ctx, insertQuery,
-			common.NewULID(),
-			announcementID,
-			adminID.String(),
-			now,
-		)
-		if err != nil {
-			return err
-		}
-	}
-
-	return rows.Err()
+	_, err := r.pool.Exec(ctx, query, adminID.String(), tenantID.String())
+	return err
 }
 
 func (r *AnnouncementReadRepository) IsRead(ctx context.Context, announcementID announcement.AnnouncementID, adminID common.AdminID) (bool, error) {

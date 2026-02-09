@@ -715,6 +715,10 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 	publicClock := &clock.RealClock{}
 	publicTxManager := db.NewPgxTxManager(dbPool)
 
+	// Rate limiters for public attendance/schedules API
+	publicReadRL := PublicAPIReadRateLimiter()   // 60 requests/minute/IP for GET
+	publicWriteRL := PublicAPIWriteRateLimiter() // 10 requests/minute/IP for POST
+
 	r.Route("/api/v1/public/attendance", func(r chi.Router) {
 		publicAttendanceRepoForHandler := db.NewAttendanceRepository(dbPool)
 		publicMemberRepoForAttendance := db.NewMemberRepository(dbPool)
@@ -732,10 +736,12 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			appattendance.NewGetAllPublicResponsesUsecase(publicAttendanceRepoForHandler, publicMemberRepoForAttendance),
 			nil, // AdminUpdateResponseUsecase は公開APIでは使用しない
 		)
-		r.Get("/{token}", publicAttendanceHandler.GetCollectionByToken)
-		r.Post("/{token}/responses", publicAttendanceHandler.SubmitResponse)
-		r.Get("/{token}/members/{member_id}/responses", publicAttendanceHandler.GetMemberResponses)
-		r.Get("/{token}/responses", publicAttendanceHandler.GetAllPublicResponses)
+		// GET endpoints: 60 requests/minute/IP
+		r.With(RateLimitMiddleware(publicReadRL)).Get("/{token}", publicAttendanceHandler.GetCollectionByToken)
+		r.With(RateLimitMiddleware(publicReadRL)).Get("/{token}/members/{member_id}/responses", publicAttendanceHandler.GetMemberResponses)
+		r.With(RateLimitMiddleware(publicReadRL)).Get("/{token}/responses", publicAttendanceHandler.GetAllPublicResponses)
+		// POST endpoints: 10 requests/minute/IP
+		r.With(RateLimitMiddleware(publicWriteRL)).Post("/{token}/responses", publicAttendanceHandler.SubmitResponse)
 	})
 
 	r.Route("/api/v1/public/schedules", func(r chi.Router) {
@@ -754,9 +760,11 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			appschedule.NewGetAllPublicResponsesUsecase(publicScheduleRepo, publicScheduleMemberRepo),
 			nil, // ConvertToAttendance は public API では使用しない
 		)
-		r.Get("/{token}", publicScheduleHandler.GetScheduleByToken)
-		r.Post("/{token}/responses", publicScheduleHandler.SubmitResponse)
-		r.Get("/{token}/responses", publicScheduleHandler.GetAllPublicResponses)
+		// GET endpoints: 60 requests/minute/IP
+		r.With(RateLimitMiddleware(publicReadRL)).Get("/{token}", publicScheduleHandler.GetScheduleByToken)
+		r.With(RateLimitMiddleware(publicReadRL)).Get("/{token}/responses", publicScheduleHandler.GetAllPublicResponses)
+		// POST endpoints: 10 requests/minute/IP
+		r.With(RateLimitMiddleware(publicWriteRL)).Post("/{token}/responses", publicScheduleHandler.SubmitResponse)
 	})
 
 	// 公開カレンダーAPI（認証不要）

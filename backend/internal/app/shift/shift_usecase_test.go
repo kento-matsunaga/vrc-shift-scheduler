@@ -135,6 +135,10 @@ func (m *MockShiftAssignmentRepository) HasConfirmedByMemberAndBusinessDayID(ctx
 	return false, nil
 }
 
+func (m *MockShiftAssignmentRepository) FindByBusinessDayID(ctx context.Context, tenantID common.TenantID, businessDayID string) ([]*shift.ShiftAssignment, error) {
+	return nil, nil
+}
+
 type MockBusinessDayRepository struct {
 	findByIDFunc func(ctx context.Context, tenantID common.TenantID, id event.BusinessDayID) (*event.EventBusinessDay, error)
 }

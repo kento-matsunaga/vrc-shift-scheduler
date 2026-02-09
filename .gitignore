@@ -78,6 +78,7 @@ coverage/
 # Local Only (not for git)
 # ===========================
 LOCAL_DEPLOY_GUIDE.md
+docs/task/
 
 # Analysis files (contains customer data)
 *.xlsx
