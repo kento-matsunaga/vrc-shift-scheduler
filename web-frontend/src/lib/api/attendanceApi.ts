@@ -25,6 +25,15 @@ export interface CreateAttendanceRequest {
 }
 
 /**
+ * 出欠確認更新リクエスト
+ */
+export interface UpdateAttendanceCollectionRequest {
+  title: string;
+  description: string;
+  deadline?: string; // ISO 8601 format
+}
+
+/**
  * 対象日（レスポンス用）
  */
 export interface TargetDate {
@@ -74,29 +83,19 @@ export interface AttendanceResponse {
 }
 
 /**
+ * 出欠確認一覧レスポンス
+ */
+interface ListAttendanceCollectionsResponse {
+  collections: AttendanceCollection[];
+}
+
+/**
  * 出欠確認一覧を取得
  */
 export async function listAttendanceCollections(): Promise<AttendanceCollection[]> {
-  const baseURL = import.meta.env.VITE_API_BASE_URL || '';
-  const token = localStorage.getItem('auth_token');
-
-  if (!token) {
-    throw new Error('認証が必要です。ログインしてください。');
-  }
-
-  const response = await fetch(`${baseURL}/api/v1/attendance/collections`, {
-    method: 'GET',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-    },
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`出欠確認一覧の取得に失敗しました: ${text || response.statusText}`);
-  }
-
-  const result = await response.json();
+  const result = await apiClient.get<ApiResponse<ListAttendanceCollectionsResponse>>(
+    '/api/v1/attendance/collections'
+  );
   return result.data.collections || [];
 }
 
@@ -106,28 +105,24 @@ export async function listAttendanceCollections(): Promise<AttendanceCollection[
 export async function createAttendanceCollection(
   data: CreateAttendanceRequest
 ): Promise<AttendanceCollection> {
-  const baseURL = import.meta.env.VITE_API_BASE_URL || '';
-  const token = localStorage.getItem('auth_token');
+  const result = await apiClient.post<ApiResponse<AttendanceCollection>>(
+    '/api/v1/attendance/collections',
+    data
+  );
+  return result.data;
+}
 
-  if (!token) {
-    throw new Error('認証が必要です。ログインしてください。');
-  }
-
-  const response = await fetch(`${baseURL}/api/v1/attendance/collections`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-    },
-    body: JSON.stringify(data),
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`出欠確認の作成に失敗しました: ${text || response.statusText}`);
-  }
-
-  const result: ApiResponse<AttendanceCollection> = await response.json();
+/**
+ * 出欠確認を更新
+ */
+export async function updateAttendanceCollection(
+  collectionId: string,
+  data: UpdateAttendanceCollectionRequest
+): Promise<AttendanceCollection> {
+  const result = await apiClient.put<ApiResponse<AttendanceCollection>>(
+    `/api/v1/attendance/collections/${collectionId}`,
+    data
+  );
   return result.data;
 }
 
@@ -135,29 +130,9 @@ export async function createAttendanceCollection(
  * 出欠確認を取得
  */
 export async function getAttendanceCollection(collectionId: string): Promise<AttendanceCollection> {
-  const baseURL = import.meta.env.VITE_API_BASE_URL || '';
-  const token = localStorage.getItem('auth_token');
-
-  if (!token) {
-    throw new Error('認証が必要です。ログインしてください。');
-  }
-
-  const response = await fetch(
-    `${baseURL}/api/v1/attendance/collections/${collectionId}`,
-    {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
-    }
+  const result = await apiClient.get<ApiResponse<AttendanceCollection>>(
+    `/api/v1/attendance/collections/${collectionId}`
   );
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`出欠確認の取得に失敗しました: ${text || response.statusText}`);
-  }
-
-  const result: ApiResponse<AttendanceCollection> = await response.json();
   return result.data;
 }
 
@@ -165,27 +140,7 @@ export async function getAttendanceCollection(collectionId: string): Promise<Att
  * 出欠確認を締め切る
  */
 export async function closeAttendanceCollection(collectionId: string): Promise<void> {
-  const baseURL = import.meta.env.VITE_API_BASE_URL || '';
-  const token = localStorage.getItem('auth_token');
-
-  if (!token) {
-    throw new Error('認証が必要です。ログインしてください。');
-  }
-
-  const response = await fetch(
-    `${baseURL}/api/v1/attendance/collections/${collectionId}/close`,
-    {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
-    }
-  );
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`出欠確認の締切に失敗しました: ${text || response.statusText}`);
-  }
+  await apiClient.post(`/api/v1/attendance/collections/${collectionId}/close`, {});
 }
 
 /**
@@ -197,35 +152,22 @@ export async function deleteAttendanceCollection(collectionId: string): Promise<
 }
 
 /**
+ * 出欠回答一覧レスポンス
+ */
+interface GetAttendanceResponsesResult {
+  collection_id: string;
+  responses: AttendanceResponse[];
+}
+
+/**
  * 出欠回答一覧を取得
  */
 export async function getAttendanceResponses(
   collectionId: string
 ): Promise<AttendanceResponse[]> {
-  const baseURL = import.meta.env.VITE_API_BASE_URL || '';
-  const token = localStorage.getItem('auth_token');
-
-  if (!token) {
-    throw new Error('認証が必要です。ログインしてください。');
-  }
-
-  const response = await fetch(
-    `${baseURL}/api/v1/attendance/collections/${collectionId}/responses`,
-    {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
-    }
+  const result = await apiClient.get<ApiResponse<GetAttendanceResponsesResult>>(
+    `/api/v1/attendance/collections/${collectionId}/responses`
   );
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`回答一覧の取得に失敗しました: ${text || response.statusText}`);
-  }
-
-  const result: ApiResponse<{ collection_id: string; responses: AttendanceResponse[] }> =
-    await response.json();
   return result.data.responses;
 }
 
@@ -263,30 +205,9 @@ export async function updateAttendanceResponse(
   collectionId: string,
   data: UpdateAttendanceResponseRequest
 ): Promise<UpdateAttendanceResponseResult> {
-  const baseURL = import.meta.env.VITE_API_BASE_URL || '';
-  const token = localStorage.getItem('auth_token');
-
-  if (!token) {
-    throw new Error('認証が必要です。ログインしてください。');
-  }
-
-  const response = await fetch(
-    `${baseURL}/api/v1/attendance/collections/${collectionId}/responses`,
-    {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
-      body: JSON.stringify(data),
-    }
+  const result = await apiClient.put<ApiResponse<UpdateAttendanceResponseResult>>(
+    `/api/v1/attendance/collections/${collectionId}/responses`,
+    data
   );
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`出欠回答の更新に失敗しました: ${text || response.statusText}`);
-  }
-
-  const result: ApiResponse<UpdateAttendanceResponseResult> = await response.json();
   return result.data;
 }

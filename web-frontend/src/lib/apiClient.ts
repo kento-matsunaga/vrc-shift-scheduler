@@ -200,6 +200,7 @@ export class ApiClientError extends Error {
    * ユーザーに表示するメッセージを取得
    */
   getUserMessage(): string {
+
     // APIから日本語メッセージが返されている場合はそれを優先表示
     if (this.message) {
       const isEnglishOnly = /^[a-zA-Z0-9\s_\-().,:]+$/.test(this.message);

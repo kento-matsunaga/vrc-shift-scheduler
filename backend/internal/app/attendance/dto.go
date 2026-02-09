@@ -46,6 +46,26 @@ type CreateCollectionOutput struct {
 	UpdatedAt    time.Time  `json:"updated_at"`
 }
 
+// UpdateCollectionInput represents the input for updating an attendance collection
+type UpdateCollectionInput struct {
+	TenantID     string // from JWT context (管理API)
+	CollectionID string
+	Title        string
+	Description  string
+	Deadline     *time.Time
+}
+
+// UpdateCollectionOutput represents the output for updating an attendance collection
+type UpdateCollectionOutput struct {
+	CollectionID string     `json:"collection_id"`
+	TenantID     string     `json:"tenant_id"`
+	Title        string     `json:"title"`
+	Description  string     `json:"description"`
+	Status       string     `json:"status"`
+	Deadline     *time.Time `json:"deadline,omitempty"`
+	UpdatedAt    time.Time  `json:"updated_at"`
+}
+
 // SubmitResponseInput represents the input for submitting an attendance response
 type SubmitResponseInput struct {
 	PublicToken   string // from URL path (公開API)

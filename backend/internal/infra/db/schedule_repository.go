@@ -83,6 +83,22 @@ func (r *ScheduleRepository) Save(ctx context.Context, s *schedule.DateSchedule)
 		return fmt.Errorf("failed to save schedule: %w", err)
 	}
 
+	candidateIDs := make([]string, 0, len(s.Candidates()))
+	for _, candidate := range s.Candidates() {
+		candidateIDs = append(candidateIDs, candidate.CandidateID().String())
+	}
+	if len(candidateIDs) > 0 {
+		deleteQuery := `
+			DELETE FROM schedule_candidates
+			WHERE schedule_id = $1
+				AND NOT (candidate_id = ANY($2))
+		`
+		_, err = executor.Exec(ctx, deleteQuery, s.ScheduleID().String(), candidateIDs)
+		if err != nil {
+			return fmt.Errorf("failed to delete removed candidates: %w", err)
+		}
+	}
+
 	// Save candidates
 	for _, candidate := range s.Candidates() {
 		candidateQuery := `
