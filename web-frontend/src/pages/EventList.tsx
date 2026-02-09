@@ -635,6 +635,7 @@ function EventGroupModal({
 
   useEffect(() => {
     loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 初回マウント時のみ実行（loadDataは関数定義のため除外）
   }, [event.event_id]);
 
   const loadData = async () => {

@@ -1,5 +1,6 @@
 export { SEO, default } from './SEO';
-export { JsonLd, schemas } from './JsonLd';
+export { JsonLd } from './JsonLd';
+export { schemas } from './schemas';
 export { SEO_CONFIG, PAGE_SEO } from './seoConfig';
 export type {
   JsonLdSchema,

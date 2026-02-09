@@ -796,10 +796,11 @@ function ActualAttendanceModal({
 }) {
   // フィルタリング適用
   const displayedAttendances = useMemo(() => {
-    if (!data?.member_attendances) return [];
-    if (!filteredMemberIds) return data.member_attendances;
-    return data.member_attendances.filter((ma) => filteredMemberIds.has(ma.member_id));
-  }, [data?.member_attendances, filteredMemberIds]);
+    const memberAttendances = data?.member_attendances;
+    if (!memberAttendances) return [];
+    if (!filteredMemberIds) return memberAttendances;
+    return memberAttendances.filter((ma) => filteredMemberIds.has(ma.member_id));
+  }, [data, filteredMemberIds]);
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-lg max-w-6xl w-full p-6 max-h-[90vh] overflow-y-auto">
@@ -894,10 +895,11 @@ function AttendanceConfirmationModal({
 }) {
   // フィルタリング適用
   const displayedAttendances = useMemo(() => {
-    if (!data?.member_attendances) return [];
-    if (!filteredMemberIds) return data.member_attendances;
-    return data.member_attendances.filter((ma) => filteredMemberIds.has(ma.member_id));
-  }, [data?.member_attendances, filteredMemberIds]);
+    const memberAttendances = data?.member_attendances;
+    if (!memberAttendances) return [];
+    if (!filteredMemberIds) return memberAttendances;
+    return memberAttendances.filter((ma) => filteredMemberIds.has(ma.member_id));
+  }, [data, filteredMemberIds]);
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-lg max-w-6xl w-full p-6 max-h-[90vh] overflow-y-auto">

@@ -120,6 +120,7 @@ export default function ShiftAdjustment() {
     };
 
     fetchData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- selectedDateIdを含めると無限ループになるため除外
   }, [collectionId, refreshKey]);
 
   // 本出席状況を取得（includeFutureが変更されたら再取得）

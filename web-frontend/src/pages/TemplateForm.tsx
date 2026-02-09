@@ -42,6 +42,7 @@ export default function TemplateForm() {
 
   useEffect(() => {
     loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 初回マウント時のみ実行（loadDataは関数定義のため除外）
   }, [eventId, templateId, isEditMode]);
 
   const loadData = async () => {

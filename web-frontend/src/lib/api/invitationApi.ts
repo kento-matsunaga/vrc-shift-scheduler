@@ -1,4 +1,4 @@
-import type { ApiResponse } from '../../types/api';
+import type { ApiResponse, ApiErrorData } from '../../types/api';
 
 /**
  * 管理者招待リクエスト
@@ -58,12 +58,12 @@ export async function inviteAdmin(data: InviteAdminRequest): Promise<InviteAdmin
   });
 
   if (!response.ok) {
-    let errorData: any;
+    let errorData: ApiErrorData;
     const contentType = response.headers.get('content-type');
     if (contentType && contentType.includes('application/json')) {
       try {
         errorData = await response.json();
-      } catch (e) {
+      } catch {
         const text = await response.text();
         throw new Error(`招待に失敗しました: ${text || response.statusText}`);
       }
@@ -71,7 +71,7 @@ export async function inviteAdmin(data: InviteAdminRequest): Promise<InviteAdmin
       const text = await response.text();
       throw new Error(`招待に失敗しました: ${text || response.statusText}`);
     }
-    throw new Error(errorData.error?.message || 'Failed to invite admin');
+    throw new Error(errorData?.error?.message || 'Failed to invite admin');
   }
 
   const contentType = response.headers.get('content-type');
@@ -102,12 +102,12 @@ export async function acceptInvitation(
   });
 
   if (!response.ok) {
-    let errorData: any;
+    let errorData: ApiErrorData;
     const contentType = response.headers.get('content-type');
     if (contentType && contentType.includes('application/json')) {
       try {
         errorData = await response.json();
-      } catch (e) {
+      } catch {
         const text = await response.text();
         throw new Error(`登録に失敗しました: ${text || response.statusText}`);
       }
@@ -115,7 +115,7 @@ export async function acceptInvitation(
       const text = await response.text();
       throw new Error(`登録に失敗しました: ${text || response.statusText}`);
     }
-    throw new Error(errorData.error?.message || 'Failed to accept invitation');
+    throw new Error(errorData?.error?.message || 'Failed to accept invitation');
   }
 
   const contentType = response.headers.get('content-type');
