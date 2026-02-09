@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   listAttendanceCollections,
@@ -254,10 +254,13 @@ export default function AttendanceList() {
     setTargetDates(mergedDates.length > 0 ? mergedDates : [{ date: '', startTime: '', endTime: '' }]);
   };
 
-  // 既存の日付リスト（重複チェック用）
-  const existingDateStrings = targetDates
-    .filter((d) => d.date.trim() !== '')
-    .map((d) => d.date);
+  // 既存の日付リスト（重複チェック用）- useMemoでメモ化
+  const existingDateStrings = useMemo(() =>
+    targetDates
+      .filter((d) => d.date.trim() !== '')
+      .map((d) => d.date),
+    [targetDates]
+  );
 
   const toggleGroupSelection = (groupId: string) => {
     setSelectedGroupIds((prev) =>
@@ -309,6 +312,24 @@ export default function AttendanceList() {
       setTitle(collection.title);
       setDescription(collection.description || '');
       setDeadline(toInputDateTime(collection.deadline));
+
+      // 対象日を復元
+      const dates = collection.target_dates || [];
+      if (dates.length > 0) {
+        setTargetDates(
+          dates.map((td) => ({
+            date: td.target_date.split('T')[0], // ISO 8601 → YYYY-MM-DD
+            startTime: formatTimeToHHMM(td.start_time || ''),
+            endTime: formatTimeToHHMM(td.end_time || ''),
+          }))
+        );
+      } else {
+        setTargetDates([{ date: '', startTime: '', endTime: '' }]);
+      }
+
+      // グループ/ロールIDを復元（表示用）
+      setSelectedGroupIds(collection.group_ids || []);
+      setSelectedRoleIds(collection.role_ids || []);
     } catch (err) {
       console.error('Failed to load collection for edit:', err);
       setError('出欠確認の取得に失敗しました');
@@ -569,7 +590,6 @@ export default function AttendanceList() {
               </div>
             )}
 
-            {!isEditing && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 対象日 <span className="text-red-500">*</span>
@@ -599,6 +619,7 @@ export default function AttendanceList() {
                           onClick={() => handleRemoveDate(index)}
                           className="ml-auto px-2 py-1 text-xs text-red-600 hover:bg-red-50 rounded transition"
                           disabled={submitting || loadingEdit}
+                          aria-label={`日程${index + 1}を削除`}
                         >
                           削除
                         </button>
@@ -648,7 +669,6 @@ export default function AttendanceList() {
                 + 対象日を追加
               </button>
             </div>
-            )}
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">

@@ -2,6 +2,7 @@ package attendance
 
 import (
 	"context"
+	"fmt"
 	"log"
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/attendance"
@@ -21,26 +22,26 @@ func NewUpdateCollectionUsecase(repo attendance.AttendanceCollectionRepository, 
 func (u *UpdateCollectionUsecase) Execute(ctx context.Context, input UpdateCollectionInput) (*UpdateCollectionOutput, error) {
 	tenantID, err := common.ParseTenantID(input.TenantID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("tenant ID のパースに失敗: %w", err)
 	}
 
 	collectionID, err := common.ParseCollectionID(input.CollectionID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("collection ID のパースに失敗: %w", err)
 	}
 
 	collection, err := u.repo.FindByID(ctx, tenantID, collectionID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("出欠確認の取得に失敗: %w", err)
 	}
 
 	now := u.clock.Now()
 	if err := collection.Update(now, input.Title, input.Description, input.Deadline); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("出欠確認の更新に失敗: %w", err)
 	}
 
 	if err := u.repo.Save(ctx, collection); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("出欠確認の保存に失敗: %w", err)
 	}
 
 	log.Printf("[AUDIT] UpdateCollection: tenant=%s collection=%s", collection.TenantID().String(), collection.CollectionID().String())
