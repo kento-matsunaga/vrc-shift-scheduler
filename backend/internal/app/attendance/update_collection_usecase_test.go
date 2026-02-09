@@ -11,6 +11,10 @@ import (
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
 )
 
+// =====================================================
+// UpdateCollectionUsecase Tests
+// =====================================================
+
 func TestUpdateCollectionUsecase_Execute_Success(t *testing.T) {
 	tenantID := common.NewTenantID()
 	collection := createTestCollection(t, tenantID)
@@ -40,6 +44,7 @@ func TestUpdateCollectionUsecase_Execute_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Execute() should succeed: %v", err)
 	}
+
 	if output.Title != "Updated Title" {
 		t.Errorf("Title mismatch: got %v, want %v", output.Title, "Updated Title")
 	}
@@ -50,6 +55,7 @@ func TestUpdateCollectionUsecase_Execute_WithTargetDates(t *testing.T) {
 	collection := createTestCollection(t, tenantID)
 	collectionID := collection.CollectionID()
 
+	// テスト用の既存対象日を Reconstruct で用意（テスト内は infra 代替として許容）
 	existingTargetDateID := common.NewTargetDateID()
 	existingTD, err := attendance.ReconstructTargetDate(
 		existingTargetDateID, collectionID,
@@ -106,16 +112,26 @@ func TestUpdateCollectionUsecase_Execute_WithTargetDates(t *testing.T) {
 		t.Fatalf("Execute() should succeed: %v", err)
 	}
 
+	// ReplaceTargetDates に渡された対象日を検証
 	if len(replacedDates) != 2 {
 		t.Fatalf("ReplaceTargetDates should receive 2 dates, got %d", len(replacedDates))
 	}
+
+	// 既存対象日のIDが保持されていること
 	if replacedDates[0].TargetDateID() != existingTargetDateID {
-		t.Errorf("First date should be the existing one: got %v, want %v", replacedDates[0].TargetDateID(), existingTargetDateID)
+		t.Errorf("First date should be the existing one: got %v, want %v",
+			replacedDates[0].TargetDateID(), existingTargetDateID)
 	}
+
+	// UpdateFields で更新されていること
 	if *replacedDates[0].StartTime() != "20:00" {
 		t.Errorf("First date start_time should be updated: got %v", *replacedDates[0].StartTime())
 	}
 }
+
+// =====================================================
+// UpdateCollectionUsecase Error Cases
+// =====================================================
 
 func TestUpdateCollectionUsecase_Execute_ErrorWhenInvalidTargetDateID(t *testing.T) {
 	tenantID := common.NewTenantID()
@@ -156,11 +172,38 @@ func TestUpdateCollectionUsecase_Execute_ErrorWhenInvalidTargetDateID(t *testing
 		t.Fatal("Execute() should fail when target_date_id is not found in collection")
 	}
 
-	// エラーメッセージに具体的なIDが含まれていないことを確認（情報漏洩防止）
-	if domainErr, ok := err.(*common.DomainError); ok {
+	// ドメインエラー (INVALID_INPUT) であること
+	var domainErr *common.DomainError
+	if errors.As(err, &domainErr) {
 		if domainErr.Code() != common.ErrInvalidInput {
 			t.Errorf("Error code should be INVALID_INPUT, got %v", domainErr.Code())
 		}
+	}
+}
+
+func TestUpdateCollectionUsecase_Execute_ErrorWhenCollectionNotFound(t *testing.T) {
+	tenantID := common.NewTenantID()
+
+	repo := &MockAttendanceCollectionRepository{
+		findByIDFunc: func(ctx context.Context, tid common.TenantID, cid common.CollectionID) (*attendance.AttendanceCollection, error) {
+			return nil, common.NewNotFoundError("AttendanceCollection", cid.String())
+		},
+	}
+	txManager := &MockTxManager{}
+	clock := &MockClock{nowFunc: func() time.Time { return time.Now() }}
+
+	usecase := appattendance.NewUpdateCollectionUsecase(repo, txManager, clock)
+
+	input := appattendance.UpdateCollectionInput{
+		TenantID:     tenantID.String(),
+		CollectionID: common.NewCollectionID().String(),
+		Title:        "Updated",
+		Description:  "",
+	}
+
+	_, err := usecase.Execute(context.Background(), input)
+	if err == nil {
+		t.Fatal("Execute() should fail when collection not found")
 	}
 }
 
@@ -196,32 +239,6 @@ func TestUpdateCollectionUsecase_Execute_ErrorWhenFindTargetDatesFails(t *testin
 	_, err := usecase.Execute(context.Background(), input)
 	if err == nil {
 		t.Fatal("Execute() should fail when FindTargetDatesByCollectionID fails")
-	}
-}
-
-func TestUpdateCollectionUsecase_Execute_ErrorWhenCollectionNotFound(t *testing.T) {
-	tenantID := common.NewTenantID()
-
-	repo := &MockAttendanceCollectionRepository{
-		findByIDFunc: func(ctx context.Context, tid common.TenantID, cid common.CollectionID) (*attendance.AttendanceCollection, error) {
-			return nil, common.NewNotFoundError("AttendanceCollection", cid.String())
-		},
-	}
-	txManager := &MockTxManager{}
-	clock := &MockClock{nowFunc: func() time.Time { return time.Now() }}
-
-	usecase := appattendance.NewUpdateCollectionUsecase(repo, txManager, clock)
-
-	input := appattendance.UpdateCollectionInput{
-		TenantID:     tenantID.String(),
-		CollectionID: common.NewCollectionID().String(),
-		Title:        "Updated",
-		Description:  "",
-	}
-
-	_, err := usecase.Execute(context.Background(), input)
-	if err == nil {
-		t.Fatal("Execute() should fail when collection not found")
 	}
 }
 
