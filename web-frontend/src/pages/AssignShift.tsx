@@ -6,14 +6,14 @@ import { listRoles, type Role } from '../lib/api/roleApi';
 import { getMemberGroups, type MemberGroup } from '../lib/api/memberGroupApi';
 import { getRoleGroups, type RoleGroup } from '../lib/api/roleGroupApi';
 import { getEventGroupAssignments, type EventGroupAssignments } from '../lib/api/eventApi';
-import type { ShiftSlot, Member, RecentAttendanceResponse } from '../types/api';
+import type { ShiftSlot, Member, RecentAttendanceResponse, BusinessDay } from '../types/api';
 import { ApiClientError } from '../lib/apiClient';
 
 export default function AssignShift() {
   const { slotId } = useParams<{ slotId: string }>();
   const navigate = useNavigate();
   const [shiftSlot, setShiftSlot] = useState<ShiftSlot | null>(null);
-  const [businessDay, setBusinessDay] = useState<Record<string, unknown> | null>(null);
+  const [businessDay, setBusinessDay] = useState<BusinessDay | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [memberGroups, setMemberGroups] = useState<MemberGroup[]>([]);

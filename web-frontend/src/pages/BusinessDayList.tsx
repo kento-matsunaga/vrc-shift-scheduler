@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { SEO } from '../components/seo';
 import { getEventDetail, getBusinessDays, createBusinessDay, getMembers } from '../lib/api';
 import { deleteBusinessDay } from '../lib/api/businessDayApi';
-import { listSchedules, getSchedule, getScheduleResponses, type Schedule, type ScheduleResponse } from '../lib/api/scheduleApi';
+import { listSchedules, getSchedule, getScheduleResponses, type Schedule, type ScheduleResponse, type CandidateDate } from '../lib/api/scheduleApi';
 import { listTemplates } from '../lib/api/templateApi';
 import type { Event, BusinessDay, Member, Template } from '../types/api';
 import { ApiClientError } from '../lib/apiClient';
@@ -625,7 +625,7 @@ function CreateBusinessDayModal({
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-200">
-                        {selectedSchedule.candidates?.map((candidate: { candidate_id: string; date: string; start_time?: string; end_time?: string }) => {
+                        {selectedSchedule.candidates?.map((candidate: CandidateDate) => {
                           const candidateResponses = scheduleResponses.filter(
                             (r) => r.candidate_id === candidate.candidate_id
                           );
@@ -684,7 +684,7 @@ function CreateBusinessDayModal({
                   {/* 選択した日付のメンバー別回答詳細 */}
                   {targetDate && (() => {
                     // 選択した日付の候補日を見つける
-                    const selectedCandidate = selectedSchedule.candidates?.find((c: { candidate_id: string; date: string; start_time?: string; end_time?: string }) => {
+                    const selectedCandidate = selectedSchedule.candidates?.find((c: CandidateDate) => {
                       const candidateDateStr = new Date(c.date).toISOString().split('T')[0];
                       return targetDate === candidateDateStr;
                     });

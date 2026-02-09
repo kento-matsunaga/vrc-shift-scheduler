@@ -71,7 +71,7 @@ export async function inviteAdmin(data: InviteAdminRequest): Promise<InviteAdmin
       const text = await response.text();
       throw new Error(`招待に失敗しました: ${text || response.statusText}`);
     }
-    throw new Error(errorData.error?.message || 'Failed to invite admin');
+    throw new Error(errorData?.error?.message || 'Failed to invite admin');
   }
 
   const contentType = response.headers.get('content-type');
@@ -115,7 +115,7 @@ export async function acceptInvitation(
       const text = await response.text();
       throw new Error(`登録に失敗しました: ${text || response.statusText}`);
     }
-    throw new Error(errorData.error?.message || 'Failed to accept invitation');
+    throw new Error(errorData?.error?.message || 'Failed to accept invitation');
   }
 
   const contentType = response.headers.get('content-type');
