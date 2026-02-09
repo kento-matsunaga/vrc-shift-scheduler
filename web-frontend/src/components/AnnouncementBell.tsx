@@ -15,6 +15,7 @@ export function AnnouncementBell() {
     fetchUnreadCount(true); // 初回は通知あり
     const interval = setInterval(() => fetchUnreadCount(false), 60000); // ポーリングは通知なし
     return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fetchUnreadCountはコンポーネント内関数のため初回のみ実行
   }, []);
 
   // 外側クリックで閉じる

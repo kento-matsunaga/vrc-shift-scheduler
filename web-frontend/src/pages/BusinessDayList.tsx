@@ -26,6 +26,7 @@ export default function BusinessDayList() {
     if (eventId) {
       loadData();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 初回マウント時のみ実行（loadDataは関数定義のため除外）
   }, [eventId]);
 
   const loadData = async () => {
@@ -230,7 +231,6 @@ export default function BusinessDayList() {
         }
 
         const monthDays = monthGroups[selectedMonth] || [];
-        const [_year, _month] = selectedMonth.split('-');
         const currentIndex = sortedKeys.indexOf(selectedMonth);
         const hasPrevious = currentIndex > 0;
         const hasNext = currentIndex < sortedKeys.length - 1;
@@ -400,6 +400,7 @@ function CreateBusinessDayModal({
   // 日程調整一覧を取得
   useEffect(() => {
     loadSchedules();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 初回マウント時のみ実行（loadSchedulesは関数定義のため除外）
   }, []);
 
   // 日程調整を手動で選択したときの処理
@@ -624,7 +625,7 @@ function CreateBusinessDayModal({
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-200">
-                        {selectedSchedule.candidates?.map((candidate: any) => {
+                        {selectedSchedule.candidates?.map((candidate: { candidate_id: string; date: string; start_time?: string; end_time?: string }) => {
                           const candidateResponses = scheduleResponses.filter(
                             (r) => r.candidate_id === candidate.candidate_id
                           );
@@ -683,7 +684,7 @@ function CreateBusinessDayModal({
                   {/* 選択した日付のメンバー別回答詳細 */}
                   {targetDate && (() => {
                     // 選択した日付の候補日を見つける
-                    const selectedCandidate = selectedSchedule.candidates?.find((c: any) => {
+                    const selectedCandidate = selectedSchedule.candidates?.find((c: { candidate_id: string; date: string; start_time?: string; end_time?: string }) => {
                       const candidateDateStr = new Date(c.date).toISOString().split('T')[0];
                       return targetDate === candidateDateStr;
                     });

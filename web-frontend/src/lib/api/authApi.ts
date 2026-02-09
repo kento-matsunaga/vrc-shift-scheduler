@@ -75,12 +75,12 @@ export async function login(data: LoginRequest): Promise<LoginResponse> {
 
   if (!response.ok) {
     // エラーレスポンスを安全にパース
-    let errorData: any;
+    let errorData: { error?: { message?: string } } | undefined;
     const contentType = response.headers.get('content-type');
     if (contentType && contentType.includes('application/json')) {
       try {
         errorData = await response.json();
-      } catch (e) {
+      } catch {
         // JSONパースに失敗した場合は、テキストとして読み取る
         const text = await response.text();
         throw new Error(`ログインに失敗しました: ${text || response.statusText}`);
@@ -120,12 +120,12 @@ export async function setup(data: SetupRequest): Promise<SetupResponse> {
 
   if (!response.ok) {
     // エラーレスポンスを安全にパース
-    let errorData: any;
+    let errorData: { error?: { message?: string } } | undefined;
     const contentType = response.headers.get('content-type');
     if (contentType && contentType.includes('application/json')) {
       try {
         errorData = await response.json();
-      } catch (e) {
+      } catch {
         // JSONパースに失敗した場合は、テキストとして読み取る
         const text = await response.text();
         throw new Error(`セットアップに失敗しました: ${text || response.statusText}`);
@@ -165,12 +165,12 @@ export async function registerByInvite(data: RegisterByInviteRequest): Promise<R
 
   if (!response.ok) {
     // エラーレスポンスを安全にパース
-    let errorData: any;
+    let errorData: { error?: { message?: string } } | undefined;
     const contentType = response.headers.get('content-type');
     if (contentType && contentType.includes('application/json')) {
       try {
         errorData = await response.json();
-      } catch (e) {
+      } catch {
         // JSONパースに失敗した場合は、テキストとして読み取る
         const text = await response.text();
         throw new Error(`登録に失敗しました: ${text || response.statusText}`);
@@ -240,12 +240,12 @@ export async function checkPasswordResetStatus(email: string): Promise<PasswordR
   });
 
   if (!response.ok) {
-    let errorData: any;
+    let errorData: { error?: { message?: string } } | undefined;
     const contentType = response.headers.get('content-type');
     if (contentType && contentType.includes('application/json')) {
       try {
         errorData = await response.json();
-      } catch (e) {
+      } catch {
         const text = await response.text();
         throw new Error(`確認に失敗しました: ${text || response.statusText}`);
       }
@@ -282,12 +282,12 @@ export async function resetPassword(data: ResetPasswordRequest): Promise<ResetPa
   });
 
   if (!response.ok) {
-    let errorData: any;
+    let errorData: { error?: { message?: string } } | undefined;
     const contentType = response.headers.get('content-type');
     if (contentType && contentType.includes('application/json')) {
       try {
         errorData = await response.json();
-      } catch (e) {
+      } catch {
         const text = await response.text();
         throw new Error(`リセットに失敗しました: ${text || response.statusText}`);
       }
@@ -343,12 +343,12 @@ export async function forgotPassword(data: ForgotPasswordRequest): Promise<Forgo
   });
 
   if (!response.ok) {
-    let errorData: any;
+    let errorData: { error?: { message?: string } } | undefined;
     const contentType = response.headers.get('content-type');
     if (contentType && contentType.includes('application/json')) {
       try {
         errorData = await response.json();
-      } catch (e) {
+      } catch {
         const text = await response.text();
         throw new Error(`リクエストに失敗しました: ${text || response.statusText}`);
       }
@@ -402,12 +402,12 @@ export async function resetPasswordWithToken(data: ResetPasswordWithTokenRequest
   });
 
   if (!response.ok) {
-    let errorData: any;
+    let errorData: { error?: { message?: string } } | undefined;
     const contentType = response.headers.get('content-type');
     if (contentType && contentType.includes('application/json')) {
       try {
         errorData = await response.json();
-      } catch (e) {
+      } catch {
         const text = await response.text();
         throw new Error(`リセットに失敗しました: ${text || response.statusText}`);
       }

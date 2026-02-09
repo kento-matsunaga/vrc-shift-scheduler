@@ -58,12 +58,12 @@ export async function inviteAdmin(data: InviteAdminRequest): Promise<InviteAdmin
   });
 
   if (!response.ok) {
-    let errorData: any;
+    let errorData: { error?: { message?: string } } | undefined;
     const contentType = response.headers.get('content-type');
     if (contentType && contentType.includes('application/json')) {
       try {
         errorData = await response.json();
-      } catch (e) {
+      } catch {
         const text = await response.text();
         throw new Error(`招待に失敗しました: ${text || response.statusText}`);
       }
@@ -102,12 +102,12 @@ export async function acceptInvitation(
   });
 
   if (!response.ok) {
-    let errorData: any;
+    let errorData: { error?: { message?: string } } | undefined;
     const contentType = response.headers.get('content-type');
     if (contentType && contentType.includes('application/json')) {
       try {
         errorData = await response.json();
-      } catch (e) {
+      } catch {
         const text = await response.text();
         throw new Error(`登録に失敗しました: ${text || response.statusText}`);
       }

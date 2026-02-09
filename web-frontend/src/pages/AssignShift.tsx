@@ -13,7 +13,7 @@ export default function AssignShift() {
   const { slotId } = useParams<{ slotId: string }>();
   const navigate = useNavigate();
   const [shiftSlot, setShiftSlot] = useState<ShiftSlot | null>(null);
-  const [businessDay, setBusinessDay] = useState<any | null>(null);
+  const [businessDay, setBusinessDay] = useState<Record<string, unknown> | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [memberGroups, setMemberGroups] = useState<MemberGroup[]>([]);
@@ -150,6 +150,7 @@ export default function AssignShift() {
     if (slotId) {
       loadData();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 初回マウント時のみ実行（loadDataは関数定義のため除外）
   }, [slotId]);
 
   const loadData = async () => {

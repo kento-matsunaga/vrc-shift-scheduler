@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { generateShiftText, copyToClipboard, type MemberSeparator, type InstanceData } from '../lib/shiftTextExport';
 
 interface ShiftTextPreviewModalProps {
@@ -13,18 +13,24 @@ export default function ShiftTextPreviewModal({
   instanceData,
 }: ShiftTextPreviewModalProps) {
   const [separator, setSeparator] = useState<MemberSeparator>('newline');
-  const [text, setText] = useState('');
+  const [textOverride, setTextOverride] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState(false);
 
-  // instanceDataまたはseparatorが変更されたらテキストを再生成
-  useEffect(() => {
-    if (isOpen) {
-      const generatedText = generateShiftText(instanceData, separator);
-      setText(generatedText);
-      setCopyError(false);
-    }
-  }, [instanceData, separator, isOpen]);
+  // 依存値変更時にオーバーライド状態をリセット（React推奨のrender中setState）
+  const [prevDeps, setPrevDeps] = useState({ instanceData, separator, isOpen });
+  if (instanceData !== prevDeps.instanceData || separator !== prevDeps.separator || isOpen !== prevDeps.isOpen) {
+    setPrevDeps({ instanceData, separator, isOpen });
+    setTextOverride(null);
+    setCopyError(false);
+  }
+
+  // instanceDataまたはseparatorが変更されたらテキストを再生成（useMemoでsetState回避）
+  const generatedText = useMemo(
+    () => (isOpen ? generateShiftText(instanceData, separator) : ''),
+    [instanceData, separator, isOpen]
+  );
+  const text = textOverride ?? generatedText;
 
   // Escキーでモーダルを閉じる
   useEffect(() => {
@@ -53,8 +59,7 @@ export default function ShiftTextPreviewModal({
   };
 
   const handleRegenerate = () => {
-    const generatedText = generateShiftText(instanceData, separator);
-    setText(generatedText);
+    setTextOverride(null);
   };
 
   // 背景クリックでモーダルを閉じる
@@ -116,7 +121,7 @@ export default function ShiftTextPreviewModal({
           ) : (
             <textarea
               value={text}
-              onChange={(e) => setText(e.target.value)}
+              onChange={(e) => setTextOverride(e.target.value)}
               className="w-full h-full min-h-[300px] p-3 border border-gray-300 rounded-lg font-mono text-sm resize-none focus:outline-none focus:ring-2 focus:ring-accent"
               placeholder="シフト配置データがここに表示されます"
             />

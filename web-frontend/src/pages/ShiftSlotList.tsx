@@ -40,6 +40,7 @@ export default function ShiftSlotList() {
     if (businessDayId) {
       loadData();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 初回マウント時のみ実行（loadDataは関数定義のため除外）
   }, [businessDayId]);
 
   const loadData = async () => {
@@ -807,6 +808,7 @@ function ApplyTemplateModal({
 
   useEffect(() => {
     loadTemplates();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 初回マウント時のみ実行（loadTemplatesは関数定義のため除外）
   }, [eventId]);
 
   const loadTemplates = async () => {

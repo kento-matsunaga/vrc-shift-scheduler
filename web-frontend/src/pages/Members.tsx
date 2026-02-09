@@ -795,11 +795,12 @@ function ActualAttendanceModal({
   filteredMemberIds: Set<string> | null;
 }) {
   // フィルタリング適用
+  const memberAttendances = data?.member_attendances;
   const displayedAttendances = useMemo(() => {
-    if (!data?.member_attendances) return [];
-    if (!filteredMemberIds) return data.member_attendances;
-    return data.member_attendances.filter((ma) => filteredMemberIds.has(ma.member_id));
-  }, [data?.member_attendances, filteredMemberIds]);
+    if (!memberAttendances) return [];
+    if (!filteredMemberIds) return memberAttendances;
+    return memberAttendances.filter((ma) => filteredMemberIds.has(ma.member_id));
+  }, [memberAttendances, filteredMemberIds]);
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-lg max-w-6xl w-full p-6 max-h-[90vh] overflow-y-auto">
@@ -893,11 +894,12 @@ function AttendanceConfirmationModal({
   filteredMemberIds: Set<string> | null;
 }) {
   // フィルタリング適用
+  const memberAttendances = data?.member_attendances;
   const displayedAttendances = useMemo(() => {
-    if (!data?.member_attendances) return [];
-    if (!filteredMemberIds) return data.member_attendances;
-    return data.member_attendances.filter((ma) => filteredMemberIds.has(ma.member_id));
-  }, [data?.member_attendances, filteredMemberIds]);
+    if (!memberAttendances) return [];
+    if (!filteredMemberIds) return memberAttendances;
+    return memberAttendances.filter((ma) => filteredMemberIds.has(ma.member_id));
+  }, [memberAttendances, filteredMemberIds]);
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-lg max-w-6xl w-full p-6 max-h-[90vh] overflow-y-auto">

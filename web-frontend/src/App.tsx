@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useMemo } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Landing from './pages/Landing';
 import Terms from './pages/Terms';
@@ -71,12 +71,9 @@ function isAuthenticated(): boolean {
 
 function App() {
   const location = useLocation();
-  const [isLoggedIn, setIsLoggedIn] = useState(isAuthenticated());
-
-  // ルート変更時に認証状態を再チェック
-  useEffect(() => {
-    setIsLoggedIn(isAuthenticated());
-  }, [location.pathname]);
+  // ルート変更時に認証状態を再チェック（useEffectでのsetState回避）
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- location.pathnameの変更をトリガーとして認証状態を再評価
+  const isLoggedIn = useMemo(() => isAuthenticated(), [location.pathname]);
 
   return (
     <Routes>

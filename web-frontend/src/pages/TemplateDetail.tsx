@@ -23,6 +23,7 @@ export default function TemplateDetail() {
     if (eventId && templateId) {
       loadTemplate();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 初回マウント時のみ実行（loadTemplateは関数定義のため除外）
   }, [eventId, templateId]);
 
   const loadTemplate = async () => {
