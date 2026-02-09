@@ -17,13 +17,11 @@ export default function ShiftTextPreviewModal({
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState(false);
 
-  // 依存値変更時にオーバーライド状態をリセット（React推奨のrender中setState）
-  const [prevDeps, setPrevDeps] = useState({ instanceData, separator, isOpen });
-  if (instanceData !== prevDeps.instanceData || separator !== prevDeps.separator || isOpen !== prevDeps.isOpen) {
-    setPrevDeps({ instanceData, separator, isOpen });
-    setTextOverride(null);
+  // 依存値変更時にオーバーライド状態をリセット
+  useEffect(() => {
+    setTextOverride(null); // eslint-disable-line react-hooks/set-state-in-effect -- 依存値変更時のリセット
     setCopyError(false);
-  }
+  }, [instanceData, separator, isOpen]);
 
   // instanceDataまたはseparatorが変更されたらテキストを再生成（useMemoでsetState回避）
   const generatedText = useMemo(

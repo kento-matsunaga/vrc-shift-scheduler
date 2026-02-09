@@ -1,4 +1,4 @@
-import type { ApiResponse } from '../../types/api';
+import type { ApiResponse, ApiErrorData } from '../../types/api';
 
 /**
  * 管理者招待リクエスト
@@ -58,7 +58,7 @@ export async function inviteAdmin(data: InviteAdminRequest): Promise<InviteAdmin
   });
 
   if (!response.ok) {
-    let errorData: { error?: { message?: string } } | undefined;
+    let errorData: ApiErrorData;
     const contentType = response.headers.get('content-type');
     if (contentType && contentType.includes('application/json')) {
       try {
@@ -102,7 +102,7 @@ export async function acceptInvitation(
   });
 
   if (!response.ok) {
-    let errorData: { error?: { message?: string } } | undefined;
+    let errorData: ApiErrorData;
     const contentType = response.headers.get('content-type');
     if (contentType && contentType.includes('application/json')) {
       try {

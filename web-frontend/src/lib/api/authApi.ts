@@ -1,4 +1,4 @@
-import type { ApiResponse } from '../../types/api';
+import type { ApiResponse, ApiErrorData } from '../../types/api';
 
 /**
  * ログインリクエスト（管理者認証）
@@ -75,7 +75,7 @@ export async function login(data: LoginRequest): Promise<LoginResponse> {
 
   if (!response.ok) {
     // エラーレスポンスを安全にパース
-    let errorData: { error?: { message?: string } } | undefined;
+    let errorData: ApiErrorData;
     const contentType = response.headers.get('content-type');
     if (contentType && contentType.includes('application/json')) {
       try {
@@ -120,7 +120,7 @@ export async function setup(data: SetupRequest): Promise<SetupResponse> {
 
   if (!response.ok) {
     // エラーレスポンスを安全にパース
-    let errorData: { error?: { message?: string } } | undefined;
+    let errorData: ApiErrorData;
     const contentType = response.headers.get('content-type');
     if (contentType && contentType.includes('application/json')) {
       try {
@@ -165,7 +165,7 @@ export async function registerByInvite(data: RegisterByInviteRequest): Promise<R
 
   if (!response.ok) {
     // エラーレスポンスを安全にパース
-    let errorData: { error?: { message?: string } } | undefined;
+    let errorData: ApiErrorData;
     const contentType = response.headers.get('content-type');
     if (contentType && contentType.includes('application/json')) {
       try {
@@ -240,7 +240,7 @@ export async function checkPasswordResetStatus(email: string): Promise<PasswordR
   });
 
   if (!response.ok) {
-    let errorData: { error?: { message?: string } } | undefined;
+    let errorData: ApiErrorData;
     const contentType = response.headers.get('content-type');
     if (contentType && contentType.includes('application/json')) {
       try {
@@ -282,7 +282,7 @@ export async function resetPassword(data: ResetPasswordRequest): Promise<ResetPa
   });
 
   if (!response.ok) {
-    let errorData: { error?: { message?: string } } | undefined;
+    let errorData: ApiErrorData;
     const contentType = response.headers.get('content-type');
     if (contentType && contentType.includes('application/json')) {
       try {
@@ -343,7 +343,7 @@ export async function forgotPassword(data: ForgotPasswordRequest): Promise<Forgo
   });
 
   if (!response.ok) {
-    let errorData: { error?: { message?: string } } | undefined;
+    let errorData: ApiErrorData;
     const contentType = response.headers.get('content-type');
     if (contentType && contentType.includes('application/json')) {
       try {
@@ -402,7 +402,7 @@ export async function resetPasswordWithToken(data: ResetPasswordWithTokenRequest
   });
 
   if (!response.ok) {
-    let errorData: { error?: { message?: string } } | undefined;
+    let errorData: ApiErrorData;
     const contentType = response.headers.get('content-type');
     if (contentType && contentType.includes('application/json')) {
       try {
