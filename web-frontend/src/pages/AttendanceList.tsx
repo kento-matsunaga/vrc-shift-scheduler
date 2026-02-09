@@ -964,15 +964,19 @@ export default function AttendanceList() {
                   label="作成日"
                   value={new Date(collection.created_at).toLocaleDateString('ja-JP')}
                 />
-                <div className="pt-2">
+                <div className="pt-2 flex justify-end">
                   <button
                     type="button"
                     onClick={(event) => {
                       event.stopPropagation();
                       handleEditClick(collection.collection_id);
                     }}
-                    className="text-xs text-accent hover:text-accent-dark"
+                    className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition"
+                    title="編集"
                   >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
+                      <path d="M2.695 14.763l-1.262 3.154a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z" />
+                    </svg>
                     編集
                   </button>
                 </div>
@@ -1020,7 +1024,11 @@ export default function AttendanceList() {
                 </tr>
               ) : (
                 collections.map((collection) => (
-                  <tr key={collection.collection_id} className="hover:bg-gray-50">
+                  <tr
+                    key={collection.collection_id}
+                    className="hover:bg-gray-50 cursor-pointer"
+                    onClick={() => navigate(`/attendance/${collection.collection_id}`)}
+                  >
                     <td className="px-6 py-4">
                       <div>
                         <div className="text-sm font-medium text-gray-900">{collection.title}</div>
@@ -1053,20 +1061,19 @@ export default function AttendanceList() {
                       {new Date(collection.created_at).toLocaleDateString('ja-JP')}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <div className="flex items-center justify-end gap-3">
-                        <button
-                          onClick={() => navigate(`/attendance/${collection.collection_id}`)}
-                          className="text-accent hover:text-accent-dark transition"
-                        >
-                          詳細
-                        </button>
-                        <button
-                          onClick={() => handleEditClick(collection.collection_id)}
-                          className="text-gray-600 hover:text-gray-800 transition"
-                        >
-                          編集
-                        </button>
-                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEditClick(collection.collection_id);
+                        }}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition"
+                        title="編集"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
+                          <path d="M2.695 14.763l-1.262 3.154a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z" />
+                        </svg>
+                        編集
+                      </button>
                     </td>
                   </tr>
                 ))
