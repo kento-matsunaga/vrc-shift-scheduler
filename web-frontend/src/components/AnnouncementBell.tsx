@@ -12,8 +12,8 @@ export function AnnouncementBell() {
 
   // 未読件数を取得
   useEffect(() => {
-    fetchUnreadCount();
-    const interval = setInterval(fetchUnreadCount, 60000); // 1分ごとに更新
+    fetchUnreadCount(true); // 初回は通知あり
+    const interval = setInterval(() => fetchUnreadCount(false), 60000); // ポーリングは通知なし
     return () => clearInterval(interval);
   }, []);
 
@@ -33,12 +33,15 @@ export function AnnouncementBell() {
     setTimeout(() => setError(null), 3000);
   }
 
-  async function fetchUnreadCount() {
+  async function fetchUnreadCount(showNotify = false) {
     try {
       const count = await getUnreadCount();
       setUnreadCount(count);
     } catch (err) {
       console.error('Failed to fetch unread count:', err);
+      if (showNotify) {
+        showError('お知らせの取得に失敗しました');
+      }
     }
   }
 

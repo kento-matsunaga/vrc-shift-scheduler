@@ -630,7 +630,7 @@ func TestCreateShiftSlotUsecase_Execute_ErrorWhenInstanceBelongsToDifferentEvent
 	}
 
 	// エラーメッセージの確認
-	expectedMsg := "instance does not belong to the same event"
+	expectedMsg := "instance does not belong to the same event as the business day"
 	if !containsString(err.Error(), expectedMsg) {
 		t.Errorf("Error message should contain '%s', got: %v", expectedMsg, err.Error())
 	}

@@ -1,11 +1,36 @@
 import { defineConfig, devices } from '@playwright/test';
 
+// ============================================================
+// 環境変数のバリデーション
+// ============================================================
+const API_BASE_URL = process.env.API_BASE_URL || 'http://backend:8080';
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
+
+// テスト実行前に環境変数を検証（警告のみ、テストは続行）
+if (!process.env.API_BASE_URL) {
+  console.warn('⚠️  API_BASE_URL is not set. Using default:', API_BASE_URL);
+}
+if (!process.env.FRONTEND_URL && process.env.npm_lifecycle_script?.includes('e2e')) {
+  console.warn('⚠️  FRONTEND_URL is not set. Using default:', FRONTEND_URL);
+}
+
 /**
  * Playwright configuration for API integration tests and E2E tests
  * See https://playwright.dev/docs/test-configuration
  */
 export default defineConfig({
   testDir: './tests',
+
+  // ============================================================
+  // グローバルタイムアウト設定
+  // ============================================================
+  // 各テストのタイムアウト（30秒）
+  timeout: 30000,
+
+  // アサーション（expect）のタイムアウト（5秒）
+  expect: {
+    timeout: 5000,
+  },
 
   // Run tests in files in parallel
   fullyParallel: true,
@@ -29,7 +54,7 @@ export default defineConfig({
   use: {
     // Base URL for API tests
     // Docker環境内では 'backend' コンテナ名を使用、ローカルでは localhost
-    baseURL: process.env.API_BASE_URL || 'http://backend:8080',
+    baseURL: API_BASE_URL,
 
     // Collect trace when retrying the failed test
     trace: 'on-first-retry',
@@ -57,7 +82,7 @@ export default defineConfig({
       testDir: './tests/e2e',
       use: {
         ...devices['Desktop Chrome'],
-        baseURL: process.env.FRONTEND_URL || 'http://localhost:5173',
+        baseURL: FRONTEND_URL,
       },
     },
   ],
