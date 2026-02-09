@@ -58,6 +58,12 @@ export default defineConfig({
       use: {
         ...devices['Desktop Chrome'],
         baseURL: process.env.FRONTEND_URL || 'http://localhost:5173',
+        // Docker Alpine環境ではシステムのChromiumを使用
+        ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH && {
+          launchOptions: {
+            executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH,
+          },
+        }),
       },
     },
   ],
