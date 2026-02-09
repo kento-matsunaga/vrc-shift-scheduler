@@ -23,68 +23,61 @@ func NewUpdateCollectionUsecase(repo attendance.AttendanceCollectionRepository, 
 func (u *UpdateCollectionUsecase) Execute(ctx context.Context, input UpdateCollectionInput) (*UpdateCollectionOutput, error) {
 	tenantID, err := common.ParseTenantID(input.TenantID)
 	if err != nil {
-		return nil, fmt.Errorf("tenant ID のパースに失敗: %w", err)
+		return nil, fmt.Errorf("failed to parse tenant ID: %w", err)
 	}
 
 	collectionID, err := common.ParseCollectionID(input.CollectionID)
 	if err != nil {
-		return nil, fmt.Errorf("collection ID のパースに失敗: %w", err)
+		return nil, fmt.Errorf("failed to parse collection ID: %w", err)
 	}
 
 	collection, err := u.repo.FindByID(ctx, tenantID, collectionID)
 	if err != nil {
-		return nil, fmt.Errorf("出欠確認の取得に失敗: %w", err)
+		return nil, fmt.Errorf("failed to find collection: %w", err)
 	}
 
 	now := u.clock.Now()
 	if err := collection.Update(now, input.Title, input.Description, input.Deadline); err != nil {
-		return nil, fmt.Errorf("出欠確認の更新に失敗: %w", err)
+		return nil, fmt.Errorf("failed to update collection: %w", err)
 	}
 
-	// 対象日の更新がある場合はトランザクション内で処理
 	if input.TargetDates != nil {
 		err = u.txManager.WithTx(ctx, func(txCtx context.Context) error {
 			if err := u.repo.Save(txCtx, collection); err != nil {
-				return fmt.Errorf("出欠確認の保存に失敗: %w", err)
+				return fmt.Errorf("failed to save collection: %w", err)
 			}
 
-			// 既存の対象日を取得（IDマッチング用）
 			existingDates, err := u.repo.FindTargetDatesByCollectionID(txCtx, collectionID)
 			if err != nil {
-				return fmt.Errorf("既存対象日の取得に失敗: %w", err)
+				return fmt.Errorf("failed to find existing target dates: %w", err)
 			}
-			existingMap := make(map[string]*attendance.TargetDate)
+			existingMap := make(map[string]*attendance.TargetDate, len(existingDates))
 			for _, ed := range existingDates {
 				existingMap[ed.TargetDateID().String()] = ed
 			}
 
-			// 入力から TargetDate エンティティを構築
-			// 既存 → ドメインメソッド UpdateFields で更新、新規 → NewTargetDate で作成
 			allDates := make([]*attendance.TargetDate, 0, len(input.TargetDates))
-			for i, td := range input.TargetDates {
-				if td.TargetDateID != "" {
-					// 既存対象日の更新 → ドメインメソッドでフィールドを更新
-					existingTD, ok := existingMap[td.TargetDateID]
+			for i, tdInput := range input.TargetDates {
+				if tdInput.TargetDateID != "" {
+					existingTD, ok := existingMap[tdInput.TargetDateID]
 					if !ok {
-						return fmt.Errorf("対象日ID %s が見つかりません", td.TargetDateID)
+						return common.NewValidationError("invalid target_date_id included", nil)
 					}
-					if err := existingTD.UpdateFields(td.TargetDate, td.StartTime, td.EndTime, i); err != nil {
-						return fmt.Errorf("対象日の更新に失敗: %w", err)
+					if err := existingTD.UpdateFields(tdInput.TargetDate, tdInput.StartTime, tdInput.EndTime, i); err != nil {
+						return fmt.Errorf("failed to update target date: %w", err)
 					}
 					allDates = append(allDates, existingTD)
 				} else {
-					// 新規対象日
-					newTD, err := attendance.NewTargetDate(now, collectionID, td.TargetDate, td.StartTime, td.EndTime, i)
+					newTD, err := attendance.NewTargetDate(now, collectionID, tdInput.TargetDate, tdInput.StartTime, tdInput.EndTime, i)
 					if err != nil {
-						return fmt.Errorf("対象日の作成に失敗: %w", err)
+						return fmt.Errorf("failed to create target date: %w", err)
 					}
 					allDates = append(allDates, newTD)
 				}
 			}
 
-			// 差分更新（既存IDの回答を保持、削除された対象日はCASCADEで回答も削除）
 			if err := u.repo.ReplaceTargetDates(txCtx, collectionID, allDates); err != nil {
-				return fmt.Errorf("対象日の更新に失敗: %w", err)
+				return fmt.Errorf("failed to replace target dates: %w", err)
 			}
 
 			return nil
@@ -93,9 +86,8 @@ func (u *UpdateCollectionUsecase) Execute(ctx context.Context, input UpdateColle
 			return nil, err
 		}
 	} else {
-		// 対象日の更新なし → コレクション本体のみ保存
 		if err := u.repo.Save(ctx, collection); err != nil {
-			return nil, fmt.Errorf("出欠確認の保存に失敗: %w", err)
+			return nil, fmt.Errorf("failed to save collection: %w", err)
 		}
 	}
 

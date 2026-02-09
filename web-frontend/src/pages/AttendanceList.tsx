@@ -384,7 +384,7 @@ export default function AttendanceList() {
             description: description.trim(),
             deadline: deadline ? new Date(deadline).toISOString() : undefined,
             target_dates: validDates.map((d) => ({
-              target_date_id: d.targetDateId || undefined,
+              target_date_id: d.targetDateId,
               target_date: new Date(d.date).toISOString(),
               start_time: d.startTime || undefined,
               end_time: d.endTime || undefined,
