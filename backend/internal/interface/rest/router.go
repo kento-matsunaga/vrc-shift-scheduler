@@ -174,11 +174,12 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		slotRepo := db.NewShiftSlotRepository(dbPool)
 		templateRepo := db.NewShiftSlotTemplateRepository(dbPool)
 		instanceRepo := db.NewInstanceRepository(dbPool)
+		businessDayTxManager := db.NewPgxTxManager(dbPool)
 		businessDayHandler := NewBusinessDayHandler(
-			appevent.NewCreateBusinessDayUsecase(businessDayRepo, eventRepo, templateRepo, slotRepo, instanceRepo),
+			appevent.NewCreateBusinessDayUsecase(businessDayRepo, eventRepo, templateRepo, slotRepo, instanceRepo, businessDayTxManager),
 			appevent.NewListBusinessDaysUsecase(businessDayRepo),
 			appevent.NewGetBusinessDayUsecase(businessDayRepo),
-			appevent.NewApplyTemplateUsecase(businessDayRepo, templateRepo, slotRepo, instanceRepo),
+			appevent.NewApplyTemplateUsecase(businessDayRepo, templateRepo, slotRepo, instanceRepo, businessDayTxManager),
 			appevent.NewDeleteBusinessDayUsecase(businessDayRepo),
 		)
 

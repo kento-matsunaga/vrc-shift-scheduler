@@ -76,7 +76,8 @@ func (u *UpdateGroupUsecase) Execute(ctx context.Context, input UpdateGroupInput
 		return nil, err
 	}
 
-	if err := group.UpdateDetails(input.Name, input.Description, input.Color, input.DisplayOrder); err != nil {
+	now := time.Now()
+	if err := group.UpdateDetails(now, input.Name, input.Description, input.Color, input.DisplayOrder); err != nil {
 		return nil, err
 	}
 

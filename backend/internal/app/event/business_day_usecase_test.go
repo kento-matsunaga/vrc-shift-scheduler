@@ -13,6 +13,23 @@ import (
 )
 
 // =====================================================
+// MockTxManager
+// =====================================================
+
+// MockTxManager is a mock implementation of TxManager for testing
+type MockTxManager struct {
+	withTxFunc func(ctx context.Context, fn func(context.Context) error) error
+}
+
+func (m *MockTxManager) WithTx(ctx context.Context, fn func(context.Context) error) error {
+	if m.withTxFunc != nil {
+		return m.withTxFunc(ctx, fn)
+	}
+	// Default implementation: just call the function without actual transaction
+	return fn(ctx)
+}
+
+// =====================================================
 // Additional Mock Repositories for BusinessDay Usecases
 // =====================================================
 
@@ -196,7 +213,7 @@ func TestCreateBusinessDayUsecase_Execute_Success(t *testing.T) {
 	slotRepo := &MockShiftSlotRepository{}
 
 	instanceRepo := &MockInstanceRepository{}
-	usecase := appevent.NewCreateBusinessDayUsecase(bdRepo, eventRepo, templateRepo, slotRepo, instanceRepo)
+	usecase := appevent.NewCreateBusinessDayUsecase(bdRepo, eventRepo, templateRepo, slotRepo, instanceRepo, &MockTxManager{})
 
 	targetDate := now.AddDate(0, 0, 7)
 	startTime := time.Date(targetDate.Year(), targetDate.Month(), targetDate.Day(), 20, 0, 0, 0, time.Local)
@@ -247,7 +264,7 @@ func TestCreateBusinessDayUsecase_Execute_ErrorWhenEventNotFound(t *testing.T) {
 	slotRepo := &MockShiftSlotRepository{}
 
 	instanceRepo := &MockInstanceRepository{}
-	usecase := appevent.NewCreateBusinessDayUsecase(bdRepo, eventRepo, templateRepo, slotRepo, instanceRepo)
+	usecase := appevent.NewCreateBusinessDayUsecase(bdRepo, eventRepo, templateRepo, slotRepo, instanceRepo, &MockTxManager{})
 
 	targetDate := now.AddDate(0, 0, 7)
 	startTime := time.Date(targetDate.Year(), targetDate.Month(), targetDate.Day(), 20, 0, 0, 0, time.Local)
@@ -293,7 +310,7 @@ func TestCreateBusinessDayUsecase_Execute_ErrorWhenDuplicate(t *testing.T) {
 	slotRepo := &MockShiftSlotRepository{}
 
 	instanceRepo := &MockInstanceRepository{}
-	usecase := appevent.NewCreateBusinessDayUsecase(bdRepo, eventRepo, templateRepo, slotRepo, instanceRepo)
+	usecase := appevent.NewCreateBusinessDayUsecase(bdRepo, eventRepo, templateRepo, slotRepo, instanceRepo, &MockTxManager{})
 
 	targetDate := now.AddDate(0, 0, 7)
 	startTime := time.Date(targetDate.Year(), targetDate.Month(), targetDate.Day(), 20, 0, 0, 0, time.Local)
@@ -342,7 +359,7 @@ func TestCreateBusinessDayUsecase_Execute_ErrorWhenSaveFails(t *testing.T) {
 	slotRepo := &MockShiftSlotRepository{}
 
 	instanceRepo := &MockInstanceRepository{}
-	usecase := appevent.NewCreateBusinessDayUsecase(bdRepo, eventRepo, templateRepo, slotRepo, instanceRepo)
+	usecase := appevent.NewCreateBusinessDayUsecase(bdRepo, eventRepo, templateRepo, slotRepo, instanceRepo, &MockTxManager{})
 
 	targetDate := now.AddDate(0, 0, 7)
 	startTime := time.Date(targetDate.Year(), targetDate.Month(), targetDate.Day(), 20, 0, 0, 0, time.Local)
@@ -584,6 +601,7 @@ func TestApplyTemplateUsecase_Execute_Success(t *testing.T) {
 		findByIDFunc: func(ctx context.Context, tid common.TenantID, tmplID common.ShiftSlotTemplateID) (*shift.ShiftSlotTemplate, error) {
 			// Return a template with no items (empty template for simpler testing)
 			tmpl, _ := shift.NewShiftSlotTemplate(
+				time.Now(),
 				tenantID,
 				eventID,
 				"Test Template",
@@ -601,7 +619,7 @@ func TestApplyTemplateUsecase_Execute_Success(t *testing.T) {
 	}
 
 	instanceRepo := &MockInstanceRepository{}
-	usecase := appevent.NewApplyTemplateUsecase(bdRepoWithFindByID, templateRepo, slotRepo, instanceRepo)
+	usecase := appevent.NewApplyTemplateUsecase(bdRepoWithFindByID, templateRepo, slotRepo, instanceRepo, &MockTxManager{})
 
 	input := appevent.ApplyTemplateInput{
 		TenantID:      tenantID,
@@ -637,7 +655,7 @@ func TestApplyTemplateUsecase_Execute_ErrorWhenBusinessDayNotFound(t *testing.T)
 	slotRepo := &MockShiftSlotRepository{}
 
 	instanceRepo := &MockInstanceRepository{}
-	usecase := appevent.NewApplyTemplateUsecase(bdRepoWithFindByID, templateRepo, slotRepo, instanceRepo)
+	usecase := appevent.NewApplyTemplateUsecase(bdRepoWithFindByID, templateRepo, slotRepo, instanceRepo, &MockTxManager{})
 
 	input := appevent.ApplyTemplateInput{
 		TenantID:      tenantID,
@@ -675,7 +693,7 @@ func TestApplyTemplateUsecase_Execute_ErrorWhenTemplateNotFound(t *testing.T) {
 	slotRepo := &MockShiftSlotRepository{}
 
 	instanceRepo := &MockInstanceRepository{}
-	usecase := appevent.NewApplyTemplateUsecase(bdRepoWithFindByID, templateRepo, slotRepo, instanceRepo)
+	usecase := appevent.NewApplyTemplateUsecase(bdRepoWithFindByID, templateRepo, slotRepo, instanceRepo, &MockTxManager{})
 
 	input := appevent.ApplyTemplateInput{
 		TenantID:      tenantID,

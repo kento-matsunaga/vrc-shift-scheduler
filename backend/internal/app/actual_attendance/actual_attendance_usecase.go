@@ -115,7 +115,7 @@ func (uc *GetRecentActualAttendanceUsecase) Execute(
 				ctx,
 				input.TenantID,
 				m.MemberID(),
-				td.TargetDateID,
+				event.BusinessDayID(td.TargetDateID),
 			)
 			if err != nil {
 				return nil, err

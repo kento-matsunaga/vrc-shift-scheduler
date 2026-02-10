@@ -202,7 +202,7 @@ func (i *Instance) IsDeleted() bool {
 }
 
 // UpdateName updates the instance name
-func (i *Instance) UpdateName(name string) error {
+func (i *Instance) UpdateName(now time.Time, name string) error {
 	if name == "" {
 		return common.NewValidationError("instance name is required", nil)
 	}
@@ -211,30 +211,29 @@ func (i *Instance) UpdateName(name string) error {
 	}
 
 	i.name = name
-	i.updatedAt = time.Now()
+	i.updatedAt = now
 	return nil
 }
 
 // UpdateDisplayOrder updates the display order
-func (i *Instance) UpdateDisplayOrder(displayOrder int) {
+func (i *Instance) UpdateDisplayOrder(now time.Time, displayOrder int) {
 	i.displayOrder = displayOrder
-	i.updatedAt = time.Now()
+	i.updatedAt = now
 }
 
 // UpdateMaxMembers updates the max members
-func (i *Instance) UpdateMaxMembers(maxMembers *int) error {
+func (i *Instance) UpdateMaxMembers(now time.Time, maxMembers *int) error {
 	if maxMembers != nil && *maxMembers < 1 {
 		return common.NewValidationError("max_members must be at least 1", nil)
 	}
 
 	i.maxMembers = maxMembers
-	i.updatedAt = time.Now()
+	i.updatedAt = now
 	return nil
 }
 
 // Delete marks the instance as deleted (soft delete)
-func (i *Instance) Delete() {
-	now := time.Now()
+func (i *Instance) Delete(now time.Time) {
 	i.deletedAt = &now
 	i.updatedAt = now
 }

@@ -20,7 +20,8 @@ func NewCreateGroupUsecase(groupRepo role.RoleGroupRepository) *CreateGroupUseca
 func (u *CreateGroupUsecase) Execute(ctx context.Context, input CreateGroupInput) (*CreateGroupOutput, error) {
 	tenantID := common.TenantID(input.TenantID)
 
-	group, err := role.NewRoleGroup(tenantID, input.Name, input.Description, input.Color, input.DisplayOrder)
+	now := time.Now()
+	group, err := role.NewRoleGroup(now, tenantID, input.Name, input.Description, input.Color, input.DisplayOrder)
 	if err != nil {
 		return nil, err
 	}
@@ -62,7 +63,8 @@ func (u *UpdateGroupUsecase) Execute(ctx context.Context, input UpdateGroupInput
 		return nil, common.NewNotFoundError("RoleGroup", input.GroupID)
 	}
 
-	if err := group.UpdateDetails(input.Name, input.Description, input.Color, input.DisplayOrder); err != nil {
+	now := time.Now()
+	if err := group.UpdateDetails(now, input.Name, input.Description, input.Color, input.DisplayOrder); err != nil {
 		return nil, err
 	}
 

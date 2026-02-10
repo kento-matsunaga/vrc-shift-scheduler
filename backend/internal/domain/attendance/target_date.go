@@ -108,12 +108,22 @@ func isValidTimeFormat(timeStr string) bool {
 // UpdateFields updates the mutable fields of a target date (domain method).
 // This preserves the entity's identity (ID) and creation timestamp.
 func (td *TargetDate) UpdateFields(targetDate time.Time, startTime *string, endTime *string, displayOrder int) error {
+	// Validate before mutating using a temporary copy
+	tmp := *td
+	tmp.targetDate = targetDate
+	tmp.startTime = startTime
+	tmp.endTime = endTime
+	tmp.displayOrder = displayOrder
+	if err := tmp.validate(); err != nil {
+		return err
+	}
+
+	// Apply validated changes
 	td.targetDate = targetDate
 	td.startTime = startTime
 	td.endTime = endTime
 	td.displayOrder = displayOrder
-
-	return td.validate()
+	return nil
 }
 
 // Getters

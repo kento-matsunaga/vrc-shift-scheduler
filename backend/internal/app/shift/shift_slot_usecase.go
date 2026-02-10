@@ -238,7 +238,8 @@ func (uc *DeleteShiftSlotUsecase) Execute(ctx context.Context, input DeleteShift
 	}
 
 	// ソフトデリート
-	slot.Delete()
+	now := time.Now()
+	slot.Delete(now)
 	if err := uc.slotRepo.Save(ctx, slot); err != nil {
 		return err
 	}
@@ -345,8 +346,9 @@ func (uc *DeleteSlotsByInstanceUsecase) Execute(ctx context.Context, input Delet
 		}
 
 		// シフト枠をソフトデリート
+		now := time.Now()
 		for _, slot := range slots {
-			slot.Delete()
+			slot.Delete(now)
 			if err := uc.slotRepo.Save(txCtx, slot); err != nil {
 				return err
 			}

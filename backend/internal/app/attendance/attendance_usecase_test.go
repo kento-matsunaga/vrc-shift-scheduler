@@ -152,7 +152,9 @@ func (m *MockRoleRepository) FindByID(ctx context.Context, tenantID common.Tenan
 		return m.findByIDFunc(ctx, tenantID, roleID)
 	}
 	// Default: return a mock role (role exists)
-	return &role.Role{}, nil
+	now := time.Now()
+	r, _ := role.ReconstructRole(roleID, tenantID, "Mock Role", "", "", 0, now, now, nil)
+	return r, nil
 }
 
 func (m *MockRoleRepository) FindByIDs(ctx context.Context, tenantID common.TenantID, roleIDs []common.RoleID) ([]*role.Role, error) {
@@ -160,9 +162,11 @@ func (m *MockRoleRepository) FindByIDs(ctx context.Context, tenantID common.Tena
 		return m.findByIDsFunc(ctx, tenantID, roleIDs)
 	}
 	// Default: return mock roles for all requested IDs
+	now := time.Now()
 	roles := make([]*role.Role, 0, len(roleIDs))
-	for range roleIDs {
-		roles = append(roles, &role.Role{})
+	for _, rid := range roleIDs {
+		r, _ := role.ReconstructRole(rid, tenantID, "Mock Role", "", "", 0, now, now, nil)
+		roles = append(roles, r)
 	}
 	return roles, nil
 }
@@ -661,7 +665,9 @@ func (m *MockMemberRepository) FindByID(ctx context.Context, tenantID common.Ten
 		return m.findByIDFunc(ctx, tenantID, memberID)
 	}
 	// Return a dummy member to indicate member exists
-	return &member.Member{}, nil
+	now := time.Now()
+	mem, _ := member.ReconstructMember(memberID, tenantID, "Mock Member", "", "", true, now, now, nil)
+	return mem, nil
 }
 
 func (m *MockMemberRepository) FindByTenantID(ctx context.Context, tenantID common.TenantID) ([]*member.Member, error) {
@@ -717,7 +723,8 @@ func TestAdminUpdateResponseUsecase_Execute_Success(t *testing.T) {
 
 	memberRepo := &MockMemberRepository{
 		findByIDFunc: func(ctx context.Context, tid common.TenantID, mid common.MemberID) (*member.Member, error) {
-			return &member.Member{}, nil // Member exists
+			mem, _ := member.ReconstructMember(mid, tid, "Test Member", "", "", true, now, now, nil)
+			return mem, nil // Member exists
 		},
 	}
 
@@ -1006,7 +1013,8 @@ func TestAdminUpdateResponseUsecase_Execute_WithOptionalTimes(t *testing.T) {
 
 	memberRepo := &MockMemberRepository{
 		findByIDFunc: func(ctx context.Context, tid common.TenantID, mid common.MemberID) (*member.Member, error) {
-			return &member.Member{}, nil // Member exists
+			mem, _ := member.ReconstructMember(mid, tid, "Test Member", "", "", true, now, now, nil)
+			return mem, nil // Member exists
 		},
 	}
 

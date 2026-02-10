@@ -36,6 +36,7 @@ type ShiftSlotTemplateItem struct {
 
 // NewShiftSlotTemplate creates a new shift slot template
 func NewShiftSlotTemplate(
+	now time.Time,
 	tenantID common.TenantID,
 	eventID common.EventID,
 	templateName string,
@@ -63,7 +64,6 @@ func NewShiftSlotTemplate(
 	// 	return nil, fmt.Errorf("at least one template item is required")
 	// }
 
-	now := time.Now()
 	template := &ShiftSlotTemplate{
 		templateID:   common.NewShiftSlotTemplateID(),
 		tenantID:     tenantID,
@@ -80,6 +80,7 @@ func NewShiftSlotTemplate(
 
 // NewShiftSlotTemplateItem creates a new shift slot template item
 func NewShiftSlotTemplateItem(
+	now time.Time,
 	templateID common.ShiftSlotTemplateID,
 	slotName string,
 	instanceName string,
@@ -104,7 +105,6 @@ func NewShiftSlotTemplateItem(
 		return nil, fmt.Errorf("priority must be at least 1")
 	}
 
-	now := time.Now()
 	item := &ShiftSlotTemplateItem{
 		itemID:        common.NewShiftSlotTemplateItemID(),
 		templateID:    templateID,
@@ -121,8 +121,8 @@ func NewShiftSlotTemplateItem(
 	return item, nil
 }
 
-// ReconstituteShiftSlotTemplate reconstitutes a shift slot template from persistence
-func ReconstituteShiftSlotTemplate(
+// ReconstructShiftSlotTemplate reconstructs a shift slot template from persistence
+func ReconstructShiftSlotTemplate(
 	templateID common.ShiftSlotTemplateID,
 	tenantID common.TenantID,
 	eventID common.EventID,
@@ -132,7 +132,13 @@ func ReconstituteShiftSlotTemplate(
 	createdAt time.Time,
 	updatedAt time.Time,
 	deletedAt *time.Time,
-) *ShiftSlotTemplate {
+) (*ShiftSlotTemplate, error) {
+	if templateName == "" {
+		return nil, fmt.Errorf("template_name is required")
+	}
+	if len(templateName) > 100 {
+		return nil, fmt.Errorf("template_name must be 100 characters or less")
+	}
 	return &ShiftSlotTemplate{
 		templateID:   templateID,
 		tenantID:     tenantID,
@@ -143,11 +149,11 @@ func ReconstituteShiftSlotTemplate(
 		createdAt:    createdAt,
 		updatedAt:    updatedAt,
 		deletedAt:    deletedAt,
-	}
+	}, nil
 }
 
-// ReconstituteShiftSlotTemplateItem reconstitutes a template item from persistence
-func ReconstituteShiftSlotTemplateItem(
+// ReconstructShiftSlotTemplateItem reconstructs a template item from persistence
+func ReconstructShiftSlotTemplateItem(
 	itemID common.ShiftSlotTemplateItemID,
 	templateID common.ShiftSlotTemplateID,
 	slotName string,
@@ -158,7 +164,10 @@ func ReconstituteShiftSlotTemplateItem(
 	priority int,
 	createdAt time.Time,
 	updatedAt time.Time,
-) *ShiftSlotTemplateItem {
+) (*ShiftSlotTemplateItem, error) {
+	if slotName == "" {
+		return nil, fmt.Errorf("slot_name is required")
+	}
 	return &ShiftSlotTemplateItem{
 		itemID:        itemID,
 		templateID:    templateID,
@@ -170,11 +179,12 @@ func ReconstituteShiftSlotTemplateItem(
 		priority:      priority,
 		createdAt:     createdAt,
 		updatedAt:     updatedAt,
-	}
+	}, nil
 }
 
 // UpdateDetails updates the template details
-func (t *ShiftSlotTemplate) UpdateDetails(templateName, description string, items []*ShiftSlotTemplateItem) error {
+func (t *ShiftSlotTemplate) UpdateDetails(now time.Time, templateName, description string, items []*ShiftSlotTemplateItem) error {
+	// Validate before mutating
 	if templateName == "" {
 		return fmt.Errorf("template_name is required")
 	}
@@ -190,14 +200,13 @@ func (t *ShiftSlotTemplate) UpdateDetails(templateName, description string, item
 	t.templateName = templateName
 	t.description = description
 	t.items = items
-	t.updatedAt = time.Now()
+	t.updatedAt = now
 
 	return nil
 }
 
 // Delete soft-deletes the template
-func (t *ShiftSlotTemplate) Delete() {
-	now := time.Now()
+func (t *ShiftSlotTemplate) Delete(now time.Time) {
 	t.deletedAt = &now
 	t.updatedAt = now
 }

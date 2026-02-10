@@ -179,7 +179,7 @@ func TestMember_UpdateDisplayName_Success(t *testing.T) {
 	member, _ := NewMember(now, tenantID, "Old Name", "", "")
 
 	newName := "New Name"
-	err := member.UpdateDisplayName(newName)
+	err := member.UpdateDisplayName(time.Now(),newName)
 
 	if err != nil {
 		t.Fatalf("UpdateDisplayName() should succeed, but got error: %v", err)
@@ -194,7 +194,7 @@ func TestMember_UpdateDisplayName_ErrorWhenEmpty(t *testing.T) {
 	tenantID := common.NewTenantID()
 	member, _ := NewMember(now, tenantID, "Old Name", "", "")
 
-	err := member.UpdateDisplayName("")
+	err := member.UpdateDisplayName(time.Now(),"")
 
 	if err == nil {
 		t.Fatal("UpdateDisplayName() should return error when display_name is empty")
@@ -206,7 +206,7 @@ func TestMember_UpdateDisplayName_ErrorWhenTooLong(t *testing.T) {
 	tenantID := common.NewTenantID()
 	member, _ := NewMember(now, tenantID, "Old Name", "", "")
 
-	err := member.UpdateDisplayName(string(make([]byte, 256)))
+	err := member.UpdateDisplayName(time.Now(),string(make([]byte, 256)))
 
 	if err == nil {
 		t.Fatal("UpdateDisplayName() should return error when display_name is too long")
@@ -223,7 +223,7 @@ func TestMember_UpdateDiscordUserID_Success(t *testing.T) {
 	member, _ := NewMember(now, tenantID, "Member", "", "")
 
 	newID := "987654321098765432"
-	err := member.UpdateDiscordUserID(newID)
+	err := member.UpdateDiscordUserID(time.Now(),newID)
 
 	if err != nil {
 		t.Fatalf("UpdateDiscordUserID() should succeed, but got error: %v", err)
@@ -239,7 +239,7 @@ func TestMember_UpdateDiscordUserID_SuccessWhenEmpty(t *testing.T) {
 	member, _ := NewMember(now, tenantID, "Member", "123456789012345678", "")
 
 	// Empty is allowed (optional field)
-	err := member.UpdateDiscordUserID("")
+	err := member.UpdateDiscordUserID(time.Now(),"")
 
 	if err != nil {
 		t.Fatalf("UpdateDiscordUserID() should succeed with empty value, but got error: %v", err)
@@ -254,7 +254,7 @@ func TestMember_UpdateDiscordUserID_ErrorWhenTooLong(t *testing.T) {
 	tenantID := common.NewTenantID()
 	member, _ := NewMember(now, tenantID, "Member", "", "")
 
-	err := member.UpdateDiscordUserID(string(make([]byte, 101)))
+	err := member.UpdateDiscordUserID(time.Now(),string(make([]byte, 101)))
 
 	if err == nil {
 		t.Fatal("UpdateDiscordUserID() should return error when discord_user_id is too long")
@@ -271,7 +271,7 @@ func TestMember_UpdateEmail_Success(t *testing.T) {
 	member, _ := NewMember(now, tenantID, "Member", "", "old@example.com")
 
 	newEmail := "new@example.com"
-	err := member.UpdateEmail(newEmail)
+	err := member.UpdateEmail(time.Now(),newEmail)
 
 	if err != nil {
 		t.Fatalf("UpdateEmail() should succeed, but got error: %v", err)
@@ -287,7 +287,7 @@ func TestMember_UpdateEmail_SuccessWhenEmpty(t *testing.T) {
 	member, _ := NewMember(now, tenantID, "Member", "", "old@example.com")
 
 	// Empty is allowed (optional field)
-	err := member.UpdateEmail("")
+	err := member.UpdateEmail(time.Now(),"")
 
 	if err != nil {
 		t.Fatalf("UpdateEmail() should succeed with empty value, but got error: %v", err)
@@ -302,7 +302,7 @@ func TestMember_UpdateEmail_ErrorWhenTooLong(t *testing.T) {
 	tenantID := common.NewTenantID()
 	member, _ := NewMember(now, tenantID, "Member", "", "")
 
-	err := member.UpdateEmail(string(make([]byte, 256)) + "@example.com")
+	err := member.UpdateEmail(time.Now(),string(make([]byte, 256)) + "@example.com")
 
 	if err == nil {
 		t.Fatal("UpdateEmail() should return error when email is too long")
@@ -323,7 +323,7 @@ func TestMember_UpdateDetails_Success(t *testing.T) {
 	newEmail := "new@example.com"
 	newIsActive := false
 
-	err := member.UpdateDetails(newDisplayName, newDiscordUserID, newEmail, newIsActive)
+	err := member.UpdateDetails(time.Now(),newDisplayName, newDiscordUserID, newEmail, newIsActive)
 
 	if err != nil {
 		t.Fatalf("UpdateDetails() should succeed, but got error: %v", err)
@@ -347,7 +347,7 @@ func TestMember_UpdateDetails_ErrorWhenDisplayNameEmpty(t *testing.T) {
 	tenantID := common.NewTenantID()
 	member, _ := NewMember(now, tenantID, "Old Name", "", "")
 
-	err := member.UpdateDetails("", "", "", true) // Empty display name
+	err := member.UpdateDetails(time.Now(),"", "", "", true) // Empty display name
 
 	if err == nil {
 		t.Fatal("UpdateDetails() should return error when display_name is empty")
@@ -359,7 +359,7 @@ func TestMember_UpdateDetails_ErrorWhenDiscordUserIDTooLong(t *testing.T) {
 	tenantID := common.NewTenantID()
 	member, _ := NewMember(now, tenantID, "Name", "", "")
 
-	err := member.UpdateDetails("Name", string(make([]byte, 101)), "", true)
+	err := member.UpdateDetails(time.Now(),"Name", string(make([]byte, 101)), "", true)
 
 	if err == nil {
 		t.Fatal("UpdateDetails() should return error when discord_user_id is too long")
@@ -381,13 +381,13 @@ func TestMember_ActivateDeactivate(t *testing.T) {
 	}
 
 	// Deactivate
-	member.Deactivate()
+	member.Deactivate(time.Now())
 	if member.IsActive() {
 		t.Error("Member should be inactive after Deactivate()")
 	}
 
 	// Activate
-	member.Activate()
+	member.Activate(time.Now())
 	if !member.IsActive() {
 		t.Error("Member should be active after Activate()")
 	}
@@ -411,7 +411,7 @@ func TestMember_Delete(t *testing.T) {
 	}
 
 	// Delete
-	member.Delete()
+	member.Delete(time.Now())
 
 	if !member.IsDeleted() {
 		t.Error("Member should be deleted after Delete()")
@@ -531,7 +531,7 @@ func TestMember_UpdateMethodsUpdateTimestamp(t *testing.T) {
 	time.Sleep(1 * time.Millisecond)
 
 	// UpdateDisplayName should update timestamp
-	_ = member.UpdateDisplayName("New Name")
+	_ = member.UpdateDisplayName(time.Now(),"New Name")
 
 	if !member.UpdatedAt().After(originalUpdatedAt) {
 		t.Error("UpdatedAt should be updated after UpdateDisplayName()")
@@ -548,7 +548,7 @@ func TestMember_DeactivateUpdatesTimestamp(t *testing.T) {
 	// Wait a tiny bit to ensure time difference
 	time.Sleep(1 * time.Millisecond)
 
-	member.Deactivate()
+	member.Deactivate(time.Now())
 
 	if !member.UpdatedAt().After(originalUpdatedAt) {
 		t.Error("UpdatedAt should be updated after Deactivate()")

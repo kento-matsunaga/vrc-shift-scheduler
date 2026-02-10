@@ -179,7 +179,7 @@ func (uc *GetAssignmentsUsecase) Execute(
 	} else if input.SlotID != nil {
 		assignments, err = uc.assignmentRepo.FindBySlotID(ctx, input.TenantID, *input.SlotID)
 	} else if input.BusinessDayID != nil {
-		assignments, err = uc.assignmentRepo.FindByBusinessDayID(ctx, input.TenantID, *input.BusinessDayID)
+		assignments, err = uc.assignmentRepo.FindByBusinessDayID(ctx, input.TenantID, event.BusinessDayID(*input.BusinessDayID))
 	} else {
 		return nil, common.NewValidationError("member_id, slot_id, or business_day_id is required", nil)
 	}

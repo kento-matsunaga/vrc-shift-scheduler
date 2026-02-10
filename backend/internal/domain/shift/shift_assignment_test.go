@@ -641,7 +641,7 @@ func TestShiftAssignment_Cancel_Success(t *testing.T) {
 		t.Error("IsCancelled should be false before Cancel()")
 	}
 
-	err := assignment.Cancel()
+	err := assignment.Cancel(time.Now())
 	if err != nil {
 		t.Fatalf("Cancel() should succeed: %v", err)
 	}
@@ -677,10 +677,10 @@ func TestShiftAssignment_Cancel_ErrorWhenAlreadyCancelled(t *testing.T) {
 	)
 
 	// Cancel first time
-	_ = assignment.Cancel()
+	_ = assignment.Cancel(time.Now())
 
 	// Cancel second time should fail
-	err := assignment.Cancel()
+	err := assignment.Cancel(time.Now())
 	if err == nil {
 		t.Error("Cancel() should fail when already cancelled")
 	}
@@ -707,7 +707,7 @@ func TestShiftAssignment_Delete(t *testing.T) {
 		t.Error("IsDeleted should be false before Delete()")
 	}
 
-	assignment.Delete()
+	assignment.Delete(time.Now())
 
 	if !assignment.IsDeleted() {
 		t.Error("IsDeleted should be true after Delete()")
@@ -739,7 +739,7 @@ func TestShiftAssignment_IsConfirmed_FalseWhenDeleted(t *testing.T) {
 		t.Error("IsConfirmed should be true for new assignment")
 	}
 
-	assignment.Delete()
+	assignment.Delete(time.Now())
 
 	if assignment.IsConfirmed() {
 		t.Error("IsConfirmed should be false after Delete()")

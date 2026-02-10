@@ -299,7 +299,8 @@ func (uc *UpdateEventUsecase) Execute(ctx context.Context, input UpdateEventInpu
 	}
 
 	// イベント名を更新
-	if err := e.UpdateEventName(input.EventName); err != nil {
+	now := time.Now()
+	if err := e.UpdateEventName(now, input.EventName); err != nil {
 		return nil, err
 	}
 
@@ -338,7 +339,8 @@ func (uc *DeleteEventUsecase) Execute(ctx context.Context, input DeleteEventInpu
 	}
 
 	// soft delete
-	e.Delete()
+	now := time.Now()
+	e.Delete(now)
 
 	// 保存
 	if err := uc.eventRepo.Save(ctx, e); err != nil {

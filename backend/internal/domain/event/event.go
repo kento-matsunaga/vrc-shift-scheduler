@@ -241,7 +241,7 @@ func (e *Event) HasRecurrence() bool {
 }
 
 // UpdateEventName updates the event name
-func (e *Event) UpdateEventName(eventName string) error {
+func (e *Event) UpdateEventName(now time.Time, eventName string) error {
 	if eventName == "" {
 		return common.NewValidationError("event_name is required", nil)
 	}
@@ -250,31 +250,30 @@ func (e *Event) UpdateEventName(eventName string) error {
 	}
 
 	e.eventName = eventName
-	e.updatedAt = time.Now()
+	e.updatedAt = now
 	return nil
 }
 
 // UpdateDescription updates the description
-func (e *Event) UpdateDescription(description string) {
+func (e *Event) UpdateDescription(now time.Time, description string) {
 	e.description = description
-	e.updatedAt = time.Now()
+	e.updatedAt = now
 }
 
 // Activate activates the event
-func (e *Event) Activate() {
+func (e *Event) Activate(now time.Time) {
 	e.isActive = true
-	e.updatedAt = time.Now()
+	e.updatedAt = now
 }
 
 // Deactivate deactivates the event
-func (e *Event) Deactivate() {
+func (e *Event) Deactivate(now time.Time) {
 	e.isActive = false
-	e.updatedAt = time.Now()
+	e.updatedAt = now
 }
 
 // Delete marks the event as deleted (soft delete)
-func (e *Event) Delete() {
-	now := time.Now()
+func (e *Event) Delete(now time.Time) {
 	e.deletedAt = &now
 	e.updatedAt = now
 }

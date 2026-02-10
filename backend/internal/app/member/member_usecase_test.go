@@ -352,7 +352,7 @@ func TestListMembersUsecase_Execute_WithIsActiveFilter(t *testing.T) {
 	tenantID := common.NewTenantID()
 	activeMember := createTestMember(t, tenantID, "アクティブメンバー")
 	inactiveMember := createTestMember(t, tenantID, "非アクティブメンバー")
-	inactiveMember.Deactivate()
+	inactiveMember.Deactivate(time.Now())
 
 	testMembers := []*member.Member{activeMember, inactiveMember}
 

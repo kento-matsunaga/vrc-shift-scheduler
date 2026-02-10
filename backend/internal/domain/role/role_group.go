@@ -21,7 +21,7 @@ type RoleGroup struct {
 }
 
 // NewRoleGroup creates a new RoleGroup
-func NewRoleGroup(tenantID common.TenantID, name, description, color string, displayOrder int) (*RoleGroup, error) {
+func NewRoleGroup(now time.Time, tenantID common.TenantID, name, description, color string, displayOrder int) (*RoleGroup, error) {
 	if name == "" {
 		return nil, common.NewValidationError("name is required", nil)
 	}
@@ -32,7 +32,6 @@ func NewRoleGroup(tenantID common.TenantID, name, description, color string, dis
 		return nil, common.NewValidationError("color must be 7 characters or less", nil)
 	}
 
-	now := time.Now()
 	return &RoleGroup{
 		groupID:      common.NewRoleGroupID(),
 		tenantID:     tenantID,
@@ -54,7 +53,10 @@ func ReconstructRoleGroup(
 	createdAt, updatedAt time.Time,
 	deletedAt *time.Time,
 	roleIDs []common.RoleID,
-) *RoleGroup {
+) (*RoleGroup, error) {
+	if name == "" {
+		return nil, common.NewValidationError("name is required", nil)
+	}
 	return &RoleGroup{
 		groupID:      groupID,
 		tenantID:     tenantID,
@@ -66,7 +68,7 @@ func ReconstructRoleGroup(
 		updatedAt:    updatedAt,
 		deletedAt:    deletedAt,
 		roleIDs:      roleIDs,
-	}
+	}, nil
 }
 
 // Getters
@@ -82,7 +84,7 @@ func (g *RoleGroup) DeletedAt() *time.Time       { return g.deletedAt }
 func (g *RoleGroup) RoleIDs() []common.RoleID    { return g.roleIDs }
 
 // UpdateDetails updates the group's details
-func (g *RoleGroup) UpdateDetails(name, description, color string, displayOrder int) error {
+func (g *RoleGroup) UpdateDetails(now time.Time, name, description, color string, displayOrder int) error {
 	if name == "" {
 		return common.NewValidationError("name is required", nil)
 	}
@@ -97,18 +99,12 @@ func (g *RoleGroup) UpdateDetails(name, description, color string, displayOrder 
 	g.description = description
 	g.color = color
 	g.displayOrder = displayOrder
-	g.updatedAt = time.Now()
+	g.updatedAt = now
 	return nil
 }
 
 // Delete marks the group as deleted
-func (g *RoleGroup) Delete() {
-	now := time.Now()
+func (g *RoleGroup) Delete(now time.Time) {
 	g.deletedAt = &now
 	g.updatedAt = now
-}
-
-// SetRoleIDs sets the associated role IDs
-func (g *RoleGroup) SetRoleIDs(roleIDs []common.RoleID) {
-	g.roleIDs = roleIDs
 }

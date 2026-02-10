@@ -42,8 +42,11 @@ func NewCreateShiftTemplateUsecase(templateRepo shift.ShiftSlotTemplateRepositor
 
 // Execute creates a new shift template
 func (uc *CreateShiftTemplateUsecase) Execute(ctx context.Context, input CreateShiftTemplateInput) (*shift.ShiftSlotTemplate, error) {
+	now := time.Now()
+
 	// Create template first to get the template ID
 	template, err := shift.NewShiftSlotTemplate(
+		now,
 		input.TenantID,
 		input.EventID,
 		input.TemplateName,
@@ -58,6 +61,7 @@ func (uc *CreateShiftTemplateUsecase) Execute(ctx context.Context, input CreateS
 	var items []*shift.ShiftSlotTemplateItem
 	for _, itemInput := range input.Items {
 		item, err := shift.NewShiftSlotTemplateItem(
+			now,
 			template.TemplateID(),
 			itemInput.SlotName,
 			itemInput.InstanceName,
@@ -74,7 +78,7 @@ func (uc *CreateShiftTemplateUsecase) Execute(ctx context.Context, input CreateS
 	}
 
 	// Update template with items
-	if err := template.UpdateDetails(input.TemplateName, input.Description, items); err != nil {
+	if err := template.UpdateDetails(now, input.TemplateName, input.Description, items); err != nil {
 		return nil, err
 	}
 
@@ -171,10 +175,13 @@ func (uc *UpdateShiftTemplateUsecase) Execute(ctx context.Context, input UpdateS
 		return nil, err
 	}
 
+	now := time.Now()
+
 	// Create new template items
 	var items []*shift.ShiftSlotTemplateItem
 	for _, itemInput := range input.Items {
 		item, err := shift.NewShiftSlotTemplateItem(
+			now,
 			template.TemplateID(),
 			itemInput.SlotName,
 			itemInput.InstanceName,
@@ -191,7 +198,7 @@ func (uc *UpdateShiftTemplateUsecase) Execute(ctx context.Context, input UpdateS
 	}
 
 	// Update template details
-	if err := template.UpdateDetails(input.TemplateName, input.Description, items); err != nil {
+	if err := template.UpdateDetails(now, input.TemplateName, input.Description, items); err != nil {
 		return nil, err
 	}
 
@@ -278,11 +285,13 @@ func (uc *SaveBusinessDayAsTemplateUsecase) Execute(ctx context.Context, input S
 	}
 
 	// Create template items from shift slots
+	now := time.Now()
 	var items []*shift.ShiftSlotTemplateItem
 	templateID := common.NewShiftSlotTemplateID()
 
 	for _, slot := range slots {
 		item, err := shift.NewShiftSlotTemplateItem(
+			now,
 			templateID,
 			slot.SlotName(),
 			slot.InstanceName(),
@@ -300,6 +309,7 @@ func (uc *SaveBusinessDayAsTemplateUsecase) Execute(ctx context.Context, input S
 
 	// Create template
 	template, err := shift.NewShiftSlotTemplate(
+		now,
 		input.TenantID,
 		businessDay.EventID(),
 		input.TemplateName,

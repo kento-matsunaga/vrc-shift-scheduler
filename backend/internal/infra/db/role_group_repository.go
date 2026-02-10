@@ -82,7 +82,7 @@ func (r *roleGroupRepository) FindByID(ctx context.Context, tenantID common.Tena
 		return nil, err
 	}
 
-	return role.ReconstructRoleGroup(
+	group, err := role.ReconstructRoleGroup(
 		common.RoleGroupID(id),
 		common.TenantID(tid),
 		name,
@@ -93,7 +93,12 @@ func (r *roleGroupRepository) FindByID(ctx context.Context, tenantID common.Tena
 		updatedAt,
 		deletedAt,
 		roleIDs,
-	), nil
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return group, nil
 }
 
 // FindByTenantID finds all groups within a tenant
@@ -135,7 +140,7 @@ func (r *roleGroupRepository) FindByTenantID(ctx context.Context, tenantID commo
 			return nil, err
 		}
 
-		group := role.ReconstructRoleGroup(
+		group, err := role.ReconstructRoleGroup(
 			common.RoleGroupID(id),
 			common.TenantID(tid),
 			name,
@@ -147,6 +152,9 @@ func (r *roleGroupRepository) FindByTenantID(ctx context.Context, tenantID commo
 			deletedAt,
 			roleIDs,
 		)
+		if err != nil {
+			return nil, err
+		}
 		groups = append(groups, group)
 	}
 
@@ -168,7 +176,15 @@ func (r *roleGroupRepository) Delete(ctx context.Context, tenantID common.Tenant
 func (r *roleGroupRepository) AssignRole(ctx context.Context, groupID common.RoleGroupID, roleID common.RoleID) error {
 	query := `
 		INSERT INTO role_group_assignments (assignment_id, role_id, group_id, created_at)
-		VALUES ($1, $2, $3, NOW())
+		SELECT $1, $2, $3, NOW()
+		WHERE EXISTS (
+			SELECT 1 FROM roles ro
+			JOIN role_groups rg ON ro.tenant_id = rg.tenant_id
+			WHERE ro.role_id = $2
+			  AND rg.group_id = $3
+			  AND ro.deleted_at IS NULL
+			  AND rg.deleted_at IS NULL
+		)
 		ON CONFLICT (role_id, group_id) DO NOTHING
 	`
 	_, err := r.pool.Exec(ctx, query, common.NewULID(), roleID.String(), groupID.String())
@@ -177,7 +193,14 @@ func (r *roleGroupRepository) AssignRole(ctx context.Context, groupID common.Rol
 
 // RemoveRole removes a role from a group
 func (r *roleGroupRepository) RemoveRole(ctx context.Context, groupID common.RoleGroupID, roleID common.RoleID) error {
-	query := `DELETE FROM role_group_assignments WHERE group_id = $1 AND role_id = $2`
+	query := `
+		DELETE FROM role_group_assignments rga
+		USING role_groups rg
+		WHERE rga.group_id = rg.group_id
+		  AND rga.group_id = $1
+		  AND rga.role_id = $2
+		  AND rg.tenant_id = (SELECT ro.tenant_id FROM roles ro WHERE ro.role_id = $2)
+	`
 	_, err := r.pool.Exec(ctx, query, groupID.String(), roleID.String())
 	return err
 }
@@ -185,7 +208,13 @@ func (r *roleGroupRepository) RemoveRole(ctx context.Context, groupID common.Rol
 // FindRoleIDsByGroupID finds all role IDs in a group
 func (r *roleGroupRepository) FindRoleIDsByGroupID(ctx context.Context, groupID common.RoleGroupID) ([]common.RoleID, error) {
 	query := `
-		SELECT role_id FROM role_group_assignments WHERE group_id = $1
+		SELECT rga.role_id
+		FROM role_group_assignments rga
+		JOIN role_groups rg ON rga.group_id = rg.group_id
+		JOIN roles ro ON rga.role_id = ro.role_id AND ro.tenant_id = rg.tenant_id
+		WHERE rga.group_id = $1
+		  AND rg.deleted_at IS NULL
+		  AND ro.deleted_at IS NULL
 	`
 	rows, err := r.pool.Query(ctx, query, groupID.String())
 	if err != nil {
@@ -208,7 +237,13 @@ func (r *roleGroupRepository) FindRoleIDsByGroupID(ctx context.Context, groupID 
 // FindGroupIDsByRoleID finds all group IDs for a role
 func (r *roleGroupRepository) FindGroupIDsByRoleID(ctx context.Context, roleID common.RoleID) ([]common.RoleGroupID, error) {
 	query := `
-		SELECT group_id FROM role_group_assignments WHERE role_id = $1
+		SELECT rga.group_id
+		FROM role_group_assignments rga
+		JOIN roles ro ON rga.role_id = ro.role_id
+		JOIN role_groups rg ON rga.group_id = rg.group_id AND rg.tenant_id = ro.tenant_id
+		WHERE rga.role_id = $1
+		  AND ro.deleted_at IS NULL
+		  AND rg.deleted_at IS NULL
 	`
 	rows, err := r.pool.Query(ctx, query, roleID.String())
 	if err != nil {
@@ -237,18 +272,32 @@ func (r *roleGroupRepository) SetGroupRoles(ctx context.Context, groupID common.
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	// Delete existing assignments
-	_, err = tx.Exec(ctx, `DELETE FROM role_group_assignments WHERE group_id = $1`, groupID.String())
+	// Delete existing assignments (scoped to group's tenant via JOIN)
+	_, err = tx.Exec(ctx, `
+		DELETE FROM role_group_assignments rga
+		USING role_groups rg
+		WHERE rga.group_id = rg.group_id
+		  AND rga.group_id = $1
+	`, groupID.String())
 	if err != nil {
 		return err
 	}
 
-	// Insert new assignments
+	// Insert new assignments (only if role belongs to the same tenant as the group)
 	for _, roleID := range roleIDs {
-		_, err = tx.Exec(ctx,
-			`INSERT INTO role_group_assignments (assignment_id, role_id, group_id, created_at) VALUES ($1, $2, $3, NOW())`,
-			common.NewULID(), roleID.String(), groupID.String(),
-		)
+		_, err = tx.Exec(ctx, `
+			INSERT INTO role_group_assignments (assignment_id, role_id, group_id, created_at)
+			SELECT $1, $2, $3, NOW()
+			WHERE EXISTS (
+				SELECT 1 FROM roles ro
+				JOIN role_groups rg ON ro.tenant_id = rg.tenant_id
+				WHERE ro.role_id = $2
+				  AND rg.group_id = $3
+				  AND ro.deleted_at IS NULL
+				  AND rg.deleted_at IS NULL
+			)
+			ON CONFLICT (role_id, group_id) DO NOTHING
+		`, common.NewULID(), roleID.String(), groupID.String())
 		if err != nil {
 			return err
 		}

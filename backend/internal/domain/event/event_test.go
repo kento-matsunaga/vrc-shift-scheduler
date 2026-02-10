@@ -177,7 +177,7 @@ func TestEvent_UpdateEventName(t *testing.T) {
 	event := createTestEvent(t, tenantID, "元の名前", EventTypeNormal, "説明")
 
 	newName := "新しい名前"
-	err := event.UpdateEventName(newName)
+	err := event.UpdateEventName(time.Now(), newName)
 
 	if err != nil {
 		t.Fatalf("UpdateEventName() should succeed, but got error: %v", err)
@@ -192,7 +192,7 @@ func TestEvent_UpdateEventName_ErrorWhenEmpty(t *testing.T) {
 	tenantID := common.NewTenantID()
 	event := createTestEvent(t, tenantID, "元の名前", EventTypeNormal, "説明")
 
-	err := event.UpdateEventName("")
+	err := event.UpdateEventName(time.Now(), "")
 
 	if err == nil {
 		t.Fatal("UpdateEventName() should return error when name is empty")
@@ -209,13 +209,13 @@ func TestEvent_ActivateDeactivate(t *testing.T) {
 	}
 
 	// 非アクティブ化
-	event.Deactivate()
+	event.Deactivate(time.Now())
 	if event.IsActive() {
 		t.Error("Event should be inactive after Deactivate()")
 	}
 
 	// 再アクティブ化
-	event.Activate()
+	event.Activate(time.Now())
 	if !event.IsActive() {
 		t.Error("Event should be active after Activate()")
 	}
@@ -235,7 +235,7 @@ func TestEvent_Delete(t *testing.T) {
 	}
 
 	// 削除
-	event.Delete()
+	event.Delete(time.Now())
 
 	if !event.IsDeleted() {
 		t.Error("Event should be deleted after Delete()")
