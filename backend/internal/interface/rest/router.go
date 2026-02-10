@@ -257,7 +257,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			appattendance.NewSubmitResponseUsecase(attendanceRepo, txManager, systemClock),
 			appattendance.NewCloseCollectionUsecase(attendanceRepo, systemClock),
 			appattendance.NewDeleteCollectionUsecase(attendanceRepo, systemClock),
-			appattendance.NewUpdateCollectionUsecase(attendanceRepo, systemClock),
+			appattendance.NewUpdateCollectionUsecase(attendanceRepo, txManager, systemClock),
 			appattendance.NewGetCollectionUsecase(attendanceRepo),
 			appattendance.NewGetCollectionByTokenUsecase(attendanceRepo),
 			appattendance.NewGetResponsesUsecase(attendanceRepo, memberRepo),

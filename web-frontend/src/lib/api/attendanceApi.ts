@@ -2,12 +2,22 @@ import type { ApiResponse } from '../../types/api';
 import { apiClient } from '../apiClient';
 
 /**
- * 対象日入力（リクエスト用）
+ * 対象日入力（作成リクエスト用）
  */
 export interface TargetDateInput {
   target_date: string; // ISO 8601 format
   start_time?: string; // HH:MM format (optional)
   end_time?: string;   // HH:MM format (optional)
+}
+
+/**
+ * 対象日入力（更新リクエスト用・既存IDを含む）
+ */
+export interface UpdateTargetDateInput {
+  target_date_id?: string; // 既存対象日のID（省略で新規作成）
+  target_date: string;     // ISO 8601 format
+  start_time?: string;     // HH:MM format (optional)
+  end_time?: string;       // HH:MM format (optional)
 }
 
 /**
@@ -31,6 +41,7 @@ export interface UpdateAttendanceCollectionRequest {
   title: string;
   description: string;
   deadline?: string; // ISO 8601 format
+  target_dates?: UpdateTargetDateInput[]; // 対象日の更新（省略で対象日は変更しない）
 }
 
 /**

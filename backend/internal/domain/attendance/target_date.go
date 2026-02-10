@@ -105,6 +105,17 @@ func isValidTimeFormat(timeStr string) bool {
 	return timeFormatRegex.MatchString(timeStr)
 }
 
+// UpdateFields updates the mutable fields of a target date (domain method).
+// This preserves the entity's identity (ID) and creation timestamp.
+func (td *TargetDate) UpdateFields(targetDate time.Time, startTime *string, endTime *string, displayOrder int) error {
+	td.targetDate = targetDate
+	td.startTime = startTime
+	td.endTime = endTime
+	td.displayOrder = displayOrder
+
+	return td.validate()
+}
+
 // Getters
 
 func (td *TargetDate) TargetDateID() common.TargetDateID {

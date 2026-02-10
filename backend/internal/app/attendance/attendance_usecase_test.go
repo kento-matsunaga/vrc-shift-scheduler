@@ -33,12 +33,14 @@ func (m *MockClock) Now() time.Time {
 // =====================================================
 
 type MockAttendanceCollectionRepository struct {
-	saveFunc                        func(ctx context.Context, c *attendance.AttendanceCollection) error
-	findByIDFunc                    func(ctx context.Context, tenantID common.TenantID, collectionID common.CollectionID) (*attendance.AttendanceCollection, error)
-	findByPublicTokenFunc           func(ctx context.Context, token common.PublicToken) (*attendance.AttendanceCollection, error)
-	saveTargetDatesFunc             func(ctx context.Context, collectionID common.CollectionID, dates []*attendance.TargetDate) error
-	saveGroupAssignmentsFunc        func(ctx context.Context, collectionID common.CollectionID, assignments []*attendance.CollectionGroupAssignment) error
-	findResponsesByCollectionIDFunc func(ctx context.Context, collectionID common.CollectionID) ([]*attendance.AttendanceResponse, error)
+	saveFunc                             func(ctx context.Context, c *attendance.AttendanceCollection) error
+	findByIDFunc                         func(ctx context.Context, tenantID common.TenantID, collectionID common.CollectionID) (*attendance.AttendanceCollection, error)
+	findByPublicTokenFunc                func(ctx context.Context, token common.PublicToken) (*attendance.AttendanceCollection, error)
+	saveTargetDatesFunc                  func(ctx context.Context, collectionID common.CollectionID, dates []*attendance.TargetDate) error
+	saveGroupAssignmentsFunc             func(ctx context.Context, collectionID common.CollectionID, assignments []*attendance.CollectionGroupAssignment) error
+	findResponsesByCollectionIDFunc      func(ctx context.Context, collectionID common.CollectionID) ([]*attendance.AttendanceResponse, error)
+	findTargetDatesByCollectionIDFunc    func(ctx context.Context, collectionID common.CollectionID) ([]*attendance.TargetDate, error)
+	replaceTargetDatesFunc               func(ctx context.Context, collectionID common.CollectionID, targetDates []*attendance.TargetDate) error
 }
 
 func (m *MockAttendanceCollectionRepository) Save(ctx context.Context, c *attendance.AttendanceCollection) error {
@@ -103,6 +105,9 @@ func (m *MockAttendanceCollectionRepository) FindResponsesByMemberID(ctx context
 }
 
 func (m *MockAttendanceCollectionRepository) FindTargetDatesByCollectionID(ctx context.Context, collectionID common.CollectionID) ([]*attendance.TargetDate, error) {
+	if m.findTargetDatesByCollectionIDFunc != nil {
+		return m.findTargetDatesByCollectionIDFunc(ctx, collectionID)
+	}
 	return nil, nil
 }
 
@@ -120,6 +125,13 @@ func (m *MockAttendanceCollectionRepository) FindRoleAssignmentsByCollectionID(c
 
 func (m *MockAttendanceCollectionRepository) FindResponsesByCollectionIDAndMemberID(ctx context.Context, tenantID common.TenantID, collectionID common.CollectionID, memberID common.MemberID) ([]*attendance.AttendanceResponse, error) {
 	return nil, nil
+}
+
+func (m *MockAttendanceCollectionRepository) ReplaceTargetDates(ctx context.Context, collectionID common.CollectionID, targetDates []*attendance.TargetDate) error {
+	if m.replaceTargetDatesFunc != nil {
+		return m.replaceTargetDatesFunc(ctx, collectionID, targetDates)
+	}
+	return nil
 }
 
 // =====================================================

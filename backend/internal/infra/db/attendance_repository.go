@@ -808,6 +808,71 @@ func (r *AttendanceRepository) FindTargetDatesByCollectionID(ctx context.Context
 	return targetDates, nil
 }
 
+// ReplaceTargetDates は対象日を差分更新する（永続化ロジック）
+// UPSERT で既存/新規を一括処理し、targetDates に含まれないIDは DELETE する
+func (r *AttendanceRepository) ReplaceTargetDates(ctx context.Context, collectionID common.CollectionID, targetDates []*attendance.TargetDate) error {
+	executor := GetTx(ctx, r.pool)
+
+	incomingIDs := make([]string, 0, len(targetDates))
+	for _, td := range targetDates {
+		incomingIDs = append(incomingIDs, td.TargetDateID().String())
+	}
+
+	// targetDates に含まれない既存IDを削除（CASCADE で回答も削除）
+	if len(incomingIDs) > 0 {
+		deleteQuery := `DELETE FROM attendance_target_dates WHERE collection_id = $1 AND target_date_id != ALL($2)`
+		if _, err := executor.Exec(ctx, deleteQuery, collectionID.String(), incomingIDs); err != nil {
+			return fmt.Errorf("failed to delete removed target dates: %w", err)
+		}
+	} else {
+		deleteQuery := `DELETE FROM attendance_target_dates WHERE collection_id = $1`
+		if _, err := executor.Exec(ctx, deleteQuery, collectionID.String()); err != nil {
+			return fmt.Errorf("failed to delete all target dates: %w", err)
+		}
+	}
+
+	if len(targetDates) == 0 {
+		return nil
+	}
+
+	// UPSERT: 既存 → UPDATE、新規 → INSERT を1クエリで処理
+	const numCols = 7
+	valueStrings := make([]string, 0, len(targetDates))
+	args := make([]interface{}, 0, len(targetDates)*numCols)
+
+	for i, td := range targetDates {
+		base := i * numCols
+		valueStrings = append(valueStrings, fmt.Sprintf("($%d, $%d, $%d, $%d, $%d, $%d, $%d)",
+			base+1, base+2, base+3, base+4, base+5, base+6, base+7))
+		args = append(args,
+			td.TargetDateID().String(),
+			td.CollectionID().String(),
+			td.TargetDateValue(),
+			td.StartTime(),
+			td.EndTime(),
+			td.DisplayOrder(),
+			td.CreatedAt(),
+		)
+	}
+
+	upsertQuery := fmt.Sprintf(`
+		INSERT INTO attendance_target_dates (
+			target_date_id, collection_id, target_date, start_time, end_time, display_order, created_at
+		) VALUES %s
+		ON CONFLICT (target_date_id) DO UPDATE SET
+			target_date = EXCLUDED.target_date,
+			start_time = EXCLUDED.start_time,
+			end_time = EXCLUDED.end_time,
+			display_order = EXCLUDED.display_order
+	`, strings.Join(valueStrings, ", "))
+
+	if _, err := executor.Exec(ctx, upsertQuery, args...); err != nil {
+		return fmt.Errorf("failed to upsert target dates: %w", err)
+	}
+
+	return nil
+}
+
 // SaveGroupAssignments saves group assignments for a collection (deletes existing ones first)
 // Uses multi-row INSERT for atomicity and performance
 func (r *AttendanceRepository) SaveGroupAssignments(ctx context.Context, collectionID common.CollectionID, assignments []*attendance.CollectionGroupAssignment) error {

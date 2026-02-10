@@ -100,6 +100,10 @@ func (m *MockAttendanceCollectionRepository) SaveTargetDates(ctx context.Context
 	return nil
 }
 
+func (m *MockAttendanceCollectionRepository) ReplaceTargetDates(ctx context.Context, collectionID common.CollectionID, targetDates []*attendance.TargetDate) error {
+	return nil
+}
+
 func (m *MockAttendanceCollectionRepository) FindTargetDatesByCollectionID(ctx context.Context, collectionID common.CollectionID) ([]*attendance.TargetDate, error) {
 	if m.findTargetDatesByCollectionIDFunc != nil {
 		return m.findTargetDatesByCollectionIDFunc(ctx, collectionID)
