@@ -22,17 +22,7 @@ type RoleGroup struct {
 
 // NewRoleGroup creates a new RoleGroup
 func NewRoleGroup(now time.Time, tenantID common.TenantID, name, description, color string, displayOrder int) (*RoleGroup, error) {
-	if name == "" {
-		return nil, common.NewValidationError("name is required", nil)
-	}
-	if len(name) > 100 {
-		return nil, common.NewValidationError("name must be 100 characters or less", nil)
-	}
-	if len(color) > 7 {
-		return nil, common.NewValidationError("color must be 7 characters or less", nil)
-	}
-
-	return &RoleGroup{
+	g := &RoleGroup{
 		groupID:      common.NewRoleGroupID(),
 		tenantID:     tenantID,
 		name:         name,
@@ -41,7 +31,13 @@ func NewRoleGroup(now time.Time, tenantID common.TenantID, name, description, co
 		displayOrder: displayOrder,
 		createdAt:    now,
 		updatedAt:    now,
-	}, nil
+	}
+
+	if err := g.validate(); err != nil {
+		return nil, err
+	}
+
+	return g, nil
 }
 
 // ReconstructRoleGroup reconstructs a RoleGroup from persistence
@@ -54,10 +50,7 @@ func ReconstructRoleGroup(
 	deletedAt *time.Time,
 	roleIDs []common.RoleID,
 ) (*RoleGroup, error) {
-	if name == "" {
-		return nil, common.NewValidationError("name is required", nil)
-	}
-	return &RoleGroup{
+	g := &RoleGroup{
 		groupID:      groupID,
 		tenantID:     tenantID,
 		name:         name,
@@ -68,7 +61,26 @@ func ReconstructRoleGroup(
 		updatedAt:    updatedAt,
 		deletedAt:    deletedAt,
 		roleIDs:      roleIDs,
-	}, nil
+	}
+
+	if err := g.validate(); err != nil {
+		return nil, err
+	}
+
+	return g, nil
+}
+
+func (g *RoleGroup) validate() error {
+	if g.name == "" {
+		return common.NewValidationError("name is required", nil)
+	}
+	if len(g.name) > 100 {
+		return common.NewValidationError("name must be 100 characters or less", nil)
+	}
+	if len(g.color) > 7 {
+		return common.NewValidationError("color must be 7 characters or less", nil)
+	}
+	return nil
 }
 
 // Getters
@@ -85,16 +97,18 @@ func (g *RoleGroup) RoleIDs() []common.RoleID    { return g.roleIDs }
 
 // UpdateDetails updates the group's details
 func (g *RoleGroup) UpdateDetails(now time.Time, name, description, color string, displayOrder int) error {
-	if name == "" {
-		return common.NewValidationError("name is required", nil)
-	}
-	if len(name) > 100 {
-		return common.NewValidationError("name must be 100 characters or less", nil)
-	}
-	if len(color) > 7 {
-		return common.NewValidationError("color must be 7 characters or less", nil)
+	// Validate before mutating using a temporary copy
+	tmp := *g
+	tmp.name = name
+	tmp.description = description
+	tmp.color = color
+	tmp.displayOrder = displayOrder
+	tmp.updatedAt = now
+	if err := tmp.validate(); err != nil {
+		return err
 	}
 
+	// Apply validated changes
 	g.name = name
 	g.description = description
 	g.color = color

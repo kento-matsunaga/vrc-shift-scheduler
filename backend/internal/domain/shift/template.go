@@ -51,19 +51,6 @@ func NewShiftSlotTemplate(
 		return nil, fmt.Errorf("invalid event_id: %w", err)
 	}
 
-	if templateName == "" {
-		return nil, fmt.Errorf("template_name is required")
-	}
-
-	if len(templateName) > 100 {
-		return nil, fmt.Errorf("template_name must be 100 characters or less")
-	}
-
-	// Note: items can be empty initially and added later via UpdateDetails
-	// if len(items) == 0 {
-	// 	return nil, fmt.Errorf("at least one template item is required")
-	// }
-
 	template := &ShiftSlotTemplate{
 		templateID:   common.NewShiftSlotTemplateID(),
 		tenantID:     tenantID,
@@ -73,6 +60,10 @@ func NewShiftSlotTemplate(
 		items:        items,
 		createdAt:    now,
 		updatedAt:    now,
+	}
+
+	if err := template.validate(); err != nil {
+		return nil, err
 	}
 
 	return template, nil
@@ -133,13 +124,7 @@ func ReconstructShiftSlotTemplate(
 	updatedAt time.Time,
 	deletedAt *time.Time,
 ) (*ShiftSlotTemplate, error) {
-	if templateName == "" {
-		return nil, fmt.Errorf("template_name is required")
-	}
-	if len(templateName) > 100 {
-		return nil, fmt.Errorf("template_name must be 100 characters or less")
-	}
-	return &ShiftSlotTemplate{
+	t := &ShiftSlotTemplate{
 		templateID:   templateID,
 		tenantID:     tenantID,
 		eventID:      eventID,
@@ -149,7 +134,13 @@ func ReconstructShiftSlotTemplate(
 		createdAt:    createdAt,
 		updatedAt:    updatedAt,
 		deletedAt:    deletedAt,
-	}, nil
+	}
+
+	if err := t.validate(); err != nil {
+		return nil, err
+	}
+
+	return t, nil
 }
 
 // ReconstructShiftSlotTemplateItem reconstructs a template item from persistence
@@ -184,24 +175,36 @@ func ReconstructShiftSlotTemplateItem(
 
 // UpdateDetails updates the template details
 func (t *ShiftSlotTemplate) UpdateDetails(now time.Time, templateName, description string, items []*ShiftSlotTemplateItem) error {
-	// Validate before mutating
-	if templateName == "" {
-		return fmt.Errorf("template_name is required")
-	}
-
-	if len(templateName) > 100 {
-		return fmt.Errorf("template_name must be 100 characters or less")
+	// Validate before mutating using a temporary copy
+	tmp := *t
+	tmp.templateName = templateName
+	tmp.description = description
+	tmp.items = items
+	tmp.updatedAt = now
+	if err := tmp.validate(); err != nil {
+		return err
 	}
 
 	if len(items) == 0 {
 		return fmt.Errorf("at least one template item is required")
 	}
 
+	// Apply validated changes
 	t.templateName = templateName
 	t.description = description
 	t.items = items
 	t.updatedAt = now
 
+	return nil
+}
+
+func (t *ShiftSlotTemplate) validate() error {
+	if t.templateName == "" {
+		return fmt.Errorf("template_name is required")
+	}
+	if len(t.templateName) > 100 {
+		return fmt.Errorf("template_name must be 100 characters or less")
+	}
 	return nil
 }
 
