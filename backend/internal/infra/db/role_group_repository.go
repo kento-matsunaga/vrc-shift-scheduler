@@ -176,7 +176,7 @@ func (r *roleGroupRepository) Delete(ctx context.Context, tenantID common.Tenant
 func (r *roleGroupRepository) AssignRole(ctx context.Context, groupID common.RoleGroupID, roleID common.RoleID) error {
 	query := `
 		INSERT INTO role_group_assignments (assignment_id, role_id, group_id, created_at)
-		SELECT $1, $2, $3, NOW()
+		SELECT $1::VARCHAR, $2::VARCHAR, $3::VARCHAR, NOW()
 		WHERE EXISTS (
 			SELECT 1 FROM roles ro
 			JOIN role_groups rg ON ro.tenant_id = rg.tenant_id
@@ -287,7 +287,7 @@ func (r *roleGroupRepository) SetGroupRoles(ctx context.Context, groupID common.
 	for _, roleID := range roleIDs {
 		_, err = tx.Exec(ctx, `
 			INSERT INTO role_group_assignments (assignment_id, role_id, group_id, created_at)
-			SELECT $1, $2, $3, NOW()
+			SELECT $1::VARCHAR, $2::VARCHAR, $3::VARCHAR, NOW()
 			WHERE EXISTS (
 				SELECT 1 FROM roles ro
 				JOIN role_groups rg ON ro.tenant_id = rg.tenant_id

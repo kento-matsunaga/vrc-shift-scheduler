@@ -138,7 +138,7 @@ func (r *MemberGroupRepository) Delete(ctx context.Context, tenantID common.Tena
 func (r *MemberGroupRepository) AssignMember(ctx context.Context, groupID common.MemberGroupID, memberID common.MemberID) error {
 	query := `
 		INSERT INTO member_group_assignments (assignment_id, member_id, group_id, created_at)
-		SELECT $1, $2, $3, $4
+		SELECT $1::VARCHAR, $2::VARCHAR, $3::VARCHAR, $4::TIMESTAMPTZ
 		WHERE EXISTS (
 			SELECT 1 FROM members m
 			JOIN member_groups mg ON m.tenant_id = mg.tenant_id

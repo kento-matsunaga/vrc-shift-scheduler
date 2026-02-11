@@ -18,7 +18,8 @@ import (
 func createTestRoleGroup(t *testing.T, pool *pgxpool.Pool, tenantID common.TenantID) *role.RoleGroup {
 	t.Helper()
 	now := time.Now()
-	group, err := role.NewRoleGroup(now, tenantID, "テストロールグループ", "説明", "", 0)
+	uniqueName := "テストロールグループ_" + common.NewULID()
+	group, err := role.NewRoleGroup(now, tenantID, uniqueName, "説明", "", 0)
 	if err != nil {
 		t.Fatalf("Failed to create test role group: %v", err)
 	}

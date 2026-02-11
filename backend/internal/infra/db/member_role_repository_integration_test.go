@@ -19,7 +19,8 @@ import (
 func createTestMember(t *testing.T, pool *pgxpool.Pool, tenantID common.TenantID) *member.Member {
 	t.Helper()
 	now := time.Now()
-	mem, err := member.NewMember(now, tenantID, "テストメンバー", "", "")
+	uniqueName := "テストメンバー_" + common.NewULID()
+	mem, err := member.NewMember(now, tenantID, uniqueName, "", "")
 	if err != nil {
 		t.Fatalf("Failed to create test member: %v", err)
 	}
@@ -33,7 +34,8 @@ func createTestMember(t *testing.T, pool *pgxpool.Pool, tenantID common.TenantID
 func createTestRole(t *testing.T, pool *pgxpool.Pool, tenantID common.TenantID) *role.Role {
 	t.Helper()
 	now := time.Now()
-	r, err := role.NewRole(now, tenantID, "テストロール", "", "", 0)
+	uniqueName := "テストロール_" + common.NewULID()
+	r, err := role.NewRole(now, tenantID, uniqueName, "", "", 0)
 	if err != nil {
 		t.Fatalf("Failed to create test role: %v", err)
 	}

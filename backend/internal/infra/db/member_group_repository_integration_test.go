@@ -18,7 +18,8 @@ import (
 func createTestMemberGroup(t *testing.T, pool *pgxpool.Pool, tenantID common.TenantID) *member.MemberGroup {
 	t.Helper()
 	now := time.Now()
-	group, err := member.NewMemberGroup(now, tenantID, "テストグループ", "説明", "", 0)
+	uniqueName := "テストグループ_" + common.NewULID()
+	group, err := member.NewMemberGroup(now, tenantID, uniqueName, "説明", "", 0)
 	if err != nil {
 		t.Fatalf("Failed to create test member group: %v", err)
 	}
