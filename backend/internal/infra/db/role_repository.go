@@ -157,7 +157,8 @@ func (r *RoleRepository) Delete(ctx context.Context, tenantID common.TenantID, r
 	}
 
 	// ソフトデリート実行
-	roleEntity.Delete()
+	now := time.Now()
+	roleEntity.Delete(now)
 
 	// 保存
 	return r.Save(ctx, roleEntity)

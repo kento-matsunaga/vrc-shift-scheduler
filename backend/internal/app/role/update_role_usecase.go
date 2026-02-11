@@ -2,6 +2,7 @@ package role
 
 import (
 	"context"
+	"time"
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/role"
@@ -33,7 +34,8 @@ func (u *UpdateRoleUsecase) Execute(ctx context.Context, input UpdateRoleInput) 
 	}
 
 	// Update role details
-	if err := roleEntity.UpdateDetails(input.Name, input.Description, input.Color, input.DisplayOrder); err != nil {
+	now := time.Now()
+	if err := roleEntity.UpdateDetails(now, input.Name, input.Description, input.Color, input.DisplayOrder); err != nil {
 		return nil, err
 	}
 

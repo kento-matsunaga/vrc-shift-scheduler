@@ -176,6 +176,21 @@ func (c *AttendanceCollection) Update(
 		return ErrDeadlineInPast
 	}
 
+	// Validate before mutating using a temporary copy
+	tmp := *c
+	if title != "" {
+		tmp.title = title
+	}
+	tmp.description = description
+	if deadline != nil {
+		tmp.deadline = deadline
+	}
+	tmp.updatedAt = now
+	if err := tmp.validate(); err != nil {
+		return err
+	}
+
+	// Apply validated changes
 	if title != "" {
 		c.title = title
 	}
@@ -184,11 +199,6 @@ func (c *AttendanceCollection) Update(
 		c.deadline = deadline
 	}
 	c.updatedAt = now
-
-	if err := c.validate(); err != nil {
-		return err
-	}
-
 	return nil
 }
 

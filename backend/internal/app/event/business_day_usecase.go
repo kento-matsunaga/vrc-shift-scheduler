@@ -6,6 +6,7 @@ import (
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/event"
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/services"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/shift"
 )
 
@@ -27,6 +28,7 @@ type CreateBusinessDayUsecase struct {
 	templateRepo    shift.ShiftSlotTemplateRepository
 	slotRepo        shift.ShiftSlotRepository
 	instanceRepo    shift.InstanceRepository
+	txManager       services.TxManager
 }
 
 // NewCreateBusinessDayUsecase creates a new CreateBusinessDayUsecase
@@ -36,6 +38,7 @@ func NewCreateBusinessDayUsecase(
 	templateRepo shift.ShiftSlotTemplateRepository,
 	slotRepo shift.ShiftSlotRepository,
 	instanceRepo shift.InstanceRepository,
+	txManager services.TxManager,
 ) *CreateBusinessDayUsecase {
 	return &CreateBusinessDayUsecase{
 		businessDayRepo: businessDayRepo,
@@ -43,6 +46,7 @@ func NewCreateBusinessDayUsecase(
 		templateRepo:    templateRepo,
 		slotRepo:        slotRepo,
 		instanceRepo:    instanceRepo,
+		txManager:       txManager,
 	}
 }
 
@@ -78,19 +82,25 @@ func (uc *CreateBusinessDayUsecase) Execute(ctx context.Context, input CreateBus
 		return nil, err
 	}
 
-	// 保存
-	if err := uc.businessDayRepo.Save(ctx, newBusinessDay); err != nil {
-		return nil, err
-	}
-
-	// テンプレートが指定されている場合、テンプレートからシフト枠を作成
+	// テンプレートが指定されている場合、営業日の保存とシフト枠作成をトランザクションで実行
 	if input.TemplateID != nil {
 		template, err := uc.templateRepo.FindByID(ctx, input.TenantID, *input.TemplateID)
 		if err != nil {
 			return nil, err
 		}
 
-		if err := uc.createShiftSlotsFromTemplate(ctx, newBusinessDay, template); err != nil {
+		err = uc.txManager.WithTx(ctx, func(txCtx context.Context) error {
+			if err := uc.businessDayRepo.Save(txCtx, newBusinessDay); err != nil {
+				return err
+			}
+			return uc.createShiftSlotsFromTemplate(txCtx, newBusinessDay, template)
+		})
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		// テンプレートなしの場合は単一保存
+		if err := uc.businessDayRepo.Save(ctx, newBusinessDay); err != nil {
 			return nil, err
 		}
 	}
@@ -292,7 +302,8 @@ func (u *DeleteBusinessDayUsecase) Execute(ctx context.Context, input DeleteBusi
 	if bd == nil {
 		return common.NewNotFoundError("BusinessDay", string(input.BusinessDayID))
 	}
-	bd.Delete()
+	now := time.Now()
+	bd.Delete(now)
 	return u.businessDayRepo.Save(ctx, bd)
 }
 
@@ -309,6 +320,7 @@ type ApplyTemplateUsecase struct {
 	templateRepo    shift.ShiftSlotTemplateRepository
 	slotRepo        shift.ShiftSlotRepository
 	instanceRepo    shift.InstanceRepository
+	txManager       services.TxManager
 }
 
 // NewApplyTemplateUsecase creates a new ApplyTemplateUsecase
@@ -317,12 +329,14 @@ func NewApplyTemplateUsecase(
 	templateRepo shift.ShiftSlotTemplateRepository,
 	slotRepo shift.ShiftSlotRepository,
 	instanceRepo shift.InstanceRepository,
+	txManager services.TxManager,
 ) *ApplyTemplateUsecase {
 	return &ApplyTemplateUsecase{
 		businessDayRepo: businessDayRepo,
 		templateRepo:    templateRepo,
 		slotRepo:        slotRepo,
 		instanceRepo:    instanceRepo,
+		txManager:       txManager,
 	}
 }
 
@@ -340,8 +354,10 @@ func (uc *ApplyTemplateUsecase) Execute(ctx context.Context, input ApplyTemplate
 		return 0, err
 	}
 
-	// テンプレートからシフト枠を作成
-	if err := uc.createShiftSlotsFromTemplate(ctx, businessDay, template); err != nil {
+	// テンプレートからシフト枠を作成（トランザクションで実行）
+	if err := uc.txManager.WithTx(ctx, func(txCtx context.Context) error {
+		return uc.createShiftSlotsFromTemplate(txCtx, businessDay, template)
+	}); err != nil {
 		return 0, err
 	}
 

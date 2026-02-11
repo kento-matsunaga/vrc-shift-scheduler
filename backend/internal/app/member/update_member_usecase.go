@@ -2,6 +2,7 @@ package member
 
 import (
 	"context"
+	"time"
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/member"
@@ -58,7 +59,8 @@ func (u *UpdateMemberUsecase) Execute(ctx context.Context, input UpdateMemberInp
 	}
 
 	// Update member details
-	if err := m.UpdateDetails(input.DisplayName, input.DiscordUserID, input.Email, input.IsActive); err != nil {
+	now := time.Now()
+	if err := m.UpdateDetails(now, input.DisplayName, input.DiscordUserID, input.Email, input.IsActive); err != nil {
 		return nil, err
 	}
 

@@ -13,6 +13,23 @@ import (
 )
 
 // =====================================================
+// MockTxManager
+// =====================================================
+
+// MockTxManager is a mock implementation of TxManager for testing
+type MockTxManager struct {
+	withTxFunc func(ctx context.Context, fn func(context.Context) error) error
+}
+
+func (m *MockTxManager) WithTx(ctx context.Context, fn func(context.Context) error) error {
+	if m.withTxFunc != nil {
+		return m.withTxFunc(ctx, fn)
+	}
+	// Default implementation: just call the function without actual transaction
+	return fn(ctx)
+}
+
+// =====================================================
 // Additional Mock Repositories for BusinessDay Usecases
 // =====================================================
 
@@ -196,7 +213,7 @@ func TestCreateBusinessDayUsecase_Execute_Success(t *testing.T) {
 	slotRepo := &MockShiftSlotRepository{}
 
 	instanceRepo := &MockInstanceRepository{}
-	usecase := appevent.NewCreateBusinessDayUsecase(bdRepo, eventRepo, templateRepo, slotRepo, instanceRepo)
+	usecase := appevent.NewCreateBusinessDayUsecase(bdRepo, eventRepo, templateRepo, slotRepo, instanceRepo, &MockTxManager{})
 
 	targetDate := now.AddDate(0, 0, 7)
 	startTime := time.Date(targetDate.Year(), targetDate.Month(), targetDate.Day(), 20, 0, 0, 0, time.Local)
@@ -247,7 +264,7 @@ func TestCreateBusinessDayUsecase_Execute_ErrorWhenEventNotFound(t *testing.T) {
 	slotRepo := &MockShiftSlotRepository{}
 
 	instanceRepo := &MockInstanceRepository{}
-	usecase := appevent.NewCreateBusinessDayUsecase(bdRepo, eventRepo, templateRepo, slotRepo, instanceRepo)
+	usecase := appevent.NewCreateBusinessDayUsecase(bdRepo, eventRepo, templateRepo, slotRepo, instanceRepo, &MockTxManager{})
 
 	targetDate := now.AddDate(0, 0, 7)
 	startTime := time.Date(targetDate.Year(), targetDate.Month(), targetDate.Day(), 20, 0, 0, 0, time.Local)
@@ -293,7 +310,7 @@ func TestCreateBusinessDayUsecase_Execute_ErrorWhenDuplicate(t *testing.T) {
 	slotRepo := &MockShiftSlotRepository{}
 
 	instanceRepo := &MockInstanceRepository{}
-	usecase := appevent.NewCreateBusinessDayUsecase(bdRepo, eventRepo, templateRepo, slotRepo, instanceRepo)
+	usecase := appevent.NewCreateBusinessDayUsecase(bdRepo, eventRepo, templateRepo, slotRepo, instanceRepo, &MockTxManager{})
 
 	targetDate := now.AddDate(0, 0, 7)
 	startTime := time.Date(targetDate.Year(), targetDate.Month(), targetDate.Day(), 20, 0, 0, 0, time.Local)
@@ -342,7 +359,7 @@ func TestCreateBusinessDayUsecase_Execute_ErrorWhenSaveFails(t *testing.T) {
 	slotRepo := &MockShiftSlotRepository{}
 
 	instanceRepo := &MockInstanceRepository{}
-	usecase := appevent.NewCreateBusinessDayUsecase(bdRepo, eventRepo, templateRepo, slotRepo, instanceRepo)
+	usecase := appevent.NewCreateBusinessDayUsecase(bdRepo, eventRepo, templateRepo, slotRepo, instanceRepo, &MockTxManager{})
 
 	targetDate := now.AddDate(0, 0, 7)
 	startTime := time.Date(targetDate.Year(), targetDate.Month(), targetDate.Day(), 20, 0, 0, 0, time.Local)
@@ -584,6 +601,7 @@ func TestApplyTemplateUsecase_Execute_Success(t *testing.T) {
 		findByIDFunc: func(ctx context.Context, tid common.TenantID, tmplID common.ShiftSlotTemplateID) (*shift.ShiftSlotTemplate, error) {
 			// Return a template with no items (empty template for simpler testing)
 			tmpl, _ := shift.NewShiftSlotTemplate(
+				time.Now(),
 				tenantID,
 				eventID,
 				"Test Template",
@@ -601,7 +619,7 @@ func TestApplyTemplateUsecase_Execute_Success(t *testing.T) {
 	}
 
 	instanceRepo := &MockInstanceRepository{}
-	usecase := appevent.NewApplyTemplateUsecase(bdRepoWithFindByID, templateRepo, slotRepo, instanceRepo)
+	usecase := appevent.NewApplyTemplateUsecase(bdRepoWithFindByID, templateRepo, slotRepo, instanceRepo, &MockTxManager{})
 
 	input := appevent.ApplyTemplateInput{
 		TenantID:      tenantID,
@@ -637,7 +655,7 @@ func TestApplyTemplateUsecase_Execute_ErrorWhenBusinessDayNotFound(t *testing.T)
 	slotRepo := &MockShiftSlotRepository{}
 
 	instanceRepo := &MockInstanceRepository{}
-	usecase := appevent.NewApplyTemplateUsecase(bdRepoWithFindByID, templateRepo, slotRepo, instanceRepo)
+	usecase := appevent.NewApplyTemplateUsecase(bdRepoWithFindByID, templateRepo, slotRepo, instanceRepo, &MockTxManager{})
 
 	input := appevent.ApplyTemplateInput{
 		TenantID:      tenantID,
@@ -675,7 +693,7 @@ func TestApplyTemplateUsecase_Execute_ErrorWhenTemplateNotFound(t *testing.T) {
 	slotRepo := &MockShiftSlotRepository{}
 
 	instanceRepo := &MockInstanceRepository{}
-	usecase := appevent.NewApplyTemplateUsecase(bdRepoWithFindByID, templateRepo, slotRepo, instanceRepo)
+	usecase := appevent.NewApplyTemplateUsecase(bdRepoWithFindByID, templateRepo, slotRepo, instanceRepo, &MockTxManager{})
 
 	input := appevent.ApplyTemplateInput{
 		TenantID:      tenantID,
@@ -704,4 +722,182 @@ func (m *mockBusinessDayRepoWithFindByID) FindByID(ctx context.Context, tenantID
 		return m.findByIDFunc(ctx, tenantID, businessDayID)
 	}
 	return nil, errors.New("not implemented")
+}
+
+// =====================================================
+// TxManager Rollback Tests
+// =====================================================
+
+func TestCreateBusinessDayUsecase_TemplateSlotCreationFails_Rollback(t *testing.T) {
+	tenantID := common.NewTenantID()
+	eventID := common.NewEventID()
+	now := time.Now()
+
+	testEvent, _ := event.NewEvent(now, tenantID, "Test Event", event.EventTypeNormal, "Desc", event.RecurrenceTypeNone, nil, nil, nil, nil)
+	templateID := common.NewShiftSlotTemplateID()
+
+	eventRepo := &MockEventRepository{
+		findByIDFunc: func(ctx context.Context, tid common.TenantID, eid common.EventID) (*event.Event, error) {
+			return testEvent, nil
+		},
+	}
+
+	bdRepo := &MockBusinessDayRepository{
+		existsByEventIDAndDate: func(ctx context.Context, tid common.TenantID, eid common.EventID, date time.Time, startTime time.Time) (bool, error) {
+			return false, nil
+		},
+		saveFunc: func(ctx context.Context, bd *event.EventBusinessDay) error {
+			return nil
+		},
+	}
+
+	// Template with one item so createShiftSlotsFromTemplate is exercised
+	startTime := time.Date(2025, 1, 1, 20, 0, 0, 0, time.Local)
+	endTime := time.Date(2025, 1, 1, 22, 0, 0, 0, time.Local)
+
+	item, _ := shift.NewShiftSlotTemplateItem(
+		now,
+		templateID,
+		"テストシフト",
+		"",
+		startTime,
+		endTime,
+		1,
+		1,
+	)
+
+	templateRepo := &MockShiftSlotTemplateRepository{
+		findByIDFunc: func(ctx context.Context, tid common.TenantID, tmplID common.ShiftSlotTemplateID) (*shift.ShiftSlotTemplate, error) {
+			tmpl, _ := shift.NewShiftSlotTemplate(
+				now, tenantID, eventID, "Test Template", "Description",
+				[]*shift.ShiftSlotTemplateItem{item},
+			)
+			return tmpl, nil
+		},
+	}
+
+	// ShiftSlot save fails — this should cause the transaction to roll back
+	slotSaveError := errors.New("slot save failed")
+	slotRepo := &MockShiftSlotRepository{
+		saveFunc: func(ctx context.Context, slot *shift.ShiftSlot) error {
+			return slotSaveError
+		},
+	}
+
+	// Track whether WithTx was called
+	txCalled := false
+	txManager := &MockTxManager{
+		withTxFunc: func(ctx context.Context, fn func(context.Context) error) error {
+			txCalled = true
+			return fn(ctx)
+		},
+	}
+
+	instanceRepo := &MockInstanceRepository{}
+	usecase := appevent.NewCreateBusinessDayUsecase(bdRepo, eventRepo, templateRepo, slotRepo, instanceRepo, txManager)
+
+	targetDate := now.AddDate(0, 0, 7)
+	inputStartTime := time.Date(targetDate.Year(), targetDate.Month(), targetDate.Day(), 20, 0, 0, 0, time.Local)
+	inputEndTime := time.Date(targetDate.Year(), targetDate.Month(), targetDate.Day(), 22, 0, 0, 0, time.Local)
+
+	input := appevent.CreateBusinessDayInput{
+		TenantID:       tenantID,
+		EventID:        eventID,
+		TargetDate:     targetDate,
+		StartTime:      inputStartTime,
+		EndTime:        inputEndTime,
+		OccurrenceType: event.OccurrenceTypeSpecial,
+		TemplateID:     &templateID,
+	}
+
+	_, err := usecase.Execute(context.Background(), input)
+
+	if err == nil {
+		t.Fatal("Execute() should fail when slot save fails inside transaction")
+	}
+	if !txCalled {
+		t.Error("WithTx should have been called for template-based creation")
+	}
+	if !errors.Is(err, slotSaveError) {
+		t.Errorf("Expected slot save error, got: %v", err)
+	}
+}
+
+func TestApplyTemplateUsecase_SlotCreationFails_Rollback(t *testing.T) {
+	tenantID := common.NewTenantID()
+	eventID := common.NewEventID()
+	now := time.Now()
+
+	testBusinessDay := createTestBusinessDay(t, tenantID, eventID)
+	templateID := common.NewShiftSlotTemplateID()
+
+	bdRepoWithFindByID := &mockBusinessDayRepoWithFindByID{
+		MockBusinessDayRepository: &MockBusinessDayRepository{},
+		findByIDFunc: func(ctx context.Context, tid common.TenantID, bdID event.BusinessDayID) (*event.EventBusinessDay, error) {
+			return testBusinessDay, nil
+		},
+	}
+
+	// Template with one item
+	startTime := time.Date(2025, 1, 1, 20, 0, 0, 0, time.Local)
+	endTime := time.Date(2025, 1, 1, 22, 0, 0, 0, time.Local)
+
+	item, _ := shift.NewShiftSlotTemplateItem(
+		now,
+		templateID,
+		"テストシフト",
+		"",
+		startTime,
+		endTime,
+		1,
+		1,
+	)
+
+	templateRepo := &MockShiftSlotTemplateRepository{
+		findByIDFunc: func(ctx context.Context, tid common.TenantID, tmplID common.ShiftSlotTemplateID) (*shift.ShiftSlotTemplate, error) {
+			tmpl, _ := shift.NewShiftSlotTemplate(
+				now, tenantID, eventID, "Test Template", "Description",
+				[]*shift.ShiftSlotTemplateItem{item},
+			)
+			return tmpl, nil
+		},
+	}
+
+	// ShiftSlot save fails — this should cause the transaction to roll back
+	slotSaveError := errors.New("slot save failed")
+	slotRepo := &MockShiftSlotRepository{
+		saveFunc: func(ctx context.Context, slot *shift.ShiftSlot) error {
+			return slotSaveError
+		},
+	}
+
+	// Track whether WithTx was called
+	txCalled := false
+	txManager := &MockTxManager{
+		withTxFunc: func(ctx context.Context, fn func(context.Context) error) error {
+			txCalled = true
+			return fn(ctx)
+		},
+	}
+
+	instanceRepo := &MockInstanceRepository{}
+	usecase := appevent.NewApplyTemplateUsecase(bdRepoWithFindByID, templateRepo, slotRepo, instanceRepo, txManager)
+
+	input := appevent.ApplyTemplateInput{
+		TenantID:      tenantID,
+		BusinessDayID: testBusinessDay.BusinessDayID(),
+		TemplateID:    templateID,
+	}
+
+	_, err := usecase.Execute(context.Background(), input)
+
+	if err == nil {
+		t.Fatal("Execute() should fail when slot save fails inside transaction")
+	}
+	if !txCalled {
+		t.Error("WithTx should have been called for template application")
+	}
+	if !errors.Is(err, slotSaveError) {
+		t.Errorf("Expected slot save error, got: %v", err)
+	}
 }

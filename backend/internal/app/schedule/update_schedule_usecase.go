@@ -63,19 +63,10 @@ func (u *UpdateScheduleUsecase) Execute(ctx context.Context, input UpdateSchedul
 		for i, c := range input.Candidates {
 			key := candidateKey(c.Date, c.StartTime, c.EndTime)
 			if existing, ok := existingCandidates[key]; ok {
-				updatedCandidate, err := schedule.ReconstructCandidateDate(
-					existing.CandidateID(),
-					scheduleID,
-					c.Date,
-					c.StartTime,
-					c.EndTime,
-					i,
-					existing.CreatedAt(),
-				)
-				if err != nil {
-					return nil, fmt.Errorf("候補日の再構築に失敗: %w", err)
+				if err := existing.UpdateFields(c.Date, c.StartTime, c.EndTime, i); err != nil {
+					return nil, fmt.Errorf("候補日の更新に失敗: %w", err)
 				}
-				candidates = append(candidates, updatedCandidate)
+				candidates = append(candidates, existing)
 				continue
 			}
 

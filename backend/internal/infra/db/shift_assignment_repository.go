@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/event"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/shift"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -257,7 +258,7 @@ func (r *ShiftAssignmentRepository) ExistsBySlotIDAndMemberID(ctx context.Contex
 }
 
 // HasConfirmedByMemberAndBusinessDayID checks if a confirmed assignment exists for the given member and business day
-func (r *ShiftAssignmentRepository) HasConfirmedByMemberAndBusinessDayID(ctx context.Context, tenantID common.TenantID, memberID common.MemberID, businessDayID string) (bool, error) {
+func (r *ShiftAssignmentRepository) HasConfirmedByMemberAndBusinessDayID(ctx context.Context, tenantID common.TenantID, memberID common.MemberID, businessDayID event.BusinessDayID) (bool, error) {
 	query := `
 		SELECT EXISTS(
 			SELECT 1 FROM shift_assignments sa
@@ -271,7 +272,7 @@ func (r *ShiftAssignmentRepository) HasConfirmedByMemberAndBusinessDayID(ctx con
 	`
 
 	var exists bool
-	err := r.db.QueryRow(ctx, query, tenantID.String(), memberID.String(), businessDayID).Scan(&exists)
+	err := r.db.QueryRow(ctx, query, tenantID.String(), memberID.String(), string(businessDayID)).Scan(&exists)
 	if err != nil {
 		return false, fmt.Errorf("failed to check member attendance: %w", err)
 	}
@@ -280,7 +281,7 @@ func (r *ShiftAssignmentRepository) HasConfirmedByMemberAndBusinessDayID(ctx con
 }
 
 // FindByBusinessDayID finds all shift assignments for a business day
-func (r *ShiftAssignmentRepository) FindByBusinessDayID(ctx context.Context, tenantID common.TenantID, businessDayID string) ([]*shift.ShiftAssignment, error) {
+func (r *ShiftAssignmentRepository) FindByBusinessDayID(ctx context.Context, tenantID common.TenantID, businessDayID event.BusinessDayID) ([]*shift.ShiftAssignment, error) {
 	query := `
 		SELECT
 			sa.assignment_id, sa.tenant_id, sa.plan_id, sa.slot_id, sa.member_id,
@@ -292,7 +293,7 @@ func (r *ShiftAssignmentRepository) FindByBusinessDayID(ctx context.Context, ten
 		ORDER BY ss.start_time ASC, sa.assigned_at ASC
 	`
 
-	return r.queryShiftAssignments(ctx, query, tenantID.String(), businessDayID)
+	return r.queryShiftAssignments(ctx, query, tenantID.String(), string(businessDayID))
 }
 
 // queryShiftAssignments executes a query and returns a list of shift assignments

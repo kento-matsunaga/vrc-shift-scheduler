@@ -21,19 +21,8 @@ type RoleGroup struct {
 }
 
 // NewRoleGroup creates a new RoleGroup
-func NewRoleGroup(tenantID common.TenantID, name, description, color string, displayOrder int) (*RoleGroup, error) {
-	if name == "" {
-		return nil, common.NewValidationError("name is required", nil)
-	}
-	if len(name) > 100 {
-		return nil, common.NewValidationError("name must be 100 characters or less", nil)
-	}
-	if len(color) > 7 {
-		return nil, common.NewValidationError("color must be 7 characters or less", nil)
-	}
-
-	now := time.Now()
-	return &RoleGroup{
+func NewRoleGroup(now time.Time, tenantID common.TenantID, name, description, color string, displayOrder int) (*RoleGroup, error) {
+	g := &RoleGroup{
 		groupID:      common.NewRoleGroupID(),
 		tenantID:     tenantID,
 		name:         name,
@@ -42,7 +31,13 @@ func NewRoleGroup(tenantID common.TenantID, name, description, color string, dis
 		displayOrder: displayOrder,
 		createdAt:    now,
 		updatedAt:    now,
-	}, nil
+	}
+
+	if err := g.validate(); err != nil {
+		return nil, err
+	}
+
+	return g, nil
 }
 
 // ReconstructRoleGroup reconstructs a RoleGroup from persistence
@@ -54,8 +49,8 @@ func ReconstructRoleGroup(
 	createdAt, updatedAt time.Time,
 	deletedAt *time.Time,
 	roleIDs []common.RoleID,
-) *RoleGroup {
-	return &RoleGroup{
+) (*RoleGroup, error) {
+	g := &RoleGroup{
 		groupID:      groupID,
 		tenantID:     tenantID,
 		name:         name,
@@ -67,6 +62,25 @@ func ReconstructRoleGroup(
 		deletedAt:    deletedAt,
 		roleIDs:      roleIDs,
 	}
+
+	if err := g.validate(); err != nil {
+		return nil, err
+	}
+
+	return g, nil
+}
+
+func (g *RoleGroup) validate() error {
+	if g.name == "" {
+		return common.NewValidationError("name is required", nil)
+	}
+	if len(g.name) > 100 {
+		return common.NewValidationError("name must be 100 characters or less", nil)
+	}
+	if len(g.color) > 7 {
+		return common.NewValidationError("color must be 7 characters or less", nil)
+	}
+	return nil
 }
 
 // Getters
@@ -82,33 +96,29 @@ func (g *RoleGroup) DeletedAt() *time.Time       { return g.deletedAt }
 func (g *RoleGroup) RoleIDs() []common.RoleID    { return g.roleIDs }
 
 // UpdateDetails updates the group's details
-func (g *RoleGroup) UpdateDetails(name, description, color string, displayOrder int) error {
-	if name == "" {
-		return common.NewValidationError("name is required", nil)
-	}
-	if len(name) > 100 {
-		return common.NewValidationError("name must be 100 characters or less", nil)
-	}
-	if len(color) > 7 {
-		return common.NewValidationError("color must be 7 characters or less", nil)
+func (g *RoleGroup) UpdateDetails(now time.Time, name, description, color string, displayOrder int) error {
+	// Validate before mutating using a temporary copy
+	tmp := *g
+	tmp.name = name
+	tmp.description = description
+	tmp.color = color
+	tmp.displayOrder = displayOrder
+	tmp.updatedAt = now
+	if err := tmp.validate(); err != nil {
+		return err
 	}
 
+	// Apply validated changes
 	g.name = name
 	g.description = description
 	g.color = color
 	g.displayOrder = displayOrder
-	g.updatedAt = time.Now()
+	g.updatedAt = now
 	return nil
 }
 
 // Delete marks the group as deleted
-func (g *RoleGroup) Delete() {
-	now := time.Now()
+func (g *RoleGroup) Delete(now time.Time) {
 	g.deletedAt = &now
 	g.updatedAt = now
-}
-
-// SetRoleIDs sets the associated role IDs
-func (g *RoleGroup) SetRoleIDs(roleIDs []common.RoleID) {
-	g.roleIDs = roleIDs
 }

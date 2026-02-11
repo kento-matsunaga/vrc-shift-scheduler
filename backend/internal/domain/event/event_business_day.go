@@ -266,19 +266,19 @@ func (b *EventBusinessDay) IsDeleted() bool {
 }
 
 // Activate activates the business day
-func (b *EventBusinessDay) Activate() {
+func (b *EventBusinessDay) Activate(now time.Time) {
 	b.isActive = true
-	b.updatedAt = time.Now()
+	b.updatedAt = now
 }
 
 // Deactivate deactivates the business day
-func (b *EventBusinessDay) Deactivate() {
+func (b *EventBusinessDay) Deactivate(now time.Time) {
 	b.isActive = false
-	b.updatedAt = time.Now()
+	b.updatedAt = now
 }
 
 // SetValidPeriod sets the valid period for the business day
-func (b *EventBusinessDay) SetValidPeriod(validFrom, validTo *time.Time) error {
+func (b *EventBusinessDay) SetValidPeriod(now time.Time, validFrom, validTo *time.Time) error {
 	if validFrom != nil && validTo != nil {
 		if validFrom.After(*validTo) {
 			return common.NewValidationError("valid_from must be before valid_to", nil)
@@ -289,13 +289,12 @@ func (b *EventBusinessDay) SetValidPeriod(validFrom, validTo *time.Time) error {
 
 	b.validFrom = validFrom
 	b.validTo = validTo
-	b.updatedAt = time.Now()
+	b.updatedAt = now
 	return nil
 }
 
 // Delete marks the business day as deleted (soft delete)
-func (b *EventBusinessDay) Delete() {
-	now := time.Now()
+func (b *EventBusinessDay) Delete(now time.Time) {
 	b.deletedAt = &now
 	b.updatedAt = now
 }

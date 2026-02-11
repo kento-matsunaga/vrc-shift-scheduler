@@ -468,12 +468,12 @@ func TestEventBusinessDay_Activate(t *testing.T) {
 
 	bd, _ := event.NewEventBusinessDay(now, tenantID, eventID, targetDate, startTime, endTime, event.OccurrenceTypeSpecial, nil)
 
-	bd.Deactivate()
+	bd.Deactivate(time.Now())
 	if bd.IsActive() {
 		t.Error("Deactivate() should set isActive to false")
 	}
 
-	bd.Activate()
+	bd.Activate(time.Now())
 	if !bd.IsActive() {
 		t.Error("Activate() should set isActive to true")
 	}
@@ -493,7 +493,7 @@ func TestEventBusinessDay_Delete(t *testing.T) {
 		t.Error("New business day should not be deleted")
 	}
 
-	bd.Delete()
+	bd.Delete(time.Now())
 
 	if !bd.IsDeleted() {
 		t.Error("Delete() should mark business day as deleted")
@@ -517,7 +517,7 @@ func TestEventBusinessDay_SetValidPeriod_Success(t *testing.T) {
 	validFrom := now
 	validTo := now.AddDate(0, 1, 0)
 
-	err := bd.SetValidPeriod(&validFrom, &validTo)
+	err := bd.SetValidPeriod(time.Now(),&validFrom, &validTo)
 
 	if err != nil {
 		t.Fatalf("SetValidPeriod() should succeed: %v", err)
@@ -538,7 +538,7 @@ func TestEventBusinessDay_SetValidPeriod_ClearPeriod(t *testing.T) {
 
 	bd, _ := event.NewEventBusinessDay(now, tenantID, eventID, targetDate, startTime, endTime, event.OccurrenceTypeSpecial, nil)
 
-	err := bd.SetValidPeriod(nil, nil)
+	err := bd.SetValidPeriod(time.Now(),nil, nil)
 
 	if err != nil {
 		t.Fatalf("SetValidPeriod(nil, nil) should succeed: %v", err)
@@ -559,7 +559,7 @@ func TestEventBusinessDay_SetValidPeriod_Error(t *testing.T) {
 	validFrom := now.AddDate(0, 1, 0)
 	validTo := now
 
-	err := bd.SetValidPeriod(&validFrom, &validTo)
+	err := bd.SetValidPeriod(time.Now(),&validFrom, &validTo)
 
 	if err == nil {
 		t.Error("SetValidPeriod() should fail when validFrom is after validTo")
@@ -582,7 +582,7 @@ func TestEventBusinessDay_IsValidOn(t *testing.T) {
 	}
 
 	// Deactivated should not be valid
-	bd.Deactivate()
+	bd.Deactivate(time.Now())
 	if bd.IsValidOn(now) {
 		t.Error("Deactivated business day should not be valid")
 	}
@@ -600,7 +600,7 @@ func TestEventBusinessDay_IsValidOn_WithPeriod(t *testing.T) {
 
 	validFrom := now
 	validTo := now.AddDate(0, 0, 14)
-	_ = bd.SetValidPeriod(&validFrom, &validTo)
+	_ = bd.SetValidPeriod(time.Now(),&validFrom, &validTo)
 
 	// Within valid period
 	if !bd.IsValidOn(now.AddDate(0, 0, 7)) {

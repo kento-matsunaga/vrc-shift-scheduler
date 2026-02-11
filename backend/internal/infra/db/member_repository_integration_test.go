@@ -145,7 +145,7 @@ func TestMemberRepository_FindActiveByTenantID(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create inactive member: %v", err)
 	}
-	inactiveMember.Deactivate()
+	inactiveMember.Deactivate(time.Now())
 	err = repo.Save(ctx, inactiveMember)
 	if err != nil {
 		t.Fatalf("Failed to save inactive member: %v", err)
@@ -386,7 +386,7 @@ func TestMemberRepository_Update(t *testing.T) {
 	}
 
 	// 更新
-	err = mem.UpdateDisplayName("新しい名前")
+	err = mem.UpdateDisplayName(time.Now(), "新しい名前")
 	if err != nil {
 		t.Fatalf("Failed to update display name: %v", err)
 	}
@@ -488,7 +488,7 @@ func TestMemberRepository_SoftDelete(t *testing.T) {
 	}
 
 	// 論理削除
-	mem.Delete()
+	mem.Delete(time.Now())
 	err = repo.Save(ctx, mem)
 	if err != nil {
 		t.Fatalf("Failed to soft delete member: %v", err)

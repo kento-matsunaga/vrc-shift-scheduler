@@ -88,7 +88,7 @@ func TestInstance_UpdateName(t *testing.T) {
 
 	instance, _ := NewInstance(now, tenantID, eventID, "第一インスタンス", 0, nil)
 
-	err := instance.UpdateName("新しい名前")
+	err := instance.UpdateName(time.Now(),"新しい名前")
 	if err != nil {
 		t.Fatalf("UpdateName() should succeed, got error: %v", err)
 	}
@@ -105,7 +105,7 @@ func TestInstance_UpdateName_Empty(t *testing.T) {
 
 	instance, _ := NewInstance(now, tenantID, eventID, "第一インスタンス", 0, nil)
 
-	err := instance.UpdateName("")
+	err := instance.UpdateName(time.Now(),"")
 	if err == nil {
 		t.Fatal("UpdateName() should fail when name is empty")
 	}
@@ -118,7 +118,7 @@ func TestInstance_UpdateDisplayOrder(t *testing.T) {
 
 	instance, _ := NewInstance(now, tenantID, eventID, "第一インスタンス", 0, nil)
 
-	instance.UpdateDisplayOrder(5)
+	instance.UpdateDisplayOrder(time.Now(),5)
 
 	if instance.DisplayOrder() != 5 {
 		t.Errorf("DisplayOrder mismatch: got %v, want %v", instance.DisplayOrder(), 5)
@@ -133,7 +133,7 @@ func TestInstance_UpdateMaxMembers(t *testing.T) {
 	instance, _ := NewInstance(now, tenantID, eventID, "第一インスタンス", 0, nil)
 
 	newMaxMembers := 20
-	err := instance.UpdateMaxMembers(&newMaxMembers)
+	err := instance.UpdateMaxMembers(time.Now(),&newMaxMembers)
 	if err != nil {
 		t.Fatalf("UpdateMaxMembers() should succeed, got error: %v", err)
 	}
@@ -151,7 +151,7 @@ func TestInstance_UpdateMaxMembers_Invalid(t *testing.T) {
 	instance, _ := NewInstance(now, tenantID, eventID, "第一インスタンス", 0, nil)
 
 	invalidMaxMembers := 0
-	err := instance.UpdateMaxMembers(&invalidMaxMembers)
+	err := instance.UpdateMaxMembers(time.Now(),&invalidMaxMembers)
 	if err == nil {
 		t.Fatal("UpdateMaxMembers() should fail when maxMembers is 0")
 	}
@@ -164,7 +164,7 @@ func TestInstance_Delete(t *testing.T) {
 
 	instance, _ := NewInstance(now, tenantID, eventID, "第一インスタンス", 0, nil)
 
-	instance.Delete()
+	instance.Delete(time.Now())
 
 	if !instance.IsDeleted() {
 		t.Error("Instance should be deleted")

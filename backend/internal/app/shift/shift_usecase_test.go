@@ -131,11 +131,11 @@ func (m *MockShiftAssignmentRepository) ExistsBySlotIDAndMemberID(ctx context.Co
 	return false, nil
 }
 
-func (m *MockShiftAssignmentRepository) HasConfirmedByMemberAndBusinessDayID(ctx context.Context, tenantID common.TenantID, memberID common.MemberID, businessDayID string) (bool, error) {
+func (m *MockShiftAssignmentRepository) HasConfirmedByMemberAndBusinessDayID(ctx context.Context, tenantID common.TenantID, memberID common.MemberID, businessDayID event.BusinessDayID) (bool, error) {
 	return false, nil
 }
 
-func (m *MockShiftAssignmentRepository) FindByBusinessDayID(ctx context.Context, tenantID common.TenantID, businessDayID string) ([]*shift.ShiftAssignment, error) {
+func (m *MockShiftAssignmentRepository) FindByBusinessDayID(ctx context.Context, tenantID common.TenantID, businessDayID event.BusinessDayID) ([]*shift.ShiftAssignment, error) {
 	return nil, nil
 }
 
