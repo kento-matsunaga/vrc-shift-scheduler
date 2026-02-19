@@ -4,6 +4,7 @@ import { SEO } from '../components/seo';
 import { getSchedule, getScheduleResponses, deleteSchedule, convertToAttendance, type Schedule, type ScheduleResponse } from '../lib/api/scheduleApi';
 import { getMembers } from '../lib/api';
 import { getMemberGroups, getMemberGroupDetail, type MemberGroup } from '../lib/api/memberGroupApi';
+import { listRoles, type Role } from '../lib/api/roleApi';
 import { ApiClientError } from '../lib/apiClient';
 import type { Member } from '../types/api';
 import { formatTimeRange } from '../lib/timeUtils';
@@ -40,6 +41,10 @@ export default function ScheduleDetail() {
   const [convertTitle, setConvertTitle] = useState('');
   const [converting, setConverting] = useState(false);
 
+  // ロールフィルタ（複数選択）
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [filterRoleIds, setFilterRoleIds] = useState<string[]>([]);
+
   // ソート状態
   const [sortKey, setSortKey] = useState<SortKey>('name');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
@@ -57,15 +62,17 @@ export default function ScheduleDetail() {
 
     try {
       setLoading(true);
-      const [scheduleData, responsesData, membersData, allGroups] = await Promise.all([
+      const [scheduleData, responsesData, membersData, allGroups, allRoles] = await Promise.all([
         getSchedule(scheduleId),
         getScheduleResponses(scheduleId),
         getMembers({ is_active: true }),
         getMemberGroups(),
+        listRoles(),
       ]);
 
       setSchedule(scheduleData);
       setResponses(responsesData || []);
+      setRoles(allRoles || []);
 
       // グループIDが設定されている場合、そのグループに属するメンバーのみを表示
       const groupIds = scheduleData.group_ids || [];
@@ -224,8 +231,35 @@ export default function ScheduleDetail() {
     responseMap.get(resp.member_id)!.set(resp.candidate_id, { availability: resp.availability, note: resp.note || '' });
   });
 
+  // ロールのインデックスマップ（ロール順ソート用）
+  const roleIndexMap = new Map(filterRoleIds.map((id, i) => [id, i]));
+
+  // メンバーの最小ロールインデックスを取得（選択ロール順でグループ化）
+  const getMemberRoleIndex = (member: Member): number => {
+    if (filterRoleIds.length === 0) return 0;
+    let minIndex = filterRoleIds.length;
+    for (const rid of member.role_ids || []) {
+      const idx = roleIndexMap.get(rid);
+      if (idx !== undefined && idx < minIndex) {
+        minIndex = idx;
+      }
+    }
+    return minIndex;
+  };
+
   // ソート・フィルタリング処理
-  const sortedMembers = [...members].sort((a, b) => {
+  const sortedMembers = [...members]
+    .filter((member) => {
+      if (filterRoleIds.length === 0) return true;
+      return member.role_ids?.some((rid) => filterRoleIds.includes(rid));
+    })
+    .sort((a, b) => {
+    // 複数ロール選択時はロール順でグループ化
+    if (filterRoleIds.length >= 2) {
+      const roleComp = getMemberRoleIndex(a) - getMemberRoleIndex(b);
+      if (roleComp !== 0) return roleComp;
+    }
+
     let comparison = 0;
 
     if (sortKey === 'name') {
@@ -426,6 +460,42 @@ export default function ScheduleDetail() {
             </div>
             {/* ソートコントロール */}
             <div className="flex flex-wrap items-center gap-2">
+              {/* ロールフィルタ（複数選択） */}
+              {roles.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {roles.map((role) => {
+                    const isSelected = filterRoleIds.includes(role.role_id);
+                    return (
+                      <button
+                        key={role.role_id}
+                        onClick={() =>
+                          setFilterRoleIds((prev) =>
+                            isSelected
+                              ? prev.filter((id) => id !== role.role_id)
+                              : [...prev, role.role_id]
+                          )
+                        }
+                        className={`px-2.5 py-1 text-xs font-medium rounded-full border transition ${
+                          isSelected
+                            ? 'text-white border-transparent'
+                            : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400'
+                        }`}
+                        style={isSelected ? { backgroundColor: role.color || '#6366f1' } : undefined}
+                      >
+                        {role.name}
+                      </button>
+                    );
+                  })}
+                  {filterRoleIds.length > 0 && (
+                    <button
+                      onClick={() => setFilterRoleIds([])}
+                      className="px-2 py-1 text-xs text-gray-500 hover:text-gray-700 transition"
+                    >
+                      クリア
+                    </button>
+                  )}
+                </div>
+              )}
               <select
                 value={sortKey === 'date_available' ? `date_${sortCandidateId}` : sortKey}
                 onChange={(e) => {
@@ -460,9 +530,34 @@ export default function ScheduleDetail() {
         </div>
         {/* モバイル用カードビュー */}
         <div className="md:hidden">
+          {/* モバイル用集計（先頭） */}
+          <div className="p-4 bg-gray-50 border-b border-gray-200">
+            <h4 className="text-sm font-medium text-gray-700 mb-3">日程別集計</h4>
+            <div className="grid grid-cols-2 gap-2">
+              {candidates.map((candidate) => {
+                const stats = candidateStats.find((s) => s.candidateId === candidate.candidate_id);
+                return (
+                  <div key={candidate.candidate_id} className="bg-white p-3 rounded-lg border border-gray-200">
+                    <div className="text-sm font-medium text-gray-900 mb-1">
+                      {new Date(candidate.date).toLocaleDateString('ja-JP', {
+                        month: 'numeric',
+                        day: 'numeric',
+                        weekday: 'short',
+                      })}
+                    </div>
+                    <div className="flex gap-2 text-xs">
+                      <span className="text-green-600">○{stats?.availableCount || 0}</span>
+                      <span className="text-yellow-600">△{stats?.maybeCount || 0}</span>
+                      <span className="text-red-600">×{stats?.unavailableCount || 0}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
           {sortedMembers.length === 0 ? (
             <div className="p-6 text-center text-gray-500">
-              メンバーがいません
+              {members.length === 0 ? 'メンバーがいません' : 'フィルタ条件に一致するメンバーがいません'}
             </div>
           ) : (
             <div className="divide-y divide-gray-100">
@@ -530,31 +625,6 @@ export default function ScheduleDetail() {
               })}
             </div>
           )}
-          {/* モバイル用集計 */}
-          <div className="p-4 bg-gray-50 border-t border-gray-200">
-            <h4 className="text-sm font-medium text-gray-700 mb-3">日程別集計</h4>
-            <div className="grid grid-cols-2 gap-2">
-              {candidates.map((candidate) => {
-                const stats = candidateStats.find((s) => s.candidateId === candidate.candidate_id);
-                return (
-                  <div key={candidate.candidate_id} className="bg-white p-3 rounded-lg border border-gray-200">
-                    <div className="text-sm font-medium text-gray-900 mb-1">
-                      {new Date(candidate.date).toLocaleDateString('ja-JP', {
-                        month: 'numeric',
-                        day: 'numeric',
-                        weekday: 'short',
-                      })}
-                    </div>
-                    <div className="flex gap-2 text-xs">
-                      <span className="text-green-600">○{stats?.availableCount || 0}</span>
-                      <span className="text-yellow-600">△{stats?.maybeCount || 0}</span>
-                      <span className="text-red-600">×{stats?.unavailableCount || 0}</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
         </div>
 
         {/* デスクトップ用テーブル */}
@@ -603,10 +673,37 @@ export default function ScheduleDetail() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
+              {/* 集計行（先頭） */}
+              <tr className="bg-gray-50">
+                <td className="px-6 py-3 text-sm font-medium text-gray-700 sticky left-0 bg-gray-50">
+                  集計
+                </td>
+                {candidates.map((candidate) => {
+                  const stats = candidateStats.find((s) => s.candidateId === candidate.candidate_id);
+                  return (
+                    <td key={candidate.candidate_id} className="px-4 py-3 text-center">
+                      <div className="text-xs space-y-1">
+                        <div className="text-green-700">
+                          ○ {stats?.availableCount || 0}
+                        </div>
+                        <div className="text-yellow-700">
+                          △ {stats?.maybeCount || 0}
+                        </div>
+                        <div className="text-red-700">
+                          × {stats?.unavailableCount || 0}
+                        </div>
+                        <div className="text-gray-500">
+                          - {stats?.noResponseCount || 0}
+                        </div>
+                      </div>
+                    </td>
+                  );
+                })}
+              </tr>
               {sortedMembers.length === 0 ? (
                 <tr>
                   <td colSpan={candidates.length + 1} className="px-6 py-12 text-center text-gray-500">
-                    メンバーがいません
+                    {members.length === 0 ? 'メンバーがいません' : 'フィルタ条件に一致するメンバーがいません'}
                   </td>
                 </tr>
               ) : (
@@ -658,34 +755,6 @@ export default function ScheduleDetail() {
                 })
               )}
             </tbody>
-            <tfoot className="bg-gray-50">
-              <tr>
-                <td className="px-6 py-3 text-sm font-medium text-gray-700 sticky left-0 bg-gray-50">
-                  集計
-                </td>
-                {candidates.map((candidate) => {
-                  const stats = candidateStats.find((s) => s.candidateId === candidate.candidate_id);
-                  return (
-                    <td key={candidate.candidate_id} className="px-4 py-3 text-center">
-                      <div className="text-xs space-y-1">
-                        <div className="text-green-700">
-                          ○ {stats?.availableCount || 0}
-                        </div>
-                        <div className="text-yellow-700">
-                          △ {stats?.maybeCount || 0}
-                        </div>
-                        <div className="text-red-700">
-                          × {stats?.unavailableCount || 0}
-                        </div>
-                        <div className="text-gray-500">
-                          - {stats?.noResponseCount || 0}
-                        </div>
-                      </div>
-                    </td>
-                  );
-                })}
-              </tr>
-            </tfoot>
           </table>
         </div>
       </div>

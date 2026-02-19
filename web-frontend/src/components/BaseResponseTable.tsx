@@ -153,6 +153,29 @@ export default function BaseResponseTable({
           </tr>
         </thead>
         <tbody>
+          {/* 集計行（先頭） */}
+          <tr className="bg-gray-100 font-medium">
+            <td className="border border-gray-300 px-3 py-2 text-gray-700 sticky left-0 bg-gray-100 z-10">
+              集計
+            </td>
+            {dateItems.map((item) => {
+              const summary = dateSummary[item.id];
+              return (
+                <td
+                  key={item.id}
+                  className="border border-gray-300 px-3 py-2 text-center"
+                >
+                  <div className="flex justify-center gap-2 text-xs">
+                    {responseTypes.map((rt) => (
+                      <span key={rt.value} className={rt.iconColor}>
+                        {rt.icon}{summary?.[rt.value] || 0}
+                      </span>
+                    ))}
+                  </div>
+                </td>
+              );
+            })}
+          </tr>
           {memberResponses.map((member) => (
             <tr key={member.memberId} className="hover:bg-gray-50">
               <td className="border border-gray-300 px-3 py-2 font-medium text-gray-900 sticky left-0 bg-white z-10">
@@ -184,29 +207,6 @@ export default function BaseResponseTable({
               })}
             </tr>
           ))}
-          {/* 集計行 */}
-          <tr className="bg-gray-100 font-medium">
-            <td className="border border-gray-300 px-3 py-2 text-gray-700 sticky left-0 bg-gray-100 z-10">
-              集計
-            </td>
-            {dateItems.map((item) => {
-              const summary = dateSummary[item.id];
-              return (
-                <td
-                  key={item.id}
-                  className="border border-gray-300 px-3 py-2 text-center"
-                >
-                  <div className="flex justify-center gap-2 text-xs">
-                    {responseTypes.map((rt) => (
-                      <span key={rt.value} className={rt.iconColor}>
-                        {rt.icon}{summary?.[rt.value] || 0}
-                      </span>
-                    ))}
-                  </div>
-                </td>
-              );
-            })}
-          </tr>
         </tbody>
       </table>
       <div className="mt-3 flex gap-4 text-sm text-gray-600">
