@@ -612,7 +612,7 @@ export default function ScheduleDetail() {
                               </span>
                             </div>
                             {responseData?.note && (
-                              <p className="text-[10px] leading-tight text-gray-500 mt-0.5 line-clamp-2 break-words">
+                              <p className="text-[10px] leading-tight text-gray-500 mt-0.5 max-w-[100px] line-clamp-2 break-words">
                                 {responseData.note}
                               </p>
                             )}
