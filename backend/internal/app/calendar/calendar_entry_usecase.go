@@ -6,6 +6,7 @@ import (
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/calendar"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/services"
 )
 
 // === Input/Output DTOs for CalendarEntry ===
@@ -50,16 +51,19 @@ type ListCalendarEntriesInput struct {
 type CreateCalendarEntryUsecase struct {
 	calendarRepo      calendar.Repository
 	calendarEntryRepo calendar.CalendarEntryRepository
+	clock             services.Clock
 }
 
 // NewCreateCalendarEntryUsecase creates a new CreateCalendarEntryUsecase
 func NewCreateCalendarEntryUsecase(
 	calendarRepo calendar.Repository,
 	calendarEntryRepo calendar.CalendarEntryRepository,
+	clock services.Clock,
 ) *CreateCalendarEntryUsecase {
 	return &CreateCalendarEntryUsecase{
 		calendarRepo:      calendarRepo,
 		calendarEntryRepo: calendarEntryRepo,
+		clock:             clock,
 	}
 }
 
@@ -107,7 +111,7 @@ func (u *CreateCalendarEntryUsecase) Execute(ctx context.Context, input CreateCa
 	}
 
 	// Create entry entity
-	now := time.Now()
+	now := u.clock.Now()
 	entry, err := calendar.NewCalendarEntry(now, calendarID, tenantID, input.Title, date, startTime, endTime, input.Note)
 	if err != nil {
 		return nil, err
@@ -126,14 +130,17 @@ func (u *CreateCalendarEntryUsecase) Execute(ctx context.Context, input CreateCa
 // UpdateCalendarEntryUsecase handles updating a calendar entry
 type UpdateCalendarEntryUsecase struct {
 	calendarEntryRepo calendar.CalendarEntryRepository
+	clock             services.Clock
 }
 
 // NewUpdateCalendarEntryUsecase creates a new UpdateCalendarEntryUsecase
 func NewUpdateCalendarEntryUsecase(
 	calendarEntryRepo calendar.CalendarEntryRepository,
+	clock services.Clock,
 ) *UpdateCalendarEntryUsecase {
 	return &UpdateCalendarEntryUsecase{
 		calendarEntryRepo: calendarEntryRepo,
+		clock:             clock,
 	}
 }
 
@@ -181,7 +188,7 @@ func (u *UpdateCalendarEntryUsecase) Execute(ctx context.Context, input UpdateCa
 	}
 
 	// Update entry
-	now := time.Now()
+	now := u.clock.Now()
 	if err := entry.Update(now, input.Title, date, startTime, endTime, input.Note); err != nil {
 		return nil, err
 	}

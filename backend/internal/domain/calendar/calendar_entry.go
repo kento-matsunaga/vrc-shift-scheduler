@@ -18,6 +18,7 @@ type CalendarEntry struct {
 	note       string
 	createdAt  time.Time
 	updatedAt  time.Time
+	deletedAt  *time.Time
 }
 
 // NewCalendarEntry creates a new CalendarEntry
@@ -63,6 +64,7 @@ func ReconstructCalendarEntry(
 	note string,
 	createdAt time.Time,
 	updatedAt time.Time,
+	deletedAt *time.Time,
 ) (*CalendarEntry, error) {
 	entry := &CalendarEntry{
 		entryID:    entryID,
@@ -75,6 +77,7 @@ func ReconstructCalendarEntry(
 		note:       note,
 		createdAt:  createdAt,
 		updatedAt:  updatedAt,
+		deletedAt:  deletedAt,
 	}
 
 	if err := entry.validate(); err != nil {
@@ -135,6 +138,20 @@ func (e *CalendarEntry) CreatedAt() time.Time {
 
 func (e *CalendarEntry) UpdatedAt() time.Time {
 	return e.updatedAt
+}
+
+func (e *CalendarEntry) DeletedAt() *time.Time {
+	return e.deletedAt
+}
+
+func (e *CalendarEntry) IsDeleted() bool {
+	return e.deletedAt != nil
+}
+
+// Delete marks the entry as soft-deleted
+func (e *CalendarEntry) Delete(now time.Time) {
+	e.deletedAt = &now
+	e.updatedAt = now
 }
 
 // Update updates the entry fields

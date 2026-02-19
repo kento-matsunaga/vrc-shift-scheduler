@@ -2,7 +2,6 @@ package auth
 
 import (
 	"context"
-	"time"
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/auth"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
@@ -21,16 +20,19 @@ type ChangeEmailInput struct {
 type ChangeEmailUsecase struct {
 	adminRepo      auth.AdminRepository
 	passwordHasher services.PasswordHasher
+	clock          services.Clock
 }
 
 // NewChangeEmailUsecase creates a new ChangeEmailUsecase
 func NewChangeEmailUsecase(
 	adminRepo auth.AdminRepository,
 	passwordHasher services.PasswordHasher,
+	clock services.Clock,
 ) *ChangeEmailUsecase {
 	return &ChangeEmailUsecase{
 		adminRepo:      adminRepo,
 		passwordHasher: passwordHasher,
+		clock:          clock,
 	}
 }
 
@@ -62,7 +64,7 @@ func (u *ChangeEmailUsecase) Execute(ctx context.Context, input ChangeEmailInput
 	}
 
 	// 5. メールアドレスを更新（Domain層でフォーマット検証も行う）
-	if err := admin.UpdateEmail(time.Now(), input.NewEmail); err != nil {
+	if err := admin.UpdateEmail(u.clock.Now(), input.NewEmail); err != nil {
 		return err
 	}
 

@@ -161,9 +161,14 @@ func (b *BatchProcessor) RunWebhookCleanup(ctx context.Context, dryRun bool) (*W
 
 // RunWebhookCleanupOlderThan cleans up webhook logs older than the specified days
 func (b *BatchProcessor) RunWebhookCleanupOlderThan(ctx context.Context, days int, dryRun bool) (*WebhookCleanupResult, error) {
+	return b.RunWebhookCleanupOlderThanAt(ctx, time.Now(), days, dryRun)
+}
+
+// RunWebhookCleanupOlderThanAt cleans up webhook logs older than the specified days from the given time
+func (b *BatchProcessor) RunWebhookCleanupOlderThanAt(ctx context.Context, now time.Time, days int, dryRun bool) (*WebhookCleanupResult, error) {
 	b.logger.Println("🧹 Running webhook cleanup...")
 
-	cutoffDate := time.Now().AddDate(0, 0, -days)
+	cutoffDate := now.AddDate(0, 0, -days)
 
 	// Count logs to be deleted
 	countQuery := `
@@ -277,6 +282,7 @@ func (b *BatchProcessor) RunPendingPaymentCleanupAt(ctx context.Context, now tim
 	return result, nil
 }
 
+// 意図的な物理削除: pending 状態のテナントは未使用のため、ソフトデリートではなく完全削除する
 func (b *BatchProcessor) deletePendingTenant(ctx context.Context, tenantID string, now time.Time) error {
 	tx, err := b.pool.Begin(ctx)
 	if err != nil {

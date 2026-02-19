@@ -91,6 +91,7 @@ func (u *UpdateCollectionUsecase) Execute(ctx context.Context, input UpdateColle
 		}
 	}
 
+	// TODO: billing_audit_logs テーブルへの永続化を検討
 	log.Printf("[AUDIT] UpdateCollection: tenant=%s collection=%s", collection.TenantID().String(), collection.CollectionID().String())
 
 	return &UpdateCollectionOutput{

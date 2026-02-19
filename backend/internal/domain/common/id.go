@@ -414,6 +414,9 @@ func (id TargetDateID) String() string {
 }
 
 func (id TargetDateID) Validate() error {
+	if id == "" {
+		return NewValidationError("target_date_id is required", nil)
+	}
 	return ValidateULID(string(id))
 }
 
@@ -443,6 +446,9 @@ func (id RoleID) String() string {
 }
 
 func (id RoleID) Validate() error {
+	if id == "" {
+		return NewValidationError("role_id is required", nil)
+	}
 	return ValidateULID(string(id))
 }
 

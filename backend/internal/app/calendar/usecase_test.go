@@ -180,6 +180,10 @@ func (m *mockCalendarEntryRepository) Delete(ctx context.Context, tenantID commo
 	return nil
 }
 
+type mockClock struct{}
+
+func (m *mockClock) Now() time.Time { return time.Now() }
+
 // =============================================================================
 // Test Helpers
 // =============================================================================
@@ -274,7 +278,7 @@ func TestCreateCalendarUsecase_Success(t *testing.T) {
 		},
 	}
 
-	uc := appcalendar.NewCreateCalendarUsecase(mockCalRepo, mockEventRepo)
+	uc := appcalendar.NewCreateCalendarUsecase(mockCalRepo, mockEventRepo, &mockClock{})
 
 	input := appcalendar.CreateCalendarInput{
 		TenantID:    tenantID.String(),
@@ -313,7 +317,7 @@ func TestCreateCalendarUsecase_ErrorWhenEventNotFound(t *testing.T) {
 		},
 	}
 
-	uc := appcalendar.NewCreateCalendarUsecase(mockCalRepo, mockEventRepo)
+	uc := appcalendar.NewCreateCalendarUsecase(mockCalRepo, mockEventRepo, &mockClock{})
 
 	input := appcalendar.CreateCalendarInput{
 		TenantID:    tenantID.String(),
@@ -339,7 +343,7 @@ func TestCreateCalendarUsecase_ErrorWhenInvalidTenantID(t *testing.T) {
 	mockCalRepo := &mockCalendarRepository{}
 	mockEventRepo := &mockEventRepository{}
 
-	uc := appcalendar.NewCreateCalendarUsecase(mockCalRepo, mockEventRepo)
+	uc := appcalendar.NewCreateCalendarUsecase(mockCalRepo, mockEventRepo, &mockClock{})
 
 	input := appcalendar.CreateCalendarInput{
 		TenantID:    "invalid-tenant-id",
@@ -468,7 +472,7 @@ func TestUpdateCalendarUsecase_Success(t *testing.T) {
 		},
 	}
 
-	uc := appcalendar.NewUpdateCalendarUsecase(mockCalRepo, mockEventRepo)
+	uc := appcalendar.NewUpdateCalendarUsecase(mockCalRepo, mockEventRepo, &mockClock{})
 
 	input := appcalendar.UpdateCalendarInput{
 		TenantID:    tenantID.String(),
@@ -516,7 +520,7 @@ func TestUpdateCalendarUsecase_MakePublicGeneratesToken(t *testing.T) {
 		},
 	}
 
-	uc := appcalendar.NewUpdateCalendarUsecase(mockCalRepo, mockEventRepo)
+	uc := appcalendar.NewUpdateCalendarUsecase(mockCalRepo, mockEventRepo, &mockClock{})
 
 	input := appcalendar.UpdateCalendarInput{
 		TenantID:    tenantID.String(),
@@ -561,7 +565,7 @@ func TestUpdateCalendarUsecase_ErrorWhenCalendarNotFound(t *testing.T) {
 
 	mockEventRepo := &mockEventRepository{}
 
-	uc := appcalendar.NewUpdateCalendarUsecase(mockCalRepo, mockEventRepo)
+	uc := appcalendar.NewUpdateCalendarUsecase(mockCalRepo, mockEventRepo, &mockClock{})
 
 	input := appcalendar.UpdateCalendarInput{
 		TenantID:    tenantID.String(),

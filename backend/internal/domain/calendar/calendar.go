@@ -18,6 +18,7 @@ type Calendar struct {
 	eventIDs    []common.EventID
 	createdAt   time.Time
 	updatedAt   time.Time
+	deletedAt   *time.Time
 }
 
 // NewCalendar creates a new Calendar entity
@@ -58,6 +59,7 @@ func ReconstructCalendar(
 	eventIDs []common.EventID,
 	createdAt time.Time,
 	updatedAt time.Time,
+	deletedAt *time.Time,
 ) (*Calendar, error) {
 	calendar := &Calendar{
 		calendarID:  calendarID,
@@ -69,6 +71,7 @@ func ReconstructCalendar(
 		eventIDs:    eventIDs,
 		createdAt:   createdAt,
 		updatedAt:   updatedAt,
+		deletedAt:   deletedAt,
 	}
 
 	if err := calendar.validate(); err != nil {
@@ -131,6 +134,20 @@ func (c *Calendar) CreatedAt() time.Time {
 
 func (c *Calendar) UpdatedAt() time.Time {
 	return c.updatedAt
+}
+
+func (c *Calendar) DeletedAt() *time.Time {
+	return c.deletedAt
+}
+
+func (c *Calendar) IsDeleted() bool {
+	return c.deletedAt != nil
+}
+
+// Delete marks the calendar as soft-deleted
+func (c *Calendar) Delete(now time.Time) {
+	c.deletedAt = &now
+	c.updatedAt = now
 }
 
 // MakePublic makes the calendar publicly accessible

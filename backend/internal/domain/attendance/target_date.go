@@ -27,7 +27,7 @@ func NewTargetDate(
 	displayOrder int,
 ) (*TargetDate, error) {
 	td := &TargetDate{
-		targetDateID: common.NewTargetDateID(),
+		targetDateID: common.NewTargetDateIDWithTime(now),
 		collectionID: collectionID,
 		targetDate:   targetDate,
 		startTime:    startTime,

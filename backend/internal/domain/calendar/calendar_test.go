@@ -392,6 +392,7 @@ func TestReconstructCalendar_Success(t *testing.T) {
 		[]common.EventID{eventID},
 		now,
 		now,
+		nil,
 	)
 
 	if err != nil {
@@ -431,6 +432,7 @@ func TestReconstructCalendar_ErrorWhenTitleEmpty(t *testing.T) {
 		[]common.EventID{eventID},
 		now,
 		now,
+		nil,
 	)
 
 	if err == nil {

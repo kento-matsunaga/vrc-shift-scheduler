@@ -53,16 +53,17 @@ func (r *CalendarRepository) save(ctx context.Context, cal *calendar.Calendar) e
 	}
 
 	_, err = tx.Exec(ctx, `
-		INSERT INTO calendars (calendar_id, tenant_id, title, description, is_public, public_token, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		INSERT INTO calendars (calendar_id, tenant_id, title, description, is_public, public_token, created_at, updated_at, deleted_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 		ON CONFLICT (calendar_id) DO UPDATE SET
 			title = EXCLUDED.title,
 			description = EXCLUDED.description,
 			is_public = EXCLUDED.is_public,
 			public_token = EXCLUDED.public_token,
-			updated_at = EXCLUDED.updated_at
+			updated_at = EXCLUDED.updated_at,
+			deleted_at = EXCLUDED.deleted_at
 	`, cal.CalendarID().String(), cal.TenantID().String(), cal.Title(), cal.Description(),
-		cal.IsPublic(), publicToken, cal.CreatedAt(), cal.UpdatedAt())
+		cal.IsPublic(), publicToken, cal.CreatedAt(), cal.UpdatedAt(), cal.DeletedAt())
 	if err != nil {
 		return fmt.Errorf("failed to save calendar: %w", err)
 	}
@@ -101,14 +102,15 @@ func (r *CalendarRepository) FindByID(ctx context.Context, tenantID common.Tenan
 		publicToken   sql.NullString
 		createdAt     time.Time
 		updatedAt     time.Time
+		deletedAt     sql.NullTime
 	)
 
 	err := r.db.QueryRow(ctx, `
-		SELECT calendar_id, tenant_id, title, description, is_public, public_token, created_at, updated_at
+		SELECT calendar_id, tenant_id, title, description, is_public, public_token, created_at, updated_at, deleted_at
 		FROM calendars
-		WHERE calendar_id = $1 AND tenant_id = $2
+		WHERE calendar_id = $1 AND tenant_id = $2 AND deleted_at IS NULL
 	`, calendarID.String(), tenantID.String()).Scan(
-		&calendarIDStr, &tenantIDStr, &title, &description, &isPublic, &publicToken, &createdAt, &updatedAt,
+		&calendarIDStr, &tenantIDStr, &title, &description, &isPublic, &publicToken, &createdAt, &updatedAt, &deletedAt,
 	)
 
 	if err == pgx.ErrNoRows {
@@ -123,15 +125,15 @@ func (r *CalendarRepository) FindByID(ctx context.Context, tenantID common.Tenan
 		return nil, err
 	}
 
-	return r.toDomain(calendarIDStr, tenantIDStr, title, description, isPublic, publicToken, eventIDs, createdAt, updatedAt)
+	return r.toDomain(calendarIDStr, tenantIDStr, title, description, isPublic, publicToken, eventIDs, createdAt, updatedAt, deletedAt)
 }
 
 // FindByTenantID finds all calendars within a tenant
 func (r *CalendarRepository) FindByTenantID(ctx context.Context, tenantID common.TenantID) ([]*calendar.Calendar, error) {
 	rows, err := r.db.Query(ctx, `
-		SELECT calendar_id, tenant_id, title, description, is_public, public_token, created_at, updated_at
+		SELECT calendar_id, tenant_id, title, description, is_public, public_token, created_at, updated_at, deleted_at
 		FROM calendars
-		WHERE tenant_id = $1
+		WHERE tenant_id = $1 AND deleted_at IS NULL
 		ORDER BY created_at DESC
 	`, tenantID.String())
 	if err != nil {
@@ -150,9 +152,10 @@ func (r *CalendarRepository) FindByTenantID(ctx context.Context, tenantID common
 			publicToken   sql.NullString
 			createdAt     time.Time
 			updatedAt     time.Time
+			deletedAt     sql.NullTime
 		)
 
-		if err := rows.Scan(&calendarIDStr, &tenantIDStr, &title, &description, &isPublic, &publicToken, &createdAt, &updatedAt); err != nil {
+		if err := rows.Scan(&calendarIDStr, &tenantIDStr, &title, &description, &isPublic, &publicToken, &createdAt, &updatedAt, &deletedAt); err != nil {
 			return nil, fmt.Errorf("failed to scan calendar row: %w", err)
 		}
 
@@ -165,7 +168,7 @@ func (r *CalendarRepository) FindByTenantID(ctx context.Context, tenantID common
 			return nil, err
 		}
 
-		cal, err := r.toDomain(calendarIDStr, tenantIDStr, title, description, isPublic, publicToken, eventIDs, createdAt, updatedAt)
+		cal, err := r.toDomain(calendarIDStr, tenantIDStr, title, description, isPublic, publicToken, eventIDs, createdAt, updatedAt, deletedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -190,14 +193,15 @@ func (r *CalendarRepository) FindByPublicToken(ctx context.Context, token common
 		publicToken   sql.NullString
 		createdAt     time.Time
 		updatedAt     time.Time
+		deletedAt     sql.NullTime
 	)
 
 	err := r.db.QueryRow(ctx, `
-		SELECT calendar_id, tenant_id, title, description, is_public, public_token, created_at, updated_at
+		SELECT calendar_id, tenant_id, title, description, is_public, public_token, created_at, updated_at, deleted_at
 		FROM calendars
-		WHERE public_token = $1 AND is_public = TRUE
+		WHERE public_token = $1 AND is_public = TRUE AND deleted_at IS NULL
 	`, token.String()).Scan(
-		&calendarIDStr, &tenantIDStr, &title, &description, &isPublic, &publicToken, &createdAt, &updatedAt,
+		&calendarIDStr, &tenantIDStr, &title, &description, &isPublic, &publicToken, &createdAt, &updatedAt, &deletedAt,
 	)
 
 	if err == pgx.ErrNoRows {
@@ -216,15 +220,16 @@ func (r *CalendarRepository) FindByPublicToken(ctx context.Context, token common
 		return nil, err
 	}
 
-	return r.toDomain(calendarIDStr, tenantIDStr, title, description, isPublic, publicToken, eventIDs, createdAt, updatedAt)
+	return r.toDomain(calendarIDStr, tenantIDStr, title, description, isPublic, publicToken, eventIDs, createdAt, updatedAt, deletedAt)
 }
 
-// Delete deletes a calendar
+// Delete soft-deletes a calendar
 func (r *CalendarRepository) Delete(ctx context.Context, tenantID common.TenantID, calendarID common.CalendarID) error {
+	now := time.Now()
 	result, err := r.db.Exec(ctx, `
-		DELETE FROM calendars
-		WHERE calendar_id = $1 AND tenant_id = $2
-	`, calendarID.String(), tenantID.String())
+		UPDATE calendars SET deleted_at = $1, updated_at = $1
+		WHERE calendar_id = $2 AND tenant_id = $3 AND deleted_at IS NULL
+	`, now, calendarID.String(), tenantID.String())
 	if err != nil {
 		return fmt.Errorf("failed to delete calendar: %w", err)
 	}
@@ -273,6 +278,7 @@ func (r *CalendarRepository) toDomain(
 	eventIDs []common.EventID,
 	createdAt time.Time,
 	updatedAt time.Time,
+	deletedAt sql.NullTime,
 ) (*calendar.Calendar, error) {
 	calID, err := common.ParseCalendarID(calendarIDStr)
 	if err != nil {
@@ -298,6 +304,11 @@ func (r *CalendarRepository) toDomain(
 		token = &t
 	}
 
+	var deletedAtPtr *time.Time
+	if deletedAt.Valid {
+		deletedAtPtr = &deletedAt.Time
+	}
+
 	return calendar.ReconstructCalendar(
 		calID,
 		tenID,
@@ -308,5 +319,6 @@ func (r *CalendarRepository) toDomain(
 		eventIDs,
 		createdAt,
 		updatedAt,
+		deletedAtPtr,
 	)
 }

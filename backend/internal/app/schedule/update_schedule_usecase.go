@@ -12,12 +12,13 @@ import (
 )
 
 type UpdateScheduleUsecase struct {
-	repo  schedule.DateScheduleRepository
-	clock services.Clock
+	repo      schedule.DateScheduleRepository
+	txManager services.TxManager
+	clock     services.Clock
 }
 
-func NewUpdateScheduleUsecase(repo schedule.DateScheduleRepository, clk services.Clock) *UpdateScheduleUsecase {
-	return &UpdateScheduleUsecase{repo: repo, clock: clk}
+func NewUpdateScheduleUsecase(repo schedule.DateScheduleRepository, txManager services.TxManager, clk services.Clock) *UpdateScheduleUsecase {
+	return &UpdateScheduleUsecase{repo: repo, txManager: txManager, clock: clk}
 }
 
 func (u *UpdateScheduleUsecase) Execute(ctx context.Context, input UpdateScheduleInput) (*UpdateScheduleOutput, error) {
@@ -82,9 +83,12 @@ func (u *UpdateScheduleUsecase) Execute(ctx context.Context, input UpdateSchedul
 		return nil, fmt.Errorf("日程調整の更新に失敗: %w", err)
 	}
 
-	if err := u.repo.Save(ctx, sch); err != nil {
+	if err := u.txManager.WithTx(ctx, func(txCtx context.Context) error {
+		return u.repo.Save(txCtx, sch)
+	}); err != nil {
 		return nil, fmt.Errorf("日程調整の保存に失敗: %w", err)
 	}
+	// TODO: billing_audit_logs テーブルへの永続化を検討
 	log.Printf("[AUDIT] UpdateSchedule: tenant=%s schedule=%s", sch.TenantID().String(), sch.ScheduleID().String())
 
 	candidateDTOs := make([]CandidateDTO, len(sch.Candidates()))

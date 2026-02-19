@@ -47,7 +47,7 @@ func TestChangeEmailUsecase_Execute_Success(t *testing.T) {
 		},
 	}
 
-	usecase := NewChangeEmailUsecase(mockRepo, mockHasher)
+	usecase := NewChangeEmailUsecase(mockRepo, mockHasher, &MockClock{nowFunc: func() time.Time { return time.Now() }})
 
 	input := ChangeEmailInput{
 		AdminID:         adminID,
@@ -87,7 +87,7 @@ func TestChangeEmailUsecase_Execute_ErrorWhenAdminNotFound(t *testing.T) {
 
 	mockHasher := &MockPasswordHasher{}
 
-	usecase := NewChangeEmailUsecase(mockRepo, mockHasher)
+	usecase := NewChangeEmailUsecase(mockRepo, mockHasher, &MockClock{nowFunc: func() time.Time { return time.Now() }})
 
 	input := ChangeEmailInput{
 		AdminID:         adminID,
@@ -121,7 +121,7 @@ func TestChangeEmailUsecase_Execute_ErrorWhenPasswordIncorrect(t *testing.T) {
 		},
 	}
 
-	usecase := NewChangeEmailUsecase(mockRepo, mockHasher)
+	usecase := NewChangeEmailUsecase(mockRepo, mockHasher, &MockClock{nowFunc: func() time.Time { return time.Now() }})
 
 	input := ChangeEmailInput{
 		AdminID:         adminID,
@@ -155,7 +155,7 @@ func TestChangeEmailUsecase_Execute_ErrorWhenInvalidEmailFormat(t *testing.T) {
 		},
 	}
 
-	usecase := NewChangeEmailUsecase(mockRepo, mockHasher)
+	usecase := NewChangeEmailUsecase(mockRepo, mockHasher, &MockClock{nowFunc: func() time.Time { return time.Now() }})
 
 	tests := []struct {
 		name     string
@@ -210,7 +210,7 @@ func TestChangeEmailUsecase_Execute_ErrorWhenSameEmail(t *testing.T) {
 		},
 	}
 
-	usecase := NewChangeEmailUsecase(mockRepo, mockHasher)
+	usecase := NewChangeEmailUsecase(mockRepo, mockHasher, &MockClock{nowFunc: func() time.Time { return time.Now() }})
 
 	input := ChangeEmailInput{
 		AdminID:         adminID,
@@ -253,7 +253,7 @@ func TestChangeEmailUsecase_Execute_ErrorWhenEmailAlreadyExists(t *testing.T) {
 		},
 	}
 
-	usecase := NewChangeEmailUsecase(mockRepo, mockHasher)
+	usecase := NewChangeEmailUsecase(mockRepo, mockHasher, &MockClock{nowFunc: func() time.Time { return time.Now() }})
 
 	input := ChangeEmailInput{
 		AdminID:         adminID,
@@ -295,7 +295,7 @@ func TestChangeEmailUsecase_Execute_ErrorWhenSaveFails(t *testing.T) {
 		},
 	}
 
-	usecase := NewChangeEmailUsecase(mockRepo, mockHasher)
+	usecase := NewChangeEmailUsecase(mockRepo, mockHasher, &MockClock{nowFunc: func() time.Time { return time.Now() }})
 
 	input := ChangeEmailInput{
 		AdminID:         adminID,
@@ -334,7 +334,7 @@ func TestChangeEmailUsecase_Execute_ErrorWhenTenantMismatch(t *testing.T) {
 
 	mockHasher := &MockPasswordHasher{}
 
-	usecase := NewChangeEmailUsecase(mockRepo, mockHasher)
+	usecase := NewChangeEmailUsecase(mockRepo, mockHasher, &MockClock{nowFunc: func() time.Time { return time.Now() }})
 
 	// Try to change email with a different tenant ID
 	input := ChangeEmailInput{

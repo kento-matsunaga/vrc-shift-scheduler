@@ -35,15 +35,16 @@ func (r *CalendarEntryRepository) Save(ctx context.Context, entry *calendar.Cale
 	}
 
 	_, err := r.db.Exec(ctx, `
-		INSERT INTO calendar_entries (entry_id, calendar_id, tenant_id, title, entry_date, start_time, end_time, note, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		INSERT INTO calendar_entries (entry_id, calendar_id, tenant_id, title, entry_date, start_time, end_time, note, created_at, updated_at, deleted_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 		ON CONFLICT (entry_id) DO UPDATE SET
 			title = EXCLUDED.title,
 			entry_date = EXCLUDED.entry_date,
 			start_time = EXCLUDED.start_time,
 			end_time = EXCLUDED.end_time,
 			note = EXCLUDED.note,
-			updated_at = EXCLUDED.updated_at
+			updated_at = EXCLUDED.updated_at,
+			deleted_at = EXCLUDED.deleted_at
 	`,
 		entry.EntryID().String(),
 		entry.CalendarID().String(),
@@ -55,6 +56,7 @@ func (r *CalendarEntryRepository) Save(ctx context.Context, entry *calendar.Cale
 		entry.Note(),
 		entry.CreatedAt(),
 		entry.UpdatedAt(),
+		entry.DeletedAt(),
 	)
 	if err != nil {
 		return fmt.Errorf("failed to save calendar entry: %w", err)
@@ -76,14 +78,15 @@ func (r *CalendarEntryRepository) FindByID(ctx context.Context, tenantID common.
 		note          sql.NullString
 		createdAt     time.Time
 		updatedAt     time.Time
+		deletedAt     sql.NullTime
 	)
 
 	err := r.db.QueryRow(ctx, `
-		SELECT entry_id, calendar_id, tenant_id, title, entry_date, start_time, end_time, note, created_at, updated_at
+		SELECT entry_id, calendar_id, tenant_id, title, entry_date, start_time, end_time, note, created_at, updated_at, deleted_at
 		FROM calendar_entries
-		WHERE entry_id = $1 AND tenant_id = $2
+		WHERE entry_id = $1 AND tenant_id = $2 AND deleted_at IS NULL
 	`, entryID.String(), tenantID.String()).Scan(
-		&entryIDStr, &calendarIDStr, &tenantIDStr, &title, &entryDate, &startTime, &endTime, &note, &createdAt, &updatedAt,
+		&entryIDStr, &calendarIDStr, &tenantIDStr, &title, &entryDate, &startTime, &endTime, &note, &createdAt, &updatedAt, &deletedAt,
 	)
 
 	if err == pgx.ErrNoRows {
@@ -93,15 +96,15 @@ func (r *CalendarEntryRepository) FindByID(ctx context.Context, tenantID common.
 		return nil, fmt.Errorf("failed to find calendar entry: %w", err)
 	}
 
-	return r.scanEntry(entryIDStr, calendarIDStr, tenantIDStr, title, entryDate, startTime, endTime, note, createdAt, updatedAt)
+	return r.scanEntry(entryIDStr, calendarIDStr, tenantIDStr, title, entryDate, startTime, endTime, note, createdAt, updatedAt, deletedAt)
 }
 
 // FindByCalendarID finds all entries for a calendar (ordered by date)
 func (r *CalendarEntryRepository) FindByCalendarID(ctx context.Context, tenantID common.TenantID, calendarID common.CalendarID) ([]*calendar.CalendarEntry, error) {
 	rows, err := r.db.Query(ctx, `
-		SELECT entry_id, calendar_id, tenant_id, title, entry_date, start_time, end_time, note, created_at, updated_at
+		SELECT entry_id, calendar_id, tenant_id, title, entry_date, start_time, end_time, note, created_at, updated_at, deleted_at
 		FROM calendar_entries
-		WHERE calendar_id = $1 AND tenant_id = $2
+		WHERE calendar_id = $1 AND tenant_id = $2 AND deleted_at IS NULL
 		ORDER BY entry_date ASC, start_time ASC NULLS LAST
 	`, calendarID.String(), tenantID.String())
 	if err != nil {
@@ -122,13 +125,14 @@ func (r *CalendarEntryRepository) FindByCalendarID(ctx context.Context, tenantID
 			note          sql.NullString
 			createdAt     time.Time
 			updatedAt     time.Time
+			deletedAt     sql.NullTime
 		)
 
-		if err := rows.Scan(&entryIDStr, &calendarIDStr, &tenantIDStr, &title, &entryDate, &startTime, &endTime, &note, &createdAt, &updatedAt); err != nil {
+		if err := rows.Scan(&entryIDStr, &calendarIDStr, &tenantIDStr, &title, &entryDate, &startTime, &endTime, &note, &createdAt, &updatedAt, &deletedAt); err != nil {
 			return nil, fmt.Errorf("failed to scan calendar entry row: %w", err)
 		}
 
-		entry, err := r.scanEntry(entryIDStr, calendarIDStr, tenantIDStr, title, entryDate, startTime, endTime, note, createdAt, updatedAt)
+		entry, err := r.scanEntry(entryIDStr, calendarIDStr, tenantIDStr, title, entryDate, startTime, endTime, note, createdAt, updatedAt, deletedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -142,12 +146,13 @@ func (r *CalendarEntryRepository) FindByCalendarID(ctx context.Context, tenantID
 	return entries, nil
 }
 
-// Delete deletes a calendar entry
+// Delete soft-deletes a calendar entry
 func (r *CalendarEntryRepository) Delete(ctx context.Context, tenantID common.TenantID, entryID common.CalendarEntryID) error {
+	now := time.Now()
 	result, err := r.db.Exec(ctx, `
-		DELETE FROM calendar_entries
-		WHERE entry_id = $1 AND tenant_id = $2
-	`, entryID.String(), tenantID.String())
+		UPDATE calendar_entries SET deleted_at = $1, updated_at = $1
+		WHERE entry_id = $2 AND tenant_id = $3 AND deleted_at IS NULL
+	`, now, entryID.String(), tenantID.String())
 	if err != nil {
 		return fmt.Errorf("failed to delete calendar entry: %w", err)
 	}
@@ -171,6 +176,7 @@ func (r *CalendarEntryRepository) scanEntry(
 	note sql.NullString,
 	createdAt time.Time,
 	updatedAt time.Time,
+	deletedAt sql.NullTime,
 ) (*calendar.CalendarEntry, error) {
 	entryID, err := common.ParseCalendarEntryID(entryIDStr)
 	if err != nil {
@@ -203,6 +209,11 @@ func (r *CalendarEntryRepository) scanEntry(
 		noteStr = note.String
 	}
 
+	var deletedAtPtr *time.Time
+	if deletedAt.Valid {
+		deletedAtPtr = &deletedAt.Time
+	}
+
 	return calendar.ReconstructCalendarEntry(
 		entryID,
 		calID,
@@ -214,5 +225,6 @@ func (r *CalendarEntryRepository) scanEntry(
 		noteStr,
 		createdAt,
 		updatedAt,
+		deletedAtPtr,
 	)
 }

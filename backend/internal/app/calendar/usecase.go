@@ -3,27 +3,30 @@ package calendar
 import (
 	"context"
 	"log/slog"
-	"time"
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/calendar"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/event"
+	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/services"
 )
 
 // CreateCalendarUsecase handles creating a calendar
 type CreateCalendarUsecase struct {
 	calendarRepo calendar.Repository
 	eventRepo    event.EventRepository
+	clock        services.Clock
 }
 
 // NewCreateCalendarUsecase creates a new CreateCalendarUsecase
 func NewCreateCalendarUsecase(
 	calendarRepo calendar.Repository,
 	eventRepo event.EventRepository,
+	clock services.Clock,
 ) *CreateCalendarUsecase {
 	return &CreateCalendarUsecase{
 		calendarRepo: calendarRepo,
 		eventRepo:    eventRepo,
+		clock:        clock,
 	}
 }
 
@@ -51,7 +54,7 @@ func (u *CreateCalendarUsecase) Execute(ctx context.Context, input CreateCalenda
 	}
 
 	// Create calendar entity
-	now := time.Now()
+	now := u.clock.Now()
 	cal, err := calendar.NewCalendar(now, tenantID, input.Title, input.Description, eventIDs)
 	if err != nil {
 		return nil, err
@@ -104,7 +107,7 @@ func (u *GetCalendarUsecase) Execute(ctx context.Context, input GetCalendarInput
 	}
 
 	// Get events with business days
-	events, err := u.getEventsWithBusinessDays(ctx, tenantID, cal.EventIDs())
+	events, err := getEventsWithBusinessDays(ctx, u.eventRepo, u.businessDayRepo, tenantID, cal.EventIDs())
 	if err != nil {
 		return nil, err
 	}
@@ -113,44 +116,6 @@ func (u *GetCalendarUsecase) Execute(ctx context.Context, input GetCalendarInput
 		Calendar: *toCalendarOutput(cal),
 		Events:   events,
 	}, nil
-}
-
-// getEventsWithBusinessDays fetches events and their business days
-func (u *GetCalendarUsecase) getEventsWithBusinessDays(ctx context.Context, tenantID common.TenantID, eventIDs []common.EventID) ([]EventOutput, error) {
-	var outputs []EventOutput
-
-	for _, eventID := range eventIDs {
-		evt, err := u.eventRepo.FindByID(ctx, tenantID, eventID)
-		if err != nil {
-			slog.Warn("event not found, skipping", "event_id", eventID.String())
-			continue // Skip if event not found
-		}
-
-		// Get business days for this event
-		businessDays, err := u.businessDayRepo.FindByEventID(ctx, tenantID, eventID)
-		if err != nil {
-			return nil, err
-		}
-
-		var bdOutputs []BusinessDayOutput
-		for _, bd := range businessDays {
-			bdOutputs = append(bdOutputs, BusinessDayOutput{
-				ID:        bd.BusinessDayID().String(),
-				Date:      bd.TargetDate(),
-				StartTime: bd.StartTime().Format("15:04"),
-				EndTime:   bd.EndTime().Format("15:04"),
-			})
-		}
-
-		outputs = append(outputs, EventOutput{
-			ID:           evt.EventID().String(),
-			Title:        evt.EventName(),
-			Description:  evt.Description(),
-			BusinessDays: bdOutputs,
-		})
-	}
-
-	return outputs, nil
 }
 
 // ListCalendarsUsecase handles listing calendars for a tenant
@@ -222,7 +187,10 @@ func (u *GetCalendarByTokenUsecase) Execute(ctx context.Context, input GetCalend
 	// Find calendar by token
 	cal, err := u.calendarRepo.FindByPublicToken(ctx, token)
 	if err != nil {
-		return nil, common.NewNotFoundError("calendar", input.Token)
+		if common.IsNotFoundError(err) {
+			return nil, common.NewNotFoundError("calendar", input.Token)
+		}
+		return nil, err
 	}
 
 	// Check if calendar is public
@@ -231,7 +199,7 @@ func (u *GetCalendarByTokenUsecase) Execute(ctx context.Context, input GetCalend
 	}
 
 	// Get events with business days
-	events, err := u.getEventsWithBusinessDays(ctx, cal.TenantID(), cal.EventIDs())
+	events, err := getEventsWithBusinessDays(ctx, u.eventRepo, u.businessDayRepo, cal.TenantID(), cal.EventIDs())
 	if err != nil {
 		return nil, err
 	}
@@ -249,58 +217,23 @@ func (u *GetCalendarByTokenUsecase) Execute(ctx context.Context, input GetCalend
 	}, nil
 }
 
-// getEventsWithBusinessDays fetches events and their business days
-func (u *GetCalendarByTokenUsecase) getEventsWithBusinessDays(ctx context.Context, tenantID common.TenantID, eventIDs []common.EventID) ([]EventOutput, error) {
-	var outputs []EventOutput
-
-	for _, eventID := range eventIDs {
-		evt, err := u.eventRepo.FindByID(ctx, tenantID, eventID)
-		if err != nil {
-			slog.Warn("event not found, skipping", "event_id", eventID.String())
-			continue // Skip if event not found
-		}
-
-		// Get business days for this event
-		businessDays, err := u.businessDayRepo.FindByEventID(ctx, tenantID, eventID)
-		if err != nil {
-			return nil, err
-		}
-
-		var bdOutputs []BusinessDayOutput
-		for _, bd := range businessDays {
-			bdOutputs = append(bdOutputs, BusinessDayOutput{
-				ID:        bd.BusinessDayID().String(),
-				Date:      bd.TargetDate(),
-				StartTime: bd.StartTime().Format("15:04"),
-				EndTime:   bd.EndTime().Format("15:04"),
-			})
-		}
-
-		outputs = append(outputs, EventOutput{
-			ID:           evt.EventID().String(),
-			Title:        evt.EventName(),
-			Description:  evt.Description(),
-			BusinessDays: bdOutputs,
-		})
-	}
-
-	return outputs, nil
-}
-
 // UpdateCalendarUsecase handles updating a calendar
 type UpdateCalendarUsecase struct {
 	calendarRepo calendar.Repository
 	eventRepo    event.EventRepository
+	clock        services.Clock
 }
 
 // NewUpdateCalendarUsecase creates a new UpdateCalendarUsecase
 func NewUpdateCalendarUsecase(
 	calendarRepo calendar.Repository,
 	eventRepo event.EventRepository,
+	clock services.Clock,
 ) *UpdateCalendarUsecase {
 	return &UpdateCalendarUsecase{
 		calendarRepo: calendarRepo,
 		eventRepo:    eventRepo,
+		clock:        clock,
 	}
 }
 
@@ -338,7 +271,7 @@ func (u *UpdateCalendarUsecase) Execute(ctx context.Context, input UpdateCalenda
 	}
 
 	// Update calendar
-	now := time.Now()
+	now := u.clock.Now()
 	if err := cal.Update(input.Title, input.Description, eventIDs, now); err != nil {
 		return nil, err
 	}
@@ -384,6 +317,44 @@ func (u *DeleteCalendarUsecase) Execute(ctx context.Context, input DeleteCalenda
 
 	// Delete from repository
 	return u.calendarRepo.Delete(ctx, tenantID, calendarID)
+}
+
+// getEventsWithBusinessDays fetches events and their business days
+func getEventsWithBusinessDays(ctx context.Context, eventRepo event.EventRepository, businessDayRepo event.EventBusinessDayRepository, tenantID common.TenantID, eventIDs []common.EventID) ([]EventOutput, error) {
+	var outputs []EventOutput
+
+	for _, eventID := range eventIDs {
+		evt, err := eventRepo.FindByID(ctx, tenantID, eventID)
+		if err != nil {
+			slog.Warn("event not found, skipping", "event_id", eventID.String())
+			continue // Skip if event not found
+		}
+
+		// Get business days for this event
+		businessDays, err := businessDayRepo.FindByEventID(ctx, tenantID, eventID)
+		if err != nil {
+			return nil, err
+		}
+
+		var bdOutputs []BusinessDayOutput
+		for _, bd := range businessDays {
+			bdOutputs = append(bdOutputs, BusinessDayOutput{
+				ID:        bd.BusinessDayID().String(),
+				Date:      bd.TargetDate(),
+				StartTime: bd.StartTime().Format("15:04"),
+				EndTime:   bd.EndTime().Format("15:04"),
+			})
+		}
+
+		outputs = append(outputs, EventOutput{
+			ID:           evt.EventID().String(),
+			Title:        evt.EventName(),
+			Description:  evt.Description(),
+			BusinessDays: bdOutputs,
+		})
+	}
+
+	return outputs, nil
 }
 
 // toCalendarOutput converts a Calendar entity to CalendarOutput DTO

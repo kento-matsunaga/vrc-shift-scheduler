@@ -280,7 +280,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		// AdminHandler dependencies (reusing adminRepo and passwordHasher from auth setup)
 		adminHandler := NewAdminHandler(
 			auth.NewChangePasswordUsecase(adminRepo, passwordHasher),
-			auth.NewChangeEmailUsecase(adminRepo, passwordHasher),
+			auth.NewChangeEmailUsecase(adminRepo, passwordHasher, systemClock),
 		)
 
 		// PasswordResetHandler dependencies (authenticated endpoint - no rate limiting needed)
@@ -448,7 +448,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			appschedule.NewDecideScheduleUsecase(scheduleRepo, systemClock),
 			appschedule.NewCloseScheduleUsecase(scheduleRepo, systemClock),
 			appschedule.NewDeleteScheduleUsecase(scheduleRepo, systemClock),
-			appschedule.NewUpdateScheduleUsecase(scheduleRepo, systemClock),
+			appschedule.NewUpdateScheduleUsecase(scheduleRepo, txManager, systemClock),
 			appschedule.NewGetScheduleUsecase(scheduleRepo),
 			appschedule.NewGetScheduleByTokenUsecase(scheduleRepo),
 			appschedule.NewGetResponsesUsecase(scheduleRepo),
@@ -545,17 +545,17 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		calendarRepo := db.NewCalendarRepository(dbPool)
 		calendarEntryRepo := db.NewCalendarEntryRepository(dbPool)
 		calendarHandler := NewCalendarHandler(
-			appcalendar.NewCreateCalendarUsecase(calendarRepo, eventRepo),
+			appcalendar.NewCreateCalendarUsecase(calendarRepo, eventRepo, systemClock),
 			appcalendar.NewGetCalendarUsecase(calendarRepo, eventRepo, businessDayRepo),
 			appcalendar.NewListCalendarsUsecase(calendarRepo),
-			appcalendar.NewUpdateCalendarUsecase(calendarRepo, eventRepo),
+			appcalendar.NewUpdateCalendarUsecase(calendarRepo, eventRepo, systemClock),
 			appcalendar.NewDeleteCalendarUsecase(calendarRepo),
 			appcalendar.NewGetCalendarByTokenUsecase(calendarRepo, eventRepo, businessDayRepo, calendarEntryRepo),
 		)
 		calendarEntryHandler := NewCalendarEntryHandler(
-			appcalendar.NewCreateCalendarEntryUsecase(calendarRepo, calendarEntryRepo),
+			appcalendar.NewCreateCalendarEntryUsecase(calendarRepo, calendarEntryRepo, systemClock),
 			appcalendar.NewListCalendarEntriesUsecase(calendarEntryRepo),
-			appcalendar.NewUpdateCalendarEntryUsecase(calendarEntryRepo),
+			appcalendar.NewUpdateCalendarEntryUsecase(calendarEntryRepo, systemClock),
 			appcalendar.NewDeleteCalendarEntryUsecase(calendarEntryRepo),
 		)
 		r.Route("/calendars", func(r chi.Router) {
