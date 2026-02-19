@@ -294,16 +294,18 @@ func (u *UpdateCalendarUsecase) Execute(ctx context.Context, input UpdateCalenda
 // DeleteCalendarUsecase handles deleting a calendar
 type DeleteCalendarUsecase struct {
 	calendarRepo calendar.Repository
+	clock        services.Clock
 }
 
 // NewDeleteCalendarUsecase creates a new DeleteCalendarUsecase
-func NewDeleteCalendarUsecase(calendarRepo calendar.Repository) *DeleteCalendarUsecase {
+func NewDeleteCalendarUsecase(calendarRepo calendar.Repository, clock services.Clock) *DeleteCalendarUsecase {
 	return &DeleteCalendarUsecase{
 		calendarRepo: calendarRepo,
+		clock:        clock,
 	}
 }
 
-// Execute deletes a calendar
+// Execute soft-deletes a calendar
 func (u *DeleteCalendarUsecase) Execute(ctx context.Context, input DeleteCalendarInput) error {
 	// Parse IDs
 	tenantID, err := common.ParseTenantID(input.TenantID)
@@ -315,8 +317,17 @@ func (u *DeleteCalendarUsecase) Execute(ctx context.Context, input DeleteCalenda
 		return err
 	}
 
-	// Delete from repository
-	return u.calendarRepo.Delete(ctx, tenantID, calendarID)
+	// Find calendar
+	cal, err := u.calendarRepo.FindByID(ctx, tenantID, calendarID)
+	if err != nil {
+		return err
+	}
+
+	// Soft delete via domain method
+	cal.Delete(u.clock.Now())
+
+	// Save via Update
+	return u.calendarRepo.Update(ctx, cal)
 }
 
 // getEventsWithBusinessDays fetches events and their business days

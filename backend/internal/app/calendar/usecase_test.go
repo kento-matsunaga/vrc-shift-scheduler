@@ -592,21 +592,27 @@ func TestUpdateCalendarUsecase_ErrorWhenCalendarNotFound(t *testing.T) {
 
 func TestDeleteCalendarUsecase_Success(t *testing.T) {
 	tenantID := createTestTenantID(t)
-	calendarID := createTestCalendarID(t)
+	testCalendar := createTestCalendar(t, tenantID, nil)
 
-	deleteCalled := false
+	updateCalled := false
 	mockCalRepo := &mockCalendarRepository{
-		deleteFunc: func(ctx context.Context, tid common.TenantID, cid common.CalendarID) error {
-			deleteCalled = true
+		findByIDFunc: func(ctx context.Context, tid common.TenantID, cid common.CalendarID) (*calendar.Calendar, error) {
+			return testCalendar, nil
+		},
+		updateFunc: func(ctx context.Context, cal *calendar.Calendar) error {
+			updateCalled = true
+			if !cal.IsDeleted() {
+				t.Error("expected calendar to be soft-deleted")
+			}
 			return nil
 		},
 	}
 
-	uc := appcalendar.NewDeleteCalendarUsecase(mockCalRepo)
+	uc := appcalendar.NewDeleteCalendarUsecase(mockCalRepo, &mockClock{})
 
 	input := appcalendar.DeleteCalendarInput{
 		TenantID:   tenantID.String(),
-		CalendarID: calendarID.String(),
+		CalendarID: testCalendar.CalendarID().String(),
 	}
 
 	err := uc.Execute(context.Background(), input)
@@ -614,22 +620,22 @@ func TestDeleteCalendarUsecase_Success(t *testing.T) {
 	if err != nil {
 		t.Errorf("expected no error, got %v", err)
 	}
-	if !deleteCalled {
-		t.Error("expected delete to be called")
+	if !updateCalled {
+		t.Error("expected update to be called for soft delete")
 	}
 }
 
-func TestDeleteCalendarUsecase_ErrorWhenDeleteFails(t *testing.T) {
+func TestDeleteCalendarUsecase_ErrorWhenNotFound(t *testing.T) {
 	tenantID := createTestTenantID(t)
 	calendarID := createTestCalendarID(t)
 
 	mockCalRepo := &mockCalendarRepository{
-		deleteFunc: func(ctx context.Context, tid common.TenantID, cid common.CalendarID) error {
-			return errors.New("database error")
+		findByIDFunc: func(ctx context.Context, tid common.TenantID, cid common.CalendarID) (*calendar.Calendar, error) {
+			return nil, errors.New("not found")
 		},
 	}
 
-	uc := appcalendar.NewDeleteCalendarUsecase(mockCalRepo)
+	uc := appcalendar.NewDeleteCalendarUsecase(mockCalRepo, &mockClock{})
 
 	input := appcalendar.DeleteCalendarInput{
 		TenantID:   tenantID.String(),

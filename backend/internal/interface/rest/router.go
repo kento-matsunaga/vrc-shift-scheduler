@@ -549,14 +549,14 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			appcalendar.NewGetCalendarUsecase(calendarRepo, eventRepo, businessDayRepo),
 			appcalendar.NewListCalendarsUsecase(calendarRepo),
 			appcalendar.NewUpdateCalendarUsecase(calendarRepo, eventRepo, systemClock),
-			appcalendar.NewDeleteCalendarUsecase(calendarRepo),
+			appcalendar.NewDeleteCalendarUsecase(calendarRepo, systemClock),
 			appcalendar.NewGetCalendarByTokenUsecase(calendarRepo, eventRepo, businessDayRepo, calendarEntryRepo),
 		)
 		calendarEntryHandler := NewCalendarEntryHandler(
 			appcalendar.NewCreateCalendarEntryUsecase(calendarRepo, calendarEntryRepo, systemClock),
 			appcalendar.NewListCalendarEntriesUsecase(calendarEntryRepo),
 			appcalendar.NewUpdateCalendarEntryUsecase(calendarEntryRepo, systemClock),
-			appcalendar.NewDeleteCalendarEntryUsecase(calendarEntryRepo),
+			appcalendar.NewDeleteCalendarEntryUsecase(calendarEntryRepo, systemClock),
 		)
 		r.Route("/calendars", func(r chi.Router) {
 			r.Post("/", calendarHandler.Create)

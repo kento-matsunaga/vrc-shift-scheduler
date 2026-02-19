@@ -206,18 +206,21 @@ func (u *UpdateCalendarEntryUsecase) Execute(ctx context.Context, input UpdateCa
 // DeleteCalendarEntryUsecase handles deleting a calendar entry
 type DeleteCalendarEntryUsecase struct {
 	calendarEntryRepo calendar.CalendarEntryRepository
+	clock             services.Clock
 }
 
 // NewDeleteCalendarEntryUsecase creates a new DeleteCalendarEntryUsecase
 func NewDeleteCalendarEntryUsecase(
 	calendarEntryRepo calendar.CalendarEntryRepository,
+	clock services.Clock,
 ) *DeleteCalendarEntryUsecase {
 	return &DeleteCalendarEntryUsecase{
 		calendarEntryRepo: calendarEntryRepo,
+		clock:             clock,
 	}
 }
 
-// Execute deletes a calendar entry
+// Execute soft-deletes a calendar entry
 func (u *DeleteCalendarEntryUsecase) Execute(ctx context.Context, input DeleteCalendarEntryInput) error {
 	// Parse TenantID
 	tenantID, err := common.ParseTenantID(input.TenantID)
@@ -231,8 +234,17 @@ func (u *DeleteCalendarEntryUsecase) Execute(ctx context.Context, input DeleteCa
 		return err
 	}
 
-	// Delete from repository
-	return u.calendarEntryRepo.Delete(ctx, tenantID, entryID)
+	// Find entry
+	entry, err := u.calendarEntryRepo.FindByID(ctx, tenantID, entryID)
+	if err != nil {
+		return err
+	}
+
+	// Soft delete via domain method
+	entry.Delete(u.clock.Now())
+
+	// Save via repository
+	return u.calendarEntryRepo.Save(ctx, entry)
 }
 
 // === ListCalendarEntriesUsecase ===

@@ -50,15 +50,6 @@ func (u *UpdateScheduleUsecase) Execute(ctx context.Context, input UpdateSchedul
 		if err != nil {
 			return nil, fmt.Errorf("削除対象候補日の特定に失敗: %w", err)
 		}
-		if len(removedCandidates) > 0 {
-			candidateWithResponse, err := u.findCandidateWithExistingResponses(ctx, scheduleID, removedCandidates)
-			if err != nil {
-				return nil, fmt.Errorf("既存回答の確認に失敗: %w", err)
-			}
-			if candidateWithResponse != nil && !input.ForceDeleteCandidateResponses {
-				return nil, common.NewConflictError(candidateRemovalMessage(candidateWithResponse))
-			}
-		}
 
 		candidates = make([]*schedule.CandidateDate, 0, len(input.Candidates))
 		for i, c := range input.Candidates {
@@ -77,16 +68,34 @@ func (u *UpdateScheduleUsecase) Execute(ctx context.Context, input UpdateSchedul
 			}
 			candidates = append(candidates, candidate)
 		}
-	}
 
-	if err := sch.Update(now, input.Title, input.Description, input.Deadline, candidates); err != nil {
-		return nil, fmt.Errorf("日程調整の更新に失敗: %w", err)
-	}
+		if err := sch.Update(now, input.Title, input.Description, input.Deadline, candidates); err != nil {
+			return nil, fmt.Errorf("日程調整の更新に失敗: %w", err)
+		}
 
-	if err := u.txManager.WithTx(ctx, func(txCtx context.Context) error {
-		return u.repo.Save(txCtx, sch)
-	}); err != nil {
-		return nil, fmt.Errorf("日程調整の保存に失敗: %w", err)
+		// 競合チェック（FindResponsesByScheduleID）と保存を同一トランザクションで実行
+		if err := u.txManager.WithTx(ctx, func(txCtx context.Context) error {
+			if len(removedCandidates) > 0 {
+				candidateWithResponse, err := u.findCandidateWithExistingResponses(txCtx, scheduleID, removedCandidates)
+				if err != nil {
+					return fmt.Errorf("既存回答の確認に失敗: %w", err)
+				}
+				if candidateWithResponse != nil && !input.ForceDeleteCandidateResponses {
+					return common.NewConflictError(candidateRemovalMessage(candidateWithResponse))
+				}
+			}
+			return u.repo.Save(txCtx, sch)
+		}); err != nil {
+			return nil, err
+		}
+	} else {
+		// 候補日の変更なし — トランザクション不要
+		if err := sch.Update(now, input.Title, input.Description, input.Deadline, candidates); err != nil {
+			return nil, fmt.Errorf("日程調整の更新に失敗: %w", err)
+		}
+		if err := u.repo.Save(ctx, sch); err != nil {
+			return nil, fmt.Errorf("日程調整の保存に失敗: %w", err)
+		}
 	}
 	// TODO: billing_audit_logs テーブルへの永続化を検討
 	log.Printf("[AUDIT] UpdateSchedule: tenant=%s schedule=%s", sch.TenantID().String(), sch.ScheduleID().String())
