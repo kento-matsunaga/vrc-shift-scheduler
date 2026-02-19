@@ -71,7 +71,7 @@ admin-frontend/       # 運営管理コンソール
 - 変数/関数: `camelCase`
 - 型/構造体: `PascalCase`
 - DB カラム: `snake_case`
-- マイグレーション: `NNN_description.up.sql`（最新: 039_migrate_instance_data）
+- マイグレーション: `NNN_description.up.sql`（最新: 046_add_calendar_soft_delete）
 
 ## API レスポンス形式
 
@@ -140,8 +140,8 @@ curl -X POST http://localhost:8080/api/v1/auth/login \
 
 ## 現在のバージョン
 
-- **本番**: v1.7.1
-- **マイグレーション**: 039（migrate_instance_data）
+- **本番**: v1.10.0
+- **マイグレーション**: 046（add_calendar_soft_delete）
 
 ---
 
