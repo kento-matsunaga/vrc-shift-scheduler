@@ -215,13 +215,13 @@ export default function ScheduleDetail() {
   const responseCount = respondedMemberIds.size;
   const totalMembers = members.length;
 
-  // Create response map for quick lookup: member_id -> candidate_id -> availability
-  const responseMap = new Map<string, Map<string, 'available' | 'maybe' | 'unavailable'>>();
+  // Create response map for quick lookup: member_id -> candidate_id -> { availability, note }
+  const responseMap = new Map<string, Map<string, { availability: 'available' | 'maybe' | 'unavailable'; note: string }>>();
   responses.forEach((resp) => {
     if (!responseMap.has(resp.member_id)) {
       responseMap.set(resp.member_id, new Map());
     }
-    responseMap.get(resp.member_id)!.set(resp.candidate_id, resp.availability);
+    responseMap.get(resp.member_id)!.set(resp.candidate_id, { availability: resp.availability, note: resp.note || '' });
   });
 
   // ソート・フィルタリング処理
@@ -234,16 +234,16 @@ export default function ScheduleDetail() {
     } else if (sortKey === 'available_count') {
       // 全体の参加可能数でソート
       const aCount = candidates.filter(
-        (c) => responseMap.get(a.member_id)?.get(c.candidate_id) === 'available'
+        (c) => responseMap.get(a.member_id)?.get(c.candidate_id)?.availability === 'available'
       ).length;
       const bCount = candidates.filter(
-        (c) => responseMap.get(b.member_id)?.get(c.candidate_id) === 'available'
+        (c) => responseMap.get(b.member_id)?.get(c.candidate_id)?.availability === 'available'
       ).length;
       comparison = aCount - bCount;
     } else if (sortKey === 'date_available' && sortCandidateId) {
       // 特定の日付の参加可能状態でソート
-      const aAvailability = responseMap.get(a.member_id)?.get(sortCandidateId);
-      const bAvailability = responseMap.get(b.member_id)?.get(sortCandidateId);
+      const aAvailability = responseMap.get(a.member_id)?.get(sortCandidateId)?.availability;
+      const bAvailability = responseMap.get(b.member_id)?.get(sortCandidateId)?.availability;
       const order = { available: 0, maybe: 1, unavailable: 2, undefined: 3 };
       const aOrder = aAvailability ? order[aAvailability] : order.undefined;
       const bOrder = bAvailability ? order[bAvailability] : order.undefined;
@@ -469,10 +469,10 @@ export default function ScheduleDetail() {
               {sortedMembers.map((member) => {
                 const memberResponses = responseMap.get(member.member_id);
                 const availableCount = candidates.filter(
-                  (c) => memberResponses?.get(c.candidate_id) === 'available'
+                  (c) => memberResponses?.get(c.candidate_id)?.availability === 'available'
                 ).length;
                 const maybeCount = candidates.filter(
-                  (c) => memberResponses?.get(c.candidate_id) === 'maybe'
+                  (c) => memberResponses?.get(c.candidate_id)?.availability === 'maybe'
                 ).length;
 
                 return (
@@ -486,7 +486,8 @@ export default function ScheduleDetail() {
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {candidates.map((candidate) => {
-                        const availability = memberResponses?.get(candidate.candidate_id);
+                        const responseData = memberResponses?.get(candidate.candidate_id);
+                        const availability = responseData?.availability;
                         let bgColor = 'bg-gray-100 text-gray-400';
                         let symbol = '-';
 
@@ -506,13 +507,20 @@ export default function ScheduleDetail() {
                             key={candidate.candidate_id}
                             className={`px-2 py-1 rounded text-xs ${bgColor}`}
                           >
-                            <span className="font-medium">{symbol}</span>
-                            <span className="ml-1 text-gray-600">
-                              {new Date(candidate.date).toLocaleDateString('ja-JP', {
-                                month: 'numeric',
-                                day: 'numeric',
-                              })}
-                            </span>
+                            <div className="flex items-center">
+                              <span className="font-medium">{symbol}</span>
+                              <span className="ml-1 text-gray-600">
+                                {new Date(candidate.date).toLocaleDateString('ja-JP', {
+                                  month: 'numeric',
+                                  day: 'numeric',
+                                })}
+                              </span>
+                            </div>
+                            {responseData?.note && (
+                              <p className="text-[10px] leading-tight text-gray-500 mt-0.5 line-clamp-2 break-words">
+                                {responseData.note}
+                              </p>
+                            )}
                           </div>
                         );
                       })}
@@ -610,7 +618,8 @@ export default function ScheduleDetail() {
                         {member.display_name}
                       </td>
                       {candidates.map((candidate) => {
-                        const availability = memberResponses?.get(candidate.candidate_id);
+                        const responseData = memberResponses?.get(candidate.candidate_id);
+                        const availability = responseData?.availability;
                         let content;
                         let bgColor;
 
@@ -631,9 +640,16 @@ export default function ScheduleDetail() {
                         return (
                           <td
                             key={candidate.candidate_id}
-                            className={`px-4 py-4 text-center text-lg font-semibold ${bgColor}`}
+                            className={`px-4 py-3 text-center ${bgColor}`}
                           >
-                            {content}
+                            <div className="flex flex-col items-center">
+                              <span className="text-lg font-semibold">{content}</span>
+                              {responseData?.note && (
+                                <p className="text-[10px] leading-tight text-gray-500 mt-1 max-w-[120px] line-clamp-2 break-words">
+                                  {responseData.note}
+                                </p>
+                              )}
+                            </div>
                           </td>
                         );
                       })}

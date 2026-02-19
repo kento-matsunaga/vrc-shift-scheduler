@@ -165,13 +165,17 @@ export default function BaseResponseTable({
                   <td
                     key={item.id}
                     className={`border border-gray-300 px-3 py-2 text-center ${config?.bgColor || 'bg-gray-50'}`}
-                    title={resp?.note || undefined}
                   >
                     <div className="flex flex-col items-center">
                       {config ? (
                         <span className={`${config.iconColor} font-bold text-lg`}>{config.icon}</span>
                       ) : (
                         <span className="text-gray-400">-</span>
+                      )}
+                      {resp?.note && (
+                        <p className="text-[10px] leading-tight text-gray-500 mt-0.5 max-w-[100px] line-clamp-2 break-words">
+                          {resp.note}
+                        </p>
                       )}
                       {renderExtraContent && renderExtraContent(resp)}
                     </div>
