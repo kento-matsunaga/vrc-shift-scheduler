@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import NoteTooltip from './NoteTooltip';
 
 // 日付/候補の共通インターフェース
 export interface DateItem {
@@ -196,9 +197,10 @@ export default function BaseResponseTable({
                         <span className="text-gray-400">-</span>
                       )}
                       {resp?.note && (
-                        <p className="text-[10px] leading-tight text-gray-500 mt-0.5 max-w-[100px] line-clamp-2 break-words">
-                          {resp.note}
-                        </p>
+                        <NoteTooltip
+                          note={resp.note}
+                          className="text-[10px] leading-tight text-gray-500 mt-0.5 max-w-[100px]"
+                        />
                       )}
                       {renderExtraContent && renderExtraContent(resp)}
                     </div>
