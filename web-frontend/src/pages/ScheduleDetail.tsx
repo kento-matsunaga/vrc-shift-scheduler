@@ -8,6 +8,7 @@ import { listRoles, type Role } from '../lib/api/roleApi';
 import { ApiClientError } from '../lib/apiClient';
 import type { Member } from '../types/api';
 import { formatTimeRange } from '../lib/timeUtils';
+import NoteTooltip from '../components/NoteTooltip';
 
 interface Candidate {
   candidate_id: string;
@@ -612,9 +613,10 @@ export default function ScheduleDetail() {
                               </span>
                             </div>
                             {responseData?.note && (
-                              <p className="text-[10px] leading-tight text-gray-500 mt-0.5 max-w-[100px] line-clamp-2 break-words">
-                                {responseData.note}
-                              </p>
+                              <NoteTooltip
+                                note={responseData.note}
+                                className="text-[10px] leading-tight text-gray-500 mt-0.5 max-w-[100px]"
+                              />
                             )}
                           </div>
                         );
@@ -742,9 +744,10 @@ export default function ScheduleDetail() {
                             <div className="flex flex-col items-center">
                               <span className="text-lg font-semibold">{content}</span>
                               {responseData?.note && (
-                                <p className="text-[10px] leading-tight text-gray-500 mt-1 max-w-[120px] line-clamp-2 break-words">
-                                  {responseData.note}
-                                </p>
+                                <NoteTooltip
+                                  note={responseData.note}
+                                  className="text-[10px] leading-tight text-gray-500 mt-1 max-w-[120px]"
+                                />
                               )}
                             </div>
                           </td>
