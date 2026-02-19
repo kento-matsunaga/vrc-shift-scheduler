@@ -153,34 +153,7 @@ export default function BaseResponseTable({
           </tr>
         </thead>
         <tbody>
-          {memberResponses.map((member) => (
-            <tr key={member.memberId} className="hover:bg-gray-50">
-              <td className="border border-gray-300 px-3 py-2 font-medium text-gray-900 sticky left-0 bg-white z-10">
-                {member.memberName}
-              </td>
-              {dateItems.map((item) => {
-                const resp = member.responses[item.id];
-                const config = getResponseConfig(resp?.responseValue);
-                return (
-                  <td
-                    key={item.id}
-                    className={`border border-gray-300 px-3 py-2 text-center ${config?.bgColor || 'bg-gray-50'}`}
-                    title={resp?.note || undefined}
-                  >
-                    <div className="flex flex-col items-center">
-                      {config ? (
-                        <span className={`${config.iconColor} font-bold text-lg`}>{config.icon}</span>
-                      ) : (
-                        <span className="text-gray-400">-</span>
-                      )}
-                      {renderExtraContent && renderExtraContent(resp)}
-                    </div>
-                  </td>
-                );
-              })}
-            </tr>
-          ))}
-          {/* 集計行 */}
+          {/* 集計行（先頭） */}
           <tr className="bg-gray-100 font-medium">
             <td className="border border-gray-300 px-3 py-2 text-gray-700 sticky left-0 bg-gray-100 z-10">
               集計
@@ -203,6 +176,37 @@ export default function BaseResponseTable({
               );
             })}
           </tr>
+          {memberResponses.map((member) => (
+            <tr key={member.memberId} className="hover:bg-gray-50">
+              <td className="border border-gray-300 px-3 py-2 font-medium text-gray-900 sticky left-0 bg-white z-10">
+                {member.memberName}
+              </td>
+              {dateItems.map((item) => {
+                const resp = member.responses[item.id];
+                const config = getResponseConfig(resp?.responseValue);
+                return (
+                  <td
+                    key={item.id}
+                    className={`border border-gray-300 px-3 py-2 text-center ${config?.bgColor || 'bg-gray-50'}`}
+                  >
+                    <div className="flex flex-col items-center">
+                      {config ? (
+                        <span className={`${config.iconColor} font-bold text-lg`}>{config.icon}</span>
+                      ) : (
+                        <span className="text-gray-400">-</span>
+                      )}
+                      {resp?.note && (
+                        <p className="text-[10px] leading-tight text-gray-500 mt-0.5 max-w-[100px] line-clamp-2 break-words">
+                          {resp.note}
+                        </p>
+                      )}
+                      {renderExtraContent && renderExtraContent(resp)}
+                    </div>
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
         </tbody>
       </table>
       <div className="mt-3 flex gap-4 text-sm text-gray-600">
