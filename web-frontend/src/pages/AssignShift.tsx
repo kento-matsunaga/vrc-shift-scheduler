@@ -1,18 +1,19 @@
 import { useState, useEffect } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
+import { SEO } from '../components/seo';
 import { getShiftSlotDetail, getMembers, confirmAssignment, getRecentAttendance, getActualAttendance, getBusinessDayDetail, getAssignments, cancelAssignment } from '../lib/api';
 import { listRoles, type Role } from '../lib/api/roleApi';
 import { getMemberGroups, type MemberGroup } from '../lib/api/memberGroupApi';
 import { getRoleGroups, type RoleGroup } from '../lib/api/roleGroupApi';
 import { getEventGroupAssignments, type EventGroupAssignments } from '../lib/api/eventApi';
-import type { ShiftSlot, Member, RecentAttendanceResponse } from '../types/api';
+import type { ShiftSlot, Member, RecentAttendanceResponse, BusinessDay } from '../types/api';
 import { ApiClientError } from '../lib/apiClient';
 
 export default function AssignShift() {
   const { slotId } = useParams<{ slotId: string }>();
   const navigate = useNavigate();
   const [shiftSlot, setShiftSlot] = useState<ShiftSlot | null>(null);
-  const [businessDay, setBusinessDay] = useState<any | null>(null);
+  const [businessDay, setBusinessDay] = useState<BusinessDay | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [memberGroups, setMemberGroups] = useState<MemberGroup[]>([]);
@@ -149,6 +150,7 @@ export default function AssignShift() {
     if (slotId) {
       loadData();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 初回マウント時のみ実行（loadDataは関数定義のため除外）
   }, [slotId]);
 
   const loadData = async () => {
@@ -338,6 +340,7 @@ export default function AssignShift() {
 
   return (
     <div className="max-w-2xl mx-auto">
+      <SEO noindex={true} />
       {/* パンくずリスト */}
       <nav className="mb-6 text-sm text-gray-600">
         <Link to="/events" className="hover:text-gray-900">

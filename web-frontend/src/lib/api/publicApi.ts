@@ -315,3 +315,46 @@ export async function getAllScheduleResponses(
   );
   return response.data;
 }
+
+// ==========================================
+// カレンダー 公開API
+// ==========================================
+
+export interface PublicBusinessDay {
+  date: string;
+  start_time: string;
+  end_time: string;
+}
+
+export interface PublicEvent {
+  title: string;
+  description: string;
+  business_days: PublicBusinessDay[];
+}
+
+export interface PublicCalendarEntry {
+  entry_id: string;
+  title: string;
+  date: string;        // YYYY-MM-DD
+  start_time?: string; // HH:MM
+  end_time?: string;   // HH:MM
+  note: string;
+}
+
+export interface PublicCalendar {
+  title: string;
+  description: string;
+  events: PublicEvent[];
+  entries: PublicCalendarEntry[];
+}
+
+/**
+ * 公開カレンダー情報を取得
+ */
+export async function getCalendarByToken(token: string): Promise<PublicCalendar> {
+  const response = await publicRequest<{ data: PublicCalendar }>(
+    'GET',
+    `/api/v1/public/calendar/${token}`
+  );
+  return response.data;
+}

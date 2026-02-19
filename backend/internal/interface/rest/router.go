@@ -12,6 +12,7 @@ import (
 	appattendance "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/attendance"
 	appaudit "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/audit"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/app/auth"
+	appcalendar "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/calendar"
 	appevent "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/event"
 	appimport "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/import"
 	applicense "github.com/erenoa/vrc-shift-scheduler/backend/internal/app/license"
@@ -173,11 +174,13 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		slotRepo := db.NewShiftSlotRepository(dbPool)
 		templateRepo := db.NewShiftSlotTemplateRepository(dbPool)
 		instanceRepo := db.NewInstanceRepository(dbPool)
+		businessDayTxManager := db.NewPgxTxManager(dbPool)
 		businessDayHandler := NewBusinessDayHandler(
-			appevent.NewCreateBusinessDayUsecase(businessDayRepo, eventRepo, templateRepo, slotRepo, instanceRepo),
+			appevent.NewCreateBusinessDayUsecase(businessDayRepo, eventRepo, templateRepo, slotRepo, instanceRepo, businessDayTxManager),
 			appevent.NewListBusinessDaysUsecase(businessDayRepo),
 			appevent.NewGetBusinessDayUsecase(businessDayRepo),
-			appevent.NewApplyTemplateUsecase(businessDayRepo, templateRepo, slotRepo, instanceRepo),
+			appevent.NewApplyTemplateUsecase(businessDayRepo, templateRepo, slotRepo, instanceRepo, businessDayTxManager),
+			appevent.NewDeleteBusinessDayUsecase(businessDayRepo),
 		)
 
 		// InstanceHandler dependencies
@@ -251,10 +254,11 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		systemClock := &clock.RealClock{}
 		txManager := db.NewPgxTxManager(dbPool)
 		attendanceHandler := NewAttendanceHandler(
-			appattendance.NewCreateCollectionUsecase(attendanceRepo, roleRepo, systemClock),
+			appattendance.NewCreateCollectionUsecase(attendanceRepo, roleRepo, txManager, systemClock),
 			appattendance.NewSubmitResponseUsecase(attendanceRepo, txManager, systemClock),
 			appattendance.NewCloseCollectionUsecase(attendanceRepo, systemClock),
 			appattendance.NewDeleteCollectionUsecase(attendanceRepo, systemClock),
+			appattendance.NewUpdateCollectionUsecase(attendanceRepo, txManager, systemClock),
 			appattendance.NewGetCollectionUsecase(attendanceRepo),
 			appattendance.NewGetCollectionByTokenUsecase(attendanceRepo),
 			appattendance.NewGetResponsesUsecase(attendanceRepo, memberRepo),
@@ -276,6 +280,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		// AdminHandler dependencies (reusing adminRepo and passwordHasher from auth setup)
 		adminHandler := NewAdminHandler(
 			auth.NewChangePasswordUsecase(adminRepo, passwordHasher),
+			auth.NewChangeEmailUsecase(adminRepo, passwordHasher, systemClock),
 		)
 
 		// PasswordResetHandler dependencies (authenticated endpoint - no rate limiting needed)
@@ -327,6 +332,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		// BusinessDay API
 		r.Route("/business-days", func(r chi.Router) {
 			r.Get("/{business_day_id}", businessDayHandler.GetBusinessDay)
+			r.With(permissionChecker.RequirePermission(tenant.PermissionEditEvent)).Delete("/{business_day_id}", businessDayHandler.DeleteBusinessDay)
 
 			// BusinessDay配下のShiftSlot
 			r.With(permissionChecker.RequirePermission(tenant.PermissionEditShift)).Post("/{business_day_id}/shift-slots", shiftSlotHandler.CreateShiftSlot)
@@ -428,6 +434,7 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			r.Get("/{collection_id}", attendanceHandler.GetCollection)
 			r.With(permissionChecker.RequirePermission(tenant.PermissionCreateAttendance)).Post("/{collection_id}/close", attendanceHandler.CloseCollection)
 			r.With(permissionChecker.RequirePermission(tenant.PermissionCreateAttendance)).Delete("/{collection_id}", attendanceHandler.DeleteCollection)
+			r.With(permissionChecker.RequirePermission(tenant.PermissionCreateAttendance)).Put("/{collection_id}", attendanceHandler.UpdateCollection)
 			r.Get("/{collection_id}/responses", attendanceHandler.GetResponses)
 			// 管理者による出欠回答の更新（締め切り後も可能）
 			r.With(permissionChecker.RequirePermission(tenant.PermissionEditMember)).Put("/{collection_id}/responses", attendanceHandler.AdminUpdateResponse)
@@ -441,11 +448,13 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			appschedule.NewDecideScheduleUsecase(scheduleRepo, systemClock),
 			appschedule.NewCloseScheduleUsecase(scheduleRepo, systemClock),
 			appschedule.NewDeleteScheduleUsecase(scheduleRepo, systemClock),
+			appschedule.NewUpdateScheduleUsecase(scheduleRepo, txManager, systemClock),
 			appschedule.NewGetScheduleUsecase(scheduleRepo),
 			appschedule.NewGetScheduleByTokenUsecase(scheduleRepo),
 			appschedule.NewGetResponsesUsecase(scheduleRepo),
 			appschedule.NewListSchedulesUsecase(scheduleRepo),
 			appschedule.NewGetAllPublicResponsesUsecase(scheduleRepo, memberRepo),
+			appschedule.NewConvertToAttendanceUsecase(scheduleRepo, attendanceRepo, memberGroupRepo, txManager, systemClock),
 		)
 		r.Route("/schedules", func(r chi.Router) {
 			r.Get("/", scheduleHandler.ListSchedules)
@@ -454,7 +463,9 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			r.With(permissionChecker.RequirePermission(tenant.PermissionCreateSchedule)).Post("/{schedule_id}/decide", scheduleHandler.DecideSchedule)
 			r.With(permissionChecker.RequirePermission(tenant.PermissionCreateSchedule)).Post("/{schedule_id}/close", scheduleHandler.CloseSchedule)
 			r.With(permissionChecker.RequirePermission(tenant.PermissionCreateSchedule)).Delete("/{schedule_id}", scheduleHandler.DeleteSchedule)
+			r.With(permissionChecker.RequirePermission(tenant.PermissionCreateSchedule)).Put("/{schedule_id}", scheduleHandler.UpdateSchedule)
 			r.Get("/{schedule_id}/responses", scheduleHandler.GetResponses)
+			r.With(permissionChecker.RequirePermission(tenant.PermissionCreateSchedule)).Post("/{schedule_id}/convert-to-attendance", scheduleHandler.ConvertToAttendance)
 		})
 
 		// Invitation API（管理者のみ - マネージャー招待権限が必要）
@@ -468,9 +479,10 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			r.Put("/me", tenantHandler.UpdateCurrentTenant)
 		})
 
-		// Admin API (テナント管理者のパスワード変更、PWリセット許可)
+		// Admin API (テナント管理者のパスワード変更、メールアドレス変更、PWリセット許可)
 		r.Route("/admins", func(r chi.Router) {
 			r.Post("/me/change-password", adminHandler.ChangePassword)
+			r.Post("/me/change-email", adminHandler.ChangeEmail)
 			// PWリセット許可（Ownerのみ実行可能 - Usecase内でチェック）
 			r.Post("/{admin_id}/allow-password-reset", authPasswordResetHandler.AllowPasswordReset)
 		})
@@ -527,6 +539,39 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 		r.Route("/tutorials", func(r chi.Router) {
 			r.Get("/", tutorialHandler.List)
 			r.Get("/{id}", tutorialHandler.Get)
+		})
+
+		// Calendar API（カレンダー機能）
+		calendarRepo := db.NewCalendarRepository(dbPool)
+		calendarEntryRepo := db.NewCalendarEntryRepository(dbPool)
+		calendarHandler := NewCalendarHandler(
+			appcalendar.NewCreateCalendarUsecase(calendarRepo, eventRepo, systemClock),
+			appcalendar.NewGetCalendarUsecase(calendarRepo, eventRepo, businessDayRepo),
+			appcalendar.NewListCalendarsUsecase(calendarRepo),
+			appcalendar.NewUpdateCalendarUsecase(calendarRepo, eventRepo, systemClock),
+			appcalendar.NewDeleteCalendarUsecase(calendarRepo, systemClock),
+			appcalendar.NewGetCalendarByTokenUsecase(calendarRepo, eventRepo, businessDayRepo, calendarEntryRepo),
+		)
+		calendarEntryHandler := NewCalendarEntryHandler(
+			appcalendar.NewCreateCalendarEntryUsecase(calendarRepo, calendarEntryRepo, systemClock),
+			appcalendar.NewListCalendarEntriesUsecase(calendarEntryRepo),
+			appcalendar.NewUpdateCalendarEntryUsecase(calendarEntryRepo, systemClock),
+			appcalendar.NewDeleteCalendarEntryUsecase(calendarEntryRepo, systemClock),
+		)
+		r.Route("/calendars", func(r chi.Router) {
+			r.Post("/", calendarHandler.Create)
+			r.Get("/", calendarHandler.List)
+			r.Get("/{id}", calendarHandler.GetByID)
+			r.Put("/{id}", calendarHandler.Update)
+			r.Delete("/{id}", calendarHandler.Delete)
+
+			// Calendar Entry routes
+			r.Route("/{calendar_id}/entries", func(r chi.Router) {
+				r.Post("/", calendarEntryHandler.CreateCalendarEntry)
+				r.Get("/", calendarEntryHandler.ListCalendarEntries)
+				r.Put("/{entry_id}", calendarEntryHandler.UpdateCalendarEntry)
+				r.Delete("/{entry_id}", calendarEntryHandler.DeleteCalendarEntry)
+			})
 		})
 
 		// Billing API（課金管理 - Stripeカスタマーポータル、課金状態）
@@ -675,15 +720,20 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 	publicClock := &clock.RealClock{}
 	publicTxManager := db.NewPgxTxManager(dbPool)
 
+	// Rate limiters for public attendance/schedules API
+	publicReadRL := PublicAPIReadRateLimiter()   // 60 requests/minute/IP for GET
+	publicWriteRL := PublicAPIWriteRateLimiter() // 10 requests/minute/IP for POST
+
 	r.Route("/api/v1/public/attendance", func(r chi.Router) {
 		publicAttendanceRepoForHandler := db.NewAttendanceRepository(dbPool)
 		publicMemberRepoForAttendance := db.NewMemberRepository(dbPool)
 		publicRoleRepoForAttendance := db.NewRoleRepository(dbPool)
 		publicAttendanceHandler := NewAttendanceHandler(
-			appattendance.NewCreateCollectionUsecase(publicAttendanceRepoForHandler, publicRoleRepoForAttendance, publicClock),
+			appattendance.NewCreateCollectionUsecase(publicAttendanceRepoForHandler, publicRoleRepoForAttendance, publicTxManager, publicClock),
 			appattendance.NewSubmitResponseUsecase(publicAttendanceRepoForHandler, publicTxManager, publicClock),
 			appattendance.NewCloseCollectionUsecase(publicAttendanceRepoForHandler, publicClock),
 			appattendance.NewDeleteCollectionUsecase(publicAttendanceRepoForHandler, publicClock),
+			nil,
 			appattendance.NewGetCollectionUsecase(publicAttendanceRepoForHandler),
 			appattendance.NewGetCollectionByTokenUsecase(publicAttendanceRepoForHandler),
 			appattendance.NewGetResponsesUsecase(publicAttendanceRepoForHandler, publicMemberRepoForAttendance),
@@ -692,10 +742,12 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			appattendance.NewGetAllPublicResponsesUsecase(publicAttendanceRepoForHandler, publicMemberRepoForAttendance),
 			nil, // AdminUpdateResponseUsecase は公開APIでは使用しない
 		)
-		r.Get("/{token}", publicAttendanceHandler.GetCollectionByToken)
-		r.Post("/{token}/responses", publicAttendanceHandler.SubmitResponse)
-		r.Get("/{token}/members/{member_id}/responses", publicAttendanceHandler.GetMemberResponses)
-		r.Get("/{token}/responses", publicAttendanceHandler.GetAllPublicResponses)
+		// GET endpoints: 60 requests/minute/IP
+		r.With(RateLimitMiddleware(publicReadRL)).Get("/{token}", publicAttendanceHandler.GetCollectionByToken)
+		r.With(RateLimitMiddleware(publicReadRL)).Get("/{token}/members/{member_id}/responses", publicAttendanceHandler.GetMemberResponses)
+		r.With(RateLimitMiddleware(publicReadRL)).Get("/{token}/responses", publicAttendanceHandler.GetAllPublicResponses)
+		// POST endpoints: 10 requests/minute/IP
+		r.With(RateLimitMiddleware(publicWriteRL)).Post("/{token}/responses", publicAttendanceHandler.SubmitResponse)
 	})
 
 	r.Route("/api/v1/public/schedules", func(r chi.Router) {
@@ -707,15 +759,36 @@ func NewRouter(dbPool *pgxpool.Pool) http.Handler {
 			appschedule.NewDecideScheduleUsecase(publicScheduleRepo, publicClock),
 			appschedule.NewCloseScheduleUsecase(publicScheduleRepo, publicClock),
 			appschedule.NewDeleteScheduleUsecase(publicScheduleRepo, publicClock),
+			nil,
 			appschedule.NewGetScheduleUsecase(publicScheduleRepo),
 			appschedule.NewGetScheduleByTokenUsecase(publicScheduleRepo),
 			appschedule.NewGetResponsesUsecase(publicScheduleRepo),
 			appschedule.NewListSchedulesUsecase(publicScheduleRepo),
 			appschedule.NewGetAllPublicResponsesUsecase(publicScheduleRepo, publicScheduleMemberRepo),
+			nil, // ConvertToAttendance は public API では使用しない
 		)
-		r.Get("/{token}", publicScheduleHandler.GetScheduleByToken)
-		r.Post("/{token}/responses", publicScheduleHandler.SubmitResponse)
-		r.Get("/{token}/responses", publicScheduleHandler.GetAllPublicResponses)
+		// GET endpoints: 60 requests/minute/IP
+		r.With(RateLimitMiddleware(publicReadRL)).Get("/{token}", publicScheduleHandler.GetScheduleByToken)
+		r.With(RateLimitMiddleware(publicReadRL)).Get("/{token}/responses", publicScheduleHandler.GetAllPublicResponses)
+		// POST endpoints: 10 requests/minute/IP
+		r.With(RateLimitMiddleware(publicWriteRL)).Post("/{token}/responses", publicScheduleHandler.SubmitResponse)
+	})
+
+	// 公開カレンダーAPI（認証不要）
+	r.Route("/api/v1/public/calendar", func(r chi.Router) {
+		publicCalendarRepo := db.NewCalendarRepository(dbPool)
+		publicEventRepo := db.NewEventRepository(dbPool)
+		publicBusinessDayRepo := db.NewEventBusinessDayRepository(dbPool)
+		publicCalendarEntryRepo := db.NewCalendarEntryRepository(dbPool)
+		publicCalendarHandler := NewCalendarHandler(
+			nil, // Create not needed for public handler
+			nil, // Get not needed for public handler
+			nil, // List not needed for public handler
+			nil, // Update not needed for public handler
+			nil, // Delete not needed for public handler
+			appcalendar.NewGetCalendarByTokenUsecase(publicCalendarRepo, publicEventRepo, publicBusinessDayRepo, publicCalendarEntryRepo),
+		)
+		r.Get("/{token}", publicCalendarHandler.GetByPublicToken)
 	})
 
 	// 公開ページ用メンバー一覧API（認証不要）

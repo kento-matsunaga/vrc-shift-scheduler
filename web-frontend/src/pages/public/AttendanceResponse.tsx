@@ -15,6 +15,7 @@ import {
 import SearchableSelect from '../../components/SearchableSelect';
 import ResponseTable from '../../components/ResponseTable';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
+import { SEO } from '../../components/seo';
 
 export default function AttendanceResponse() {
   const { token } = useParams<{ token: string }>();
@@ -260,7 +261,7 @@ export default function AttendanceResponse() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-[100dvh] bg-gray-50 flex items-center justify-center pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
         <div className="text-center">
           <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-accent"></div>
           <p className="mt-4 text-gray-600">読み込み中...</p>
@@ -271,7 +272,7 @@ export default function AttendanceResponse() {
 
   if (error && !collection) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div className="min-h-[100dvh] bg-gray-50 flex items-center justify-center p-4 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
         <div className="max-w-md w-full bg-white rounded-lg shadow-md p-6">
           <div className="text-center">
             <div className="text-red-500 text-5xl mb-4">⚠️</div>
@@ -285,7 +286,7 @@ export default function AttendanceResponse() {
 
   if (submitted) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div className="min-h-[100dvh] bg-gray-50 flex items-center justify-center p-4 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
         <div className="max-w-md w-full bg-white rounded-lg shadow-md p-6">
           <div className="text-center">
             <div className="text-green-500 text-5xl mb-4">✓</div>
@@ -318,7 +319,8 @@ export default function AttendanceResponse() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
+    <div className="min-h-[100dvh] bg-gray-50 py-8 px-4 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
+      <SEO noindex={true} />
       <div className="max-w-2xl mx-auto">
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
           <h1 className="text-2xl font-bold text-gray-900 mb-2">
@@ -458,7 +460,7 @@ export default function AttendanceResponse() {
                               type="time"
                               value={availableTimes[td.target_date_id]?.from || ''}
                               onChange={(e) => handleTimeChange(td.target_date_id, 'from', e.target.value)}
-                              className="px-2 py-1 border border-gray-300 rounded-md text-sm"
+                              className="px-2 py-1 border border-gray-300 rounded-md text-base"
                               disabled={collection?.status === 'closed'}
                             />
                             <span className="text-gray-500">〜</span>
@@ -466,7 +468,7 @@ export default function AttendanceResponse() {
                               type="time"
                               value={availableTimes[td.target_date_id]?.to || ''}
                               onChange={(e) => handleTimeChange(td.target_date_id, 'to', e.target.value)}
-                              className="px-2 py-1 border border-gray-300 rounded-md text-sm"
+                              className="px-2 py-1 border border-gray-300 rounded-md text-base"
                               disabled={collection?.status === 'closed'}
                             />
                           </div>

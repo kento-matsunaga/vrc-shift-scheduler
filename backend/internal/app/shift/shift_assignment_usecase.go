@@ -123,12 +123,13 @@ func (uc *ConfirmManualAssignmentUsecase) Execute(
 
 // GetAssignmentsInput represents the input for getting assignments
 type GetAssignmentsInput struct {
-	TenantID       common.TenantID
-	MemberID       *common.MemberID
-	SlotID         *shift.SlotID
-	Status         string
-	StartDate      *time.Time
-	EndDate        *time.Time
+	TenantID      common.TenantID
+	MemberID      *common.MemberID
+	SlotID        *shift.SlotID
+	BusinessDayID *string
+	Status        string
+	StartDate     *time.Time
+	EndDate       *time.Time
 }
 
 // AssignmentWithDetails represents an assignment with JOIN data
@@ -177,8 +178,10 @@ func (uc *GetAssignmentsUsecase) Execute(
 		assignments, err = uc.assignmentRepo.FindByMemberID(ctx, input.TenantID, *input.MemberID)
 	} else if input.SlotID != nil {
 		assignments, err = uc.assignmentRepo.FindBySlotID(ctx, input.TenantID, *input.SlotID)
+	} else if input.BusinessDayID != nil {
+		assignments, err = uc.assignmentRepo.FindByBusinessDayID(ctx, input.TenantID, event.BusinessDayID(*input.BusinessDayID))
 	} else {
-		return nil, common.NewValidationError("member_id or slot_id is required", nil)
+		return nil, common.NewValidationError("member_id, slot_id, or business_day_id is required", nil)
 	}
 
 	if err != nil {

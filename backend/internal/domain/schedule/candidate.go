@@ -8,13 +8,13 @@ import (
 
 // CandidateDate represents a candidate date entity
 type CandidateDate struct {
-	candidateID  common.CandidateID
-	scheduleID   common.ScheduleID
-	candidateDate time.Time // date part
-	startTime    *time.Time // time part (optional)
-	endTime      *time.Time // time part (optional)
-	displayOrder int
-	createdAt    time.Time
+	candidateID   common.CandidateID
+	scheduleID    common.ScheduleID
+	candidateDate time.Time  // date part
+	startTime     *time.Time // time part (optional)
+	endTime       *time.Time // time part (optional)
+	displayOrder  int
+	createdAt     time.Time
 }
 
 // NewCandidateDate creates a new CandidateDate entity
@@ -112,4 +112,25 @@ func (c *CandidateDate) DisplayOrder() int {
 
 func (c *CandidateDate) CreatedAt() time.Time {
 	return c.createdAt
+}
+
+// UpdateFields updates the mutable fields of a candidate date (domain method).
+// This preserves the entity's identity (ID, ScheduleID) and creation timestamp.
+func (c *CandidateDate) UpdateFields(candidateDate time.Time, startTime *time.Time, endTime *time.Time, displayOrder int) error {
+	// Validate before mutating using a temporary copy
+	tmp := *c
+	tmp.candidateDate = candidateDate
+	tmp.startTime = startTime
+	tmp.endTime = endTime
+	tmp.displayOrder = displayOrder
+	if err := tmp.validate(); err != nil {
+		return err
+	}
+
+	// Apply validated changes
+	c.candidateDate = candidateDate
+	c.startTime = startTime
+	c.endTime = endTime
+	c.displayOrder = displayOrder
+	return nil
 }

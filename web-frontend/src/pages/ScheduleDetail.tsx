@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { getSchedule, getScheduleResponses, deleteSchedule, type Schedule, type ScheduleResponse } from '../lib/api/scheduleApi';
+import { SEO } from '../components/seo';
+import { getSchedule, getScheduleResponses, deleteSchedule, convertToAttendance, type Schedule, type ScheduleResponse } from '../lib/api/scheduleApi';
 import { getMembers } from '../lib/api';
 import { getMemberGroups, getMemberGroupDetail, type MemberGroup } from '../lib/api/memberGroupApi';
+import { listRoles, type Role } from '../lib/api/roleApi';
 import { ApiClientError } from '../lib/apiClient';
 import type { Member } from '../types/api';
 import { formatTimeRange } from '../lib/timeUtils';
+import NoteTooltip from '../components/NoteTooltip';
 
 interface Candidate {
   candidate_id: string;
@@ -33,6 +36,16 @@ export default function ScheduleDetail() {
   const [copied, setCopied] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  // 出欠確認変換モーダル状態
+  const [showConvertModal, setShowConvertModal] = useState(false);
+  const [selectedCandidateIds, setSelectedCandidateIds] = useState<string[]>([]);
+  const [convertTitle, setConvertTitle] = useState('');
+  const [converting, setConverting] = useState(false);
+
+  // ロールフィルタ（複数選択）
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [filterRoleIds, setFilterRoleIds] = useState<string[]>([]);
+
   // ソート状態
   const [sortKey, setSortKey] = useState<SortKey>('name');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
@@ -42,6 +55,7 @@ export default function ScheduleDetail() {
     if (scheduleId) {
       loadData();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 初回マウント時のみ実行（loadDataは関数定義のため除外）
   }, [scheduleId]);
 
   const loadData = async () => {
@@ -49,15 +63,17 @@ export default function ScheduleDetail() {
 
     try {
       setLoading(true);
-      const [scheduleData, responsesData, membersData, allGroups] = await Promise.all([
+      const [scheduleData, responsesData, membersData, allGroups, allRoles] = await Promise.all([
         getSchedule(scheduleId),
         getScheduleResponses(scheduleId),
         getMembers({ is_active: true }),
         getMemberGroups(),
+        listRoles(),
       ]);
 
       setSchedule(scheduleData);
       setResponses(responsesData || []);
+      setRoles(allRoles || []);
 
       // グループIDが設定されている場合、そのグループに属するメンバーのみを表示
       const groupIds = scheduleData.group_ids || [];
@@ -128,6 +144,43 @@ export default function ScheduleDetail() {
     }
   };
 
+  const handleOpenConvertModal = () => {
+    setSelectedCandidateIds([]);
+    setConvertTitle(schedule?.title || '');
+    setShowConvertModal(true);
+  };
+
+  const handleToggleCandidate = (candidateId: string) => {
+    setSelectedCandidateIds((prev) =>
+      prev.includes(candidateId)
+        ? prev.filter((id) => id !== candidateId)
+        : [...prev, candidateId]
+    );
+  };
+
+  const handleConvertToAttendance = async () => {
+    if (!scheduleId || selectedCandidateIds.length === 0) return;
+
+    try {
+      setConverting(true);
+      const result = await convertToAttendance(scheduleId, {
+        candidate_ids: selectedCandidateIds,
+        title: convertTitle || undefined,
+      });
+      setShowConvertModal(false);
+      alert('出欠確認に変換しました');
+      navigate(`/attendance/${result.collection_id}`);
+    } catch (err) {
+      if (err instanceof ApiClientError) {
+        alert(err.getUserMessage());
+      } else {
+        alert(err instanceof Error ? err.message : '変換に失敗しました');
+      }
+    } finally {
+      setConverting(false);
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'open':
@@ -170,17 +223,44 @@ export default function ScheduleDetail() {
   const responseCount = respondedMemberIds.size;
   const totalMembers = members.length;
 
-  // Create response map for quick lookup: member_id -> candidate_id -> availability
-  const responseMap = new Map<string, Map<string, 'available' | 'maybe' | 'unavailable'>>();
+  // Create response map for quick lookup: member_id -> candidate_id -> { availability, note }
+  const responseMap = new Map<string, Map<string, { availability: 'available' | 'maybe' | 'unavailable'; note: string }>>();
   responses.forEach((resp) => {
     if (!responseMap.has(resp.member_id)) {
       responseMap.set(resp.member_id, new Map());
     }
-    responseMap.get(resp.member_id)!.set(resp.candidate_id, resp.availability);
+    responseMap.get(resp.member_id)!.set(resp.candidate_id, { availability: resp.availability, note: resp.note || '' });
   });
 
+  // ロールのインデックスマップ（ロール順ソート用）
+  const roleIndexMap = new Map(filterRoleIds.map((id, i) => [id, i]));
+
+  // メンバーの最小ロールインデックスを取得（選択ロール順でグループ化）
+  const getMemberRoleIndex = (member: Member): number => {
+    if (filterRoleIds.length === 0) return 0;
+    let minIndex = filterRoleIds.length;
+    for (const rid of member.role_ids || []) {
+      const idx = roleIndexMap.get(rid);
+      if (idx !== undefined && idx < minIndex) {
+        minIndex = idx;
+      }
+    }
+    return minIndex;
+  };
+
   // ソート・フィルタリング処理
-  const sortedMembers = [...members].sort((a, b) => {
+  const sortedMembers = [...members]
+    .filter((member) => {
+      if (filterRoleIds.length === 0) return true;
+      return member.role_ids?.some((rid) => filterRoleIds.includes(rid));
+    })
+    .sort((a, b) => {
+    // 複数ロール選択時はロール順でグループ化
+    if (filterRoleIds.length >= 2) {
+      const roleComp = getMemberRoleIndex(a) - getMemberRoleIndex(b);
+      if (roleComp !== 0) return roleComp;
+    }
+
     let comparison = 0;
 
     if (sortKey === 'name') {
@@ -189,16 +269,16 @@ export default function ScheduleDetail() {
     } else if (sortKey === 'available_count') {
       // 全体の参加可能数でソート
       const aCount = candidates.filter(
-        (c) => responseMap.get(a.member_id)?.get(c.candidate_id) === 'available'
+        (c) => responseMap.get(a.member_id)?.get(c.candidate_id)?.availability === 'available'
       ).length;
       const bCount = candidates.filter(
-        (c) => responseMap.get(b.member_id)?.get(c.candidate_id) === 'available'
+        (c) => responseMap.get(b.member_id)?.get(c.candidate_id)?.availability === 'available'
       ).length;
       comparison = aCount - bCount;
     } else if (sortKey === 'date_available' && sortCandidateId) {
       // 特定の日付の参加可能状態でソート
-      const aAvailability = responseMap.get(a.member_id)?.get(sortCandidateId);
-      const bAvailability = responseMap.get(b.member_id)?.get(sortCandidateId);
+      const aAvailability = responseMap.get(a.member_id)?.get(sortCandidateId)?.availability;
+      const bAvailability = responseMap.get(b.member_id)?.get(sortCandidateId)?.availability;
       const order = { available: 0, maybe: 1, unavailable: 2, undefined: 3 };
       const aOrder = aAvailability ? order[aAvailability] : order.undefined;
       const bOrder = bAvailability ? order[bAvailability] : order.undefined;
@@ -258,6 +338,7 @@ export default function ScheduleDetail() {
 
   return (
     <div className="max-w-7xl mx-auto">
+      <SEO noindex={true} />
       {/* パンくずリスト */}
       <nav className="mb-6 text-sm text-gray-600">
         <Link to="/schedules" className="hover:text-gray-900">
@@ -276,8 +357,14 @@ export default function ScheduleDetail() {
               <p className="text-gray-600 mb-4">{schedule.description}</p>
             )}
           </div>
-          <div className="flex gap-2 items-center">
+          <div className="flex flex-wrap gap-2 items-center">
             {getStatusBadge(schedule.status)}
+            <button
+              onClick={handleOpenConvertModal}
+              className="px-4 py-2 bg-accent text-white rounded-md hover:bg-accent-dark transition text-sm"
+            >
+              出欠確認に変換
+            </button>
             <button
               onClick={handleDelete}
               disabled={deleting}
@@ -374,6 +461,42 @@ export default function ScheduleDetail() {
             </div>
             {/* ソートコントロール */}
             <div className="flex flex-wrap items-center gap-2">
+              {/* ロールフィルタ（複数選択） */}
+              {roles.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {roles.map((role) => {
+                    const isSelected = filterRoleIds.includes(role.role_id);
+                    return (
+                      <button
+                        key={role.role_id}
+                        onClick={() =>
+                          setFilterRoleIds((prev) =>
+                            isSelected
+                              ? prev.filter((id) => id !== role.role_id)
+                              : [...prev, role.role_id]
+                          )
+                        }
+                        className={`px-2.5 py-1 text-xs font-medium rounded-full border transition ${
+                          isSelected
+                            ? 'text-white border-transparent'
+                            : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400'
+                        }`}
+                        style={isSelected ? { backgroundColor: role.color || '#6366f1' } : undefined}
+                      >
+                        {role.name}
+                      </button>
+                    );
+                  })}
+                  {filterRoleIds.length > 0 && (
+                    <button
+                      onClick={() => setFilterRoleIds([])}
+                      className="px-2 py-1 text-xs text-gray-500 hover:text-gray-700 transition"
+                    >
+                      クリア
+                    </button>
+                  )}
+                </div>
+              )}
               <select
                 value={sortKey === 'date_available' ? `date_${sortCandidateId}` : sortKey}
                 onChange={(e) => {
@@ -406,7 +529,108 @@ export default function ScheduleDetail() {
             </div>
           </div>
         </div>
-        <div className="overflow-x-auto">
+        {/* モバイル用カードビュー */}
+        <div className="md:hidden">
+          {/* モバイル用集計（先頭） */}
+          <div className="p-4 bg-gray-50 border-b border-gray-200">
+            <h4 className="text-sm font-medium text-gray-700 mb-3">日程別集計</h4>
+            <div className="grid grid-cols-2 gap-2">
+              {candidates.map((candidate) => {
+                const stats = candidateStats.find((s) => s.candidateId === candidate.candidate_id);
+                return (
+                  <div key={candidate.candidate_id} className="bg-white p-3 rounded-lg border border-gray-200">
+                    <div className="text-sm font-medium text-gray-900 mb-1">
+                      {new Date(candidate.date).toLocaleDateString('ja-JP', {
+                        month: 'numeric',
+                        day: 'numeric',
+                        weekday: 'short',
+                      })}
+                    </div>
+                    <div className="flex gap-2 text-xs">
+                      <span className="text-green-600">○{stats?.availableCount || 0}</span>
+                      <span className="text-yellow-600">△{stats?.maybeCount || 0}</span>
+                      <span className="text-red-600">×{stats?.unavailableCount || 0}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          {sortedMembers.length === 0 ? (
+            <div className="p-6 text-center text-gray-500">
+              {members.length === 0 ? 'メンバーがいません' : 'フィルタ条件に一致するメンバーがいません'}
+            </div>
+          ) : (
+            <div className="divide-y divide-gray-100">
+              {sortedMembers.map((member) => {
+                const memberResponses = responseMap.get(member.member_id);
+                const availableCount = candidates.filter(
+                  (c) => memberResponses?.get(c.candidate_id)?.availability === 'available'
+                ).length;
+                const maybeCount = candidates.filter(
+                  (c) => memberResponses?.get(c.candidate_id)?.availability === 'maybe'
+                ).length;
+
+                return (
+                  <div key={member.member_id} className="p-4">
+                    <div className="flex justify-between items-start mb-3">
+                      <span className="font-medium text-gray-900">{member.display_name}</span>
+                      <div className="flex gap-2 text-sm">
+                        <span className="text-green-600">○{availableCount}</span>
+                        <span className="text-yellow-600">△{maybeCount}</span>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {candidates.map((candidate) => {
+                        const responseData = memberResponses?.get(candidate.candidate_id);
+                        const availability = responseData?.availability;
+                        let bgColor = 'bg-gray-100 text-gray-400';
+                        let symbol = '-';
+
+                        if (availability === 'available') {
+                          bgColor = 'bg-green-100 text-green-800';
+                          symbol = '○';
+                        } else if (availability === 'maybe') {
+                          bgColor = 'bg-yellow-100 text-yellow-800';
+                          symbol = '△';
+                        } else if (availability === 'unavailable') {
+                          bgColor = 'bg-red-100 text-red-800';
+                          symbol = '×';
+                        }
+
+                        return (
+                          <div
+                            key={candidate.candidate_id}
+                            className={`px-2 py-1 rounded text-xs ${bgColor}`}
+                          >
+                            <div className="flex items-center">
+                              <span className="font-medium">{symbol}</span>
+                              <span className="ml-1 text-gray-600">
+                                {new Date(candidate.date).toLocaleDateString('ja-JP', {
+                                  month: 'numeric',
+                                  day: 'numeric',
+                                })}
+                              </span>
+                            </div>
+                            {responseData?.note && (
+                              <NoteTooltip
+                                note={responseData.note}
+                                className="text-[10px] leading-tight text-gray-500 mt-0.5 max-w-[100px]"
+                              />
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* デスクトップ用テーブル */}
+        <div className="hidden md:block overflow-x-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
@@ -451,55 +675,8 @@ export default function ScheduleDetail() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {sortedMembers.length === 0 ? (
-                <tr>
-                  <td colSpan={candidates.length + 1} className="px-6 py-12 text-center text-gray-500">
-                    メンバーがいません
-                  </td>
-                </tr>
-              ) : (
-                sortedMembers.map((member) => {
-                  const memberResponses = responseMap.get(member.member_id);
-                  return (
-                    <tr key={member.member_id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 sticky left-0 bg-white">
-                        {member.display_name}
-                      </td>
-                      {candidates.map((candidate) => {
-                        const availability = memberResponses?.get(candidate.candidate_id);
-                        let content;
-                        let bgColor;
-
-                        if (availability === 'available') {
-                          content = '○';
-                          bgColor = 'bg-green-50 text-green-800';
-                        } else if (availability === 'maybe') {
-                          content = '△';
-                          bgColor = 'bg-yellow-50 text-yellow-800';
-                        } else if (availability === 'unavailable') {
-                          content = '×';
-                          bgColor = 'bg-red-50 text-red-800';
-                        } else {
-                          content = '-';
-                          bgColor = 'bg-gray-50 text-gray-400';
-                        }
-
-                        return (
-                          <td
-                            key={candidate.candidate_id}
-                            className={`px-4 py-4 text-center text-lg font-semibold ${bgColor}`}
-                          >
-                            {content}
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-            <tfoot className="bg-gray-50">
-              <tr>
+              {/* 集計行（先頭） */}
+              <tr className="bg-gray-50">
                 <td className="px-6 py-3 text-sm font-medium text-gray-700 sticky left-0 bg-gray-50">
                   集計
                 </td>
@@ -525,10 +702,158 @@ export default function ScheduleDetail() {
                   );
                 })}
               </tr>
-            </tfoot>
+              {sortedMembers.length === 0 ? (
+                <tr>
+                  <td colSpan={candidates.length + 1} className="px-6 py-12 text-center text-gray-500">
+                    {members.length === 0 ? 'メンバーがいません' : 'フィルタ条件に一致するメンバーがいません'}
+                  </td>
+                </tr>
+              ) : (
+                sortedMembers.map((member) => {
+                  const memberResponses = responseMap.get(member.member_id);
+                  return (
+                    <tr key={member.member_id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 sticky left-0 bg-white">
+                        {member.display_name}
+                      </td>
+                      {candidates.map((candidate) => {
+                        const responseData = memberResponses?.get(candidate.candidate_id);
+                        const availability = responseData?.availability;
+                        let content;
+                        let bgColor;
+
+                        if (availability === 'available') {
+                          content = '○';
+                          bgColor = 'bg-green-50 text-green-800';
+                        } else if (availability === 'maybe') {
+                          content = '△';
+                          bgColor = 'bg-yellow-50 text-yellow-800';
+                        } else if (availability === 'unavailable') {
+                          content = '×';
+                          bgColor = 'bg-red-50 text-red-800';
+                        } else {
+                          content = '-';
+                          bgColor = 'bg-gray-50 text-gray-400';
+                        }
+
+                        return (
+                          <td
+                            key={candidate.candidate_id}
+                            className={`px-4 py-3 text-center ${bgColor}`}
+                          >
+                            <div className="flex flex-col items-center">
+                              <span className="text-lg font-semibold">{content}</span>
+                              {responseData?.note && (
+                                <NoteTooltip
+                                  note={responseData.note}
+                                  className="text-[10px] leading-tight text-gray-500 mt-1 max-w-[120px]"
+                                />
+                              )}
+                            </div>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
           </table>
         </div>
       </div>
+
+      {/* 出欠確認変換モーダル */}
+      {showConvertModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">出欠確認に変換</h3>
+            </div>
+            <div className="p-6 space-y-4">
+              {/* タイトル入力 */}
+              <div>
+                <label htmlFor="convert-title" className="block text-sm font-medium text-gray-700 mb-1">
+                  タイトル
+                </label>
+                <input
+                  id="convert-title"
+                  type="text"
+                  value={convertTitle}
+                  onChange={(e) => setConvertTitle(e.target.value)}
+                  placeholder={schedule.title}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent"
+                />
+                <p className="text-xs text-gray-500 mt-1">空の場合は元のタイトルが使用されます</p>
+              </div>
+
+              {/* 候補日選択 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  対象日を選択してください
+                </label>
+                <div className="space-y-2 max-h-60 overflow-y-auto border border-gray-200 rounded-md p-3">
+                  {candidates.map((candidate) => {
+                    const stats = candidateStats.find((s) => s.candidateId === candidate.candidate_id);
+                    const isSelected = selectedCandidateIds.includes(candidate.candidate_id);
+                    return (
+                      <label
+                        key={candidate.candidate_id}
+                        className={`flex items-center justify-between p-3 rounded-md cursor-pointer transition ${
+                          isSelected ? 'bg-accent/10 border border-accent' : 'bg-gray-50 hover:bg-gray-100'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => handleToggleCandidate(candidate.candidate_id)}
+                            className="w-4 h-4 text-accent border-gray-300 rounded focus:ring-accent"
+                          />
+                          <div>
+                            <span className="font-medium">
+                              {new Date(candidate.date).toLocaleDateString('ja-JP', {
+                                month: '2-digit',
+                                day: '2-digit',
+                                weekday: 'short',
+                              })}
+                            </span>
+                            {(candidate.start_time || candidate.end_time) && (
+                              <span className="text-sm text-gray-500 ml-2">
+                                {formatTimeRange(candidate.start_time, candidate.end_time, '-')}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <span className="text-sm text-gray-600">
+                          {stats?.availableCount || 0}名が参加可能
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+                {selectedCandidateIds.length === 0 && (
+                  <p className="text-xs text-red-500 mt-1">少なくとも1つの日付を選択してください</p>
+                )}
+              </div>
+            </div>
+            <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
+              <button
+                onClick={() => setShowConvertModal(false)}
+                className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md transition"
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={handleConvertToAttendance}
+                disabled={converting || selectedCandidateIds.length === 0}
+                className="px-4 py-2 bg-accent text-white rounded-md hover:bg-accent-dark transition disabled:bg-gray-400"
+              >
+                {converting ? '変換中...' : '変換する'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

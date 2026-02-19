@@ -23,7 +23,15 @@ func NewMemberRoleRepository(db *pgxpool.Pool) *MemberRoleRepository {
 func (r *MemberRoleRepository) AssignRole(ctx context.Context, memberID common.MemberID, roleID common.RoleID) error {
 	query := `
 		INSERT INTO member_roles (member_id, role_id, assigned_at)
-		VALUES ($1, $2, $3)
+		SELECT $1, $2, $3
+		WHERE EXISTS (
+			SELECT 1 FROM members m
+			JOIN roles ro ON m.tenant_id = ro.tenant_id
+			WHERE m.member_id = $1
+			  AND ro.role_id = $2
+			  AND m.deleted_at IS NULL
+			  AND ro.deleted_at IS NULL
+		)
 		ON CONFLICT (member_id, role_id) DO NOTHING
 	`
 
@@ -38,8 +46,12 @@ func (r *MemberRoleRepository) AssignRole(ctx context.Context, memberID common.M
 // RemoveRole removes a role from a member
 func (r *MemberRoleRepository) RemoveRole(ctx context.Context, memberID common.MemberID, roleID common.RoleID) error {
 	query := `
-		DELETE FROM member_roles
-		WHERE member_id = $1 AND role_id = $2
+		DELETE FROM member_roles mr
+		USING members m
+		WHERE mr.member_id = m.member_id
+		  AND mr.member_id = $1
+		  AND mr.role_id = $2
+		  AND m.tenant_id = (SELECT ro.tenant_id FROM roles ro WHERE ro.role_id = $2)
 	`
 
 	result, err := r.db.Exec(ctx, query, memberID.String(), roleID.String())
@@ -57,10 +69,14 @@ func (r *MemberRoleRepository) RemoveRole(ctx context.Context, memberID common.M
 // FindRolesByMemberID finds all roles assigned to a member
 func (r *MemberRoleRepository) FindRolesByMemberID(ctx context.Context, memberID common.MemberID) ([]common.RoleID, error) {
 	query := `
-		SELECT role_id
-		FROM member_roles
-		WHERE member_id = $1
-		ORDER BY assigned_at
+		SELECT mr.role_id
+		FROM member_roles mr
+		JOIN members m ON mr.member_id = m.member_id
+		JOIN roles ro ON mr.role_id = ro.role_id AND ro.tenant_id = m.tenant_id
+		WHERE mr.member_id = $1
+		  AND m.deleted_at IS NULL
+		  AND ro.deleted_at IS NULL
+		ORDER BY mr.assigned_at
 	`
 
 	rows, err := r.db.Query(ctx, query, memberID.String())
@@ -88,10 +104,14 @@ func (r *MemberRoleRepository) FindRolesByMemberID(ctx context.Context, memberID
 // FindMemberIDsByRoleID finds all members with a specific role
 func (r *MemberRoleRepository) FindMemberIDsByRoleID(ctx context.Context, roleID common.RoleID) ([]common.MemberID, error) {
 	query := `
-		SELECT member_id
-		FROM member_roles
-		WHERE role_id = $1
-		ORDER BY assigned_at
+		SELECT mr.member_id
+		FROM member_roles mr
+		JOIN roles ro ON mr.role_id = ro.role_id
+		JOIN members m ON mr.member_id = m.member_id AND m.tenant_id = ro.tenant_id
+		WHERE mr.role_id = $1
+		  AND ro.deleted_at IS NULL
+		  AND m.deleted_at IS NULL
+		ORDER BY mr.assigned_at
 	`
 
 	rows, err := r.db.Query(ctx, query, roleID.String())
@@ -125,18 +145,33 @@ func (r *MemberRoleRepository) SetMemberRoles(ctx context.Context, memberID comm
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	// Delete existing roles
-	_, err = tx.Exec(ctx, "DELETE FROM member_roles WHERE member_id = $1", memberID.String())
+	// Delete existing roles (scoped to member's tenant via JOIN)
+	_, err = tx.Exec(ctx, `
+		DELETE FROM member_roles mr
+		USING members m
+		WHERE mr.member_id = m.member_id
+		  AND mr.member_id = $1
+	`, memberID.String())
 	if err != nil {
 		return fmt.Errorf("failed to delete existing member roles: %w", err)
 	}
 
-	// Insert new roles
+	// Insert new roles (only if role belongs to the same tenant as the member)
 	if len(roleIDs) > 0 {
 		for _, roleID := range roleIDs {
-			_, err = tx.Exec(ctx,
-				"INSERT INTO member_roles (member_id, role_id, assigned_at) VALUES ($1, $2, $3)",
-				memberID.String(), roleID.String(), time.Now())
+			_, err = tx.Exec(ctx, `
+				INSERT INTO member_roles (member_id, role_id, assigned_at)
+				SELECT $1, $2, $3
+				WHERE EXISTS (
+					SELECT 1 FROM members m
+					JOIN roles ro ON m.tenant_id = ro.tenant_id
+					WHERE m.member_id = $1
+					  AND ro.role_id = $2
+					  AND m.deleted_at IS NULL
+					  AND ro.deleted_at IS NULL
+				)
+				ON CONFLICT (member_id, role_id) DO NOTHING
+			`, memberID.String(), roleID.String(), time.Now())
 			if err != nil {
 				return fmt.Errorf("failed to insert member role: %w", err)
 			}

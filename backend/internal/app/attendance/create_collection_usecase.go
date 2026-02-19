@@ -12,21 +12,24 @@ import (
 
 // CreateCollectionUsecase handles creating an attendance collection
 type CreateCollectionUsecase struct {
-	repo     attendance.AttendanceCollectionRepository
-	roleRepo role.RoleRepository
-	clock    services.Clock
+	repo      attendance.AttendanceCollectionRepository
+	roleRepo  role.RoleRepository
+	txManager services.TxManager
+	clock     services.Clock
 }
 
 // NewCreateCollectionUsecase creates a new CreateCollectionUsecase
 func NewCreateCollectionUsecase(
 	repo attendance.AttendanceCollectionRepository,
 	roleRepo role.RoleRepository,
+	txManager services.TxManager,
 	clock services.Clock,
 ) *CreateCollectionUsecase {
 	return &CreateCollectionUsecase{
-		repo:     repo,
-		roleRepo: roleRepo,
-		clock:    clock,
+		repo:      repo,
+		roleRepo:  roleRepo,
+		txManager: txManager,
+		clock:     clock,
 	}
 }
 
@@ -44,8 +47,27 @@ func (u *CreateCollectionUsecase) Execute(ctx context.Context, input CreateColle
 		return nil, err
 	}
 
-	// 3. Create AttendanceCollection entity (Domain層)
-	// Clock から now を取得して渡す
+	// 3. Parse GroupIDs upfront (validation before transaction)
+	var groupIDs []common.MemberGroupID
+	for _, groupIDStr := range input.GroupIDs {
+		groupID, err := common.ParseMemberGroupID(groupIDStr)
+		if err != nil {
+			return nil, err
+		}
+		groupIDs = append(groupIDs, groupID)
+	}
+
+	// 4. Parse RoleIDs upfront (validation before transaction)
+	var roleIDs []common.RoleID
+	for _, roleIDStr := range input.RoleIDs {
+		roleID, err := common.ParseRoleID(roleIDStr)
+		if err != nil {
+			return nil, err
+		}
+		roleIDs = append(roleIDs, roleID)
+	}
+
+	// 5. Create AttendanceCollection entity (Domain層)
 	now := u.clock.Now()
 	collection, err := attendance.NewAttendanceCollection(
 		now,
@@ -60,66 +82,33 @@ func (u *CreateCollectionUsecase) Execute(ctx context.Context, input CreateColle
 		return nil, err
 	}
 
-	// 4. Save to repository
-	if err := u.repo.Save(ctx, collection); err != nil {
-		return nil, err
-	}
-
-	// 5. Save target dates if provided
-	if len(input.TargetDates) > 0 {
-		var targetDates []*attendance.TargetDate
-		for i, dateInput := range input.TargetDates {
-			td, err := attendance.NewTargetDate(now, collection.CollectionID(), dateInput.TargetDate, dateInput.StartTime, dateInput.EndTime, i)
-			if err != nil {
-				return nil, err
-			}
-			targetDates = append(targetDates, td)
-		}
-
-		if err := u.repo.SaveTargetDates(ctx, collection.CollectionID(), targetDates); err != nil {
+	// 6. Create target dates entities upfront
+	var targetDates []*attendance.TargetDate
+	for i, dateInput := range input.TargetDates {
+		td, err := attendance.NewTargetDate(now, collection.CollectionID(), dateInput.TargetDate, dateInput.StartTime, dateInput.EndTime, i)
+		if err != nil {
 			return nil, err
 		}
+		targetDates = append(targetDates, td)
 	}
 
-	// 6. Save group assignments if provided
-	if len(input.GroupIDs) > 0 {
-		var assignments []*attendance.CollectionGroupAssignment
-		for _, groupIDStr := range input.GroupIDs {
-			groupID, err := common.ParseMemberGroupID(groupIDStr)
-			if err != nil {
-				return nil, err
-			}
-			assignment, err := attendance.NewCollectionGroupAssignment(now, collection.CollectionID(), groupID)
-			if err != nil {
-				return nil, err
-			}
-			assignments = append(assignments, assignment)
-		}
-
-		if err := u.repo.SaveGroupAssignments(ctx, collection.CollectionID(), assignments); err != nil {
+	// 7. Create group assignments entities upfront
+	var groupAssignments []*attendance.CollectionGroupAssignment
+	for _, groupID := range groupIDs {
+		assignment, err := attendance.NewCollectionGroupAssignment(now, collection.CollectionID(), groupID)
+		if err != nil {
 			return nil, err
 		}
+		groupAssignments = append(groupAssignments, assignment)
 	}
 
-	// 7. Save role assignments if provided
-	if len(input.RoleIDs) > 0 {
-		// Parse all role IDs first
-		roleIDs := make([]common.RoleID, 0, len(input.RoleIDs))
-		for _, roleIDStr := range input.RoleIDs {
-			roleID, err := common.ParseRoleID(roleIDStr)
-			if err != nil {
-				return nil, err
-			}
-			roleIDs = append(roleIDs, roleID)
-		}
-
-		// Batch fetch all roles to validate they exist and belong to this tenant (避免 N+1)
+	// 8. Validate roles exist before transaction (read operation)
+	if len(roleIDs) > 0 {
 		foundRoles, err := u.roleRepo.FindByIDs(ctx, tenantID, roleIDs)
 		if err != nil {
 			return nil, err
 		}
 
-		// Check that all requested roles were found
 		foundRoleMap := make(map[string]bool, len(foundRoles))
 		for _, r := range foundRoles {
 			foundRoleMap[r.RoleID().String()] = true
@@ -133,23 +122,54 @@ func (u *CreateCollectionUsecase) Execute(ctx context.Context, input CreateColle
 				)
 			}
 		}
-
-		// Create role assignments
-		var roleAssignments []*attendance.CollectionRoleAssignment
-		for _, roleID := range roleIDs {
-			assignment, err := attendance.NewCollectionRoleAssignment(now, collection.CollectionID(), roleID)
-			if err != nil {
-				return nil, err
-			}
-			roleAssignments = append(roleAssignments, assignment)
-		}
-
-		if err := u.repo.SaveRoleAssignments(ctx, collection.CollectionID(), roleAssignments); err != nil {
-			return nil, err
-		}
 	}
 
-	// 8. Return output DTO
+	// 9. Create role assignments entities upfront
+	var roleAssignments []*attendance.CollectionRoleAssignment
+	for _, roleID := range roleIDs {
+		assignment, err := attendance.NewCollectionRoleAssignment(now, collection.CollectionID(), roleID)
+		if err != nil {
+			return nil, err
+		}
+		roleAssignments = append(roleAssignments, assignment)
+	}
+
+	// 10. Execute all save operations within a transaction
+	err = u.txManager.WithTx(ctx, func(txCtx context.Context) error {
+		// Save collection
+		if err := u.repo.Save(txCtx, collection); err != nil {
+			return err
+		}
+
+		// Save target dates if provided
+		if len(targetDates) > 0 {
+			if err := u.repo.SaveTargetDates(txCtx, collection.CollectionID(), targetDates); err != nil {
+				return err
+			}
+		}
+
+		// Save group assignments if provided
+		if len(groupAssignments) > 0 {
+			if err := u.repo.SaveGroupAssignments(txCtx, collection.CollectionID(), groupAssignments); err != nil {
+				return err
+			}
+		}
+
+		// Save role assignments if provided
+		if len(roleAssignments) > 0 {
+			if err := u.repo.SaveRoleAssignments(txCtx, collection.CollectionID(), roleAssignments); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	// 11. Return output DTO
 	return &CreateCollectionOutput{
 		CollectionID: collection.CollectionID().String(),
 		TenantID:     collection.TenantID().String(),

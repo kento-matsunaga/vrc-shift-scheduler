@@ -14,17 +14,18 @@ import (
 
 // AttendanceHandler handles attendance-related HTTP requests
 type AttendanceHandler struct {
-	createCollectionUsecase         *attendance.CreateCollectionUsecase
-	submitResponseUsecase           *attendance.SubmitResponseUsecase
-	closeCollectionUsecase          *attendance.CloseCollectionUsecase
-	deleteCollectionUsecase         *attendance.DeleteCollectionUsecase
-	getCollectionUsecase            *attendance.GetCollectionUsecase
-	getCollectionByTokenUsecase     *attendance.GetCollectionByTokenUsecase
-	getResponsesUsecase             *attendance.GetResponsesUsecase
-	listCollectionsUsecase          *attendance.ListCollectionsUsecase
-	getMemberResponsesUsecase       *attendance.GetMemberResponsesUsecase
-	getAllPublicResponsesUsecase    *attendance.GetAllPublicResponsesUsecase
-	adminUpdateResponseUsecase      *attendance.AdminUpdateResponseUsecase
+	createCollectionUsecase      *attendance.CreateCollectionUsecase
+	submitResponseUsecase        *attendance.SubmitResponseUsecase
+	closeCollectionUsecase       *attendance.CloseCollectionUsecase
+	deleteCollectionUsecase      *attendance.DeleteCollectionUsecase
+	updateCollectionUsecase      *attendance.UpdateCollectionUsecase
+	getCollectionUsecase         *attendance.GetCollectionUsecase
+	getCollectionByTokenUsecase  *attendance.GetCollectionByTokenUsecase
+	getResponsesUsecase          *attendance.GetResponsesUsecase
+	listCollectionsUsecase       *attendance.ListCollectionsUsecase
+	getMemberResponsesUsecase    *attendance.GetMemberResponsesUsecase
+	getAllPublicResponsesUsecase *attendance.GetAllPublicResponsesUsecase
+	adminUpdateResponseUsecase   *attendance.AdminUpdateResponseUsecase
 }
 
 // NewAttendanceHandler creates a new AttendanceHandler with injected usecases
@@ -33,6 +34,7 @@ func NewAttendanceHandler(
 	submitResponseUC *attendance.SubmitResponseUsecase,
 	closeCollectionUC *attendance.CloseCollectionUsecase,
 	deleteCollectionUC *attendance.DeleteCollectionUsecase,
+	updateCollectionUC *attendance.UpdateCollectionUsecase,
 	getCollectionUC *attendance.GetCollectionUsecase,
 	getCollectionByTokenUC *attendance.GetCollectionByTokenUsecase,
 	getResponsesUC *attendance.GetResponsesUsecase,
@@ -42,17 +44,18 @@ func NewAttendanceHandler(
 	adminUpdateResponseUC *attendance.AdminUpdateResponseUsecase,
 ) *AttendanceHandler {
 	return &AttendanceHandler{
-		createCollectionUsecase:         createCollectionUC,
-		submitResponseUsecase:           submitResponseUC,
-		closeCollectionUsecase:          closeCollectionUC,
-		deleteCollectionUsecase:         deleteCollectionUC,
-		getCollectionUsecase:            getCollectionUC,
-		getCollectionByTokenUsecase:     getCollectionByTokenUC,
-		getResponsesUsecase:             getResponsesUC,
-		listCollectionsUsecase:          listCollectionsUC,
-		getMemberResponsesUsecase:       getMemberResponsesUC,
-		getAllPublicResponsesUsecase:    getAllPublicResponsesUC,
-		adminUpdateResponseUsecase:      adminUpdateResponseUC,
+		createCollectionUsecase:      createCollectionUC,
+		submitResponseUsecase:        submitResponseUC,
+		closeCollectionUsecase:       closeCollectionUC,
+		deleteCollectionUsecase:      deleteCollectionUC,
+		updateCollectionUsecase:      updateCollectionUC,
+		getCollectionUsecase:         getCollectionUC,
+		getCollectionByTokenUsecase:  getCollectionByTokenUC,
+		getResponsesUsecase:          getResponsesUC,
+		listCollectionsUsecase:       listCollectionsUC,
+		getMemberResponsesUsecase:    getMemberResponsesUC,
+		getAllPublicResponsesUsecase: getAllPublicResponsesUC,
+		adminUpdateResponseUsecase:   adminUpdateResponseUC,
 	}
 }
 
@@ -105,8 +108,8 @@ type CollectionResponse struct {
 // SubmitResponseRequest represents the request body for submitting an attendance response
 type SubmitResponseRequest struct {
 	MemberID      string  `json:"member_id"`
-	TargetDateID  string  `json:"target_date_id"`          // 対象日ID
-	Response      string  `json:"response"`                // "attending" or "absent" or "undecided"
+	TargetDateID  string  `json:"target_date_id"` // 対象日ID
+	Response      string  `json:"response"`       // "attending" or "absent" or "undecided"
 	Note          string  `json:"note"`
 	AvailableFrom *string `json:"available_from,omitempty"` // 参加可能開始時間 (HH:MM)
 	AvailableTo   *string `json:"available_to,omitempty"`   // 参加可能終了時間 (HH:MM)
@@ -116,9 +119,9 @@ type SubmitResponseRequest struct {
 type ResponseDTO struct {
 	ResponseID    string    `json:"response_id"`
 	MemberID      string    `json:"member_id"`
-	MemberName    string    `json:"member_name"`             // メンバー表示名
-	TargetDateID  string    `json:"target_date_id"`          // 対象日ID
-	TargetDate    string    `json:"target_date"`             // 対象日（ISO 8601）
+	MemberName    string    `json:"member_name"`    // メンバー表示名
+	TargetDateID  string    `json:"target_date_id"` // 対象日ID
+	TargetDate    string    `json:"target_date"`    // 対象日（ISO 8601）
 	Response      string    `json:"response"`
 	Note          string    `json:"note"`
 	AvailableFrom *string   `json:"available_from,omitempty"` // 参加可能開始時間
@@ -142,6 +145,33 @@ type SubmitResponseResponse struct {
 type ResponsesListResponse struct {
 	CollectionID string        `json:"collection_id"`
 	Responses    []ResponseDTO `json:"responses"`
+}
+
+// UpdateTargetDateRequest represents a target date in an update request
+type UpdateTargetDateRequest struct {
+	TargetDateID string  `json:"target_date_id,omitempty"` // 既存対象日のID（空で新規作成）
+	TargetDate   string  `json:"target_date"`              // ISO 8601 形式
+	StartTime    *string `json:"start_time"`               // HH:MM 形式（オプション）
+	EndTime      *string `json:"end_time"`                 // HH:MM 形式（オプション）
+}
+
+// UpdateCollectionRequest represents the request body for updating an attendance collection
+type UpdateCollectionRequest struct {
+	Title       string                    `json:"title"`
+	Description string                    `json:"description"`
+	Deadline    *time.Time                `json:"deadline"`                  // optional
+	TargetDates *[]UpdateTargetDateRequest `json:"target_dates,omitempty"` // nil=対象日更新なし
+}
+
+// UpdateCollectionResponse represents an attendance collection update response
+type UpdateCollectionResponse struct {
+	CollectionID string     `json:"collection_id"`
+	TenantID     string     `json:"tenant_id"`
+	Title        string     `json:"title"`
+	Description  string     `json:"description"`
+	Status       string     `json:"status"`
+	Deadline     *time.Time `json:"deadline,omitempty"`
+	UpdatedAt    time.Time  `json:"updated_at"`
 }
 
 // CreateCollection handles POST /api/v1/attendance/collections
@@ -368,6 +398,85 @@ func (h *AttendanceHandler) DeleteCollection(w http.ResponseWriter, r *http.Requ
 			"updated_at":    output.UpdatedAt,
 		},
 	})
+}
+
+// UpdateCollection handles PUT /api/v1/attendance/collections/:id
+func (h *AttendanceHandler) UpdateCollection(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	tenantID, ok := GetTenantID(ctx)
+	if !ok {
+		RespondBadRequest(w, "tenant_id is required")
+		return
+	}
+
+	collectionID := chi.URLParam(r, "collection_id")
+	if collectionID == "" {
+		RespondBadRequest(w, "collection_id is required")
+		return
+	}
+
+	var req UpdateCollectionRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		RespondBadRequest(w, "Invalid request body")
+		return
+	}
+
+	if req.Title != "" && len(req.Title) > 255 {
+		RespondBadRequest(w, "title must be less than 255 characters")
+		return
+	}
+
+	// Parse target dates if provided
+	var targetDates []attendance.UpdateTargetDateInput
+	if req.TargetDates != nil {
+		targetDates = make([]attendance.UpdateTargetDateInput, 0, len(*req.TargetDates))
+		for _, tdReq := range *req.TargetDates {
+			parsedDate, err := time.Parse(time.RFC3339, tdReq.TargetDate)
+			if err != nil {
+				RespondBadRequest(w, "対象日の形式が正しくありません: "+tdReq.TargetDate)
+				return
+			}
+			targetDates = append(targetDates, attendance.UpdateTargetDateInput{
+				TargetDateID: tdReq.TargetDateID,
+				TargetDate:   parsedDate,
+				StartTime:    tdReq.StartTime,
+				EndTime:      tdReq.EndTime,
+			})
+		}
+	}
+
+	output, err := h.updateCollectionUsecase.Execute(ctx, attendance.UpdateCollectionInput{
+		TenantID:     tenantID.String(),
+		CollectionID: collectionID,
+		Title:        req.Title,
+		Description:  req.Description,
+		Deadline:     req.Deadline,
+		TargetDates:  targetDates,
+	})
+	if err != nil {
+		switch {
+		case errors.Is(err, domainAttendance.ErrAlreadyDeleted):
+			RespondConflict(w, "Collection is already deleted")
+		case errors.Is(err, domainAttendance.ErrCollectionClosed):
+			RespondBadRequest(w, err.Error())
+		default:
+			RespondDomainError(w, err)
+		}
+		return
+	}
+
+	resp := UpdateCollectionResponse{
+		CollectionID: output.CollectionID,
+		TenantID:     output.TenantID,
+		Title:        output.Title,
+		Description:  output.Description,
+		Status:       output.Status,
+		Deadline:     output.Deadline,
+		UpdatedAt:    output.UpdatedAt,
+	}
+
+	RespondJSON(w, http.StatusOK, SuccessResponse{Data: resp})
 }
 
 // GetResponses handles GET /api/v1/attendance/collections/:id/responses

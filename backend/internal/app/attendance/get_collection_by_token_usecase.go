@@ -100,7 +100,3 @@ func (u *GetCollectionByTokenUsecase) Execute(ctx context.Context, input GetColl
 		UpdatedAt:    collection.UpdatedAt(),
 	}, nil
 }
-
-
-
-

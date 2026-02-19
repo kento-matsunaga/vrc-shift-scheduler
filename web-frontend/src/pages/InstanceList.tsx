@@ -12,6 +12,7 @@ import {
 import { getEventDetail } from '../lib/api/eventApi';
 import type { Event } from '../types/api';
 import { ApiClientError } from '../lib/apiClient';
+import { SEO } from '../components/seo';
 
 export default function InstanceList() {
   const { eventId } = useParams<{ eventId: string }>();
@@ -26,6 +27,7 @@ export default function InstanceList() {
     if (eventId) {
       loadData();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 初回マウント時のみ実行（loadDataは関数定義のため除外）
   }, [eventId]);
 
   const loadData = async () => {
@@ -89,6 +91,7 @@ export default function InstanceList() {
 
   return (
     <div>
+      <SEO noindex={true} />
       {/* パンくず */}
       <nav className="mb-4 text-sm text-gray-600">
         <Link to="/events" className="text-accent hover:underline">

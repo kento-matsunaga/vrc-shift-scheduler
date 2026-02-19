@@ -30,10 +30,10 @@ func (m *MockTxManager) WithTx(ctx context.Context, fn func(context.Context) err
 
 // MockTenantRepository is a mock implementation of tenant.TenantRepository
 type MockTenantRepository struct {
-	saveFunc                        func(ctx context.Context, t *tenant.Tenant) error
-	findByIDFunc                    func(ctx context.Context, tenantID common.TenantID) (*tenant.Tenant, error)
+	saveFunc                         func(ctx context.Context, t *tenant.Tenant) error
+	findByIDFunc                     func(ctx context.Context, tenantID common.TenantID) (*tenant.Tenant, error)
 	findByPendingStripeSessionIDFunc func(ctx context.Context, sessionID string) (*tenant.Tenant, error)
-	listAllFunc                     func(ctx context.Context, status *tenant.TenantStatus, limit, offset int) ([]*tenant.Tenant, int, error)
+	listAllFunc                      func(ctx context.Context, status *tenant.TenantStatus, limit, offset int) ([]*tenant.Tenant, int, error)
 }
 
 func (m *MockTenantRepository) Save(ctx context.Context, t *tenant.Tenant) error {
@@ -106,6 +106,9 @@ func (m *MockAdminRepository) Delete(ctx context.Context, tenantID common.Tenant
 func (m *MockAdminRepository) ExistsByEmail(ctx context.Context, tenantID common.TenantID, email string) (bool, error) {
 	return false, errors.New("not implemented")
 }
+func (m *MockAdminRepository) ExistsByEmailGlobal(ctx context.Context, email string) (bool, error) {
+	return false, errors.New("not implemented")
+}
 
 // MockPasswordHasher is a mock implementation of PasswordHasher
 type MockPasswordHasher struct {
@@ -141,7 +144,7 @@ func (m *MockClock) Now() time.Time {
 
 // MockPaymentGateway simulates PaymentGateway operations
 type MockPaymentGateway struct {
-	createCheckoutSessionFunc     func(params services.CheckoutSessionParams) (*services.CheckoutSessionResult, error)
+	createCheckoutSessionFunc      func(params services.CheckoutSessionParams) (*services.CheckoutSessionResult, error)
 	createBillingPortalSessionFunc func(params services.BillingPortalParams) (*services.BillingPortalResult, error)
 }
 

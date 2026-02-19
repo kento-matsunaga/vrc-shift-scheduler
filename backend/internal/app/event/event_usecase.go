@@ -8,6 +8,12 @@ import (
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/event"
 )
 
+// 営業日生成の定数
+const (
+	DefaultBusinessDayMonths = 2  // デフォルトの生成期間（月）
+	MaxBusinessDayMonths     = 24 // 最大の生成期間（月）
+)
+
 // CreateEventInput represents the input for creating an event
 type CreateEventInput struct {
 	TenantID            common.TenantID
@@ -43,7 +49,7 @@ func (uc *CreateEventUsecase) Execute(ctx context.Context, input CreateEventInpu
 		return nil, err
 	}
 	if exists {
-		return nil, common.NewConflictError("Event with this name already exists")
+		return nil, common.NewConflictError("同じ名前のイベントが既に存在します")
 	}
 
 	// イベントの作成
@@ -87,7 +93,7 @@ func (uc *CreateEventUsecase) generateBusinessDays(ctx context.Context, e *event
 
 	if e.RecurrenceStartDate() == nil || e.RecurrenceDayOfWeek() == nil ||
 		e.DefaultStartTime() == nil || e.DefaultEndTime() == nil {
-		return common.NewValidationError("recurrence fields are incomplete", nil)
+		return common.NewValidationError("定期開催設定が不完全です", nil)
 	}
 
 	now := time.Now()
@@ -217,6 +223,7 @@ func (uc *GetEventUsecase) Execute(ctx context.Context, input GetEventInput) (*e
 type GenerateBusinessDaysInput struct {
 	TenantID common.TenantID
 	EventID  common.EventID
+	Months   int // 何ヶ月先まで生成するか（デフォルト2、最大24）
 }
 
 // GenerateBusinessDaysOutput represents the output of generating business days
@@ -249,11 +256,11 @@ func (uc *GenerateBusinessDaysUsecase) Execute(ctx context.Context, input Genera
 
 	// 定期設定がない場合はエラー
 	if !e.HasRecurrence() {
-		return nil, common.NewValidationError("Event does not have recurrence settings", nil)
+		return nil, common.NewValidationError("イベントに定期開催設定がありません", nil)
 	}
 
 	// 営業日を生成
-	generatedCount, err := uc.generateBusinessDays(ctx, e)
+	generatedCount, err := uc.generateBusinessDays(ctx, e, input.Months)
 	if err != nil {
 		return nil, err
 	}
@@ -292,7 +299,8 @@ func (uc *UpdateEventUsecase) Execute(ctx context.Context, input UpdateEventInpu
 	}
 
 	// イベント名を更新
-	if err := e.UpdateEventName(input.EventName); err != nil {
+	now := time.Now()
+	if err := e.UpdateEventName(now, input.EventName); err != nil {
 		return nil, err
 	}
 
@@ -331,7 +339,8 @@ func (uc *DeleteEventUsecase) Execute(ctx context.Context, input DeleteEventInpu
 	}
 
 	// soft delete
-	e.Delete()
+	now := time.Now()
+	e.Delete(now)
 
 	// 保存
 	if err := uc.eventRepo.Save(ctx, e); err != nil {
@@ -342,24 +351,32 @@ func (uc *DeleteEventUsecase) Execute(ctx context.Context, input DeleteEventInpu
 }
 
 // generateBusinessDays generates business days for recurring events
-// 今月と来月末までの営業日を自動生成し、生成された件数を返す
-func (uc *GenerateBusinessDaysUsecase) generateBusinessDays(ctx context.Context, e *event.Event) (int, error) {
+// 今月からmonths月後までの営業日を自動生成し、生成された件数を返す
+func (uc *GenerateBusinessDaysUsecase) generateBusinessDays(ctx context.Context, e *event.Event, months int) (int, error) {
 	if !e.HasRecurrence() {
 		return 0, nil
 	}
 
 	if e.RecurrenceStartDate() == nil || e.RecurrenceDayOfWeek() == nil ||
 		e.DefaultStartTime() == nil || e.DefaultEndTime() == nil {
-		return 0, common.NewValidationError("recurrence fields are incomplete", nil)
+		return 0, common.NewValidationError("定期開催設定が不完全です", nil)
+	}
+
+	// months のバリデーション
+	if months <= 0 {
+		months = DefaultBusinessDayMonths
+	}
+	if months > MaxBusinessDayMonths {
+		months = MaxBusinessDayMonths
 	}
 
 	now := time.Now()
 	startDate := *e.RecurrenceStartDate()
 	targetDayOfWeek := time.Weekday(*e.RecurrenceDayOfWeek())
 
-	// 今月の最初の日と来月末の日を計算
+	// 今月の最初の日から months+1 ヶ月後の末日を計算
 	currentMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.Local)
-	nextMonthEnd := currentMonth.AddDate(0, 2, 0).AddDate(0, 0, -1)
+	endDate := currentMonth.AddDate(0, months+1, 0).AddDate(0, 0, -1)
 
 	// 定期開始日から次の指定曜日を見つける
 	candidateDate := startDate
@@ -375,7 +392,7 @@ func (uc *GenerateBusinessDaysUsecase) generateBusinessDays(ctx context.Context,
 
 	generatedCount := 0
 
-	for candidateDate.Before(nextMonthEnd) || candidateDate.Equal(nextMonthEnd) {
+	for candidateDate.Before(endDate) || candidateDate.Equal(endDate) {
 		// 開始日より前の日付はスキップ
 		if candidateDate.Before(startDate) {
 			candidateDate = candidateDate.AddDate(0, 0, interval)

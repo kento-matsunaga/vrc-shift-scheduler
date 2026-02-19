@@ -3,6 +3,7 @@ import { useNavigate, useParams, Link } from 'react-router-dom';
 import { getTemplate, deleteTemplate } from '../lib/api/templateApi';
 import type { Template, TemplateItem } from '../types/api';
 import { ApiClientError } from '../lib/apiClient';
+import { SEO } from '../components/seo';
 
 // インスタンスごとにグループ化した構造
 interface InstanceGroup {
@@ -22,6 +23,7 @@ export default function TemplateDetail() {
     if (eventId && templateId) {
       loadTemplate();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 初回マウント時のみ実行（loadTemplateは関数定義のため除外）
   }, [eventId, templateId]);
 
   const loadTemplate = async () => {
@@ -126,6 +128,7 @@ export default function TemplateDetail() {
 
   return (
     <div className="max-w-4xl mx-auto p-6">
+      <SEO noindex={true} />
       {/* パンくずリスト */}
       <nav className="mb-6 text-sm text-gray-600">
         <Link to={`/events/${eventId}/templates`} className="hover:text-gray-900">

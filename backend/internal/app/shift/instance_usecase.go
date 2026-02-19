@@ -153,6 +153,8 @@ func (uc *UpdateInstanceUsecase) Execute(ctx context.Context, input UpdateInstan
 		return nil, err
 	}
 
+	now := time.Now()
+
 	// 名前の更新
 	if input.Name != nil {
 		// 同名のインスタンスが既に存在しないか確認
@@ -164,19 +166,19 @@ func (uc *UpdateInstanceUsecase) Execute(ctx context.Context, input UpdateInstan
 			return nil, common.NewValidationError("instance with the same name already exists", nil)
 		}
 
-		if err := instance.UpdateName(*input.Name); err != nil {
+		if err := instance.UpdateName(now, *input.Name); err != nil {
 			return nil, err
 		}
 	}
 
 	// 表示順の更新
 	if input.DisplayOrder != nil {
-		instance.UpdateDisplayOrder(*input.DisplayOrder)
+		instance.UpdateDisplayOrder(now, *input.DisplayOrder)
 	}
 
 	// 最大人数の更新
 	if input.MaxMembers != nil {
-		if err := instance.UpdateMaxMembers(input.MaxMembers); err != nil {
+		if err := instance.UpdateMaxMembers(now, input.MaxMembers); err != nil {
 			return nil, err
 		}
 	}
@@ -257,7 +259,7 @@ func (uc *DeleteInstanceUsecase) CheckDeletable(ctx context.Context, input Delet
 			CanDelete:      false,
 			SlotCount:      len(slots),
 			AssignedSlots:  assignedSlots,
-			BlockingReason: "担当が割り振られているシフト枠があるため削除できません",
+			BlockingReason: "cannot delete: some shift slots have assignments",
 		}, nil
 	}
 
@@ -290,9 +292,10 @@ func (uc *DeleteInstanceUsecase) Execute(ctx context.Context, input DeleteInstan
 
 		// シフト枠のinstance_idをクリアしてソフトデリート
 		// （外部キー制約を解除してからインスタンスを削除するため）
+		now := time.Now()
 		for _, slot := range slots {
-			slot.ClearInstanceID()
-			slot.Delete()
+			slot.ClearInstanceID(now)
+			slot.Delete(now)
 			if err := uc.slotRepo.Save(txCtx, slot); err != nil {
 				return err
 			}

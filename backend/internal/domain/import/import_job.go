@@ -53,13 +53,13 @@ func (s ImportStatus) IsValid() bool {
 
 // ImportOptions represents the options for an import job
 type ImportOptions struct {
-	SkipExisting         bool     `json:"skip_existing"`
-	UpdateExisting       bool     `json:"update_existing"`
-	DefaultRoleIDs       []string `json:"default_role_ids,omitempty"`
-	DefaultGroupIDs      []string `json:"default_group_ids,omitempty"`
-	CreateMissingEvents  bool     `json:"create_missing_events,omitempty"`
-	CreateMissingSlots   bool     `json:"create_missing_slots,omitempty"`
-	FuzzyMemberMatch     bool     `json:"fuzzy_member_match,omitempty"`
+	SkipExisting        bool     `json:"skip_existing"`
+	UpdateExisting      bool     `json:"update_existing"`
+	DefaultRoleIDs      []string `json:"default_role_ids,omitempty"`
+	DefaultGroupIDs     []string `json:"default_group_ids,omitempty"`
+	CreateMissingEvents bool     `json:"create_missing_events,omitempty"`
+	CreateMissingSlots  bool     `json:"create_missing_slots,omitempty"`
+	FuzzyMemberMatch    bool     `json:"fuzzy_member_match,omitempty"`
 }
 
 // ToJSON converts ImportOptions to JSON bytes

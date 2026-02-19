@@ -54,7 +54,7 @@ func (s Status) IsClosed() bool {
 type TargetType string
 
 const (
-	TargetTypeEvent      	TargetType = "event"       // イベント
+	TargetTypeEvent       TargetType = "event"        // イベント
 	TargetTypeBusinessDay TargetType = "business_day" // 営業日
 )
 
@@ -88,9 +88,9 @@ func (t TargetType) String() string {
 type ResponseType string
 
 const (
-	ResponseTypeAttending  ResponseType = "attending"  // 出席
-	ResponseTypeAbsent     ResponseType = "absent"     // 欠席
-	ResponseTypeUndecided  ResponseType = "undecided"  // 未定
+	ResponseTypeAttending ResponseType = "attending" // 出席
+	ResponseTypeAbsent    ResponseType = "absent"    // 欠席
+	ResponseTypeUndecided ResponseType = "undecided" // 未定
 )
 
 // NewResponseType creates a new ResponseType from a string

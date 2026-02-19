@@ -194,7 +194,7 @@ func TestEventRepository_Update(t *testing.T) {
 	}
 
 	// 更新
-	err = testEvent.UpdateEventName("新しい名前")
+	err = testEvent.UpdateEventName(time.Now(), "新しい名前")
 	if err != nil {
 		t.Fatalf("Failed to update event name: %v", err)
 	}

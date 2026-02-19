@@ -300,12 +300,11 @@ func (a *ShiftAssignment) IsCancelled() bool {
 }
 
 // Cancel marks the assignment as cancelled
-func (a *ShiftAssignment) Cancel() error {
+func (a *ShiftAssignment) Cancel(now time.Time) error {
 	if a.assignmentStatus == AssignmentStatusCancelled {
 		return common.NewInvariantViolationError("assignment is already cancelled")
 	}
 
-	now := time.Now()
 	a.assignmentStatus = AssignmentStatusCancelled
 	a.cancelledAt = &now
 	a.updatedAt = now
@@ -316,9 +315,7 @@ func (a *ShiftAssignment) Cancel() error {
 // cancelledとdeleted_atの違い:
 // - cancelled: メンバーがキャンセルした（履歴として残し、UIにも表示可能）
 // - deleted_at: 管理者が誤って作成した割り当てを削除（履歴から除外）
-func (a *ShiftAssignment) Delete() {
-	now := time.Now()
+func (a *ShiftAssignment) Delete(now time.Time) {
 	a.deletedAt = &now
 	a.updatedAt = now
 }
-

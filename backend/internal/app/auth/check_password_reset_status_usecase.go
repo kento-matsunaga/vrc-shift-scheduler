@@ -14,7 +14,7 @@ type CheckPasswordResetStatusInput struct {
 
 // CheckPasswordResetStatusOutput represents the output for checking password reset status
 type CheckPasswordResetStatusOutput struct {
-	Allowed   bool    `json:"allowed"`             // PWリセットが許可されているか
+	Allowed   bool    `json:"allowed"`              // PWリセットが許可されているか
 	ExpiresAt *string `json:"expires_at,omitempty"` // 有効期限（許可されている場合）
 	TenantID  string  `json:"tenant_id,omitempty"`  // テナントID（許可されている場合）
 }

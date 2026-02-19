@@ -80,7 +80,7 @@ func main() {
 func loadMigrations(ctx context.Context, pool *pgxpool.Pool) ([]migration, error) {
 	// マイグレーションディレクトリのパスを取得
 	migrationsDir := filepath.Join("internal", "infra", "db", "migrations")
-	
+
 	// マイグレーションファイルの一覧取得
 	entries, err := os.ReadDir(migrationsDir)
 	if err != nil {
@@ -279,4 +279,3 @@ func printStatus(migrations []migration) {
 		fmt.Printf("%s %03d: %s\n", status, mig.version, mig.name)
 	}
 }
-

@@ -1,5 +1,6 @@
 import { SEO_CONFIG } from './seoConfig';
-import { JsonLd, schemas, type JsonLdSchema } from './JsonLd';
+import { JsonLd, type JsonLdSchema } from './JsonLd';
+import { schemas } from './schemas';
 
 interface SEOProps {
   title?: string;

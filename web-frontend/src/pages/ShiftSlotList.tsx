@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
+import { SEO } from '../components/seo';
 import { getBusinessDayDetail, getShiftSlots, createShiftSlot, getAssignments, applyTemplateToBusinessDay } from '../lib/api';
 import { listTemplates } from '../lib/api/templateApi';
 import { listInstances, checkSlotsByInstanceDeletable, deleteSlotsByInstance, type CheckSlotsDeletableResponse } from '../lib/api/instanceApi';
@@ -39,6 +40,7 @@ export default function ShiftSlotList() {
     if (businessDayId) {
       loadData();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 初回マウント時のみ実行（loadDataは関数定義のため除外）
   }, [businessDayId]);
 
   const loadData = async () => {
@@ -266,6 +268,7 @@ export default function ShiftSlotList() {
 
   return (
     <div>
+      <SEO noindex={true} />
       {/* パンくずリスト */}
       <nav className="mb-6 text-sm text-gray-600">
         <Link to="/events" className="hover:text-gray-900">
@@ -637,7 +640,7 @@ function CreateShiftSlotModal({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-lg max-w-2xl w-full p-6 max-h-[calc(100dvh-2rem)] overflow-y-auto">
         <h3 className="text-xl font-bold text-gray-900 mb-4">シフト枠を追加</h3>
 
         <form onSubmit={handleSubmit}>
@@ -805,6 +808,7 @@ function ApplyTemplateModal({
 
   useEffect(() => {
     loadTemplates();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 初回マウント時のみ実行（loadTemplatesは関数定義のため除外）
   }, [eventId]);
 
   const loadTemplates = async () => {
@@ -855,7 +859,7 @@ function ApplyTemplateModal({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-lg max-w-2xl w-full p-6 max-h-[calc(100dvh-2rem)] overflow-y-auto">
         <h3 className="text-xl font-bold text-gray-900 mb-4">テンプレートから追加</h3>
 
         {loadingTemplates ? (

@@ -111,3 +111,24 @@ body {
       cursor-pointer hover:bg-accent/10 transition-colors;
   }
 }
+
+/* ========================================
+   モバイル対応（iOS Safari対策）
+   ======================================== */
+
+/* iOS Safari 100vh問題対策 */
+@supports (min-height: 100dvh) {
+  .min-h-screen {
+    min-height: 100dvh;
+  }
+}
+
+/* safe-area-inset対応（iPhoneノッチ・ホームインジケータ） */
+.safe-area-top {
+  padding-top: env(safe-area-inset-top);
+}
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* iOSズーム防止: 個別のフォームに text-base クラスを適用すること */

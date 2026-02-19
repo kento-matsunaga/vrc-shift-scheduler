@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { SEO } from '../components/seo';
+import GenerateBusinessDaysModal from '../components/GenerateBusinessDaysModal';
 import {
   getEvents,
   createEvent,
@@ -32,7 +34,8 @@ export default function EventList() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [generatingEventId, setGeneratingEventId] = useState<string | null>(null);
+  const [generatingEvent, setGeneratingEvent] = useState<Event | null>(null);
+  const [generateLoading, setGenerateLoading] = useState(false);
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
   const [savingEventId, setSavingEventId] = useState<string | null>(null);
@@ -66,18 +69,23 @@ export default function EventList() {
     loadEvents();
   };
 
-  const handleGenerateBusinessDays = async (eventId: string, e: React.MouseEvent) => {
-    e.preventDefault(); // Link のクリックを防止
+  const handleGenerateClick = (event: Event, e: React.MouseEvent) => {
+    e.preventDefault();
     e.stopPropagation();
+    setGeneratingEvent(event);
+  };
 
-    setGeneratingEventId(eventId);
+  const handleGenerateConfirm = async (months: number) => {
+    if (!generatingEvent) return;
+
+    setGenerateLoading(true);
     setError('');
     setSuccess('');
 
     try {
-      const result = await generateBusinessDays(eventId);
-      setSuccess(result.message);
-      // 3秒後にメッセージを消す
+      const result = await generateBusinessDays(generatingEvent.event_id, months);
+      setSuccess(result.message || `${months}ヶ月分の営業日を生成しました`);
+      setGeneratingEvent(null);
       setTimeout(() => setSuccess(''), 5000);
     } catch (err) {
       if (err instanceof ApiClientError) {
@@ -87,7 +95,7 @@ export default function EventList() {
       }
       console.error('Failed to generate business days:', err);
     } finally {
-      setGeneratingEventId(null);
+      setGenerateLoading(false);
     }
   };
 
@@ -179,6 +187,7 @@ export default function EventList() {
 
   return (
     <div>
+      <SEO noindex={true} />
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
         <h2 className="text-xl sm:text-2xl font-bold text-gray-900">イベント一覧</h2>
         <button onClick={() => setShowCreateModal(true)} className="btn-primary text-sm sm:text-base w-full sm:w-auto">
@@ -310,11 +319,10 @@ export default function EventList() {
                 </button>
                 {event.recurrence_type !== 'none' && (
                   <button
-                    onClick={(e) => handleGenerateBusinessDays(event.event_id, e)}
-                    disabled={generatingEventId === event.event_id}
+                    onClick={(e) => handleGenerateClick(event, e)}
                     className="flex-1 btn-secondary text-sm py-2"
                   >
-                    {generatingEventId === event.event_id ? '生成中...' : '営業日生成'}
+                    営業日生成
                   </button>
                 )}
               </div>
@@ -340,6 +348,16 @@ export default function EventList() {
             setSuccess('グループ設定を更新しました');
             setTimeout(() => setSuccess(''), 3000);
           }}
+        />
+      )}
+
+      {/* 営業日生成モーダル */}
+      {generatingEvent && (
+        <GenerateBusinessDaysModal
+          eventName={generatingEvent.event_name}
+          onConfirm={handleGenerateConfirm}
+          onCancel={() => setGeneratingEvent(null)}
+          loading={generateLoading}
         />
       )}
     </div>
@@ -423,7 +441,7 @@ function CreateEventModal({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-lg max-w-md w-full p-6 max-h-[calc(100dvh-2rem)] overflow-y-auto">
         <h3 className="text-xl font-bold text-gray-900 mb-4">新しいイベントを作成</h3>
 
         <form onSubmit={handleSubmit}>
@@ -617,6 +635,7 @@ function EventGroupModal({
 
   useEffect(() => {
     loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 初回マウント時のみ実行（loadDataは関数定義のため除外）
   }, [event.event_id]);
 
   const loadData = async () => {
@@ -682,7 +701,7 @@ function EventGroupModal({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-lg max-w-lg w-full p-6 max-h-[calc(100dvh-2rem)] overflow-y-auto">
         <h3 className="text-xl font-bold text-gray-900 mb-2">グループ設定</h3>
         <p className="text-sm text-gray-600 mb-4">
           「{event.event_name}」に参加可能なグループを設定します

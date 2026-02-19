@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { SEO } from '../components/seo';
 import { listTemplates, deleteTemplate } from '../lib/api/templateApi';
 import type { Template, TemplateItem } from '../types/api';
 
@@ -35,6 +36,7 @@ const TemplateList = () => {
 
   useEffect(() => {
     fetchTemplates();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 初回マウント時のみ実行（fetchTemplatesは関数定義のため除外）
   }, [eventId]);
 
   const fetchTemplates = async () => {
@@ -49,9 +51,9 @@ const TemplateList = () => {
       const data = await listTemplates(eventId);
       setTemplates(data || []);
       setError(null);
-    } catch (err: any) {
+    } catch (err) {
       console.error('Failed to fetch templates:', err);
-      setError(err.response?.data?.error?.message || 'テンプレートの取得に失敗しました');
+      setError(err instanceof Error ? err.message : 'テンプレートの取得に失敗しました');
     } finally {
       setLoading(false);
     }
@@ -68,9 +70,9 @@ const TemplateList = () => {
       await deleteTemplate(eventId, templateId);
       alert('テンプレートを削除しました');
       fetchTemplates();
-    } catch (err: any) {
+    } catch (err) {
       console.error('Failed to delete template:', err);
-      alert(err.response?.data?.error?.message || 'テンプレートの削除に失敗しました');
+      alert(err instanceof Error ? err.message : 'テンプレートの削除に失敗しました');
     }
   };
 
@@ -94,6 +96,7 @@ const TemplateList = () => {
 
   return (
     <div className="p-6">
+      <SEO noindex={true} />
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">シフトテンプレート管理</h1>

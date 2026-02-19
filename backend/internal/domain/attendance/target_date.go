@@ -8,13 +8,13 @@ import (
 
 // TargetDate は出欠確認の対象日エンティティ
 type TargetDate struct {
-	targetDateID  common.TargetDateID
-	collectionID  common.CollectionID
-	targetDate    time.Time // 日付部分のみ使用
-	startTime     *string   // 開始時間（HH:MM形式、任意）
-	endTime       *string   // 終了時間（HH:MM形式、任意）
-	displayOrder  int
-	createdAt     time.Time
+	targetDateID common.TargetDateID
+	collectionID common.CollectionID
+	targetDate   time.Time // 日付部分のみ使用
+	startTime    *string   // 開始時間（HH:MM形式、任意）
+	endTime      *string   // 終了時間（HH:MM形式、任意）
+	displayOrder int
+	createdAt    time.Time
 }
 
 // NewTargetDate creates a new TargetDate entity
@@ -27,7 +27,7 @@ func NewTargetDate(
 	displayOrder int,
 ) (*TargetDate, error) {
 	td := &TargetDate{
-		targetDateID: common.NewTargetDateID(),
+		targetDateID: common.NewTargetDateIDWithTime(now),
 		collectionID: collectionID,
 		targetDate:   targetDate,
 		startTime:    startTime,
@@ -103,6 +103,27 @@ func (td *TargetDate) validate() error {
 // isValidTimeFormat checks if time string is in HH:MM format (00:00-23:59)
 func isValidTimeFormat(timeStr string) bool {
 	return timeFormatRegex.MatchString(timeStr)
+}
+
+// UpdateFields updates the mutable fields of a target date (domain method).
+// This preserves the entity's identity (ID) and creation timestamp.
+func (td *TargetDate) UpdateFields(targetDate time.Time, startTime *string, endTime *string, displayOrder int) error {
+	// Validate before mutating using a temporary copy
+	tmp := *td
+	tmp.targetDate = targetDate
+	tmp.startTime = startTime
+	tmp.endTime = endTime
+	tmp.displayOrder = displayOrder
+	if err := tmp.validate(); err != nil {
+		return err
+	}
+
+	// Apply validated changes
+	td.targetDate = targetDate
+	td.startTime = startTime
+	td.endTime = endTime
+	td.displayOrder = displayOrder
+	return nil
 }
 
 // Getters

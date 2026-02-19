@@ -46,12 +46,41 @@ type CreateCollectionOutput struct {
 	UpdatedAt    time.Time  `json:"updated_at"`
 }
 
+// UpdateTargetDateInput represents input for a target date when updating a collection
+type UpdateTargetDateInput struct {
+	TargetDateID string    // 既存対象日のID（空文字列の場合は新規作成）
+	TargetDate   time.Time
+	StartTime    *string // 開始時間（HH:MM形式、任意）
+	EndTime      *string // 終了時間（HH:MM形式、任意）
+}
+
+// UpdateCollectionInput represents the input for updating an attendance collection
+type UpdateCollectionInput struct {
+	TenantID     string // from JWT context (管理API)
+	CollectionID string
+	Title        string
+	Description  string
+	Deadline     *time.Time
+	TargetDates  []UpdateTargetDateInput // nil の場合は対象日を更新しない
+}
+
+// UpdateCollectionOutput represents the output for updating an attendance collection
+type UpdateCollectionOutput struct {
+	CollectionID string     `json:"collection_id"`
+	TenantID     string     `json:"tenant_id"`
+	Title        string     `json:"title"`
+	Description  string     `json:"description"`
+	Status       string     `json:"status"`
+	Deadline     *time.Time `json:"deadline,omitempty"`
+	UpdatedAt    time.Time  `json:"updated_at"`
+}
+
 // SubmitResponseInput represents the input for submitting an attendance response
 type SubmitResponseInput struct {
-	PublicToken   string  // from URL path (公開API)
-	MemberID      string  // from request body
-	TargetDateID  string  // from request body - 対象日ID
-	Response      string  // "attending" or "absent" or "undecided"
+	PublicToken   string // from URL path (公開API)
+	MemberID      string // from request body
+	TargetDateID  string // from request body - 対象日ID
+	Response      string // "attending" or "absent" or "undecided"
 	Note          string
 	AvailableFrom *string // 参加可能開始時間 (HH:MM)
 	AvailableTo   *string // 参加可能終了時間 (HH:MM)
@@ -116,9 +145,9 @@ type GetResponsesInput struct {
 type ResponseDTO struct {
 	ResponseID    string    `json:"response_id"`
 	MemberID      string    `json:"member_id"`
-	MemberName    string    `json:"member_name"`              // メンバー表示名
-	TargetDateID  string    `json:"target_date_id"`           // 対象日ID
-	TargetDate    time.Time `json:"target_date"`              // 対象日
+	MemberName    string    `json:"member_name"`    // メンバー表示名
+	TargetDateID  string    `json:"target_date_id"` // 対象日ID
+	TargetDate    time.Time `json:"target_date"`    // 対象日
 	Response      string    `json:"response"`
 	Note          string    `json:"note"`
 	AvailableFrom *string   `json:"available_from,omitempty"` // 参加可能開始時間
@@ -170,11 +199,11 @@ type DeleteCollectionOutput struct {
 // AdminUpdateResponseInput represents the input for admin updating an attendance response
 // 管理者による出欠回答の更新（締め切り後も可能）
 type AdminUpdateResponseInput struct {
-	TenantID      string  // from JWT context (管理API)
-	CollectionID  string  // from URL path
-	MemberID      string  // from request body
-	TargetDateID  string  // from request body
-	Response      string  // "attending" or "absent" or "undecided"
+	TenantID      string // from JWT context (管理API)
+	CollectionID  string // from URL path
+	MemberID      string // from request body
+	TargetDateID  string // from request body
+	Response      string // "attending" or "absent" or "undecided"
 	Note          string
 	AvailableFrom *string // 参加可能開始時間 (HH:MM)
 	AvailableTo   *string // 参加可能終了時間 (HH:MM)

@@ -18,6 +18,7 @@ func TestNewShiftSlotTemplate_Success(t *testing.T) {
 	eventID := common.NewEventID()
 
 	template, err := shift.NewShiftSlotTemplate(
+		time.Now(),
 		tenantID,
 		eventID,
 		"Test Template",
@@ -67,6 +68,7 @@ func TestNewShiftSlotTemplate_Success_EmptyDescription(t *testing.T) {
 	eventID := common.NewEventID()
 
 	template, err := shift.NewShiftSlotTemplate(
+		time.Now(),
 		tenantID,
 		eventID,
 		"Test Template",
@@ -87,6 +89,7 @@ func TestNewShiftSlotTemplate_ErrorWhenInvalidTenantID(t *testing.T) {
 	eventID := common.NewEventID()
 
 	_, err := shift.NewShiftSlotTemplate(
+		time.Now(),
 		common.TenantID(""), // Invalid
 		eventID,
 		"Test Template",
@@ -103,6 +106,7 @@ func TestNewShiftSlotTemplate_ErrorWhenInvalidEventID(t *testing.T) {
 	tenantID := common.NewTenantID()
 
 	_, err := shift.NewShiftSlotTemplate(
+		time.Now(),
 		tenantID,
 		common.EventID(""), // Invalid
 		"Test Template",
@@ -120,6 +124,7 @@ func TestNewShiftSlotTemplate_ErrorWhenEmptyTemplateName(t *testing.T) {
 	eventID := common.NewEventID()
 
 	_, err := shift.NewShiftSlotTemplate(
+		time.Now(),
 		tenantID,
 		eventID,
 		"", // Empty template name
@@ -139,6 +144,7 @@ func TestNewShiftSlotTemplate_ErrorWhenTemplateNameTooLong(t *testing.T) {
 	longName := strings.Repeat("a", 101) // 101 characters
 
 	_, err := shift.NewShiftSlotTemplate(
+		time.Now(),
 		tenantID,
 		eventID,
 		longName,
@@ -161,6 +167,7 @@ func TestNewShiftSlotTemplateItem_Success(t *testing.T) {
 	endTime := time.Date(2000, 1, 1, 22, 0, 0, 0, time.UTC)
 
 	item, err := shift.NewShiftSlotTemplateItem(
+		time.Now(),
 		templateID,
 		"DJ Slot",
 		"Main Stage",
@@ -205,6 +212,7 @@ func TestNewShiftSlotTemplateItem_Success_EmptyInstanceName(t *testing.T) {
 	endTime := time.Date(2000, 1, 1, 22, 0, 0, 0, time.UTC)
 
 	item, err := shift.NewShiftSlotTemplateItem(
+		time.Now(),
 		templateID,
 		"DJ Slot",
 		"", // Empty instance name is allowed
@@ -228,6 +236,7 @@ func TestNewShiftSlotTemplateItem_ErrorWhenInvalidTemplateID(t *testing.T) {
 	endTime := time.Date(2000, 1, 1, 22, 0, 0, 0, time.UTC)
 
 	_, err := shift.NewShiftSlotTemplateItem(
+		time.Now(),
 		common.ShiftSlotTemplateID(""), // Invalid
 		"DJ Slot",
 		"",
@@ -248,6 +257,7 @@ func TestNewShiftSlotTemplateItem_ErrorWhenEmptySlotName(t *testing.T) {
 	endTime := time.Date(2000, 1, 1, 22, 0, 0, 0, time.UTC)
 
 	_, err := shift.NewShiftSlotTemplateItem(
+		time.Now(),
 		templateID,
 		"", // Empty slot name
 		"",
@@ -268,6 +278,7 @@ func TestNewShiftSlotTemplateItem_ErrorWhenRequiredCountZero(t *testing.T) {
 	endTime := time.Date(2000, 1, 1, 22, 0, 0, 0, time.UTC)
 
 	_, err := shift.NewShiftSlotTemplateItem(
+		time.Now(),
 		templateID,
 		"DJ Slot",
 		"",
@@ -288,6 +299,7 @@ func TestNewShiftSlotTemplateItem_ErrorWhenRequiredCountNegative(t *testing.T) {
 	endTime := time.Date(2000, 1, 1, 22, 0, 0, 0, time.UTC)
 
 	_, err := shift.NewShiftSlotTemplateItem(
+		time.Now(),
 		templateID,
 		"DJ Slot",
 		"",
@@ -308,6 +320,7 @@ func TestNewShiftSlotTemplateItem_ErrorWhenPriorityZero(t *testing.T) {
 	endTime := time.Date(2000, 1, 1, 22, 0, 0, 0, time.UTC)
 
 	_, err := shift.NewShiftSlotTemplateItem(
+		time.Now(),
 		templateID,
 		"DJ Slot",
 		"",
@@ -328,6 +341,7 @@ func TestNewShiftSlotTemplateItem_ErrorWhenPriorityNegative(t *testing.T) {
 	endTime := time.Date(2000, 1, 1, 22, 0, 0, 0, time.UTC)
 
 	_, err := shift.NewShiftSlotTemplateItem(
+		time.Now(),
 		templateID,
 		"DJ Slot",
 		"",
@@ -343,17 +357,17 @@ func TestNewShiftSlotTemplateItem_ErrorWhenPriorityNegative(t *testing.T) {
 }
 
 // =====================================================
-// ReconstituteShiftSlotTemplate Tests
+// ReconstructShiftSlotTemplate Tests
 // =====================================================
 
-func TestReconstituteShiftSlotTemplate_Success(t *testing.T) {
+func TestReconstructShiftSlotTemplate_Success(t *testing.T) {
 	templateID := common.NewShiftSlotTemplateID()
 	tenantID := common.NewTenantID()
 	eventID := common.NewEventID()
 	createdAt := time.Now().Add(-time.Hour)
 	updatedAt := time.Now()
 
-	template := shift.ReconstituteShiftSlotTemplate(
+	template, err := shift.ReconstructShiftSlotTemplate(
 		templateID,
 		tenantID,
 		eventID,
@@ -364,6 +378,9 @@ func TestReconstituteShiftSlotTemplate_Success(t *testing.T) {
 		updatedAt,
 		nil,
 	)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	if template.TemplateID() != templateID {
 		t.Errorf("TemplateID mismatch: got %v, want %v", template.TemplateID(), templateID)
@@ -378,7 +395,7 @@ func TestReconstituteShiftSlotTemplate_Success(t *testing.T) {
 	}
 }
 
-func TestReconstituteShiftSlotTemplate_Success_Deleted(t *testing.T) {
+func TestReconstructShiftSlotTemplate_Success_Deleted(t *testing.T) {
 	templateID := common.NewShiftSlotTemplateID()
 	tenantID := common.NewTenantID()
 	eventID := common.NewEventID()
@@ -386,7 +403,7 @@ func TestReconstituteShiftSlotTemplate_Success_Deleted(t *testing.T) {
 	updatedAt := time.Now()
 	deletedAt := time.Now()
 
-	template := shift.ReconstituteShiftSlotTemplate(
+	template, err := shift.ReconstructShiftSlotTemplate(
 		templateID,
 		tenantID,
 		eventID,
@@ -397,6 +414,9 @@ func TestReconstituteShiftSlotTemplate_Success_Deleted(t *testing.T) {
 		updatedAt,
 		&deletedAt,
 	)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	if template.DeletedAt() == nil {
 		t.Error("DeletedAt should be set")
@@ -404,10 +424,10 @@ func TestReconstituteShiftSlotTemplate_Success_Deleted(t *testing.T) {
 }
 
 // =====================================================
-// ReconstituteShiftSlotTemplateItem Tests
+// ReconstructShiftSlotTemplateItem Tests
 // =====================================================
 
-func TestReconstituteShiftSlotTemplateItem_Success(t *testing.T) {
+func TestReconstructShiftSlotTemplateItem_Success(t *testing.T) {
 	itemID := common.NewShiftSlotTemplateItemID()
 	templateID := common.NewShiftSlotTemplateID()
 	startTime := time.Date(2000, 1, 1, 20, 0, 0, 0, time.UTC)
@@ -415,7 +435,7 @@ func TestReconstituteShiftSlotTemplateItem_Success(t *testing.T) {
 	createdAt := time.Now()
 	updatedAt := time.Now()
 
-	item := shift.ReconstituteShiftSlotTemplateItem(
+	item, err := shift.ReconstructShiftSlotTemplateItem(
 		itemID,
 		templateID,
 		"DJ Slot",
@@ -427,6 +447,9 @@ func TestReconstituteShiftSlotTemplateItem_Success(t *testing.T) {
 		createdAt,
 		updatedAt,
 	)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	if item.ItemID() != itemID {
 		t.Errorf("ItemID mismatch: got %v, want %v", item.ItemID(), itemID)
@@ -458,6 +481,7 @@ func TestShiftSlotTemplate_UpdateDetails_Success(t *testing.T) {
 	eventID := common.NewEventID()
 
 	template, _ := shift.NewShiftSlotTemplate(
+		time.Now(),
 		tenantID,
 		eventID,
 		"Original Name",
@@ -470,6 +494,7 @@ func TestShiftSlotTemplate_UpdateDetails_Success(t *testing.T) {
 	endTime := time.Date(2000, 1, 1, 22, 0, 0, 0, time.UTC)
 
 	item, _ := shift.NewShiftSlotTemplateItem(
+		time.Now(),
 		templateID,
 		"DJ Slot",
 		"",
@@ -482,7 +507,7 @@ func TestShiftSlotTemplate_UpdateDetails_Success(t *testing.T) {
 	originalUpdatedAt := template.UpdatedAt()
 	time.Sleep(time.Millisecond)
 
-	err := template.UpdateDetails(
+	err := template.UpdateDetails(time.Now(),
 		"Updated Name",
 		"Updated Description",
 		[]*shift.ShiftSlotTemplateItem{item},
@@ -514,6 +539,7 @@ func TestShiftSlotTemplate_UpdateDetails_ErrorWhenEmptyName(t *testing.T) {
 	eventID := common.NewEventID()
 
 	template, _ := shift.NewShiftSlotTemplate(
+		time.Now(),
 		tenantID,
 		eventID,
 		"Original Name",
@@ -526,6 +552,7 @@ func TestShiftSlotTemplate_UpdateDetails_ErrorWhenEmptyName(t *testing.T) {
 	endTime := time.Date(2000, 1, 1, 22, 0, 0, 0, time.UTC)
 
 	item, _ := shift.NewShiftSlotTemplateItem(
+		time.Now(),
 		templateID,
 		"DJ Slot",
 		"",
@@ -535,7 +562,7 @@ func TestShiftSlotTemplate_UpdateDetails_ErrorWhenEmptyName(t *testing.T) {
 		1,
 	)
 
-	err := template.UpdateDetails("", "", []*shift.ShiftSlotTemplateItem{item})
+	err := template.UpdateDetails(time.Now(),"", "", []*shift.ShiftSlotTemplateItem{item})
 
 	if err == nil {
 		t.Error("UpdateDetails() should fail when template_name is empty")
@@ -547,6 +574,7 @@ func TestShiftSlotTemplate_UpdateDetails_ErrorWhenNameTooLong(t *testing.T) {
 	eventID := common.NewEventID()
 
 	template, _ := shift.NewShiftSlotTemplate(
+		time.Now(),
 		tenantID,
 		eventID,
 		"Original Name",
@@ -559,6 +587,7 @@ func TestShiftSlotTemplate_UpdateDetails_ErrorWhenNameTooLong(t *testing.T) {
 	endTime := time.Date(2000, 1, 1, 22, 0, 0, 0, time.UTC)
 
 	item, _ := shift.NewShiftSlotTemplateItem(
+		time.Now(),
 		templateID,
 		"DJ Slot",
 		"",
@@ -569,7 +598,7 @@ func TestShiftSlotTemplate_UpdateDetails_ErrorWhenNameTooLong(t *testing.T) {
 	)
 
 	longName := strings.Repeat("a", 101)
-	err := template.UpdateDetails(longName, "", []*shift.ShiftSlotTemplateItem{item})
+	err := template.UpdateDetails(time.Now(),longName, "", []*shift.ShiftSlotTemplateItem{item})
 
 	if err == nil {
 		t.Error("UpdateDetails() should fail when template_name is too long")
@@ -581,6 +610,7 @@ func TestShiftSlotTemplate_UpdateDetails_ErrorWhenNoItems(t *testing.T) {
 	eventID := common.NewEventID()
 
 	template, _ := shift.NewShiftSlotTemplate(
+		time.Now(),
 		tenantID,
 		eventID,
 		"Original Name",
@@ -588,7 +618,7 @@ func TestShiftSlotTemplate_UpdateDetails_ErrorWhenNoItems(t *testing.T) {
 		[]*shift.ShiftSlotTemplateItem{},
 	)
 
-	err := template.UpdateDetails("Updated Name", "", []*shift.ShiftSlotTemplateItem{})
+	err := template.UpdateDetails(time.Now(),"Updated Name", "", []*shift.ShiftSlotTemplateItem{})
 
 	if err == nil {
 		t.Error("UpdateDetails() should fail when items is empty")
@@ -600,6 +630,7 @@ func TestShiftSlotTemplate_Delete(t *testing.T) {
 	eventID := common.NewEventID()
 
 	template, _ := shift.NewShiftSlotTemplate(
+		time.Now(),
 		tenantID,
 		eventID,
 		"Test Template",
@@ -611,7 +642,7 @@ func TestShiftSlotTemplate_Delete(t *testing.T) {
 		t.Error("DeletedAt should be nil before Delete()")
 	}
 
-	template.Delete()
+	template.Delete(time.Now())
 
 	if template.DeletedAt() == nil {
 		t.Error("DeletedAt should be set after Delete()")

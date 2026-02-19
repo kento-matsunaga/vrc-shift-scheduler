@@ -127,7 +127,8 @@ func (r *MemberGroupRepository) Delete(ctx context.Context, tenantID common.Tena
 	}
 
 	// ソフトデリート実行
-	group.Delete()
+	now := time.Now()
+	group.Delete(now)
 
 	// 保存
 	return r.Save(ctx, group)
@@ -137,7 +138,15 @@ func (r *MemberGroupRepository) Delete(ctx context.Context, tenantID common.Tena
 func (r *MemberGroupRepository) AssignMember(ctx context.Context, groupID common.MemberGroupID, memberID common.MemberID) error {
 	query := `
 		INSERT INTO member_group_assignments (assignment_id, member_id, group_id, created_at)
-		VALUES ($1, $2, $3, $4)
+		SELECT $1::VARCHAR, $2::VARCHAR, $3::VARCHAR, $4::TIMESTAMPTZ
+		WHERE EXISTS (
+			SELECT 1 FROM members m
+			JOIN member_groups mg ON m.tenant_id = mg.tenant_id
+			WHERE m.member_id = $2
+			  AND mg.group_id = $3
+			  AND m.deleted_at IS NULL
+			  AND mg.deleted_at IS NULL
+		)
 		ON CONFLICT (member_id, group_id) DO NOTHING
 	`
 
@@ -157,7 +166,14 @@ func (r *MemberGroupRepository) AssignMember(ctx context.Context, groupID common
 
 // RemoveMember removes a member from a group
 func (r *MemberGroupRepository) RemoveMember(ctx context.Context, groupID common.MemberGroupID, memberID common.MemberID) error {
-	query := `DELETE FROM member_group_assignments WHERE group_id = $1 AND member_id = $2`
+	query := `
+		DELETE FROM member_group_assignments mga
+		USING member_groups mg
+		WHERE mga.group_id = mg.group_id
+		  AND mga.group_id = $1
+		  AND mga.member_id = $2
+		  AND mg.tenant_id = (SELECT m.tenant_id FROM members m WHERE m.member_id = $2)
+	`
 
 	_, err := r.db.Exec(ctx, query, groupID.String(), memberID.String())
 	if err != nil {
@@ -170,9 +186,14 @@ func (r *MemberGroupRepository) RemoveMember(ctx context.Context, groupID common
 // FindMemberIDsByGroupID finds all members in a group
 func (r *MemberGroupRepository) FindMemberIDsByGroupID(ctx context.Context, groupID common.MemberGroupID) ([]common.MemberID, error) {
 	query := `
-		SELECT member_id FROM member_group_assignments
-		WHERE group_id = $1
-		ORDER BY created_at ASC
+		SELECT mga.member_id
+		FROM member_group_assignments mga
+		JOIN member_groups mg ON mga.group_id = mg.group_id
+		JOIN members m ON mga.member_id = m.member_id AND m.tenant_id = mg.tenant_id
+		WHERE mga.group_id = $1
+		  AND mg.deleted_at IS NULL
+		  AND m.deleted_at IS NULL
+		ORDER BY mga.created_at ASC
 	`
 
 	rows, err := r.db.Query(ctx, query, groupID.String())
@@ -200,9 +221,14 @@ func (r *MemberGroupRepository) FindMemberIDsByGroupID(ctx context.Context, grou
 // FindGroupIDsByMemberID finds all groups a member belongs to
 func (r *MemberGroupRepository) FindGroupIDsByMemberID(ctx context.Context, memberID common.MemberID) ([]common.MemberGroupID, error) {
 	query := `
-		SELECT group_id FROM member_group_assignments
-		WHERE member_id = $1
-		ORDER BY created_at ASC
+		SELECT mga.group_id
+		FROM member_group_assignments mga
+		JOIN members m ON mga.member_id = m.member_id
+		JOIN member_groups mg ON mga.group_id = mg.group_id AND mg.tenant_id = m.tenant_id
+		WHERE mga.member_id = $1
+		  AND m.deleted_at IS NULL
+		  AND mg.deleted_at IS NULL
+		ORDER BY mga.created_at ASC
 	`
 
 	rows, err := r.db.Query(ctx, query, memberID.String())
@@ -229,8 +255,13 @@ func (r *MemberGroupRepository) FindGroupIDsByMemberID(ctx context.Context, memb
 
 // SetMemberGroups sets all groups for a member (replaces existing groups)
 func (r *MemberGroupRepository) SetMemberGroups(ctx context.Context, memberID common.MemberID, groupIDs []common.MemberGroupID) error {
-	// 既存の関連を削除
-	deleteQuery := `DELETE FROM member_group_assignments WHERE member_id = $1`
+	// 既存の関連を削除（メンバーのテナントに属するグループとの関連のみ）
+	deleteQuery := `
+		DELETE FROM member_group_assignments mga
+		USING members m
+		WHERE mga.member_id = m.member_id
+		  AND mga.member_id = $1
+	`
 	_, err := r.db.Exec(ctx, deleteQuery, memberID.String())
 	if err != nil {
 		return fmt.Errorf("failed to delete existing group assignments: %w", err)

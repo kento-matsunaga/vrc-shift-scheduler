@@ -37,12 +37,12 @@ func NewImportHandler(
 
 // ImportMembersResponse represents the response for member import
 type ImportMembersResponse struct {
-	ImportJobID  string                   `json:"import_job_id"`
-	Status       string                   `json:"status"`
-	TotalRows    int                      `json:"total_rows"`
-	SuccessCount int                      `json:"success_count"`
-	ErrorCount   int                      `json:"error_count"`
-	Errors       []ImportErrorResponse    `json:"errors,omitempty"`
+	ImportJobID  string                `json:"import_job_id"`
+	Status       string                `json:"status"`
+	TotalRows    int                   `json:"total_rows"`
+	SuccessCount int                   `json:"success_count"`
+	ErrorCount   int                   `json:"error_count"`
+	Errors       []ImportErrorResponse `json:"errors,omitempty"`
 }
 
 // ImportErrorResponse represents an import error

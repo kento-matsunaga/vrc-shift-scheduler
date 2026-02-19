@@ -11,6 +11,7 @@ export function TutorialButton() {
     if (isOpen && tutorials.length === 0) {
       fetchTutorials();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 初回オープン時のみfetch、tutorials.lengthの変化で再fetchしない
   }, [isOpen]);
 
   // ESCキーで閉じる

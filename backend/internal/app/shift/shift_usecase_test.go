@@ -18,10 +18,10 @@ import (
 // =====================================================
 
 type MockShiftSlotRepository struct {
-	saveFunc                            func(ctx context.Context, slot *shift.ShiftSlot) error
-	findByIDFunc                        func(ctx context.Context, tenantID common.TenantID, slotID shift.SlotID) (*shift.ShiftSlot, error)
-	findByBusinessDayFunc               func(ctx context.Context, tenantID common.TenantID, businessDayID event.BusinessDayID) ([]*shift.ShiftSlot, error)
-	findByInstanceIDFunc                func(ctx context.Context, tenantID common.TenantID, instanceID shift.InstanceID) ([]*shift.ShiftSlot, error)
+	saveFunc                             func(ctx context.Context, slot *shift.ShiftSlot) error
+	findByIDFunc                         func(ctx context.Context, tenantID common.TenantID, slotID shift.SlotID) (*shift.ShiftSlot, error)
+	findByBusinessDayFunc                func(ctx context.Context, tenantID common.TenantID, businessDayID event.BusinessDayID) ([]*shift.ShiftSlot, error)
+	findByInstanceIDFunc                 func(ctx context.Context, tenantID common.TenantID, instanceID shift.InstanceID) ([]*shift.ShiftSlot, error)
 	findByBusinessDayIDAndInstanceIDFunc func(ctx context.Context, tenantID common.TenantID, businessDayID event.BusinessDayID, instanceID shift.InstanceID) ([]*shift.ShiftSlot, error)
 }
 
@@ -65,12 +65,12 @@ func (m *MockShiftSlotRepository) Delete(ctx context.Context, tenantID common.Te
 }
 
 type MockShiftAssignmentRepository struct {
-	saveFunc                func(ctx context.Context, assignment *shift.ShiftAssignment) error
-	findByIDFunc            func(ctx context.Context, tenantID common.TenantID, assignmentID shift.AssignmentID) (*shift.ShiftAssignment, error)
-	findBySlotIDFunc        func(ctx context.Context, tenantID common.TenantID, slotID shift.SlotID) ([]*shift.ShiftAssignment, error)
-	findByMemberIDFunc      func(ctx context.Context, tenantID common.TenantID, memberID common.MemberID) ([]*shift.ShiftAssignment, error)
+	saveFunc                 func(ctx context.Context, assignment *shift.ShiftAssignment) error
+	findByIDFunc             func(ctx context.Context, tenantID common.TenantID, assignmentID shift.AssignmentID) (*shift.ShiftAssignment, error)
+	findBySlotIDFunc         func(ctx context.Context, tenantID common.TenantID, slotID shift.SlotID) ([]*shift.ShiftAssignment, error)
+	findByMemberIDFunc       func(ctx context.Context, tenantID common.TenantID, memberID common.MemberID) ([]*shift.ShiftAssignment, error)
 	countConfirmedBySlotFunc func(ctx context.Context, tenantID common.TenantID, slotID shift.SlotID) (int, error)
-	deleteFunc              func(ctx context.Context, tenantID common.TenantID, assignmentID shift.AssignmentID) error
+	deleteFunc               func(ctx context.Context, tenantID common.TenantID, assignmentID shift.AssignmentID) error
 }
 
 func (m *MockShiftAssignmentRepository) Save(ctx context.Context, assignment *shift.ShiftAssignment) error {
@@ -131,8 +131,12 @@ func (m *MockShiftAssignmentRepository) ExistsBySlotIDAndMemberID(ctx context.Co
 	return false, nil
 }
 
-func (m *MockShiftAssignmentRepository) HasConfirmedByMemberAndBusinessDayID(ctx context.Context, tenantID common.TenantID, memberID common.MemberID, businessDayID string) (bool, error) {
+func (m *MockShiftAssignmentRepository) HasConfirmedByMemberAndBusinessDayID(ctx context.Context, tenantID common.TenantID, memberID common.MemberID, businessDayID event.BusinessDayID) (bool, error) {
 	return false, nil
+}
+
+func (m *MockShiftAssignmentRepository) FindByBusinessDayID(ctx context.Context, tenantID common.TenantID, businessDayID event.BusinessDayID) ([]*shift.ShiftAssignment, error) {
+	return nil, nil
 }
 
 type MockBusinessDayRepository struct {
@@ -208,7 +212,6 @@ func (m *MockMemberRepository) FindActiveByTenantID(ctx context.Context, tenantI
 func (m *MockMemberRepository) Delete(ctx context.Context, tenantID common.TenantID, memberID common.MemberID) error {
 	return nil
 }
-
 
 func (m *MockMemberRepository) ExistsByDiscordUserID(ctx context.Context, tenantID common.TenantID, discordUserID string) (bool, error) {
 	return false, nil
@@ -627,7 +630,7 @@ func TestCreateShiftSlotUsecase_Execute_ErrorWhenInstanceBelongsToDifferentEvent
 	}
 
 	// エラーメッセージの確認
-	expectedMsg := "instance does not belong to the same event"
+	expectedMsg := "instance does not belong to the same event as the business day"
 	if !containsString(err.Error(), expectedMsg) {
 		t.Errorf("Error message should contain '%s', got: %v", expectedMsg, err.Error())
 	}

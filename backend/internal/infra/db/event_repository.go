@@ -81,20 +81,20 @@ func (r *EventRepository) FindByID(ctx context.Context, tenantID common.TenantID
 	`
 
 	var (
-		eventIDStr            string
-		tenantIDStr           string
-		eventName             string
-		eventTypeStr          string
-		description           string
-		isActive              bool
-		recurrenceTypeStr     string
-		recurrenceStartDate   sql.NullTime
-		recurrenceDayOfWeek   sql.NullInt32
-		defaultStartTime      pgtype.Time
-		defaultEndTime        pgtype.Time
-		createdAt             time.Time
-		updatedAt             time.Time
-		deletedAt             sql.NullTime
+		eventIDStr          string
+		tenantIDStr         string
+		eventName           string
+		eventTypeStr        string
+		description         string
+		isActive            bool
+		recurrenceTypeStr   string
+		recurrenceStartDate sql.NullTime
+		recurrenceDayOfWeek sql.NullInt32
+		defaultStartTime    pgtype.Time
+		defaultEndTime      pgtype.Time
+		createdAt           time.Time
+		updatedAt           time.Time
+		deletedAt           sql.NullTime
 	)
 
 	err := r.db.QueryRow(ctx, query, tenantID.String(), eventID.String()).Scan(
@@ -204,20 +204,20 @@ func (r *EventRepository) FindByTenantID(ctx context.Context, tenantID common.Te
 // scanEventRow scans a single event row
 func (r *EventRepository) scanEventRow(rows pgx.Rows) (*event.Event, error) {
 	var (
-		eventIDStr            string
-		tenantIDStr           string
-		eventName             string
-		eventTypeStr          string
-		description           string
-		isActive              bool
-		recurrenceTypeStr     string
-		recurrenceStartDate   sql.NullTime
-		recurrenceDayOfWeek   sql.NullInt32
-		defaultStartTime      pgtype.Time
-		defaultEndTime        pgtype.Time
-		createdAt             time.Time
-		updatedAt             time.Time
-		deletedAt             sql.NullTime
+		eventIDStr          string
+		tenantIDStr         string
+		eventName           string
+		eventTypeStr        string
+		description         string
+		isActive            bool
+		recurrenceTypeStr   string
+		recurrenceStartDate sql.NullTime
+		recurrenceDayOfWeek sql.NullInt32
+		defaultStartTime    pgtype.Time
+		defaultEndTime      pgtype.Time
+		createdAt           time.Time
+		updatedAt           time.Time
+		deletedAt           sql.NullTime
 	)
 
 	err := rows.Scan(
@@ -361,4 +361,3 @@ func (r *EventRepository) ExistsByName(ctx context.Context, tenantID common.Tena
 
 	return exists, nil
 }
-

@@ -722,3 +722,21 @@ func (r *AdminRepository) ExistsByEmail(ctx context.Context, tenantID common.Ten
 
 	return exists, nil
 }
+
+// ExistsByEmailGlobal checks if an admin with the given email exists globally
+func (r *AdminRepository) ExistsByEmailGlobal(ctx context.Context, email string) (bool, error) {
+	query := `
+		SELECT EXISTS(
+			SELECT 1 FROM admins
+			WHERE email = $1 AND deleted_at IS NULL
+		)
+	`
+
+	var exists bool
+	err := r.db.QueryRow(ctx, query, email).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("failed to check email existence: %w", err)
+	}
+
+	return exists, nil
+}

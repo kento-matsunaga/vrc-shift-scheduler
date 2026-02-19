@@ -60,20 +60,20 @@ func ParseBusinessDayID(s string) (BusinessDayID, error) {
 // Event とは独立したエンティティ（Event集約には含まれない）
 // Event は「営業の定義」、EventBusinessDay は「生成されたインスタンス」
 type EventBusinessDay struct {
-	businessDayID       BusinessDayID
-	tenantID            common.TenantID
-	eventID             common.EventID
-	targetDate          time.Time // DATE型として扱う
-	startTime           time.Time // TIME型として扱う（HH:MM:SS）
-	endTime             time.Time // TIME型として扱う（HH:MM:SS）
-	occurrenceType      OccurrenceType
-	recurringPatternID  *common.EventID // recurring の場合のみ
-	isActive            bool
-	validFrom           *time.Time // DATE型として扱う
-	validTo             *time.Time // DATE型として扱う
-	createdAt           time.Time
-	updatedAt           time.Time
-	deletedAt           *time.Time
+	businessDayID      BusinessDayID
+	tenantID           common.TenantID
+	eventID            common.EventID
+	targetDate         time.Time // DATE型として扱う
+	startTime          time.Time // TIME型として扱う（HH:MM:SS）
+	endTime            time.Time // TIME型として扱う（HH:MM:SS）
+	occurrenceType     OccurrenceType
+	recurringPatternID *common.EventID // recurring の場合のみ
+	isActive           bool
+	validFrom          *time.Time // DATE型として扱う
+	validTo            *time.Time // DATE型として扱う
+	createdAt          time.Time
+	updatedAt          time.Time
+	deletedAt          *time.Time
 }
 
 // NewEventBusinessDay creates a new EventBusinessDay entity
@@ -266,19 +266,19 @@ func (b *EventBusinessDay) IsDeleted() bool {
 }
 
 // Activate activates the business day
-func (b *EventBusinessDay) Activate() {
+func (b *EventBusinessDay) Activate(now time.Time) {
 	b.isActive = true
-	b.updatedAt = time.Now()
+	b.updatedAt = now
 }
 
 // Deactivate deactivates the business day
-func (b *EventBusinessDay) Deactivate() {
+func (b *EventBusinessDay) Deactivate(now time.Time) {
 	b.isActive = false
-	b.updatedAt = time.Now()
+	b.updatedAt = now
 }
 
 // SetValidPeriod sets the valid period for the business day
-func (b *EventBusinessDay) SetValidPeriod(validFrom, validTo *time.Time) error {
+func (b *EventBusinessDay) SetValidPeriod(now time.Time, validFrom, validTo *time.Time) error {
 	if validFrom != nil && validTo != nil {
 		if validFrom.After(*validTo) {
 			return common.NewValidationError("valid_from must be before valid_to", nil)
@@ -289,13 +289,12 @@ func (b *EventBusinessDay) SetValidPeriod(validFrom, validTo *time.Time) error {
 
 	b.validFrom = validFrom
 	b.validTo = validTo
-	b.updatedAt = time.Now()
+	b.updatedAt = now
 	return nil
 }
 
 // Delete marks the business day as deleted (soft delete)
-func (b *EventBusinessDay) Delete() {
-	now := time.Now()
+func (b *EventBusinessDay) Delete(now time.Time) {
 	b.deletedAt = &now
 	b.updatedAt = now
 }
@@ -340,4 +339,3 @@ func (b *EventBusinessDay) DayOfWeekString() DayOfWeek {
 		return ""
 	}
 }
-

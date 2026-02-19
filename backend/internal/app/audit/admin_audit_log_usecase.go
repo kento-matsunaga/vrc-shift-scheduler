@@ -29,17 +29,17 @@ type AuditLogListInput struct {
 
 // AuditLogListItem represents an audit log in the list
 type AuditLogListItem struct {
-	LogID       billing.BillingAuditLogID
-	ActorType   billing.ActorType
-	ActorID     *string
-	Action      string
-	TargetType  *string
-	TargetID    *string
-	BeforeJSON  *string
-	AfterJSON   *string
-	IPAddress   *string
-	UserAgent   *string
-	CreatedAt   time.Time
+	LogID      billing.BillingAuditLogID
+	ActorType  billing.ActorType
+	ActorID    *string
+	Action     string
+	TargetType *string
+	TargetID   *string
+	BeforeJSON *string
+	AfterJSON  *string
+	IPAddress  *string
+	UserAgent  *string
+	CreatedAt  time.Time
 }
 
 // AuditLogListOutput represents output from listing audit logs

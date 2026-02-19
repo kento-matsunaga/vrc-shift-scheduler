@@ -364,7 +364,7 @@ func TestNewRecurringPattern_Success_Weekly(t *testing.T) {
 		EndTime:    "22:00",
 	}
 
-	pattern, err := event.NewRecurringPattern(tenantID, eventID, event.PatternTypeWeekly, config)
+	pattern, err := event.NewRecurringPattern(time.Now(), tenantID, eventID, event.PatternTypeWeekly, config)
 	if err != nil {
 		t.Fatalf("NewRecurringPattern() should succeed, got error: %v", err)
 	}
@@ -412,7 +412,7 @@ func TestNewRecurringPattern_Success_MonthlyDate(t *testing.T) {
 		EndTime:   "22:00",
 	}
 
-	pattern, err := event.NewRecurringPattern(tenantID, eventID, event.PatternTypeMonthlyDate, config)
+	pattern, err := event.NewRecurringPattern(time.Now(), tenantID, eventID, event.PatternTypeMonthlyDate, config)
 	if err != nil {
 		t.Fatalf("NewRecurringPattern() should succeed, got error: %v", err)
 	}
@@ -430,7 +430,7 @@ func TestNewRecurringPattern_Success_Custom(t *testing.T) {
 		"custom_key": "custom_value",
 	}
 
-	pattern, err := event.NewRecurringPattern(tenantID, eventID, event.PatternTypeCustom, config)
+	pattern, err := event.NewRecurringPattern(time.Now(), tenantID, eventID, event.PatternTypeCustom, config)
 	if err != nil {
 		t.Fatalf("NewRecurringPattern() should succeed, got error: %v", err)
 	}
@@ -449,7 +449,7 @@ func TestNewRecurringPattern_ErrorWhenInvalidTenantID(t *testing.T) {
 		EndTime:    "22:00",
 	}
 
-	_, err := event.NewRecurringPattern(common.TenantID(""), eventID, event.PatternTypeWeekly, config)
+	_, err := event.NewRecurringPattern(time.Now(), common.TenantID(""), eventID, event.PatternTypeWeekly, config)
 	if err == nil {
 		t.Error("NewRecurringPattern() should fail when tenant_id is invalid")
 	}
@@ -464,7 +464,7 @@ func TestNewRecurringPattern_ErrorWhenInvalidEventID(t *testing.T) {
 		EndTime:    "22:00",
 	}
 
-	_, err := event.NewRecurringPattern(tenantID, common.EventID(""), event.PatternTypeWeekly, config)
+	_, err := event.NewRecurringPattern(time.Now(), tenantID, common.EventID(""), event.PatternTypeWeekly, config)
 	if err == nil {
 		t.Error("NewRecurringPattern() should fail when event_id is invalid")
 	}
@@ -480,7 +480,7 @@ func TestNewRecurringPattern_ErrorWhenInvalidPatternType(t *testing.T) {
 		EndTime:    "22:00",
 	}
 
-	_, err := event.NewRecurringPattern(tenantID, eventID, event.PatternType("invalid"), config)
+	_, err := event.NewRecurringPattern(time.Now(), tenantID, eventID, event.PatternType("invalid"), config)
 	if err == nil {
 		t.Error("NewRecurringPattern() should fail when pattern_type is invalid")
 	}
@@ -490,7 +490,7 @@ func TestNewRecurringPattern_ErrorWhenNilConfig(t *testing.T) {
 	tenantID := common.NewTenantID()
 	eventID := common.NewEventID()
 
-	_, err := event.NewRecurringPattern(tenantID, eventID, event.PatternTypeWeekly, nil)
+	_, err := event.NewRecurringPattern(time.Now(), tenantID, eventID, event.PatternTypeWeekly, nil)
 	if err == nil {
 		t.Error("NewRecurringPattern() should fail when config is nil")
 	}
@@ -506,7 +506,7 @@ func TestNewRecurringPattern_ErrorWhenInvalidConfig(t *testing.T) {
 		EndTime:    "22:00",
 	}
 
-	_, err := event.NewRecurringPattern(tenantID, eventID, event.PatternTypeWeekly, config)
+	_, err := event.NewRecurringPattern(time.Now(), tenantID, eventID, event.PatternTypeWeekly, config)
 	if err == nil {
 		t.Error("NewRecurringPattern() should fail when config is invalid")
 	}
@@ -705,7 +705,7 @@ func TestRecurringPattern_ConfigJSON(t *testing.T) {
 		EndTime:    "22:00",
 	}
 
-	pattern, _ := event.NewRecurringPattern(tenantID, eventID, event.PatternTypeWeekly, config)
+	pattern, _ := event.NewRecurringPattern(time.Now(), tenantID, eventID, event.PatternTypeWeekly, config)
 
 	jsonBytes, err := pattern.ConfigJSON()
 	if err != nil {
@@ -728,7 +728,7 @@ func TestRecurringPattern_UpdateConfig_Success(t *testing.T) {
 		EndTime:    "22:00",
 	}
 
-	pattern, _ := event.NewRecurringPattern(tenantID, eventID, event.PatternTypeWeekly, config)
+	pattern, _ := event.NewRecurringPattern(time.Now(), tenantID, eventID, event.PatternTypeWeekly, config)
 	originalUpdatedAt := pattern.UpdatedAt()
 
 	// Wait a bit to ensure time difference
@@ -740,7 +740,7 @@ func TestRecurringPattern_UpdateConfig_Success(t *testing.T) {
 		EndTime:    "23:00",
 	}
 
-	err := pattern.UpdateConfig(newConfig)
+	err := pattern.UpdateConfig(time.Now(),newConfig)
 	if err != nil {
 		t.Fatalf("UpdateConfig() should succeed, got error: %v", err)
 	}
@@ -764,9 +764,9 @@ func TestRecurringPattern_UpdateConfig_ErrorWhenNil(t *testing.T) {
 		EndTime:    "22:00",
 	}
 
-	pattern, _ := event.NewRecurringPattern(tenantID, eventID, event.PatternTypeWeekly, config)
+	pattern, _ := event.NewRecurringPattern(time.Now(), tenantID, eventID, event.PatternTypeWeekly, config)
 
-	err := pattern.UpdateConfig(nil)
+	err := pattern.UpdateConfig(time.Now(),nil)
 	if err == nil {
 		t.Error("UpdateConfig() should fail when config is nil")
 	}
@@ -782,7 +782,7 @@ func TestRecurringPattern_UpdateConfig_ErrorWhenInvalid(t *testing.T) {
 		EndTime:    "22:00",
 	}
 
-	pattern, _ := event.NewRecurringPattern(tenantID, eventID, event.PatternTypeWeekly, config)
+	pattern, _ := event.NewRecurringPattern(time.Now(), tenantID, eventID, event.PatternTypeWeekly, config)
 
 	invalidConfig := &event.WeeklyPatternConfig{
 		DayOfWeeks: []event.DayOfWeek{}, // Invalid: empty
@@ -790,7 +790,7 @@ func TestRecurringPattern_UpdateConfig_ErrorWhenInvalid(t *testing.T) {
 		EndTime:    "22:00",
 	}
 
-	err := pattern.UpdateConfig(invalidConfig)
+	err := pattern.UpdateConfig(time.Now(),invalidConfig)
 	if err == nil {
 		t.Error("UpdateConfig() should fail when config is invalid")
 	}
@@ -806,13 +806,13 @@ func TestRecurringPattern_Delete(t *testing.T) {
 		EndTime:    "22:00",
 	}
 
-	pattern, _ := event.NewRecurringPattern(tenantID, eventID, event.PatternTypeWeekly, config)
+	pattern, _ := event.NewRecurringPattern(time.Now(), tenantID, eventID, event.PatternTypeWeekly, config)
 
 	if pattern.IsDeleted() {
 		t.Error("IsDeleted should be false before Delete()")
 	}
 
-	pattern.Delete()
+	pattern.Delete(time.Now())
 
 	if !pattern.IsDeleted() {
 		t.Error("IsDeleted should be true after Delete()")

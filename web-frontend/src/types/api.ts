@@ -11,6 +11,9 @@ export interface ApiError {
   };
 }
 
+/** APIエラーレスポンスの安全なパース用型 */
+export type ApiErrorData = { error?: { message?: string } } | undefined;
+
 // Event 関連
 export interface Event {
   event_id: string;

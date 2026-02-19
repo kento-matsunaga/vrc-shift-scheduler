@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { checkPasswordResetStatus, resetPassword } from '../../lib/api/authApi';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
+import { SEO } from '../../components/seo';
 
 export default function PasswordReset() {
   const [searchParams] = useSearchParams();
@@ -124,6 +125,8 @@ export default function PasswordReset() {
 
   if (success) {
     return (
+      <>
+      <SEO noindex={true} />
       <div className="min-h-screen bg-gray-100 flex flex-col">
         <header className="bg-vrc-dark text-white shadow-soft">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
@@ -131,10 +134,11 @@ export default function PasswordReset() {
           </div>
         </header>
 
-        <main className="flex-1 flex items-center justify-center p-4">
-          <div className="bg-white rounded-card shadow-soft max-w-md w-full p-10 border border-gray-200">
-            <div className="text-center">
-              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
+        <main className="flex-1 overflow-auto">
+          <div className="min-h-full flex items-center justify-center p-4">
+            <div className="bg-white rounded-card shadow-soft max-w-md w-full p-10 border border-gray-200">
+              <div className="text-center">
+                <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
                 <svg className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
@@ -151,6 +155,7 @@ export default function PasswordReset() {
               >
                 ログイン画面へ
               </button>
+              </div>
             </div>
           </div>
         </main>
@@ -163,10 +168,13 @@ export default function PasswordReset() {
           </div>
         </footer>
       </div>
+      </>
     );
   }
 
   return (
+    <>
+    <SEO noindex={true} />
     <div className="min-h-screen bg-gray-100 flex flex-col">
       <header className="bg-vrc-dark text-white shadow-soft">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
@@ -174,11 +182,12 @@ export default function PasswordReset() {
         </div>
       </header>
 
-      <main className="flex-1 flex items-center justify-center p-4">
-        <div className="bg-white rounded-card shadow-soft max-w-md w-full p-10 border border-gray-200">
-          <div className="text-center mb-8">
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">
-              パスワードリセット
+      <main className="flex-1 overflow-auto">
+        <div className="min-h-full flex items-center justify-center p-4">
+          <div className="bg-white rounded-card shadow-soft max-w-md w-full p-10 border border-gray-200">
+            <div className="text-center mb-8">
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                パスワードリセット
             </h2>
             <p className="text-sm text-gray-500">
               オーナーから許可を受けた後、ライセンスキーで本人確認を行いパスワードをリセットします
@@ -196,7 +205,7 @@ export default function PasswordReset() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="admin@example.com"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 shadow-inset-input focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg text-base text-gray-900 placeholder-gray-400 shadow-inset-input focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition"
                 disabled={loading}
                 autoFocus
               />
@@ -226,7 +235,7 @@ export default function PasswordReset() {
                 value={licenseKey}
                 onChange={(e) => setLicenseKey(e.target.value)}
                 placeholder="XXXX-XXXX-XXXX-XXXX"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 shadow-inset-input focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition font-mono"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg text-base text-gray-900 placeholder-gray-400 shadow-inset-input focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition font-mono"
                 disabled={loading}
               />
               <p className="mt-1 text-sm text-gray-500">
@@ -244,7 +253,7 @@ export default function PasswordReset() {
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 placeholder="8文字以上"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 shadow-inset-input focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg text-base text-gray-900 placeholder-gray-400 shadow-inset-input focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition"
                 disabled={loading}
               />
               {/* Password strength indicator */}
@@ -276,7 +285,7 @@ export default function PasswordReset() {
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="もう一度入力"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 shadow-inset-input focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg text-base text-gray-900 placeholder-gray-400 shadow-inset-input focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition"
                 disabled={loading}
               />
             </div>
@@ -315,6 +324,7 @@ export default function PasswordReset() {
               </button>
             </div>
           </form>
+          </div>
         </div>
       </main>
 
@@ -326,5 +336,6 @@ export default function PasswordReset() {
         </div>
       </footer>
     </div>
+    </>
   );
 }

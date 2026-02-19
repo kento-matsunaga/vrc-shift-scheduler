@@ -35,6 +35,29 @@ type CreateScheduleOutput struct {
 	UpdatedAt   time.Time      `json:"updated_at"`
 }
 
+// UpdateScheduleInput represents the input for updating a schedule
+type UpdateScheduleInput struct {
+	TenantID                      string // from JWT context (管理API)
+	ScheduleID                    string
+	Title                         string
+	Description                   string
+	Deadline                      *time.Time
+	Candidates                    []CandidateInput
+	ForceDeleteCandidateResponses bool
+}
+
+// UpdateScheduleOutput represents the output for updating a schedule
+type UpdateScheduleOutput struct {
+	ScheduleID  string         `json:"schedule_id"`
+	TenantID    string         `json:"tenant_id"`
+	Title       string         `json:"title"`
+	Description string         `json:"description"`
+	Status      string         `json:"status"`
+	Deadline    *time.Time     `json:"deadline,omitempty"`
+	Candidates  []CandidateDTO `json:"candidates"`
+	UpdatedAt   time.Time      `json:"updated_at"`
+}
+
 // CandidateDTO represents a candidate date in responses
 type CandidateDTO struct {
 	CandidateID string     `json:"candidate_id"`
@@ -149,4 +172,19 @@ type DeleteScheduleOutput struct {
 	Status     string     `json:"status"`
 	DeletedAt  *time.Time `json:"deleted_at,omitempty"`
 	UpdatedAt  time.Time  `json:"updated_at"`
+}
+
+// ConvertToAttendanceInput represents the input for converting a schedule to attendance
+type ConvertToAttendanceInput struct {
+	TenantID     string   // from JWT context (管理API)
+	ScheduleID   string   // from URL path
+	CandidateIDs []string // 変換対象の候補日ID
+	Title        string   // 出欠確認のタイトル（空の場合は元のタイトルを使用）
+}
+
+// ConvertToAttendanceOutput represents the output for converting a schedule to attendance
+type ConvertToAttendanceOutput struct {
+	CollectionID string `json:"collection_id"`
+	PublicToken  string `json:"public_token"`
+	Title        string `json:"title"`
 }

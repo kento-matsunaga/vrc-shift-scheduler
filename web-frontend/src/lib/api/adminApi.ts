@@ -50,3 +50,30 @@ export async function allowPasswordReset(adminId: string): Promise<AllowPassword
   );
   return res.data;
 }
+
+/**
+ * Change email request type
+ */
+export interface ChangeEmailRequest {
+  current_password: string;
+  new_email: string;
+  confirm_new_email: string;
+}
+
+/**
+ * Change email response type
+ */
+export interface ChangeEmailResponse {
+  message: string;
+}
+
+/**
+ * Change current admin's email address
+ */
+export async function changeEmail(data: ChangeEmailRequest): Promise<ChangeEmailResponse> {
+  const res = await apiClient.post<ApiResponse<ChangeEmailResponse>>(
+    '/api/v1/admins/me/change-email',
+    data
+  );
+  return res.data;
+}

@@ -130,14 +130,14 @@ func (r *ShiftSlotTemplateRepository) FindByID(ctx context.Context, tenantID com
 	`
 
 	var (
-		templateIDStr   string
-		tenantIDStr     string
-		eventIDStr      string
-		templateName    string
-		description     string
-		createdAt       time.Time
-		updatedAt       time.Time
-		deletedAt       sql.NullTime
+		templateIDStr string
+		tenantIDStr   string
+		eventIDStr    string
+		templateName  string
+		description   string
+		createdAt     time.Time
+		updatedAt     time.Time
+		deletedAt     sql.NullTime
 	)
 
 	err := r.db.QueryRow(ctx, templateQuery, tenantID.String(), templateID.String()).Scan(
@@ -169,7 +169,7 @@ func (r *ShiftSlotTemplateRepository) FindByID(ctx context.Context, tenantID com
 		deletedAtPtr = &deletedAt.Time
 	}
 
-	return shift.ReconstituteShiftSlotTemplate(
+	return shift.ReconstructShiftSlotTemplate(
 		common.ShiftSlotTemplateID(templateIDStr),
 		common.TenantID(tenantIDStr),
 		common.EventID(eventIDStr),
@@ -179,7 +179,7 @@ func (r *ShiftSlotTemplateRepository) FindByID(ctx context.Context, tenantID com
 		createdAt,
 		updatedAt,
 		deletedAtPtr,
-	), nil
+	)
 }
 
 // FindByEventID finds all shift slot templates for an event (excluding soft-deleted)
@@ -237,7 +237,7 @@ func (r *ShiftSlotTemplateRepository) FindByEventID(ctx context.Context, tenantI
 			deletedAtPtr = &deletedAt.Time
 		}
 
-		template := shift.ReconstituteShiftSlotTemplate(
+		template, err := shift.ReconstructShiftSlotTemplate(
 			common.ShiftSlotTemplateID(templateIDStr),
 			common.TenantID(tenantIDStr),
 			common.EventID(eventIDStr),
@@ -248,6 +248,9 @@ func (r *ShiftSlotTemplateRepository) FindByEventID(ctx context.Context, tenantI
 			updatedAt,
 			deletedAtPtr,
 		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to reconstruct template: %w", err)
+		}
 
 		templates = append(templates, template)
 	}
@@ -347,7 +350,7 @@ func (r *ShiftSlotTemplateRepository) findItemsByTemplateID(ctx context.Context,
 			return nil, fmt.Errorf("failed to scan template item row: %w", err)
 		}
 
-		item := shift.ReconstituteShiftSlotTemplateItem(
+		item, err := shift.ReconstructShiftSlotTemplateItem(
 			common.ShiftSlotTemplateItemID(itemIDStr),
 			common.ShiftSlotTemplateID(templateIDStr),
 			slotName,
@@ -359,6 +362,9 @@ func (r *ShiftSlotTemplateRepository) findItemsByTemplateID(ctx context.Context,
 			createdAt,
 			updatedAt,
 		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to reconstruct template item: %w", err)
+		}
 
 		items = append(items, item)
 	}

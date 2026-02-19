@@ -10,6 +10,7 @@ import {
 import { getMembers } from '../lib/api/memberApi';
 import type { Member } from '../types/api';
 import { ApiClientError } from '../lib/apiClient';
+import { SEO } from '../components/seo';
 
 // プリセットカラーパレット
 const PRESET_COLORS = {
@@ -119,6 +120,7 @@ export default function MemberGroupList() {
 
   return (
     <div>
+      <SEO noindex={true} />
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
         <div>
           <h2 className="text-xl sm:text-2xl font-bold text-gray-900">グループ管理</h2>

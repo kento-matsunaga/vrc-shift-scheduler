@@ -130,9 +130,9 @@ func (c CustomPatternConfig) ToJSON() ([]byte, error) {
 // RecurringPattern represents a recurring pattern entity
 // 1 Event につき 1 RecurringPattern を基本とする
 type RecurringPattern struct {
-	patternID common.EventID // ULID
-	tenantID  common.TenantID
-	eventID   common.EventID
+	patternID   common.EventID // ULID
+	tenantID    common.TenantID
+	eventID     common.EventID
 	patternType PatternType
 	config      RecurringPatternConfig
 	createdAt   time.Time
@@ -142,6 +142,7 @@ type RecurringPattern struct {
 
 // NewRecurringPattern creates a new RecurringPattern entity
 func NewRecurringPattern(
+	now time.Time,
 	tenantID common.TenantID,
 	eventID common.EventID,
 	patternType PatternType,
@@ -153,8 +154,8 @@ func NewRecurringPattern(
 		eventID:     eventID,
 		patternType: patternType,
 		config:      config,
-		createdAt:   time.Now(),
-		updatedAt:   time.Now(),
+		createdAt:   now,
+		updatedAt:   now,
 	}
 
 	if err := pattern.validate(); err != nil {
@@ -286,7 +287,7 @@ func (p *RecurringPattern) IsDeleted() bool {
 }
 
 // UpdateConfig updates the pattern configuration
-func (p *RecurringPattern) UpdateConfig(config RecurringPatternConfig) error {
+func (p *RecurringPattern) UpdateConfig(now time.Time, config RecurringPatternConfig) error {
 	if config == nil {
 		return common.NewValidationError("config is required", nil)
 	}
@@ -296,14 +297,12 @@ func (p *RecurringPattern) UpdateConfig(config RecurringPatternConfig) error {
 	}
 
 	p.config = config
-	p.updatedAt = time.Now()
+	p.updatedAt = now
 	return nil
 }
 
 // Delete marks the pattern as deleted (soft delete)
-func (p *RecurringPattern) Delete() {
-	now := time.Now()
+func (p *RecurringPattern) Delete(now time.Time) {
 	p.deletedAt = &now
 	p.updatedAt = now
 }
-

@@ -16,6 +16,7 @@ import { listRoles, type Role } from '../lib/api/roleApi';
 import { ApiClientError } from '../lib/apiClient';
 import { isValidTimeRange } from '../lib/timeUtils';
 import type { Member } from '../types/api';
+import { SEO } from '../components/seo';
 
 // ソートの種類
 type SortKey = 'name' | 'attending_count' | 'date_attending';
@@ -41,6 +42,7 @@ export default function AttendanceDetail() {
   const [members, setMembers] = useState<Member[]>([]);
   const [appliedGroups, setAppliedGroups] = useState<MemberGroup[]>([]);
   const [appliedRoles, setAppliedRoles] = useState<Role[]>([]);
+  const [allRolesState, setAllRolesState] = useState<Role[]>([]);
   const [closing, setClosing] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [publicUrl, setPublicUrl] = useState('');
@@ -55,8 +57,8 @@ export default function AttendanceDetail() {
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [sortTargetDateId, setSortTargetDateId] = useState<string | null>(null);
 
-  // フィルタ状態
-  const [filterRoleId, setFilterRoleId] = useState<string>('');
+  // フィルタ状態（複数選択）
+  const [filterRoleIds, setFilterRoleIds] = useState<string[]>([]);
 
   useEffect(() => {
     if (!collectionId) {
@@ -77,6 +79,7 @@ export default function AttendanceDetail() {
         ]);
         setCollection(collectionData);
         setResponses(responsesData || []);
+        setAllRolesState(allRoles || []);
 
         const groupIds = collectionData.group_ids || [];
         const roleIds = collectionData.role_ids || [];
@@ -339,15 +342,37 @@ export default function AttendanceDetail() {
     noteMap.set(memberId, data.note);
   });
 
+  // ロールのインデックスマップ（ロール順ソート用）
+  const roleIndexMap = new Map(filterRoleIds.map((id, i) => [id, i]));
+
+  // メンバーの最小ロールインデックスを取得（選択ロール順でグループ化）
+  const getMemberRoleIndex = (member: Member): number => {
+    if (filterRoleIds.length === 0) return 0;
+    let minIndex = filterRoleIds.length;
+    for (const rid of member.role_ids || []) {
+      const idx = roleIndexMap.get(rid);
+      if (idx !== undefined && idx < minIndex) {
+        minIndex = idx;
+      }
+    }
+    return minIndex;
+  };
+
   // ソート・フィルタリング処理
   const sortedAndFilteredMembers = [...members]
     // ロールでフィルタ
     .filter((member) => {
-      if (!filterRoleId) return true;
-      return member.role_ids?.includes(filterRoleId);
+      if (filterRoleIds.length === 0) return true;
+      return member.role_ids?.some((rid) => filterRoleIds.includes(rid));
     })
     // ソート
     .sort((a, b) => {
+      // 複数ロール選択時はロール順でグループ化
+      if (filterRoleIds.length >= 2) {
+        const roleComp = getMemberRoleIndex(a) - getMemberRoleIndex(b);
+        if (roleComp !== 0) return roleComp;
+      }
+
       let comparison = 0;
 
       if (sortKey === 'name') {
@@ -425,6 +450,7 @@ export default function AttendanceDetail() {
 
   return (
     <div className="max-w-7xl mx-auto">
+      <SEO noindex={true} />
       {/* パンくずリスト */}
       <nav className="mb-6 text-sm text-gray-600">
         <Link to="/attendance" className="hover:text-gray-900">
@@ -585,20 +611,41 @@ export default function AttendanceDetail() {
             </div>
             {/* ソート・フィルタコントロール */}
             <div className="flex flex-wrap items-center gap-2">
-              {/* ロールフィルタ */}
-              {appliedRoles.length > 0 && (
-                <select
-                  value={filterRoleId}
-                  onChange={(e) => setFilterRoleId(e.target.value)}
-                  className="px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent"
-                >
-                  <option value="">全てのロール</option>
-                  {appliedRoles.map((role) => (
-                    <option key={role.role_id} value={role.role_id}>
-                      {role.name}
-                    </option>
-                  ))}
-                </select>
+              {/* ロールフィルタ（複数選択） */}
+              {allRolesState.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {allRolesState.map((role) => {
+                    const isSelected = filterRoleIds.includes(role.role_id);
+                    return (
+                      <button
+                        key={role.role_id}
+                        onClick={() =>
+                          setFilterRoleIds((prev) =>
+                            isSelected
+                              ? prev.filter((id) => id !== role.role_id)
+                              : [...prev, role.role_id]
+                          )
+                        }
+                        className={`px-2.5 py-1 text-xs font-medium rounded-full border transition ${
+                          isSelected
+                            ? 'text-white border-transparent'
+                            : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400'
+                        }`}
+                        style={isSelected ? { backgroundColor: role.color || '#6366f1' } : undefined}
+                      >
+                        {role.name}
+                      </button>
+                    );
+                  })}
+                  {filterRoleIds.length > 0 && (
+                    <button
+                      onClick={() => setFilterRoleIds([])}
+                      className="px-2 py-1 text-xs text-gray-500 hover:text-gray-700 transition"
+                    >
+                      クリア
+                    </button>
+                  )}
+                </div>
               )}
               {/* ソート選択 */}
               <select
@@ -677,6 +724,36 @@ export default function AttendanceDetail() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
+              {/* 集計行（先頭） */}
+              <tr className="bg-gray-50">
+                <td className="px-6 py-3 text-sm font-medium text-gray-700 sticky left-0 bg-gray-50">
+                  集計
+                </td>
+                {sortedTargetDates.map((targetDate) => {
+                  const stats = dateStats.find((s) => s.targetDateId === targetDate.target_date_id);
+                  return (
+                    <td key={targetDate.target_date_id} className="px-4 py-3 text-center">
+                      <div className="text-xs space-y-1">
+                        <div className="text-green-700">
+                          ○ {stats?.attendingCount || 0}
+                        </div>
+                        <div className="text-yellow-700">
+                          △ {stats?.undecidedCount || 0}
+                        </div>
+                        <div className="text-red-700">
+                          × {stats?.absentCount || 0}
+                        </div>
+                        <div className="text-gray-500">
+                          - {stats?.noResponseCount || 0}
+                        </div>
+                      </div>
+                    </td>
+                  );
+                })}
+                <td className="px-4 py-3 text-center text-xs text-gray-500">
+                  {noteMap.size > 0 && `${noteMap.size}件`}
+                </td>
+              </tr>
               {sortedAndFilteredMembers.length === 0 ? (
                 <tr>
                   <td colSpan={sortedTargetDates.length + 2} className="px-6 py-12 text-center text-gray-500">
@@ -755,37 +832,6 @@ export default function AttendanceDetail() {
                 })
               )}
             </tbody>
-            <tfoot className="bg-gray-50">
-              <tr>
-                <td className="px-6 py-3 text-sm font-medium text-gray-700 sticky left-0 bg-gray-50">
-                  集計
-                </td>
-                {sortedTargetDates.map((targetDate) => {
-                  const stats = dateStats.find((s) => s.targetDateId === targetDate.target_date_id);
-                  return (
-                    <td key={targetDate.target_date_id} className="px-4 py-3 text-center">
-                      <div className="text-xs space-y-1">
-                        <div className="text-green-700">
-                          ○ {stats?.attendingCount || 0}
-                        </div>
-                        <div className="text-yellow-700">
-                          △ {stats?.undecidedCount || 0}
-                        </div>
-                        <div className="text-red-700">
-                          × {stats?.absentCount || 0}
-                        </div>
-                        <div className="text-gray-500">
-                          - {stats?.noResponseCount || 0}
-                        </div>
-                      </div>
-                    </td>
-                  );
-                })}
-                <td className="px-4 py-3 text-center text-xs text-gray-500">
-                  {noteMap.size > 0 && `${noteMap.size}件`}
-                </td>
-              </tr>
-            </tfoot>
           </table>
         </div>
       </div>

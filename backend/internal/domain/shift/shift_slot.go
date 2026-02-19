@@ -54,9 +54,9 @@ type ShiftSlot struct {
 	businessDayID event.BusinessDayID
 	instanceID    *InstanceID // インスタンスへの参照（FK）- nullable for migration
 	slotName      string
-	instanceName  string      // Deprecated: 移行完了後に削除予定。instanceID を使用してください。
-	startTime     time.Time   // TIME型として扱う（HH:MM:SS）
-	endTime       time.Time   // TIME型として扱う（HH:MM:SS）
+	instanceName  string    // Deprecated: 移行完了後に削除予定。instanceID を使用してください。
+	startTime     time.Time // TIME型として扱う（HH:MM:SS）
+	endTime       time.Time // TIME型として扱う（HH:MM:SS）
 	requiredCount int
 	priority      int
 	createdAt     time.Time
@@ -249,7 +249,7 @@ func (s *ShiftSlot) IsDeleted() bool {
 }
 
 // UpdateSlotName updates the slot name
-func (s *ShiftSlot) UpdateSlotName(slotName string) error {
+func (s *ShiftSlot) UpdateSlotName(now time.Time, slotName string) error {
 	if slotName == "" {
 		return common.NewValidationError("slot_name is required", nil)
 	}
@@ -258,47 +258,46 @@ func (s *ShiftSlot) UpdateSlotName(slotName string) error {
 	}
 
 	s.slotName = slotName
-	s.updatedAt = time.Now()
+	s.updatedAt = now
 	return nil
 }
 
 // UpdateRequiredCount updates the required count
-func (s *ShiftSlot) UpdateRequiredCount(requiredCount int) error {
+func (s *ShiftSlot) UpdateRequiredCount(now time.Time, requiredCount int) error {
 	if requiredCount < 1 {
 		return common.NewValidationError("required_count must be at least 1", nil)
 	}
 
 	s.requiredCount = requiredCount
-	s.updatedAt = time.Now()
+	s.updatedAt = now
 	return nil
 }
 
 // UpdatePriority updates the priority (must be at least 0)
-func (s *ShiftSlot) UpdatePriority(priority int) error {
+func (s *ShiftSlot) UpdatePriority(now time.Time, priority int) error {
 	if priority < 0 {
 		return common.NewValidationError("priority must be at least 0", nil)
 	}
 
 	s.priority = priority
-	s.updatedAt = time.Now()
+	s.updatedAt = now
 	return nil
 }
 
 // SetInstanceID sets the instance ID (for data migration)
-func (s *ShiftSlot) SetInstanceID(instanceID InstanceID) {
+func (s *ShiftSlot) SetInstanceID(now time.Time, instanceID InstanceID) {
 	s.instanceID = &instanceID
-	s.updatedAt = time.Now()
+	s.updatedAt = now
 }
 
 // ClearInstanceID clears the instance ID (used when deleting an instance)
-func (s *ShiftSlot) ClearInstanceID() {
+func (s *ShiftSlot) ClearInstanceID(now time.Time) {
 	s.instanceID = nil
-	s.updatedAt = time.Now()
+	s.updatedAt = now
 }
 
 // Delete marks the slot as deleted (soft delete)
-func (s *ShiftSlot) Delete() {
-	now := time.Now()
+func (s *ShiftSlot) Delete(now time.Time) {
 	s.deletedAt = &now
 	s.updatedAt = now
 }
@@ -318,4 +317,3 @@ func (s *ShiftSlot) StartTimeString() string {
 func (s *ShiftSlot) EndTimeString() string {
 	return s.endTime.Format("15:04")
 }
-

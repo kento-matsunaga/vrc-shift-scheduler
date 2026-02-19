@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useMemo } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Landing from './pages/Landing';
 import Terms from './pages/Terms';
@@ -24,10 +24,13 @@ import TemplateForm from './pages/TemplateForm';
 import TemplateDetail from './pages/TemplateDetail';
 import InstanceList from './pages/InstanceList';
 import Settings from './pages/Settings';
+import CalendarList from './pages/CalendarList';
+import CalendarDetail from './pages/CalendarDetail';
 // BillingManagement は管理フロントエンド（admin-frontend）に移動しました
 import Layout from './components/Layout';
 import AttendanceResponse from './pages/public/AttendanceResponse';
 import ScheduleResponse from './pages/public/ScheduleResponse';
+import PublicCalendar from './pages/public/PublicCalendar';
 import LicenseClaim from './pages/public/LicenseClaim';
 import PasswordReset from './pages/public/PasswordReset';
 import ForgotPassword from './pages/public/ForgotPassword';
@@ -68,12 +71,9 @@ function isAuthenticated(): boolean {
 
 function App() {
   const location = useLocation();
-  const [isLoggedIn, setIsLoggedIn] = useState(isAuthenticated());
-
-  // ルート変更時に認証状態を再チェック
-  useEffect(() => {
-    setIsLoggedIn(isAuthenticated());
-  }, [location.pathname]);
+  // ルート変更時に認証状態を再チェック（useEffectでのsetState回避）
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- location.pathnameの変更をトリガーとして認証状態を再評価
+  const isLoggedIn = useMemo(() => isAuthenticated(), [location.pathname]);
 
   return (
     <Routes>
@@ -92,6 +92,7 @@ function App() {
       {/* 公開ページ（認証不要） */}
       <Route path="/p/attendance/:token" element={<AttendanceResponse />} />
       <Route path="/p/schedule/:token" element={<ScheduleResponse />} />
+      <Route path="/p/calendar/:token" element={<PublicCalendar />} />
 
       {/* ライセンス登録（認証不要） */}
       <Route path="/register" element={<LicenseClaim />} />
@@ -129,6 +130,9 @@ function App() {
         <Route path="/schedules/:scheduleId" element={<ScheduleDetail />} />
         <Route path="/admin/invite" element={<AdminInvitation />} />
         <Route path="/settings" element={<Settings />} />
+        <Route path="/settings/:section" element={<Settings />} />
+        <Route path="/calendars" element={<CalendarList />} />
+        <Route path="/calendars/:calendarId" element={<CalendarDetail />} />
       </Route>
 
       {/* 404 */}

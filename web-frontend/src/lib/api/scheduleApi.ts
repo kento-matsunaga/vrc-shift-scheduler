@@ -23,6 +23,17 @@ export interface CreateScheduleRequest {
 }
 
 /**
+ * 日程調整更新リクエスト
+ */
+export interface UpdateScheduleRequest {
+  title: string;
+  description: string;
+  candidates?: CandidateDate[];
+  deadline?: string; // ISO 8601 format
+  force_delete_candidate_responses?: boolean;
+}
+
+/**
  * 日程調整レスポンス
  */
 export interface Schedule {
@@ -59,133 +70,62 @@ export interface ScheduleResponse {
  * 日程調整を作成
  */
 export async function createSchedule(data: CreateScheduleRequest): Promise<Schedule> {
-  const baseURL = import.meta.env.VITE_API_BASE_URL || '';
-  const token = localStorage.getItem('auth_token');
-
-  if (!token) {
-    throw new Error('認証が必要です。ログインしてください。');
-  }
-
-  const response = await fetch(`${baseURL}/api/v1/schedules`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-    },
-    body: JSON.stringify(data),
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`日程調整の作成に失敗しました: ${text || response.statusText}`);
-  }
-
-  const result: ApiResponse<Schedule> = await response.json();
+  const result = await apiClient.post<ApiResponse<Schedule>>(
+    '/api/v1/schedules',
+    data
+  );
   return result.data;
+}
+
+/**
+ * 日程調整を更新
+ */
+export async function updateSchedule(
+  scheduleId: string,
+  data: UpdateScheduleRequest
+): Promise<Schedule> {
+  const result = await apiClient.put<ApiResponse<Schedule>>(
+    `/api/v1/schedules/${scheduleId}`,
+    data
+  );
+  return result.data;
+}
+
+/**
+ * 日程調整一覧レスポンス
+ */
+interface ListSchedulesResponse {
+  schedules: Schedule[];
 }
 
 /**
  * 日程調整一覧を取得
  */
 export async function listSchedules(): Promise<Schedule[]> {
-  const baseURL = import.meta.env.VITE_API_BASE_URL || '';
-  const token = localStorage.getItem('auth_token');
-
-  if (!token) {
-    throw new Error('認証が必要です。ログインしてください。');
-  }
-
-  const response = await fetch(`${baseURL}/api/v1/schedules`, {
-    method: 'GET',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-    },
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`日程調整一覧の取得に失敗しました: ${text || response.statusText}`);
-  }
-
-  const result = await response.json();
+  const result = await apiClient.get<ListSchedulesResponse>('/api/v1/schedules');
   return result.schedules || [];
 }
 
 /**
  * 日程調整を取得
+ * NOTE: このAPIはレスポンス直下にScheduleオブジェクトを返す
  */
 export async function getSchedule(scheduleId: string): Promise<Schedule> {
-  const baseURL = import.meta.env.VITE_API_BASE_URL || '';
-  const token = localStorage.getItem('auth_token');
-
-  if (!token) {
-    throw new Error('認証が必要です。ログインしてください。');
-  }
-
-  const response = await fetch(`${baseURL}/api/v1/schedules/${scheduleId}`, {
-    method: 'GET',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-    },
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`日程調整の取得に失敗しました: ${text || response.statusText}`);
-  }
-
-  const result = await response.json();
-  return result;
+  return apiClient.get<Schedule>(`/api/v1/schedules/${scheduleId}`);
 }
 
 /**
  * 日程を決定
  */
 export async function decideSchedule(scheduleId: string, decidedDate: string): Promise<void> {
-  const baseURL = import.meta.env.VITE_API_BASE_URL || '';
-  const token = localStorage.getItem('auth_token');
-
-  if (!token) {
-    throw new Error('認証が必要です。ログインしてください。');
-  }
-
-  const response = await fetch(`${baseURL}/api/v1/schedules/${scheduleId}/decide`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-    },
-    body: JSON.stringify({ decided_date: decidedDate }),
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`日程決定に失敗しました: ${text || response.statusText}`);
-  }
+  await apiClient.post(`/api/v1/schedules/${scheduleId}/decide`, { decided_date: decidedDate });
 }
 
 /**
  * 日程調整を締め切る
  */
 export async function closeSchedule(scheduleId: string): Promise<void> {
-  const baseURL = import.meta.env.VITE_API_BASE_URL || '';
-  const token = localStorage.getItem('auth_token');
-
-  if (!token) {
-    throw new Error('認証が必要です。ログインしてください。');
-  }
-
-  const response = await fetch(`${baseURL}/api/v1/schedules/${scheduleId}/close`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-    },
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`日程調整の締切に失敗しました: ${text || response.statusText}`);
-  }
+  await apiClient.post(`/api/v1/schedules/${scheduleId}/close`, {});
 }
 
 /**
@@ -197,28 +137,49 @@ export async function deleteSchedule(scheduleId: string): Promise<void> {
 }
 
 /**
+ * 日程回答一覧レスポンス
+ */
+interface GetScheduleResponsesResult {
+  responses: ScheduleResponse[];
+}
+
+/**
  * 日程回答一覧を取得
  */
 export async function getScheduleResponses(scheduleId: string): Promise<ScheduleResponse[]> {
-  const baseURL = import.meta.env.VITE_API_BASE_URL || '';
-  const token = localStorage.getItem('auth_token');
-
-  if (!token) {
-    throw new Error('認証が必要です。ログインしてください。');
-  }
-
-  const response = await fetch(`${baseURL}/api/v1/schedules/${scheduleId}/responses`, {
-    method: 'GET',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-    },
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`回答一覧の取得に失敗しました: ${text || response.statusText}`);
-  }
-
-  const result = await response.json();
+  const result = await apiClient.get<GetScheduleResponsesResult>(
+    `/api/v1/schedules/${scheduleId}/responses`
+  );
   return result.responses || [];
+}
+
+/**
+ * 出欠確認変換リクエスト
+ */
+export interface ConvertToAttendanceRequest {
+  candidate_ids: string[];
+  title?: string; // 省略時は元のタイトル
+}
+
+/**
+ * 出欠確認変換レスポンス
+ */
+export interface ConvertToAttendanceResponse {
+  collection_id: string;
+  public_token: string;
+  title: string;
+}
+
+/**
+ * 日程調整を出欠確認に変換
+ */
+export async function convertToAttendance(
+  scheduleId: string,
+  data: ConvertToAttendanceRequest
+): Promise<ConvertToAttendanceResponse> {
+  const result = await apiClient.post<ApiResponse<ConvertToAttendanceResponse>>(
+    `/api/v1/schedules/${scheduleId}/convert-to-attendance`,
+    data
+  );
+  return result.data;
 }

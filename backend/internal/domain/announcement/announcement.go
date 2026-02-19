@@ -79,14 +79,14 @@ func Reconstruct(
 }
 
 // Getters
-func (a *Announcement) ID() AnnouncementID      { return a.id }
+func (a *Announcement) ID() AnnouncementID         { return a.id }
 func (a *Announcement) TenantID() *common.TenantID { return a.tenantID }
-func (a *Announcement) Title() string           { return a.title }
-func (a *Announcement) Body() string            { return a.body }
-func (a *Announcement) PublishedAt() time.Time  { return a.publishedAt }
-func (a *Announcement) CreatedAt() time.Time    { return a.createdAt }
-func (a *Announcement) UpdatedAt() time.Time    { return a.updatedAt }
-func (a *Announcement) DeletedAt() *time.Time   { return a.deletedAt }
+func (a *Announcement) Title() string              { return a.title }
+func (a *Announcement) Body() string               { return a.body }
+func (a *Announcement) PublishedAt() time.Time     { return a.publishedAt }
+func (a *Announcement) CreatedAt() time.Time       { return a.createdAt }
+func (a *Announcement) UpdatedAt() time.Time       { return a.updatedAt }
+func (a *Announcement) DeletedAt() *time.Time      { return a.deletedAt }
 
 // IsPublished returns true if the announcement is currently published
 func (a *Announcement) IsPublished(now time.Time) bool {

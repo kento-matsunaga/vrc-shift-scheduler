@@ -47,6 +47,7 @@ export function ReleaseStatusProvider({ children }: ReleaseStatusProviderProps) 
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- Provider+hookペアのため同一ファイルに配置
 export function useReleaseStatus(): ReleaseStatusContextValue {
   const context = useContext(ReleaseStatusContext);
   if (context === undefined) {

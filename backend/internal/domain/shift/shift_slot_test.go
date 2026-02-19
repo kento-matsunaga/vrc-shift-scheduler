@@ -253,7 +253,7 @@ func TestShiftSlot_UpdatePriority(t *testing.T) {
 	slot := createTestSlot(t, tenantID, "スタッフ", startTime, endTime, 1)
 
 	newPriority := 5
-	err := slot.UpdatePriority(newPriority)
+	err := slot.UpdatePriority(time.Now(),newPriority)
 
 	if err != nil {
 		t.Fatalf("UpdatePriority() should succeed, but got error: %v", err)
@@ -272,7 +272,7 @@ func TestShiftSlot_UpdatePriority_SuccessWhenZero(t *testing.T) {
 
 	slot := createTestSlot(t, tenantID, "スタッフ", startTime, endTime, 1)
 
-	err := slot.UpdatePriority(0)
+	err := slot.UpdatePriority(time.Now(),0)
 
 	if err != nil {
 		t.Fatalf("UpdatePriority() should succeed when priority is 0, but got error: %v", err)
@@ -291,7 +291,7 @@ func TestShiftSlot_UpdateSlotName(t *testing.T) {
 	slot := createTestSlot(t, tenantID, "元の名前", startTime, endTime, 1)
 
 	newName := "新しい名前"
-	err := slot.UpdateSlotName(newName)
+	err := slot.UpdateSlotName(time.Now(),newName)
 
 	if err != nil {
 		t.Fatalf("UpdateSlotName() should succeed, but got error: %v", err)
@@ -310,7 +310,7 @@ func TestShiftSlot_UpdateRequiredCount(t *testing.T) {
 	slot := createTestSlot(t, tenantID, "スタッフ", startTime, endTime, 1)
 
 	newCount := 5
-	err := slot.UpdateRequiredCount(newCount)
+	err := slot.UpdateRequiredCount(time.Now(),newCount)
 
 	if err != nil {
 		t.Fatalf("UpdateRequiredCount() should succeed, but got error: %v", err)
@@ -328,7 +328,7 @@ func TestShiftSlot_UpdateRequiredCount_ErrorWhenZero(t *testing.T) {
 
 	slot := createTestSlot(t, tenantID, "スタッフ", startTime, endTime, 1)
 
-	err := slot.UpdateRequiredCount(0)
+	err := slot.UpdateRequiredCount(time.Now(),0)
 
 	if err == nil {
 		t.Fatal("UpdateRequiredCount() should return error when count is 0")
@@ -348,7 +348,7 @@ func TestShiftSlot_Delete(t *testing.T) {
 	}
 
 	// 削除
-	slot.Delete()
+	slot.Delete(time.Now())
 
 	if !slot.IsDeleted() {
 		t.Error("ShiftSlot should be deleted after Delete()")

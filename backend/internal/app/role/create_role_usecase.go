@@ -2,6 +2,7 @@ package role
 
 import (
 	"context"
+	"time"
 
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/common"
 	"github.com/erenoa/vrc-shift-scheduler/backend/internal/domain/role"
@@ -22,7 +23,9 @@ func (u *CreateRoleUsecase) Execute(ctx context.Context, input CreateRoleInput) 
 	}
 
 	// Create role entity
+	now := time.Now()
 	roleEntity, err := role.NewRole(
+		now,
 		tenantID,
 		input.Name,
 		input.Description,

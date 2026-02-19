@@ -86,4 +86,3 @@ type MemberGroupRepository interface {
 	// SetMemberGroups sets all groups for a member (replaces existing groups)
 	SetMemberGroups(ctx context.Context, memberID common.MemberID, groupIDs []common.MemberGroupID) error
 }
-

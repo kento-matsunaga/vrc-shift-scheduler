@@ -54,4 +54,3 @@ type EventGroupAssignmentRepository interface {
 	// DeleteRoleGroupAssignments deletes all role group assignments for an event
 	DeleteRoleGroupAssignments(ctx context.Context, eventID common.EventID) error
 }
-

@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { SEO } from '../components/seo';
 import {
   getAttendanceCollection,
   getAttendanceResponses,
@@ -119,6 +120,7 @@ export default function ShiftAdjustment() {
     };
 
     fetchData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- selectedDateIdを含めると無限ループになるため除外
   }, [collectionId, refreshKey]);
 
   // 本出席状況を取得（includeFutureが変更されたら再取得）
@@ -196,19 +198,18 @@ export default function ShiftAdjustment() {
           const slotsData = await getShiftSlots(matchingBD.business_day_id);
           const shiftSlots = slotsData.shift_slots || [];
 
-          // Load assignments for each slot
-          const slotsWithAssignments: SlotWithAssignments[] = await Promise.all(
-            shiftSlots.map(async (slot) => {
-              const assignmentsData = await getAssignments({
-                slot_id: slot.slot_id,
-                assignment_status: 'confirmed',
-              });
-              return {
-                slot,
-                assignments: assignmentsData.assignments || [],
-              };
-            })
-          );
+          // Load assignments for the business day in a single API call (N+1 fix)
+          const assignmentsData = await getAssignments({
+            business_day_id: matchingBD.business_day_id,
+            assignment_status: 'confirmed',
+          });
+          const allAssignments = assignmentsData.assignments || [];
+
+          // Map assignments to slots by slot_id
+          const slotsWithAssignments: SlotWithAssignments[] = shiftSlots.map((slot) => ({
+            slot,
+            assignments: allAssignments.filter((a) => a.slot_id === slot.slot_id),
+          }));
 
           setSlots(slotsWithAssignments);
         } catch (err) {
@@ -388,6 +389,7 @@ export default function ShiftAdjustment() {
 
   return (
     <div className="max-w-7xl mx-auto">
+      <SEO noindex={true} />
       {/* パンくずリスト */}
       <nav className="mb-6 text-sm text-gray-600">
         <Link to="/attendance" className="hover:text-gray-900">

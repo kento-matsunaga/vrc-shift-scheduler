@@ -140,19 +140,29 @@ func (g *MemberGroup) IsDeleted() bool {
 }
 
 // UpdateDetails updates group details
-func (g *MemberGroup) UpdateDetails(name, description, color string, displayOrder int) error {
+func (g *MemberGroup) UpdateDetails(now time.Time, name, description, color string, displayOrder int) error {
+	// Validate before mutating using a temporary copy
+	tmp := *g
+	tmp.name = name
+	tmp.description = description
+	tmp.color = color
+	tmp.displayOrder = displayOrder
+	tmp.updatedAt = now
+	if err := tmp.validate(); err != nil {
+		return err
+	}
+
+	// Apply validated changes
 	g.name = name
 	g.description = description
 	g.color = color
 	g.displayOrder = displayOrder
-	g.updatedAt = time.Now()
-
-	return g.validate()
+	g.updatedAt = now
+	return nil
 }
 
 // Delete marks the group as deleted (soft delete)
-func (g *MemberGroup) Delete() {
-	now := time.Now()
+func (g *MemberGroup) Delete(now time.Time) {
 	g.deletedAt = &now
 	g.updatedAt = now
 }

@@ -31,11 +31,11 @@ type BillingStatusInput struct {
 
 // BillingStatusOutput represents the billing status
 type BillingStatusOutput struct {
-	PlanType         string  `json:"plan_type"`          // "subscription", "lifetime", "none"
-	PlanName         string  `json:"plan_name"`          // 表示用プラン名
-	Status           string  `json:"status"`             // "active", "canceled", "past_due", etc.
-	CurrentPeriodEnd *string `json:"current_period_end"` // サブスクの場合、次回更新日
-	CancelAtPeriodEnd bool   `json:"cancel_at_period_end"` // キャンセル予定
+	PlanType          string  `json:"plan_type"`            // "subscription", "lifetime", "none"
+	PlanName          string  `json:"plan_name"`            // 表示用プラン名
+	Status            string  `json:"status"`               // "active", "canceled", "past_due", etc.
+	CurrentPeriodEnd  *string `json:"current_period_end"`   // サブスクの場合、次回更新日
+	CancelAtPeriodEnd bool    `json:"cancel_at_period_end"` // キャンセル予定
 }
 
 // Execute gets the billing status for a tenant

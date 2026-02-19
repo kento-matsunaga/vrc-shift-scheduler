@@ -352,7 +352,7 @@ func TestListMembersUsecase_Execute_WithIsActiveFilter(t *testing.T) {
 	tenantID := common.NewTenantID()
 	activeMember := createTestMember(t, tenantID, "アクティブメンバー")
 	inactiveMember := createTestMember(t, tenantID, "非アクティブメンバー")
-	inactiveMember.Deactivate()
+	inactiveMember.Deactivate(time.Now())
 
 	testMembers := []*member.Member{activeMember, inactiveMember}
 
@@ -617,7 +617,7 @@ func TestBulkImportMembersUsecase_Execute_PartialFailure(t *testing.T) {
 		TenantID: tenantID,
 		Members: []appmember.BulkImportMemberInput{
 			{DisplayName: "メンバー1"},
-			{DisplayName: ""},       // Empty name - should fail
+			{DisplayName: ""}, // Empty name - should fail
 			{DisplayName: "メンバー3"},
 		},
 	}

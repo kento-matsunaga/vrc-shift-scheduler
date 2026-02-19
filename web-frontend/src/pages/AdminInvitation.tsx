@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { inviteAdmin } from '../lib/api/invitationApi';
+import { SEO } from '../components/seo';
 
 export default function AdminInvitation() {
   const [email, setEmail] = useState('');
@@ -80,6 +81,7 @@ export default function AdminInvitation() {
 
   return (
     <div className="max-w-md mx-auto">
+      <SEO noindex={true} />
       <div className="bg-white rounded-lg shadow-md p-8">
         <div className="text-center mb-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-2">

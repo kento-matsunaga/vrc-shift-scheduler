@@ -16,6 +16,7 @@ func TestNewRole_Success(t *testing.T) {
 	tenantID := common.NewTenantID()
 
 	r, err := role.NewRole(
+		time.Now(),
 		tenantID,
 		"スタッフ",
 		"イベントスタッフロール",
@@ -60,6 +61,7 @@ func TestNewRole_ErrorWhenNameEmpty(t *testing.T) {
 	tenantID := common.NewTenantID()
 
 	_, err := role.NewRole(
+		time.Now(),
 		tenantID,
 		"", // Empty name
 		"Description",
@@ -80,6 +82,7 @@ func TestNewRole_ErrorWhenNameTooLong(t *testing.T) {
 	}
 
 	_, err := role.NewRole(
+		time.Now(),
 		tenantID,
 		string(longName),
 		"Description",
@@ -100,6 +103,7 @@ func TestNewRole_ErrorWhenDescriptionTooLong(t *testing.T) {
 	}
 
 	_, err := role.NewRole(
+		time.Now(),
 		tenantID,
 		"Valid Name",
 		string(longDesc),
@@ -120,6 +124,7 @@ func TestNewRole_ErrorWhenColorTooLong(t *testing.T) {
 	}
 
 	_, err := role.NewRole(
+		time.Now(),
 		tenantID,
 		"Valid Name",
 		"Description",
@@ -136,11 +141,12 @@ func TestNewRole_SuccessWithEmptyOptionalFields(t *testing.T) {
 	tenantID := common.NewTenantID()
 
 	r, err := role.NewRole(
+		time.Now(),
 		tenantID,
 		"Minimal Role",
-		"",  // Empty description (optional)
-		"",  // Empty color (optional)
-		0,   // Zero display order
+		"", // Empty description (optional)
+		"", // Empty color (optional)
+		0,  // Zero display order
 	)
 
 	if err != nil {
@@ -158,9 +164,9 @@ func TestNewRole_SuccessWithEmptyOptionalFields(t *testing.T) {
 
 func TestRole_UpdateDetails_Success(t *testing.T) {
 	tenantID := common.NewTenantID()
-	r, _ := role.NewRole(tenantID, "Original", "Original Desc", "#000000", 1)
+	r, _ := role.NewRole(time.Now(), tenantID, "Original", "Original Desc", "#000000", 1)
 
-	err := r.UpdateDetails("Updated", "Updated Desc", "#FFFFFF", 2)
+	err := r.UpdateDetails(time.Now(),"Updated", "Updated Desc", "#FFFFFF", 2)
 
 	if err != nil {
 		t.Fatalf("UpdateDetails() should succeed, got error: %v", err)
@@ -185,9 +191,9 @@ func TestRole_UpdateDetails_Success(t *testing.T) {
 
 func TestRole_UpdateDetails_ErrorWhenNameEmpty(t *testing.T) {
 	tenantID := common.NewTenantID()
-	r, _ := role.NewRole(tenantID, "Original", "Original Desc", "#000000", 1)
+	r, _ := role.NewRole(time.Now(), tenantID, "Original", "Original Desc", "#000000", 1)
 
-	err := r.UpdateDetails("", "Updated Desc", "#FFFFFF", 2)
+	err := r.UpdateDetails(time.Now(),"", "Updated Desc", "#FFFFFF", 2)
 
 	if err == nil {
 		t.Fatal("UpdateDetails() should fail when name is empty")
@@ -196,13 +202,13 @@ func TestRole_UpdateDetails_ErrorWhenNameEmpty(t *testing.T) {
 
 func TestRole_Delete(t *testing.T) {
 	tenantID := common.NewTenantID()
-	r, _ := role.NewRole(tenantID, "Test Role", "Description", "#FF5733", 1)
+	r, _ := role.NewRole(time.Now(), tenantID, "Test Role", "Description", "#FF5733", 1)
 
 	if r.DeletedAt() != nil {
 		t.Error("New role should not be deleted")
 	}
 
-	r.Delete()
+	r.Delete(time.Now())
 
 	if r.DeletedAt() == nil {
 		t.Error("DeletedAt should be set after Delete()")

@@ -1,4 +1,4 @@
-import type { ApiResponse } from '../../types/api';
+import type { ApiResponse, ApiErrorData } from '../../types/api';
 
 /**
  * ログインリクエスト（管理者認証）
@@ -75,12 +75,12 @@ export async function login(data: LoginRequest): Promise<LoginResponse> {
 
   if (!response.ok) {
     // エラーレスポンスを安全にパース
-    let errorData: any;
+    let errorData: ApiErrorData;
     const contentType = response.headers.get('content-type');
     if (contentType && contentType.includes('application/json')) {
       try {
         errorData = await response.json();
-      } catch (e) {
+      } catch {
         // JSONパースに失敗した場合は、テキストとして読み取る
         const text = await response.text();
         throw new Error(`ログインに失敗しました: ${text || response.statusText}`);
@@ -90,7 +90,7 @@ export async function login(data: LoginRequest): Promise<LoginResponse> {
       const text = await response.text();
       throw new Error(`ログインに失敗しました: ${text || response.statusText}`);
     }
-    throw new Error(errorData.error?.message || 'Failed to login');
+    throw new Error(errorData?.error?.message || 'Failed to login');
   }
 
   // 成功レスポンスをパース
@@ -120,12 +120,12 @@ export async function setup(data: SetupRequest): Promise<SetupResponse> {
 
   if (!response.ok) {
     // エラーレスポンスを安全にパース
-    let errorData: any;
+    let errorData: ApiErrorData;
     const contentType = response.headers.get('content-type');
     if (contentType && contentType.includes('application/json')) {
       try {
         errorData = await response.json();
-      } catch (e) {
+      } catch {
         // JSONパースに失敗した場合は、テキストとして読み取る
         const text = await response.text();
         throw new Error(`セットアップに失敗しました: ${text || response.statusText}`);
@@ -135,7 +135,7 @@ export async function setup(data: SetupRequest): Promise<SetupResponse> {
       const text = await response.text();
       throw new Error(`セットアップに失敗しました: ${text || response.statusText}`);
     }
-    throw new Error(errorData.error?.message || 'Failed to setup');
+    throw new Error(errorData?.error?.message || 'Failed to setup');
   }
 
   // 成功レスポンスをパース
@@ -165,12 +165,12 @@ export async function registerByInvite(data: RegisterByInviteRequest): Promise<R
 
   if (!response.ok) {
     // エラーレスポンスを安全にパース
-    let errorData: any;
+    let errorData: ApiErrorData;
     const contentType = response.headers.get('content-type');
     if (contentType && contentType.includes('application/json')) {
       try {
         errorData = await response.json();
-      } catch (e) {
+      } catch {
         // JSONパースに失敗した場合は、テキストとして読み取る
         const text = await response.text();
         throw new Error(`登録に失敗しました: ${text || response.statusText}`);
@@ -180,7 +180,7 @@ export async function registerByInvite(data: RegisterByInviteRequest): Promise<R
       const text = await response.text();
       throw new Error(`登録に失敗しました: ${text || response.statusText}`);
     }
-    throw new Error(errorData.error?.message || 'Failed to register by invite');
+    throw new Error(errorData?.error?.message || 'Failed to register by invite');
   }
 
   // 成功レスポンスをパース
@@ -240,12 +240,12 @@ export async function checkPasswordResetStatus(email: string): Promise<PasswordR
   });
 
   if (!response.ok) {
-    let errorData: any;
+    let errorData: ApiErrorData;
     const contentType = response.headers.get('content-type');
     if (contentType && contentType.includes('application/json')) {
       try {
         errorData = await response.json();
-      } catch (e) {
+      } catch {
         const text = await response.text();
         throw new Error(`確認に失敗しました: ${text || response.statusText}`);
       }
@@ -253,7 +253,7 @@ export async function checkPasswordResetStatus(email: string): Promise<PasswordR
       const text = await response.text();
       throw new Error(`確認に失敗しました: ${text || response.statusText}`);
     }
-    throw new Error(errorData.error?.message || 'Failed to check password reset status');
+    throw new Error(errorData?.error?.message || 'Failed to check password reset status');
   }
 
   const contentType = response.headers.get('content-type');
@@ -282,12 +282,12 @@ export async function resetPassword(data: ResetPasswordRequest): Promise<ResetPa
   });
 
   if (!response.ok) {
-    let errorData: any;
+    let errorData: ApiErrorData;
     const contentType = response.headers.get('content-type');
     if (contentType && contentType.includes('application/json')) {
       try {
         errorData = await response.json();
-      } catch (e) {
+      } catch {
         const text = await response.text();
         throw new Error(`リセットに失敗しました: ${text || response.statusText}`);
       }
@@ -295,7 +295,7 @@ export async function resetPassword(data: ResetPasswordRequest): Promise<ResetPa
       const text = await response.text();
       throw new Error(`リセットに失敗しました: ${text || response.statusText}`);
     }
-    throw new Error(errorData.error?.message || 'Failed to reset password');
+    throw new Error(errorData?.error?.message || 'Failed to reset password');
   }
 
   const contentType = response.headers.get('content-type');
@@ -343,12 +343,12 @@ export async function forgotPassword(data: ForgotPasswordRequest): Promise<Forgo
   });
 
   if (!response.ok) {
-    let errorData: any;
+    let errorData: ApiErrorData;
     const contentType = response.headers.get('content-type');
     if (contentType && contentType.includes('application/json')) {
       try {
         errorData = await response.json();
-      } catch (e) {
+      } catch {
         const text = await response.text();
         throw new Error(`リクエストに失敗しました: ${text || response.statusText}`);
       }
@@ -356,7 +356,7 @@ export async function forgotPassword(data: ForgotPasswordRequest): Promise<Forgo
       const text = await response.text();
       throw new Error(`リクエストに失敗しました: ${text || response.statusText}`);
     }
-    throw new Error(errorData.error?.message || 'Failed to request password reset');
+    throw new Error(errorData?.error?.message || 'Failed to request password reset');
   }
 
   const contentType = response.headers.get('content-type');
@@ -402,12 +402,12 @@ export async function resetPasswordWithToken(data: ResetPasswordWithTokenRequest
   });
 
   if (!response.ok) {
-    let errorData: any;
+    let errorData: ApiErrorData;
     const contentType = response.headers.get('content-type');
     if (contentType && contentType.includes('application/json')) {
       try {
         errorData = await response.json();
-      } catch (e) {
+      } catch {
         const text = await response.text();
         throw new Error(`リセットに失敗しました: ${text || response.statusText}`);
       }
@@ -415,7 +415,7 @@ export async function resetPasswordWithToken(data: ResetPasswordWithTokenRequest
       const text = await response.text();
       throw new Error(`リセットに失敗しました: ${text || response.statusText}`);
     }
-    throw new Error(errorData.error?.message || 'Failed to reset password with token');
+    throw new Error(errorData?.error?.message || 'Failed to reset password with token');
   }
 
   const contentType = response.headers.get('content-type');

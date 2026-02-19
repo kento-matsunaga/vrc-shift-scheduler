@@ -101,7 +101,7 @@ export default function Subscribe() {
 
   return (
     <div
-      className="min-h-screen text-white"
+      className="min-h-[100dvh] text-white pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]"
       style={{
         background: 'linear-gradient(180deg, #0a0a0f 0%, #0f0f1a 50%, #0a0a0f 100%)',
         fontFamily: '"Noto Sans JP", "Inter", system-ui, sans-serif',
@@ -115,7 +115,7 @@ export default function Subscribe() {
         jsonLd={{
           breadcrumbs: [
             { name: 'ホーム', url: SEO_CONFIG.baseUrl },
-            { name: '新規登録' },
+            { name: 'プラン・料金' },
           ],
         }}
       />
@@ -188,7 +188,7 @@ export default function Subscribe() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="example@example.com"
-                  className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition"
+                  className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 text-base text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition"
                   disabled={loading}
                   autoFocus
                 />
@@ -204,7 +204,7 @@ export default function Subscribe() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="8文字以上"
-                  className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition"
+                  className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 text-base text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition"
                   disabled={loading}
                 />
               </div>
@@ -219,7 +219,7 @@ export default function Subscribe() {
                   value={passwordConfirm}
                   onChange={(e) => setPasswordConfirm(e.target.value)}
                   placeholder="パスワードを再入力"
-                  className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition"
+                  className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 text-base text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition"
                   disabled={loading}
                 />
               </div>
@@ -234,7 +234,7 @@ export default function Subscribe() {
                   value={tenantName}
                   onChange={(e) => setTenantName(e.target.value)}
                   placeholder="例: VRCイベント運営チーム"
-                  className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition"
+                  className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 text-base text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition"
                   disabled={loading}
                 />
               </div>
@@ -249,7 +249,7 @@ export default function Subscribe() {
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
                   placeholder="例: 山田 太郎"
-                  className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition"
+                  className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 text-base text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition"
                   disabled={loading}
                 />
               </div>

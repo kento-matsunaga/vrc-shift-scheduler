@@ -158,6 +158,50 @@ func (c *AttendanceCollection) Delete(now time.Time) error {
 	return nil
 }
 
+// Update updates collection fields following domain rules.
+// now は App層から Clock 経由で渡される（Domain層で time.Now() を呼ばない）
+func (c *AttendanceCollection) Update(
+	now time.Time,
+	title string,
+	description string,
+	deadline *time.Time,
+) error {
+	if c.deletedAt != nil {
+		return ErrAlreadyDeleted
+	}
+	if c.status != StatusOpen {
+		return ErrCollectionClosed
+	}
+	if deadline != nil && deadline.Before(now) {
+		return ErrDeadlineInPast
+	}
+
+	// Validate before mutating using a temporary copy
+	tmp := *c
+	if title != "" {
+		tmp.title = title
+	}
+	tmp.description = description
+	if deadline != nil {
+		tmp.deadline = deadline
+	}
+	tmp.updatedAt = now
+	if err := tmp.validate(); err != nil {
+		return err
+	}
+
+	// Apply validated changes
+	if title != "" {
+		c.title = title
+	}
+	c.description = description
+	if deadline != nil {
+		c.deadline = deadline
+	}
+	c.updatedAt = now
+	return nil
+}
+
 // Getters
 
 func (c *AttendanceCollection) CollectionID() common.CollectionID {

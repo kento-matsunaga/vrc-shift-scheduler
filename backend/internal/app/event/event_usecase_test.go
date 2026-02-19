@@ -16,12 +16,12 @@ import (
 // =====================================================
 
 type MockEventRepository struct {
-	saveFunc              func(ctx context.Context, e *event.Event) error
-	findByIDFunc          func(ctx context.Context, tenantID common.TenantID, eventID common.EventID) (*event.Event, error)
-	findByTenantFunc      func(ctx context.Context, tenantID common.TenantID) ([]*event.Event, error)
+	saveFunc               func(ctx context.Context, e *event.Event) error
+	findByIDFunc           func(ctx context.Context, tenantID common.TenantID, eventID common.EventID) (*event.Event, error)
+	findByTenantFunc       func(ctx context.Context, tenantID common.TenantID) ([]*event.Event, error)
 	findActiveByTenantFunc func(ctx context.Context, tenantID common.TenantID) ([]*event.Event, error)
-	existsByNameFunc      func(ctx context.Context, tenantID common.TenantID, name string) (bool, error)
-	deleteFunc            func(ctx context.Context, tenantID common.TenantID, eventID common.EventID) error
+	existsByNameFunc       func(ctx context.Context, tenantID common.TenantID, name string) (bool, error)
+	deleteFunc             func(ctx context.Context, tenantID common.TenantID, eventID common.EventID) error
 }
 
 func (m *MockEventRepository) Save(ctx context.Context, e *event.Event) error {
@@ -487,5 +487,258 @@ func TestDeleteEventUsecase_Execute_ErrorWhenNotFound(t *testing.T) {
 
 	if err == nil {
 		t.Fatal("Execute() should fail when event not found")
+	}
+}
+
+// =====================================================
+// GenerateBusinessDaysUsecase Tests
+// =====================================================
+
+// createEventWithRecurrence creates an event with weekly recurrence for testing
+func createEventWithRecurrence(t *testing.T, tenantID common.TenantID) *event.Event {
+	t.Helper()
+	now := time.Now()
+	recurrenceStart := now
+	dayOfWeek := int(now.Weekday()) // 今日の曜日
+	startTime := time.Date(0, 1, 1, 21, 30, 0, 0, time.UTC)
+	endTime := time.Date(0, 1, 1, 23, 0, 0, 0, time.UTC)
+
+	e, err := event.NewEvent(
+		now,
+		tenantID,
+		"Recurring Event",
+		event.EventTypeNormal,
+		"Test recurring event",
+		event.RecurrenceTypeWeekly,
+		&recurrenceStart,
+		&dayOfWeek,
+		&startTime,
+		&endTime,
+	)
+	if err != nil {
+		t.Fatalf("Failed to create event with recurrence: %v", err)
+	}
+	return e
+}
+
+func TestGenerateBusinessDaysUsecase_Execute_Success(t *testing.T) {
+	tenantID := common.NewTenantID()
+	testEvent := createEventWithRecurrence(t, tenantID)
+
+	var savedCount int
+	eventRepo := &MockEventRepository{
+		findByIDFunc: func(ctx context.Context, tid common.TenantID, eid common.EventID) (*event.Event, error) {
+			return testEvent, nil
+		},
+	}
+
+	bdRepo := &MockBusinessDayRepository{
+		existsByEventIDAndDate: func(ctx context.Context, tid common.TenantID, eid common.EventID, date time.Time, startTime time.Time) (bool, error) {
+			return false, nil // No existing business days
+		},
+		saveFunc: func(ctx context.Context, bd *event.EventBusinessDay) error {
+			savedCount++
+			return nil
+		},
+	}
+
+	usecase := appevent.NewGenerateBusinessDaysUsecase(eventRepo, bdRepo)
+
+	input := appevent.GenerateBusinessDaysInput{
+		TenantID: tenantID,
+		EventID:  testEvent.EventID(),
+		Months:   3,
+	}
+
+	result, err := usecase.Execute(context.Background(), input)
+
+	if err != nil {
+		t.Fatalf("Execute() should succeed, got error: %v", err)
+	}
+
+	if result == nil {
+		t.Fatal("Result should not be nil")
+	}
+
+	// 3ヶ月分なので少なくとも12個（週1回 × 12週程度）以上生成されるはず
+	if result.GeneratedCount < 10 {
+		t.Errorf("Expected at least 10 business days for 3 months, got %d", result.GeneratedCount)
+	}
+
+	if savedCount != result.GeneratedCount {
+		t.Errorf("Saved count mismatch: repo saved %d, result says %d", savedCount, result.GeneratedCount)
+	}
+}
+
+func TestGenerateBusinessDaysUsecase_Execute_DefaultMonths(t *testing.T) {
+	tenantID := common.NewTenantID()
+	testEvent := createEventWithRecurrence(t, tenantID)
+
+	var savedCount int
+	eventRepo := &MockEventRepository{
+		findByIDFunc: func(ctx context.Context, tid common.TenantID, eid common.EventID) (*event.Event, error) {
+			return testEvent, nil
+		},
+	}
+
+	bdRepo := &MockBusinessDayRepository{
+		existsByEventIDAndDate: func(ctx context.Context, tid common.TenantID, eid common.EventID, date time.Time, startTime time.Time) (bool, error) {
+			return false, nil
+		},
+		saveFunc: func(ctx context.Context, bd *event.EventBusinessDay) error {
+			savedCount++
+			return nil
+		},
+	}
+
+	usecase := appevent.NewGenerateBusinessDaysUsecase(eventRepo, bdRepo)
+
+	// months=0 → デフォルト2ヶ月に設定される
+	input := appevent.GenerateBusinessDaysInput{
+		TenantID: tenantID,
+		EventID:  testEvent.EventID(),
+		Months:   0,
+	}
+
+	result, err := usecase.Execute(context.Background(), input)
+
+	if err != nil {
+		t.Fatalf("Execute() should succeed, got error: %v", err)
+	}
+
+	// 2ヶ月分なので8個以上生成されるはず
+	if result.GeneratedCount < 6 {
+		t.Errorf("Expected at least 6 business days for default 2 months, got %d", result.GeneratedCount)
+	}
+}
+
+func TestGenerateBusinessDaysUsecase_Execute_MaxMonthsLimit(t *testing.T) {
+	tenantID := common.NewTenantID()
+	testEvent := createEventWithRecurrence(t, tenantID)
+
+	var savedCount int
+	eventRepo := &MockEventRepository{
+		findByIDFunc: func(ctx context.Context, tid common.TenantID, eid common.EventID) (*event.Event, error) {
+			return testEvent, nil
+		},
+	}
+
+	bdRepo := &MockBusinessDayRepository{
+		existsByEventIDAndDate: func(ctx context.Context, tid common.TenantID, eid common.EventID, date time.Time, startTime time.Time) (bool, error) {
+			return false, nil
+		},
+		saveFunc: func(ctx context.Context, bd *event.EventBusinessDay) error {
+			savedCount++
+			return nil
+		},
+	}
+
+	usecase := appevent.NewGenerateBusinessDaysUsecase(eventRepo, bdRepo)
+
+	// months=30 → 24ヶ月に制限される
+	input := appevent.GenerateBusinessDaysInput{
+		TenantID: tenantID,
+		EventID:  testEvent.EventID(),
+		Months:   30,
+	}
+
+	result, err := usecase.Execute(context.Background(), input)
+
+	if err != nil {
+		t.Fatalf("Execute() should succeed, got error: %v", err)
+	}
+
+	// 24ヶ月（最大）の場合、約100個程度生成されるはず
+	// 最大24ヶ月で約104週
+	if result.GeneratedCount > 110 {
+		t.Errorf("Should be limited to 24 months max, got %d business days (too many)", result.GeneratedCount)
+	}
+}
+
+func TestGenerateBusinessDaysUsecase_Execute_NegativeMonths(t *testing.T) {
+	tenantID := common.NewTenantID()
+	testEvent := createEventWithRecurrence(t, tenantID)
+
+	var savedCount int
+	eventRepo := &MockEventRepository{
+		findByIDFunc: func(ctx context.Context, tid common.TenantID, eid common.EventID) (*event.Event, error) {
+			return testEvent, nil
+		},
+	}
+
+	bdRepo := &MockBusinessDayRepository{
+		existsByEventIDAndDate: func(ctx context.Context, tid common.TenantID, eid common.EventID, date time.Time, startTime time.Time) (bool, error) {
+			return false, nil
+		},
+		saveFunc: func(ctx context.Context, bd *event.EventBusinessDay) error {
+			savedCount++
+			return nil
+		},
+	}
+
+	usecase := appevent.NewGenerateBusinessDaysUsecase(eventRepo, bdRepo)
+
+	// months=-5 → デフォルト2ヶ月に設定される
+	input := appevent.GenerateBusinessDaysInput{
+		TenantID: tenantID,
+		EventID:  testEvent.EventID(),
+		Months:   -5,
+	}
+
+	result, err := usecase.Execute(context.Background(), input)
+
+	if err != nil {
+		t.Fatalf("Execute() should succeed, got error: %v", err)
+	}
+
+	// 2ヶ月分（デフォルト）なので6個以上生成されるはず
+	if result.GeneratedCount < 6 {
+		t.Errorf("Expected at least 6 business days for default 2 months (from negative), got %d", result.GeneratedCount)
+	}
+}
+
+func TestGenerateBusinessDaysUsecase_Execute_NoRecurrence(t *testing.T) {
+	tenantID := common.NewTenantID()
+	now := time.Now()
+
+	// 定期設定なしのイベント
+	testEvent, _ := event.NewEvent(
+		now,
+		tenantID,
+		"Non-recurring Event",
+		event.EventTypeNormal,
+		"Test event without recurrence",
+		event.RecurrenceTypeNone,
+		nil, nil, nil, nil,
+	)
+
+	eventRepo := &MockEventRepository{
+		findByIDFunc: func(ctx context.Context, tid common.TenantID, eid common.EventID) (*event.Event, error) {
+			return testEvent, nil
+		},
+	}
+
+	bdRepo := &MockBusinessDayRepository{}
+
+	usecase := appevent.NewGenerateBusinessDaysUsecase(eventRepo, bdRepo)
+
+	input := appevent.GenerateBusinessDaysInput{
+		TenantID: tenantID,
+		EventID:  testEvent.EventID(),
+		Months:   3,
+	}
+
+	_, err := usecase.Execute(context.Background(), input)
+
+	if err == nil {
+		t.Fatal("Execute() should fail when event has no recurrence")
+	}
+
+	// DomainError であることを確認（ValidationError = code INVALID_INPUT）
+	domainErr, ok := err.(*common.DomainError)
+	if !ok {
+		t.Errorf("Expected DomainError, got: %T", err)
+	} else if domainErr.Code() != common.ErrInvalidInput {
+		t.Errorf("Expected error code %s, got: %s", common.ErrInvalidInput, domainErr.Code())
 	}
 }

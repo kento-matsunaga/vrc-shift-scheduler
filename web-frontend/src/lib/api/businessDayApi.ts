@@ -73,3 +73,10 @@ export async function applyTemplateToBusinessDay(
   );
 }
 
+/**
+ * 営業日を削除（論理削除）
+ */
+export async function deleteBusinessDay(businessDayId: string): Promise<void> {
+  await apiClient.delete(`/api/v1/business-days/${businessDayId}`);
+}
+

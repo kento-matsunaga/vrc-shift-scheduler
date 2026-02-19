@@ -17,6 +17,7 @@ type BusinessDayHandler struct {
 	listBusinessDaysUC  *appevent.ListBusinessDaysUsecase
 	getBusinessDayUC    *appevent.GetBusinessDayUsecase
 	applyTemplateUC     *appevent.ApplyTemplateUsecase
+	deleteBusinessDayUC *appevent.DeleteBusinessDayUsecase
 }
 
 // NewBusinessDayHandler creates a new BusinessDayHandler with injected usecases
@@ -25,22 +26,24 @@ func NewBusinessDayHandler(
 	listBusinessDaysUC *appevent.ListBusinessDaysUsecase,
 	getBusinessDayUC *appevent.GetBusinessDayUsecase,
 	applyTemplateUC *appevent.ApplyTemplateUsecase,
+	deleteBusinessDayUC *appevent.DeleteBusinessDayUsecase,
 ) *BusinessDayHandler {
 	return &BusinessDayHandler{
 		createBusinessDayUC: createBusinessDayUC,
 		listBusinessDaysUC:  listBusinessDaysUC,
 		getBusinessDayUC:    getBusinessDayUC,
 		applyTemplateUC:     applyTemplateUC,
+		deleteBusinessDayUC: deleteBusinessDayUC,
 	}
 }
 
 // CreateBusinessDayRequest represents the request body for creating a business day
 type CreateBusinessDayRequest struct {
-	TargetDate     string  `json:"target_date"`      // YYYY-MM-DD
-	StartTime      string  `json:"start_time"`       // HH:MM
-	EndTime        string  `json:"end_time"`         // HH:MM
-	OccurrenceType string  `json:"occurrence_type"`  // recurring or special
-	TemplateID     *string `json:"template_id"`      // optional: テンプレートからシフト枠を作成
+	TargetDate     string  `json:"target_date"`     // YYYY-MM-DD
+	StartTime      string  `json:"start_time"`      // HH:MM
+	EndTime        string  `json:"end_time"`        // HH:MM
+	OccurrenceType string  `json:"occurrence_type"` // recurring or special
+	TemplateID     *string `json:"template_id"`     // optional: テンプレートからシフト枠を作成
 }
 
 // BusinessDayResponse represents a business day in API responses
@@ -48,9 +51,9 @@ type BusinessDayResponse struct {
 	BusinessDayID  string `json:"business_day_id"`
 	TenantID       string `json:"tenant_id"`
 	EventID        string `json:"event_id"`
-	TargetDate     string `json:"target_date"`      // YYYY-MM-DD
-	StartTime      string `json:"start_time"`       // HH:MM:SS
-	EndTime        string `json:"end_time"`         // HH:MM:SS
+	TargetDate     string `json:"target_date"` // YYYY-MM-DD
+	StartTime      string `json:"start_time"`  // HH:MM:SS
+	EndTime        string `json:"end_time"`    // HH:MM:SS
 	OccurrenceType string `json:"occurrence_type"`
 	IsActive       bool   `json:"is_active"`
 	CreatedAt      string `json:"created_at"`
@@ -343,3 +346,41 @@ func (h *BusinessDayHandler) ApplyTemplate(w http.ResponseWriter, r *http.Reques
 	})
 }
 
+// DeleteBusinessDay handles DELETE /api/v1/business-days/:business_day_id
+func (h *BusinessDayHandler) DeleteBusinessDay(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// テナントIDの取得
+	tenantID, ok := GetTenantID(ctx)
+	if !ok {
+		RespondBadRequest(w, "tenant_id is required")
+		return
+	}
+
+	// BusinessDayIDの取得
+	businessDayIDStr := chi.URLParam(r, "business_day_id")
+	if businessDayIDStr == "" {
+		RespondBadRequest(w, "business_day_id is required")
+		return
+	}
+
+	businessDayID := event.BusinessDayID(businessDayIDStr)
+	if err := businessDayID.Validate(); err != nil {
+		RespondBadRequest(w, "Invalid business_day_id format")
+		return
+	}
+
+	// Usecaseの実行
+	input := appevent.DeleteBusinessDayInput{
+		TenantID:      tenantID,
+		BusinessDayID: businessDayID,
+	}
+
+	if err := h.deleteBusinessDayUC.Execute(ctx, input); err != nil {
+		RespondDomainError(w, err)
+		return
+	}
+
+	// 成功レスポンス（204 No Content）
+	w.WriteHeader(http.StatusNoContent)
+}

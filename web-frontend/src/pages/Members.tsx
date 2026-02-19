@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { SEO } from '../components/seo';
 import { getMembers, createMember, updateMember, getRecentAttendance, deleteMember, bulkImportMembers, bulkUpdateRoles, type BulkImportMemberInput } from '../lib/api/memberApi';
 import { getActualAttendance } from '../lib/api/actualAttendanceApi';
 import { listRoles, type Role } from '../lib/api/roleApi';
@@ -277,6 +278,7 @@ export default function Members() {
 
   return (
     <div>
+      <SEO noindex={true} />
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
         <h2 className="text-xl sm:text-2xl font-bold text-gray-900">メンバー管理</h2>
         <div className="flex flex-wrap gap-2 sm:gap-3">
@@ -794,10 +796,11 @@ function ActualAttendanceModal({
 }) {
   // フィルタリング適用
   const displayedAttendances = useMemo(() => {
-    if (!data?.member_attendances) return [];
-    if (!filteredMemberIds) return data.member_attendances;
-    return data.member_attendances.filter((ma) => filteredMemberIds.has(ma.member_id));
-  }, [data?.member_attendances, filteredMemberIds]);
+    const memberAttendances = data?.member_attendances;
+    if (!memberAttendances) return [];
+    if (!filteredMemberIds) return memberAttendances;
+    return memberAttendances.filter((ma) => filteredMemberIds.has(ma.member_id));
+  }, [data, filteredMemberIds]);
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-lg max-w-6xl w-full p-6 max-h-[90vh] overflow-y-auto">
@@ -892,10 +895,11 @@ function AttendanceConfirmationModal({
 }) {
   // フィルタリング適用
   const displayedAttendances = useMemo(() => {
-    if (!data?.member_attendances) return [];
-    if (!filteredMemberIds) return data.member_attendances;
-    return data.member_attendances.filter((ma) => filteredMemberIds.has(ma.member_id));
-  }, [data?.member_attendances, filteredMemberIds]);
+    const memberAttendances = data?.member_attendances;
+    if (!memberAttendances) return [];
+    if (!filteredMemberIds) return memberAttendances;
+    return memberAttendances.filter((ma) => filteredMemberIds.has(ma.member_id));
+  }, [data, filteredMemberIds]);
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-lg max-w-6xl w-full p-6 max-h-[90vh] overflow-y-auto">

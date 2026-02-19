@@ -246,7 +246,8 @@ func (uc *DeleteMemberUsecase) Execute(ctx context.Context, input DeleteMemberIn
 	}
 
 	// 削除（soft delete）
-	m.Delete()
+	now := time.Now()
+	m.Delete(now)
 
 	// 保存
 	return uc.memberRepo.Save(ctx, m)

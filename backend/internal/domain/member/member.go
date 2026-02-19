@@ -148,20 +148,29 @@ func (m *Member) IsDeleted() bool {
 }
 
 // UpdateDetails updates multiple member details at once
-func (m *Member) UpdateDetails(displayName, discordUserID, email string, isActive bool) error {
-	// Update fields
+func (m *Member) UpdateDetails(now time.Time, displayName, discordUserID, email string, isActive bool) error {
+	// Validate before mutating using a temporary copy
+	tmp := *m
+	tmp.displayName = displayName
+	tmp.discordUserID = discordUserID
+	tmp.email = email
+	tmp.isActive = isActive
+	tmp.updatedAt = now
+	if err := tmp.validate(); err != nil {
+		return err
+	}
+
+	// Apply validated changes
 	m.displayName = displayName
 	m.discordUserID = discordUserID
 	m.email = email
 	m.isActive = isActive
-	m.updatedAt = time.Now()
-
-	// Validate after update
-	return m.validate()
+	m.updatedAt = now
+	return nil
 }
 
 // UpdateDisplayName updates the display name
-func (m *Member) UpdateDisplayName(displayName string) error {
+func (m *Member) UpdateDisplayName(now time.Time, displayName string) error {
 	if displayName == "" {
 		return common.NewValidationError("display_name is required", nil)
 	}
@@ -170,48 +179,46 @@ func (m *Member) UpdateDisplayName(displayName string) error {
 	}
 
 	m.displayName = displayName
-	m.updatedAt = time.Now()
+	m.updatedAt = now
 	return nil
 }
 
 // UpdateDiscordUserID updates the Discord user ID
-func (m *Member) UpdateDiscordUserID(discordUserID string) error {
+func (m *Member) UpdateDiscordUserID(now time.Time, discordUserID string) error {
 	if discordUserID != "" && len(discordUserID) > 100 {
 		return common.NewValidationError("discord_user_id must be less than 100 characters", nil)
 	}
 
 	m.discordUserID = discordUserID
-	m.updatedAt = time.Now()
+	m.updatedAt = now
 	return nil
 }
 
 // UpdateEmail updates the email address
-func (m *Member) UpdateEmail(email string) error {
+func (m *Member) UpdateEmail(now time.Time, email string) error {
 	if email != "" && len(email) > 255 {
 		return common.NewValidationError("email must be less than 255 characters", nil)
 	}
 
 	m.email = email
-	m.updatedAt = time.Now()
+	m.updatedAt = now
 	return nil
 }
 
 // Activate activates the member
-func (m *Member) Activate() {
+func (m *Member) Activate(now time.Time) {
 	m.isActive = true
-	m.updatedAt = time.Now()
-}
-
-// Deactivate deactivates the member
-func (m *Member) Deactivate() {
-	m.isActive = false
-	m.updatedAt = time.Now()
-}
-
-// Delete marks the member as deleted (soft delete)
-func (m *Member) Delete() {
-	now := time.Now()
-	m.deletedAt = &now
 	m.updatedAt = now
 }
 
+// Deactivate deactivates the member
+func (m *Member) Deactivate(now time.Time) {
+	m.isActive = false
+	m.updatedAt = now
+}
+
+// Delete marks the member as deleted (soft delete)
+func (m *Member) Delete(now time.Time) {
+	m.deletedAt = &now
+	m.updatedAt = now
+}

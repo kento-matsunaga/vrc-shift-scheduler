@@ -9,19 +9,20 @@ import (
 // Role represents a role entity (aggregate root)
 // ロールはメンバーに付与される役割・属性を表す
 type Role struct {
-	roleID      common.RoleID
-	tenantID    common.TenantID
-	name        string
-	description string
-	color       string // UI表示用の色コード（例: #FF5733）
-	displayOrder int   // 表示順序
-	createdAt   time.Time
-	updatedAt   time.Time
-	deletedAt   *time.Time
+	roleID       common.RoleID
+	tenantID     common.TenantID
+	name         string
+	description  string
+	color        string // UI表示用の色コード（例: #FF5733）
+	displayOrder int    // 表示順序
+	createdAt    time.Time
+	updatedAt    time.Time
+	deletedAt    *time.Time
 }
 
 // NewRole creates a new Role entity
 func NewRole(
+	now time.Time,
 	tenantID common.TenantID,
 	name string,
 	description string,
@@ -35,8 +36,8 @@ func NewRole(
 		description:  description,
 		color:        color,
 		displayOrder: displayOrder,
-		createdAt:    time.Now(),
-		updatedAt:    time.Now(),
+		createdAt:    now,
+		updatedAt:    now,
 	}
 
 	if err := role.validate(); err != nil {
@@ -143,19 +144,29 @@ func (r *Role) DeletedAt() *time.Time {
 }
 
 // UpdateDetails updates role details
-func (r *Role) UpdateDetails(name, description, color string, displayOrder int) error {
+func (r *Role) UpdateDetails(now time.Time, name, description, color string, displayOrder int) error {
+	// Validate before mutating using a temporary copy
+	tmp := *r
+	tmp.name = name
+	tmp.description = description
+	tmp.color = color
+	tmp.displayOrder = displayOrder
+	tmp.updatedAt = now
+	if err := tmp.validate(); err != nil {
+		return err
+	}
+
+	// Apply validated changes
 	r.name = name
 	r.description = description
 	r.color = color
 	r.displayOrder = displayOrder
-	r.updatedAt = time.Now()
-
-	return r.validate()
+	r.updatedAt = now
+	return nil
 }
 
 // Delete soft deletes the role
-func (r *Role) Delete() {
-	now := time.Now()
+func (r *Role) Delete(now time.Time) {
 	r.deletedAt = &now
 	r.updatedAt = now
 }

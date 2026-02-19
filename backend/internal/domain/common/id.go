@@ -414,6 +414,9 @@ func (id TargetDateID) String() string {
 }
 
 func (id TargetDateID) Validate() error {
+	if id == "" {
+		return NewValidationError("target_date_id is required", nil)
+	}
 	return ValidateULID(string(id))
 }
 
@@ -443,6 +446,9 @@ func (id RoleID) String() string {
 }
 
 func (id RoleID) Validate() error {
+	if id == "" {
+		return NewValidationError("role_id is required", nil)
+	}
 	return ValidateULID(string(id))
 }
 
@@ -675,4 +681,68 @@ func ParsePasswordResetTokenID(s string) (PasswordResetTokenID, error) {
 		return "", err
 	}
 	return PasswordResetTokenID(s), nil
+}
+
+// CalendarID represents a calendar identifier
+type CalendarID string
+
+// NewCalendarIDWithTime creates a new CalendarID using the provided time.
+func NewCalendarIDWithTime(t time.Time) CalendarID {
+	return CalendarID(NewULIDWithTime(t))
+}
+
+// NewCalendarID creates a new CalendarID using the current time.
+// Deprecated: Use NewCalendarIDWithTime for better testability.
+func NewCalendarID() CalendarID {
+	return CalendarID(NewULID())
+}
+
+func (id CalendarID) String() string {
+	return string(id)
+}
+
+func (id CalendarID) Validate() error {
+	if id == "" {
+		return NewValidationError("calendar_id is required", nil)
+	}
+	return ValidateULID(string(id))
+}
+
+func ParseCalendarID(s string) (CalendarID, error) {
+	if err := ValidateULID(s); err != nil {
+		return "", err
+	}
+	return CalendarID(s), nil
+}
+
+// CalendarEntryID represents a calendar entry identifier
+type CalendarEntryID string
+
+// NewCalendarEntryIDWithTime creates a new CalendarEntryID using the provided time.
+func NewCalendarEntryIDWithTime(t time.Time) CalendarEntryID {
+	return CalendarEntryID(NewULIDWithTime(t))
+}
+
+// NewCalendarEntryID creates a new CalendarEntryID using the current time.
+// Deprecated: Use NewCalendarEntryIDWithTime for better testability.
+func NewCalendarEntryID() CalendarEntryID {
+	return CalendarEntryID(NewULID())
+}
+
+func (id CalendarEntryID) String() string {
+	return string(id)
+}
+
+func (id CalendarEntryID) Validate() error {
+	if id == "" {
+		return NewValidationError("calendar_entry_id is required", nil)
+	}
+	return ValidateULID(string(id))
+}
+
+func ParseCalendarEntryID(s string) (CalendarEntryID, error) {
+	if err := ValidateULID(s); err != nil {
+		return "", err
+	}
+	return CalendarEntryID(s), nil
 }

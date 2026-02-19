@@ -234,11 +234,12 @@ func (uc *DeleteShiftSlotUsecase) Execute(ctx context.Context, input DeleteShift
 	}
 
 	if assignedCount > 0 {
-		return common.NewConflictError("cannot delete shift slot with existing assignments")
+		return common.NewConflictError("割り当てが存在するシフト枠は削除できません")
 	}
 
 	// ソフトデリート
-	slot.Delete()
+	now := time.Now()
+	slot.Delete(now)
 	if err := uc.slotRepo.Save(ctx, slot); err != nil {
 		return err
 	}
@@ -313,7 +314,7 @@ func (uc *DeleteSlotsByInstanceUsecase) CheckDeletable(ctx context.Context, inpu
 			CanDelete:      false,
 			SlotCount:      len(slots),
 			AssignedSlots:  assignedSlots,
-			BlockingReason: "担当が割り振られているシフト枠があるため削除できません",
+			BlockingReason: "cannot delete: some shift slots have assignments",
 		}, nil
 	}
 
@@ -345,8 +346,9 @@ func (uc *DeleteSlotsByInstanceUsecase) Execute(ctx context.Context, input Delet
 		}
 
 		// シフト枠をソフトデリート
+		now := time.Now()
 		for _, slot := range slots {
-			slot.Delete()
+			slot.Delete(now)
 			if err := uc.slotRepo.Save(txCtx, slot); err != nil {
 				return err
 			}
