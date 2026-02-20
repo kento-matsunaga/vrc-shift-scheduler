@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const BASE_URL = 'https://vrc-shift-scheduler.com';
+const BASE_URL = 'https://vrcshift.com';
 
 const pages = [
   { url: '/', priority: '1.0', changefreq: 'weekly' },
