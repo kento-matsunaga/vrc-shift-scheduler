@@ -412,6 +412,9 @@ function prerender() {
     html = replaceMetaTag(html, 'name', 'twitter:title', page.title);
     html = replaceMetaTag(html, 'name', 'twitter:description', page.description);
 
+    // Update og:image:alt to match page title
+    html = replaceMetaTag(html, 'property', 'og:image:alt', page.title);
+
     // Inject SEO content into <div id="root">
     html = html.replace(
       '<div id="root"></div>',
