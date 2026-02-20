@@ -25,9 +25,9 @@ export const SEO_CONFIG = {
  */
 export const PAGE_SEO = {
   landing: {
-    title: 'VRCShift - VRChat イベント向けシフト管理システム | 無料で始められる',
+    title: 'VRCShift - VRChat イベント向けシフト管理システム | 月額200円から',
     description:
-      'VRChat イベントのシフト管理を簡単に。メンバーの空き時間調整、シフト表作成、出欠確認がワンストップで。無料プランあり。今すぐ始めよう。',
+      'VRChat イベントのシフト管理を簡単に。メンバーの空き時間調整、シフト表作成、出欠確認がワンストップで。月額200円から始められます。',
     path: '/',
   },
   terms: {
