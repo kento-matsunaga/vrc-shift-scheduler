@@ -154,7 +154,7 @@ export default function CalendarList() {
       <SEO noindex={true} />
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
         <h2 className="text-xl sm:text-2xl font-bold text-gray-900">カレンダー一覧</h2>
-        <button onClick={() => setShowCreateModal(true)} className="btn-primary text-sm sm:text-base w-full sm:w-auto">
+        <button id="btn-create-calendar" onClick={() => setShowCreateModal(true)} className="btn-primary text-sm sm:text-base w-full sm:w-auto">
           ＋ 新しいカレンダー
         </button>
       </div>
@@ -497,6 +497,7 @@ function CalendarFormModal({
               キャンセル
             </button>
             <button
+              id="btn-submit-calendar"
               type="submit"
               className="flex-1 btn-primary"
               disabled={loading || !title.trim()}

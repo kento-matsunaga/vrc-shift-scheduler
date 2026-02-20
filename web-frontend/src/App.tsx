@@ -28,6 +28,7 @@ import CalendarList from './pages/CalendarList';
 import CalendarDetail from './pages/CalendarDetail';
 // BillingManagement は管理フロントエンド（admin-frontend）に移動しました
 import Layout from './components/Layout';
+import { OnboardingProvider } from './features/onboarding/OnboardingContext';
 import AttendanceResponse from './pages/public/AttendanceResponse';
 import ScheduleResponse from './pages/public/ScheduleResponse';
 import PublicCalendar from './pages/public/PublicCalendar';
@@ -108,7 +109,7 @@ function App() {
       <Route path="/subscribe/cancel" element={<SubscribeCancel />} />
 
       {/* ログイン必須の画面（Layoutでラップ） */}
-      <Route element={isLoggedIn ? <Layout /> : <Navigate to="/admin/login" replace />}>
+      <Route element={isLoggedIn ? <OnboardingProvider><Layout /></OnboardingProvider> : <Navigate to="/admin/login" replace />}>
         <Route path="/admin" element={<Navigate to="/events" replace />} />
         <Route path="/events" element={<EventList />} />
         <Route path="/events/:eventId/business-days" element={<BusinessDayList />} />

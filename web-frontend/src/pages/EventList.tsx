@@ -190,7 +190,7 @@ export default function EventList() {
       <SEO noindex={true} />
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
         <h2 className="text-xl sm:text-2xl font-bold text-gray-900">イベント一覧</h2>
-        <button onClick={() => setShowCreateModal(true)} className="btn-primary text-sm sm:text-base w-full sm:w-auto">
+        <button id="btn-create-event" onClick={() => setShowCreateModal(true)} className="btn-primary text-sm sm:text-base w-full sm:w-auto">
           ＋ 新しいイベント
         </button>
       </div>
@@ -602,6 +602,7 @@ function CreateEventModal({
               キャンセル
             </button>
             <button
+              id="btn-submit-event"
               type="submit"
               className="flex-1 btn-primary"
               disabled={loading || !eventName.trim()}

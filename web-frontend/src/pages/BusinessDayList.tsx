@@ -164,6 +164,7 @@ export default function BusinessDayList() {
         </div>
         <div className="flex gap-2">
           <Link
+            id="link-template-management"
             to={`/events/${eventId}/templates`}
             className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg flex items-center"
           >
@@ -201,7 +202,7 @@ export default function BusinessDayList() {
             </svg>
             インスタンス
           </Link>
-          <button onClick={() => setShowCreateModal(true)} className="btn-primary">
+          <button id="btn-create-business-day" onClick={() => setShowCreateModal(true)} className="btn-primary">
             ＋ 営業日を追加
           </button>
         </div>
