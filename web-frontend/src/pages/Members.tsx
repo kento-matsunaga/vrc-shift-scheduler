@@ -291,7 +291,7 @@ export default function Members() {
           <button onClick={() => setShowBulkImportModal(true)} className="btn-secondary text-xs sm:text-sm">
             一括登録
           </button>
-          <button onClick={handleOpenCreateForm} className="btn-primary text-xs sm:text-sm">
+          <button id="btn-create-member" onClick={handleOpenCreateForm} className="btn-primary text-xs sm:text-sm">
             ＋ 追加
           </button>
         </div>
@@ -709,6 +709,7 @@ function MemberFormModal({
               表示名 <span className="text-red-500">*</span>
             </label>
             <input
+              id="member-display-name"
               type="text"
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
@@ -772,7 +773,7 @@ function MemberFormModal({
             >
               キャンセル
             </button>
-            <button type="submit" className="flex-1 btn-primary" disabled={submitting}>
+            <button id="btn-submit-member" type="submit" className="flex-1 btn-primary" disabled={submitting}>
               {submitting ? '処理中...' : member ? '更新' : '登録'}
             </button>
           </div>

@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { AnnouncementBell } from './AnnouncementBell';
 import { TutorialButton } from './TutorialButton';
+import { StartTutorialButton } from '../features/onboarding/components/StartTutorialButton';
+import { OnboardingTour } from '../features/onboarding/OnboardingTour';
 import { useDocumentTitle, getTitleFromPath } from '../hooks/useDocumentTitle';
 
 export default function Layout() {
@@ -102,19 +104,20 @@ export default function Layout() {
 
         {/* ナビゲーション */}
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-          <Link to="/events" className={linkClass('/events')} onClick={handleNavClick}>
+          <Link to="/events" id="nav-events" className={linkClass('/events')} onClick={handleNavClick}>
             イベント
           </Link>
-          <Link to="/members" className={linkClass('/members')} onClick={handleNavClick}>
+          <Link to="/members" id="nav-members" className={linkClass('/members')} onClick={handleNavClick}>
             メンバー
           </Link>
-          <Link to="/roles" className={linkClass('/roles')} onClick={handleNavClick}>
+          <Link to="/roles" id="nav-roles" className={linkClass('/roles')} onClick={handleNavClick}>
             ロール
           </Link>
 
           {/* グループサブメニュー */}
           <div>
             <button
+              id="nav-groups"
               onClick={() => setShowGroupSubmenu(!showGroupSubmenu)}
               className={`w-full flex items-center justify-between px-4 py-2.5 text-sm font-medium rounded-lg transition-colors ${
                 isGroupActive
@@ -160,13 +163,13 @@ export default function Layout() {
             )}
           </div>
 
-          <Link to="/attendance" className={linkClass('/attendance')} onClick={handleNavClick}>
+          <Link to="/attendance" id="nav-attendance" className={linkClass('/attendance')} onClick={handleNavClick}>
             出欠確認
           </Link>
-          <Link to="/schedules" className={linkClass('/schedules')} onClick={handleNavClick}>
+          <Link to="/schedules" id="nav-schedules" className={linkClass('/schedules')} onClick={handleNavClick}>
             日程調整
           </Link>
-          <Link to="/calendars" className={linkClass('/calendars')} onClick={handleNavClick}>
+          <Link to="/calendars" id="nav-calendars" className={linkClass('/calendars')} onClick={handleNavClick}>
             カレンダー
           </Link>
 
@@ -176,7 +179,7 @@ export default function Layout() {
             </Link>
           )}
 
-          <Link to="/settings" className={linkClass('/settings')} onClick={handleNavClick}>
+          <Link to="/settings" id="nav-settings" className={linkClass('/settings')} onClick={handleNavClick}>
             設定
           </Link>
         </nav>
@@ -206,7 +209,10 @@ export default function Layout() {
               </svg>
             </button>
             <h1 className="text-lg font-bold text-white">VRC Shift</h1>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1" id="header-actions">
+              <div className="text-white">
+                <StartTutorialButton />
+              </div>
               <div className="text-white">
                 <TutorialButton />
               </div>
@@ -220,7 +226,8 @@ export default function Layout() {
         {/* デスクトップ用ヘッダー */}
         <header className="hidden md:flex sticky top-0 z-30 bg-white shadow-sm border-b border-gray-200">
           <div className="flex items-center justify-end w-full px-6 py-3">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2" id="header-actions-desktop">
+              <StartTutorialButton />
               <TutorialButton />
               <AnnouncementBell />
             </div>
@@ -231,6 +238,8 @@ export default function Layout() {
           <Outlet />
         </main>
       </div>
+
+      <OnboardingTour />
     </div>
   );
 }

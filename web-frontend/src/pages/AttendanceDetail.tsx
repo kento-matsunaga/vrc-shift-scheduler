@@ -473,6 +473,7 @@ export default function AttendanceDetail() {
             {getStatusBadge(collection.status)}
             {collection.status === 'open' && (
               <button
+                id="btn-close-collection"
                 onClick={handleClose}
                 disabled={closing}
                 className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition disabled:bg-gray-400 text-sm"
@@ -490,6 +491,7 @@ export default function AttendanceDetail() {
             {/* シフト調整ボタン: イベントに紐づけられた出欠確認が締め切られた場合のみ表示 */}
             {collection.status === 'closed' && collection.target_type === 'event' && collection.target_id && (
               <button
+                id="btn-shift-adjustment"
                 onClick={() => navigate(`/attendance/${collectionId}/shift-adjustment`)}
                 className="px-4 py-2 bg-accent text-white rounded-md hover:bg-accent-dark transition text-sm"
               >

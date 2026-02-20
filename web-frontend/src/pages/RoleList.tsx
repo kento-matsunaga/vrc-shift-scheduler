@@ -76,7 +76,7 @@ export default function RoleList() {
           <h2 className="text-xl sm:text-2xl font-bold text-gray-900">ロール管理</h2>
           <p className="text-xs sm:text-sm text-gray-600 mt-1">メンバーに付与する役割・属性を管理します</p>
         </div>
-        <button onClick={() => setShowCreateModal(true)} className="btn-primary text-sm sm:text-base w-full sm:w-auto">
+        <button id="btn-create-role" onClick={() => setShowCreateModal(true)} className="btn-primary text-sm sm:text-base w-full sm:w-auto">
           ＋ ロール追加
         </button>
       </div>
@@ -382,6 +382,7 @@ function RoleFormModal({
               キャンセル
             </button>
             <button
+              id="btn-submit-role"
               type="submit"
               className="flex-1 btn-primary"
               disabled={loading || !name}

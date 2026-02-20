@@ -449,7 +449,7 @@ export default function ShiftAdjustment() {
       </div>
 
       {/* 日付タブ */}
-      <div className="bg-white rounded-lg shadow mb-6">
+      <div id="shift-date-tabs" className="bg-white rounded-lg shadow mb-6">
         <div className="border-b border-gray-200">
           <nav className="flex overflow-x-auto -mb-px">
             {sortedDates.map((date) => {
@@ -488,7 +488,7 @@ export default function ShiftAdjustment() {
       {/* メインコンテンツ */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* 左: 参加者一覧 */}
-        <div className="bg-white rounded-lg shadow p-4">
+        <div id="shift-attending-members" className="bg-white rounded-lg shadow p-4">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">
             参加者
             <span className="ml-2 text-sm font-normal text-gray-500">
@@ -664,7 +664,7 @@ export default function ShiftAdjustment() {
         </div>
 
         {/* 右: シフト枠（インスタンスごとにグループ化） */}
-        <div className="lg:col-span-2">
+        <div id="shift-slot-assignments" className="lg:col-span-2">
           {slots.length === 0 ? (
             <div className="bg-white rounded-lg shadow p-6 text-center">
               <p className="text-gray-500 mb-4">この日のシフト枠がまだ作成されていません</p>

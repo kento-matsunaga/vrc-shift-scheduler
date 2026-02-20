@@ -376,6 +376,7 @@ export default function TemplateForm() {
               </p>
             </div>
             <button
+              id="btn-add-instance"
               type="button"
               onClick={addInstance}
               disabled={loading}
@@ -617,6 +618,7 @@ export default function TemplateForm() {
             キャンセル
           </button>
           <button
+            id="btn-submit-template"
             type="submit"
             disabled={loading || instanceGroups.length === 0}
             className="flex-1 bg-accent hover:bg-accent-dark text-white px-6 py-3 rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed"
