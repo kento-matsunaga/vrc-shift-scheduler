@@ -10,6 +10,7 @@ import {
   DUMMY_COLLECTION,
   DUMMY_RESPONSES,
   DUMMY_CALENDAR,
+  DUMMY_INSTANCES,
   isTutorialId,
 } from './data';
 
@@ -21,7 +22,11 @@ export function resetMockState() {
   collectionStatus = 'open';
 }
 
-// 実APIからのGETレスポンスにダミーデータをマージするヘルパー
+/**
+ * 実APIのGETレスポンスにダミーデータをマージするヘルパー
+ * 実APIが { data: { [dataKey]: [...] } } 形式を返す前提
+ * 実API到達不可時はダミーデータのみで正しい形式を返す
+ */
 async function mergeWithRealData<T extends Record<string, unknown>>(
   request: Request,
   url: string,
@@ -29,7 +34,6 @@ async function mergeWithRealData<T extends Record<string, unknown>>(
   dummyItems: T[],
 ) {
   try {
-    // bypass() で MSW をスキップし、実サーバーへ直接リクエスト（無限再帰防止）
     const realResponse = await fetch(bypass(new Request(url, {
       headers: {
         'Authorization': request.headers.get('Authorization') || '',
@@ -38,20 +42,20 @@ async function mergeWithRealData<T extends Record<string, unknown>>(
     })));
     if (realResponse.ok) {
       const realData = await realResponse.json();
-      const realItems = realData[dataKey] || realData.data?.[dataKey] || [];
+      // 実API応答: { data: { [dataKey]: [...] } }
+      const realItems = realData.data?.[dataKey] || [];
       return HttpResponse.json({
-        ...realData,
-        [dataKey]: [...dummyItems, ...realItems],
-        data: realData.data ? {
-          ...realData.data,
-          [dataKey]: [...dummyItems, ...(realData.data[dataKey] || [])],
-        } : undefined,
+        data: {
+          ...(realData.data || {}),
+          [dataKey]: [...dummyItems, ...realItems],
+        },
       });
     }
   } catch {
-    // 実API失敗時はダミーデータのみ返す
+    // 実API到達不可（バックエンド停止中など）
   }
-  return HttpResponse.json({ [dataKey]: dummyItems });
+  // フォールバック: ダミーデータのみ（正しい { data: { key: [...] } } 形式）
+  return HttpResponse.json({ data: { [dataKey]: dummyItems } });
 }
 
 export const handlers = [
@@ -73,6 +77,15 @@ export const handlers = [
     return mergeWithRealData(request, request.url, 'events', [DUMMY_EVENT]);
   }),
 
+  // イベント詳細（BusinessDayList, CalendarList が必要）
+  http.get('/api/v1/events/:eventId', ({ params }) => {
+    const { eventId } = params;
+    if (typeof eventId === 'string' && isTutorialId(eventId)) {
+      return HttpResponse.json({ data: DUMMY_EVENT });
+    }
+    return passthrough();
+  }),
+
   // === テンプレート ===
   http.get(`/api/v1/events/${DUMMY_IDS.eventId}/templates`, () => {
     return HttpResponse.json({ data: { templates: [DUMMY_TEMPLATE] } });
@@ -84,6 +97,11 @@ export const handlers = [
 
   http.get(`/api/v1/events/${DUMMY_IDS.eventId}/templates/${DUMMY_IDS.templateId}`, () => {
     return HttpResponse.json({ data: DUMMY_TEMPLATE });
+  }),
+
+  // === インスタンス（TemplateForm が必要）===
+  http.get(`/api/v1/events/${DUMMY_IDS.eventId}/instances`, () => {
+    return HttpResponse.json({ data: { instances: DUMMY_INSTANCES } });
   }),
 
   // === 営業日 ===
@@ -106,6 +124,16 @@ export const handlers = [
 
   http.get(`/api/v1/shift-slots/${DUMMY_IDS.shiftSlotId1}`, () => {
     return HttpResponse.json({ data: DUMMY_SHIFT_SLOTS[0] });
+  }),
+
+  // === シフト割り当て（ShiftAdjustment が必要）===
+  http.get('/api/v1/shift-assignments', ({ request }) => {
+    const url = new URL(request.url);
+    const bdId = url.searchParams.get('business_day_id');
+    if (bdId && isTutorialId(bdId)) {
+      return HttpResponse.json({ data: { assignments: [] } });
+    }
+    return passthrough();
   }),
 
   // === メンバー ===
@@ -157,7 +185,7 @@ export const handlers = [
     return passthrough();
   }),
 
-  // === シフト割り当て ===
+  // === シフト割り当て確定 ===
   http.post('/api/v1/assignments/confirm', () => {
     return HttpResponse.json({
       data: { message: 'Assignments confirmed' },

@@ -21,19 +21,6 @@ export function OnboardingTour() {
     }
   }, []);
 
-  // ESCキーで中断確認
-  useEffect(() => {
-    if (!state.isActive) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        destroyDriver();
-        // ESC 中断 → 確認はStartTutorialButtonのUIに委ねる
-      }
-    };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [state.isActive, destroyDriver]);
-
   // フェーズ変更時にドライバーを再作成
   useEffect(() => {
     if (!state.isActive || !state.mswReady || state.currentPhase === 'idle') return;
@@ -100,14 +87,14 @@ export function OnboardingTour() {
       showProgress: true,
       animate: true,
       allowClose: false,
-      overlayClickBehavior: () => { /* overlay クリック無効化 */ },
       stagePadding: 8,
       stageRadius: 8,
       steps,
       onDestroyStarted: () => {
+        // isLastStep() を destroy() の前にチェック（destroy後は状態リセットされる）
+        const isLast = d.isLastStep();
         d.destroy();
-        // 最後のステップなら完了処理（次フェーズへ遷移）
-        if (d.isLastStep()) {
+        if (isLast) {
           onComplete();
         }
       },
@@ -132,6 +119,8 @@ export function OnboardingTour() {
     if (!location.pathname.startsWith('/events')) {
       await navigate('/events');
     }
+    // ナビ要素が描画されるまで待機
+    await waitForElement('#nav-events');
 
     createDriver([
       {
@@ -182,26 +171,18 @@ export function OnboardingTour() {
 
   async function runRolePhase() {
     await navigate('/roles');
-    await delay(500);
+    // ページ読み込み完了を待つ（ローディング→ボタン描画）
+    await waitForElement('#btn-create-role', 5000);
 
     createDriver([
       {
         element: '#btn-create-role',
         popover: {
           title: 'ロールを作成しましょう',
-          description: '「バーテンダー」ロールを作成します。ボタンをクリックしてください。',
-        },
-        onHighlightStarted: () => {
-          // 自動で次のステップでクリックを実行
-        },
-      },
-      {
-        popover: {
-          title: 'ロール作成',
-          description: 'ロール作成モーダルを開きます...',
+          description: '「バーテンダー」ロールを作成します。「次へ」をクリックすると自動で進みます。',
           onNextClick: async () => {
             clickElement('#btn-create-role');
-            await waitForElement('.fixed.inset-0'); // モーダル待ち
+            await waitForElement('#name', 3000); // モーダル内のname入力待ち
             await delay(300);
             driverRef.current?.moveNext();
           },
@@ -227,7 +208,7 @@ export function OnboardingTour() {
           description: '作成ボタンをクリックして、ロールを登録します。',
           onNextClick: async () => {
             clickElement('#btn-submit-role');
-            await delay(800);
+            await delay(1000);
             driverRef.current?.moveNext();
           },
         },
@@ -245,17 +226,17 @@ export function OnboardingTour() {
 
   async function runEventPhase() {
     await navigate('/events');
-    await delay(500);
+    await waitForElement('#btn-create-event', 5000);
 
     createDriver([
       {
         element: '#btn-create-event',
         popover: {
           title: 'イベントを作成',
-          description: '「チュートリアル Bar」イベントを作成します。',
+          description: '「チュートリアル Bar」イベントを作成します。「次へ」で自動入力します。',
           onNextClick: async () => {
             clickElement('#btn-create-event');
-            await waitForElement('.fixed.inset-0');
+            await waitForElement('#eventName', 3000);
             await delay(300);
             driverRef.current?.moveNext();
           },
@@ -281,7 +262,7 @@ export function OnboardingTour() {
           description: 'イベントを作成します。',
           onNextClick: async () => {
             clickElement('#btn-submit-event');
-            await delay(800);
+            await delay(1000);
             driverRef.current?.moveNext();
           },
         },
@@ -299,81 +280,88 @@ export function OnboardingTour() {
 
   async function runTemplatePhase() {
     await navigate(`/events/${DUMMY_IDS.eventId}/business-days`);
-    await delay(500);
+    await waitForElement('#link-template-management', 5000);
 
     createDriver([
       {
         element: '#link-template-management',
         popover: {
           title: 'テンプレート管理',
-          description: 'テンプレートを使うと、シフト枠の構成を再利用できます。テンプレート管理ページへ移動しましょう。',
+          description: 'テンプレートを使うと、シフト枠の構成を再利用できます。「次へ」でテンプレート管理ページへ移動します。',
           onNextClick: async () => {
+            destroyDriver();
             await navigate(`/events/${DUMMY_IDS.eventId}/templates`);
-            await delay(500);
-            driverRef.current?.moveNext();
+            await waitForElement('#btn-create-template', 5000);
+            // テンプレート一覧ページで新しいドライバーを開始
+            createDriver([
+              {
+                element: '#btn-create-template',
+                popover: {
+                  title: '新規テンプレート作成',
+                  description: 'テンプレートを作成します。「次へ」でフォームに進みます。',
+                  onNextClick: async () => {
+                    destroyDriver();
+                    await navigate(`/events/${DUMMY_IDS.eventId}/templates/new`);
+                    await waitForElement('#templateName', 5000);
+                    // テンプレートフォームで新しいドライバーを開始
+                    createDriver([
+                      {
+                        element: '#templateName',
+                        popover: {
+                          title: 'テンプレート名',
+                          description: '「メインインスタンス構成」と入力します。',
+                          onNextClick: async () => {
+                            const input = document.querySelector('#templateName') as HTMLInputElement;
+                            if (input) setReactInputValue(input, 'メインインスタンス構成');
+                            await delay(200);
+                            driverRef.current?.moveNext();
+                          },
+                        },
+                      },
+                      {
+                        popover: {
+                          title: 'テンプレートの仕組み',
+                          description: 'テンプレートには「インスタンス」と「役職」を定義します。インスタンスはVRChatのワールドインスタンスに対応し、役職はバーテンダーやMCなどのシフト枠です。\n\nここでは作成済みとして次に進みます。',
+                        },
+                      },
+                      {
+                        popover: {
+                          title: 'テンプレート作成完了！',
+                          description: '「メインインスタンス構成」テンプレートが作成されました。メインフロアにバーテンダー2名、MC1名の構成です。\n\n次は営業日を作成し、このテンプレートを適用しましょう。',
+                        },
+                      },
+                    ], () => {
+                      setPhase('businessDay');
+                    });
+                  },
+                },
+              },
+            ], () => {
+              // フォールバック: 最後のステップで完了
+              setPhase('businessDay');
+            });
           },
-        },
-      },
-      {
-        element: '#btn-create-template',
-        popover: {
-          title: '新規テンプレート作成',
-          description: 'テンプレートを作成します。',
-          onNextClick: async () => {
-            await navigate(`/events/${DUMMY_IDS.eventId}/templates/new`);
-            await delay(500);
-            driverRef.current?.moveNext();
-          },
-        },
-      },
-      {
-        element: '#templateName',
-        popover: {
-          title: 'テンプレート名',
-          description: '「メインインスタンス構成」と入力します。',
-          onNextClick: async () => {
-            const input = document.querySelector('#templateName') as HTMLInputElement;
-            if (input) setReactInputValue(input, 'メインインスタンス構成');
-            await delay(200);
-            driverRef.current?.moveNext();
-          },
-        },
-      },
-      {
-        popover: {
-          title: 'テンプレートの仕組み',
-          description: 'テンプレートには「インスタンス」と「役職」を定義します。インスタンスはVRChatのワールドインスタンスに対応し、役職はバーテンダーやMCなどのシフト枠です。\n\nここでは、MSWがテンプレート作成をシミュレートします。',
-          onNextClick: async () => {
-            // MSWがテンプレート作成をインターセプト
-            await delay(300);
-            driverRef.current?.moveNext();
-          },
-        },
-      },
-      {
-        popover: {
-          title: 'テンプレート作成完了！',
-          description: '「メインインスタンス構成」テンプレートが作成されました。メインフロアにバーテンダー2名、MC1名の構成です。\n\n次は営業日を作成し、このテンプレートを適用しましょう。',
         },
       },
     ], () => {
+      // フォールバック
       setPhase('businessDay');
     });
   }
 
   async function runBusinessDayPhase() {
     await navigate(`/events/${DUMMY_IDS.eventId}/business-days`);
-    await delay(500);
+    await waitForElement('#btn-create-business-day', 5000);
 
     createDriver([
       {
         element: '#btn-create-business-day',
         popover: {
           title: '営業日を追加',
-          description: '営業日を作成します。テンプレートを選択すると、シフト枠が自動的に作成されます。',
+          description: '営業日を作成します。テンプレートを選択すると、シフト枠が自動的に作成されます。「次へ」でモーダルを開きます。',
           onNextClick: async () => {
             clickElement('#btn-create-business-day');
-            await waitForElement('.fixed.inset-0');
+            await waitForElement('.fixed.inset-0', 3000);
             await delay(300);
             driverRef.current?.moveNext();
           },
@@ -382,12 +370,7 @@ export function OnboardingTour() {
       {
         popover: {
           title: 'テンプレートを選択',
-          description: '先ほど作成した「メインインスタンス構成」テンプレートを選択します。テンプレートを選ぶと、バーテンダー2名・MC1名のシフト枠が自動作成されます。',
-          onNextClick: async () => {
-            // MSWが営業日+シフト枠をインターセプト
-            await delay(500);
-            driverRef.current?.moveNext();
-          },
+          description: '先ほど作成した「メインインスタンス構成」テンプレートを選択します。テンプレートを選ぶと、バーテンダー2名・MC1名のシフト枠が自動作成されます。\n\nここでは作成済みとして進みます。',
         },
       },
       {
@@ -403,7 +386,7 @@ export function OnboardingTour() {
 
   async function runShiftSlotPhase() {
     await navigate(`/business-days/${DUMMY_IDS.businessDayId}/shift-slots`);
-    await delay(500);
+    await delay(800);
 
     createDriver([
       {
@@ -431,17 +414,17 @@ export function OnboardingTour() {
 
   async function runMemberPhase() {
     await navigate('/members');
-    await delay(500);
+    await waitForElement('#btn-create-member', 5000);
 
     createDriver([
       {
         element: '#btn-create-member',
         popover: {
           title: 'メンバーを追加',
-          description: '3名のメンバーを追加します。',
+          description: '「次へ」でメンバー作成モーダルを開きます。',
           onNextClick: async () => {
             clickElement('#btn-create-member');
-            await waitForElement('.fixed.inset-0');
+            await waitForElement('#member-display-name', 3000);
             await delay(300);
             driverRef.current?.moveNext();
           },
@@ -467,7 +450,7 @@ export function OnboardingTour() {
           description: 'メンバーを登録します。',
           onNextClick: async () => {
             clickElement('#btn-submit-member');
-            await delay(800);
+            await delay(1000);
             driverRef.current?.moveNext();
           },
         },
@@ -485,7 +468,7 @@ export function OnboardingTour() {
 
   async function runAttendancePhase() {
     await navigate('/attendance');
-    await delay(500);
+    await waitForElement('#btn-create-attendance', 5000);
 
     createDriver([
       {
@@ -493,22 +476,12 @@ export function OnboardingTour() {
         popover: {
           title: '出欠確認を作成',
           description: 'メンバーに出欠を確認するフォームを作成します。',
-          onNextClick: async () => {
-            clickElement('#btn-create-attendance');
-            await delay(300);
-            driverRef.current?.moveNext();
-          },
         },
       },
       {
         popover: {
           title: '出欠確認の仕組み',
-          description: '出欠確認を作成すると、公開URLが発行されます。このURLをメンバーに送信すると、各日の参加/不参加を回答してもらえます。\n\nイベントから日程を取り込むこともでき、締切も設定できます。',
-          onNextClick: async () => {
-            // MSWが出欠確認作成をインターセプト
-            await delay(500);
-            driverRef.current?.moveNext();
-          },
+          description: '出欠確認を作成すると、公開URLが発行されます。このURLをメンバーに送信すると、各日の参加/不参加を回答してもらえます。\n\nイベントから日程を取り込むこともでき、締切も設定できます。\n\nここでは作成済みとして進みます。',
         },
       },
       {
@@ -543,7 +516,7 @@ export function OnboardingTour() {
 
   async function runAttendanceDetailPhase() {
     await navigate(`/attendance/${DUMMY_IDS.collectionId}`);
-    await delay(500);
+    await delay(800);
 
     createDriver([
       {
@@ -573,7 +546,7 @@ export function OnboardingTour() {
 
   async function runShiftAdjustmentPhase() {
     await navigate(`/attendance/${DUMMY_IDS.collectionId}/shift-adjustment`);
-    await delay(500);
+    await delay(1000);
 
     createDriver([
       {
@@ -616,7 +589,7 @@ export function OnboardingTour() {
 
   async function runCalendarPhase() {
     await navigate('/calendars');
-    await delay(500);
+    await waitForElement('#btn-create-calendar', 5000);
 
     createDriver([
       {
@@ -624,23 +597,12 @@ export function OnboardingTour() {
         popover: {
           title: 'カレンダーを作成',
           description: 'カレンダーを作成して、シフト予定を外部共有できます。',
-          onNextClick: async () => {
-            clickElement('#btn-create-calendar');
-            await waitForElement('.fixed.inset-0');
-            await delay(300);
-            driverRef.current?.moveNext();
-          },
         },
       },
       {
         popover: {
           title: 'カレンダーの仕組み',
-          description: 'カレンダーにはイベントを紐付けます。公開URLを共有すると、メンバーがシフト予定を確認できます。',
-          onNextClick: async () => {
-            // MSWがカレンダー作成をインターセプト
-            await delay(500);
-            driverRef.current?.moveNext();
-          },
+          description: 'カレンダーにはイベントを紐付けます。公開URLを共有すると、メンバーがシフト予定を確認できます。\n\nここでは作成済みとして進みます。',
         },
       },
       {

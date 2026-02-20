@@ -203,6 +203,18 @@ export const DUMMY_RESPONSES = [
   },
 ];
 
+export const DUMMY_INSTANCES = [
+  {
+    instance_id: 'tut_instance_001',
+    event_id: DUMMY_IDS.eventId,
+    instance_name: 'メインフロア',
+    capacity: 40,
+    display_order: 1,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+];
+
 export const DUMMY_CALENDAR = {
   id: DUMMY_IDS.calendarId,
   title: 'チュートリアル Bar カレンダー',
