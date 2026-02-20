@@ -72,7 +72,7 @@ const LANDING_CONTENT = `<main>
 <a href="/privacy">プライバシーポリシー</a>
 <a href="/subscribe">新規登録</a>
 </nav>
-<p>&copy; 2025 VRC Shift Scheduler</p>
+<p>&copy; 2025–${new Date().getFullYear()} VRC Shift Scheduler</p>
 </footer>
 </main>`;
 
@@ -337,9 +337,9 @@ const SUBSCRIBE_CONTENT = `<main>
 const PAGES = [
   {
     route: '/',
-    title: 'VRCShift - VRChat イベント向けシフト管理システム | 無料で始められる',
+    title: 'VRCShift - VRChat イベント向けシフト管理システム | 月額200円から',
     description:
-      'VRChat イベントのシフト管理を簡単に。メンバーの空き時間調整、シフト表作成、出欠確認がワンストップで。無料プランあり。今すぐ始めよう。',
+      'VRChat イベントのシフト管理を簡単に。メンバーの空き時間調整、シフト表作成、出欠確認がワンストップで。月額200円から始められます。',
     content: LANDING_CONTENT,
   },
   {
@@ -370,8 +370,9 @@ const PAGES = [
 // ---------------------------------------------------------------------------
 
 function replaceMetaTag(html, attr, name, newContent) {
+  // 属性順序に依存しない正規表現: attr="name" と content="..." が任意の順で出現
   const re = new RegExp(
-    `<meta ${attr}="${name}" content="[^"]*" />`,
+    `<meta\\s+(?:${attr}="${name}"\\s+content="[^"]*"|content="[^"]*"\\s+${attr}="${name}")\\s*/?>`,
     'g'
   );
   return html.replace(re, `<meta ${attr}="${name}" content="${newContent}" />`);
